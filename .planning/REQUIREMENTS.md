@@ -80,28 +80,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase TBD | Pending |
-| DATA-02 | Phase TBD | Pending |
-| DATA-03 | Phase TBD | Pending |
-| ING-01 | Phase TBD | Pending |
-| ING-02 | Phase TBD | Pending |
-| DET-01 | Phase TBD | Pending |
-| DET-02 | Phase TBD | Pending |
-| XAI-01 | Phase TBD | Pending |
-| XAI-02 | Phase TBD | Pending |
-| RUN-01 | Phase TBD | Pending |
-| RUN-02 | Phase TBD | Pending |
-| RUN-03 | Phase TBD | Pending |
-| MOD-01 | Phase TBD | Pending |
-| EVAL-01 | Phase TBD | Pending |
-| EVAL-02 | Phase TBD | Pending |
-| EVAL-03 | Phase TBD | Pending |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Pending |
+| ING-01 | Phase 2 | Pending |
+| ING-02 | Phase 2 | Pending |
+| DET-01 | Phase 4 | Pending |
+| DET-02 | Phase 4 | Pending |
+| XAI-01 | Phase 4 | Pending |
+| XAI-02 | Phase 4 | Pending |
+| RUN-01 | Phase 2 | Pending |
+| RUN-02 | Phase 3 | Pending |
+| RUN-03 | Phase 3 | Pending |
+| MOD-01 | Phase 3 | Pending |
+| EVAL-01 | Phase 5 | Pending |
+| EVAL-02 | Phase 5 | Pending |
+| EVAL-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16
+- Unmapped: 0 ✅
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap mapping update*
