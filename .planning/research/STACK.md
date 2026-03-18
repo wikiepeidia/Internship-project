@@ -36,6 +36,7 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Scheduling | APScheduler or cron in CI runner | 3.10+ | Simple recurring pulls, easy offline-friendly operation | HIGH |
 
 **Do not use (for this scope):**
+
 - Selenium-first scraping stacks (heavier, slower, less maintainable than Scrapy+Playwright).
 - Spark-based crawling ETL for this scale (2k-3k synthetic target; overkill).
 
@@ -50,6 +51,7 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Data versioning | DVC | 3.x | Reproducible datasets/models without bloating git | HIGH |
 
 **Do not use:**
+
 - Pure manual spreadsheet curation as the source of truth.
 - Aggressive stopword stripping/token surgery that destroys scam indicators (URLs, phone/account strings, urgency markers).
 
@@ -64,11 +66,13 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Experiment tracking | MLflow or W&B (self-host/offline mode) | MLflow 2.x+ / W&B offline | Reproducibility and auditability for security-sensitive model changes | MEDIUM |
 
 **Prescriptive training policy:**
+
 - Start with **LoRA rank 16-64**, target key projection modules.
 - Use **QLoRA** when GPU VRAM < 24 GB.
 - Keep one immutable baseline checkpoint and evaluate every adapter against same holdout slices.
 
 **Do not use:**
+
 - Full-parameter fine-tuning for v1 (costly, slower iteration, poor fit for laptop deployment goals).
 - RLHF/RL-heavy post-training before achieving stable high-recall SFT baseline.
 
@@ -83,10 +87,12 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Optional acceleration | CUDA/Vulkan backend in llama.cpp | current supported backend | Optional speed-up on prosumer GPU | HIGH |
 
 **Laptop baseline target:**
+
 - CPU-only: 7B-8B Q4_K_M with context tuned for short-message triage.
 - Optional GPU: same model with larger context and faster throughput.
 
 **Do not use:**
+
 - vLLM/TensorRT-LLM as primary local runtime for consumer-laptop offline app (excellent server stacks, not best default for this edge target).
 - Extremely aggressive quantization (e.g., 2-bit) for safety-critical phishing recall in v1.
 
@@ -100,10 +106,12 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Regression suite | pytest + golden JSON outputs | pytest 8.x | Prevents silent behavior drift in explanation schema | HIGH |
 
 **Release gate (recommended):**
+
 - Recall-weighted acceptance with minimum floor for precision and explanation correctness.
 - Keep latency checks for CPU baseline device class.
 
 **Do not use:**
+
 - Single aggregate F1 as sole ship criterion.
 - Human-only manual spot checks without deterministic regression suite.
 
@@ -118,6 +126,7 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | PII discipline | Local redaction utilities before logging | N/A | Privacy-by-default in local telemetry and debug traces | HIGH |
 
 **Do not use:**
+
 - Free-form prose-only outputs as the primary contract.
 - Cloud moderation dependencies in the critical inference path (breaks offline/privacy goals).
 
@@ -132,6 +141,7 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 | Windows distribution | MSIX/winget package + signed binaries | current tooling | Practical enterprise/consumer deployment path | MEDIUM |
 
 **Do not use:**
+
 - Docker as the only deployment strategy for non-technical consumer laptops.
 - Remote-only inference fallback as primary mode.
 
@@ -145,26 +155,28 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 ## Suggested Baseline Build Profiles
 
 ### Profile A: CPU-first (default)
+
 - 7B-8B instruct model, LoRA-adapted for Vietnamese phishing domain.
 - GGUF Q4_K_M.
 - llama.cpp local server + FastAPI wrapper.
 - Deterministic JSON output + rules overlay.
 
 ### Profile B: Optional GPU acceleration
+
 - Same model family with Q5_K_M (or higher precision where memory allows).
 - CUDA-enabled llama.cpp backend.
 - Larger context window and stricter evaluation thresholds before promotion.
 
 ## Sources (verification basis)
 
-- PyTorch local install/stable matrix: https://pytorch.org/get-started/locally/
-- Hugging Face Transformers docs: https://huggingface.co/docs/transformers/index
-- Hugging Face PEFT docs: https://huggingface.co/docs/peft/index
-- Hugging Face TRL docs: https://huggingface.co/docs/trl/index
-- llama.cpp repo/docs: https://github.com/ggml-org/llama.cpp
-- ONNX Runtime docs (alternative runtime context): https://onnxruntime.ai/docs/
-- scikit-learn release/news: https://scikit-learn.org/stable/
-- LM Studio docs (local runtime ecosystem signal): https://lmstudio.ai/docs
+- PyTorch local install/stable matrix: <https://pytorch.org/get-started/locally/>
+- Hugging Face Transformers docs: <https://huggingface.co/docs/transformers/index>
+- Hugging Face PEFT docs: <https://huggingface.co/docs/peft/index>
+- Hugging Face TRL docs: <https://huggingface.co/docs/trl/index>
+- llama.cpp repo/docs: <https://github.com/ggml-org/llama.cpp>
+- ONNX Runtime docs (alternative runtime context): <https://onnxruntime.ai/docs/>
+- scikit-learn release/news: <https://scikit-learn.org/stable/>
+- LM Studio docs (local runtime ecosystem signal): <https://lmstudio.ai/docs>
 
 ## Confidence Notes
 

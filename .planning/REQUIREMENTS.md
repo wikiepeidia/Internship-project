@@ -98,6 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-03 | Phase 5 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 16 total
 - Mapped to phases: 16
 - Unmapped: 0 ✅

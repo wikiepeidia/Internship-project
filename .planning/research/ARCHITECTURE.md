@@ -222,30 +222,37 @@ Design principle: high recall on threat detection, deterministic evidence captur
 Suggested build order for a greenfield milestone:
 
 1. Foundation and contracts first
+
 - Define canonical schemas (`AnalyzeRequest`, `ThreatAssessment`, `Explanation`, `Recommendation`, `EventLog`).
 - Establish artifact versioning (model/prompt/rules/retrieval snapshot IDs).
 
-2. Ingestion + preprocessing + logging skeleton
+1. Ingestion + preprocessing + logging skeleton
+
 - Build deterministic text normalization and extraction pipeline.
 - Wire end-to-end request tracing and event logging before advanced model work.
 
-3. Rule Engine v1 + baseline retrieval
+1. Rule Engine v1 + baseline retrieval
+
 - Implement high-recall deterministic signals for known Vietnamese financial scam patterns.
 - Add minimal local knowledge base and retrieval API.
 
-4. Offline model runtime integration
+1. Offline model runtime integration
+
 - Integrate quantized local model serving with structured output constraints.
 - Produce initial threat labels and confidence.
 
-5. Explanation and recommendation layers
+1. Explanation and recommendation layers
+
 - Add evidence-to-rationale mapping and user action templates by scam type.
 - Harden for non-technical clarity and safe guidance wording.
 
-6. Evaluation harness and release gates
+1. Evaluation harness and release gates
+
 - Build benchmark runner, metrics, and regression dashboard/reporting.
 - Enforce recall-priority gate and latency gate.
 
-7. Data flywheel and hardening
+1. Data flywheel and hardening
+
 - Use error clusters to update data, rules, prompts, and retrieval.
 - Add adversarial robustness tests (obfuscation, mixed-language manipulation).
 

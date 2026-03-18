@@ -7,6 +7,7 @@ Scope anchor (v1): text-only Vietnamese + mixed EN/VI, explainable output, priva
 ## Framing
 
 This domain typically combines three product layers:
+
 1. Threat classification from short, noisy user text (SMS/chat/social messages).
 2. Explainable risk communication that non-technical users can act on immediately.
 3. Privacy-preserving deployment (on-device or hybrid modes) for sensitive financial content.
@@ -29,6 +30,7 @@ Features users expect for a credible Vietnamese scam checker. Missing any of the
 | Structured result schema for downstream UX | Stable output required for UI, logging, and future integrations | Low | JSON schema, validator, contract tests |
 
 Category summary:
+
 - Category complexity: Medium-High overall (mostly due to local inference and robust explanation quality).
 - Category key dependencies: high-quality VN scam corpus, robust labeling taxonomy, local model optimization (LoRA + quantization), evaluation pipeline emphasizing recall.
 
@@ -46,6 +48,7 @@ Features that can materially separate this product from generic scam checkers, w
 | Explanation quality guardrails (ban fabricated claims outside input text) | Reduces hallucinated reasoning and legal trust risk | Medium | Grounding checks, explanation verifier rules, rejection fallback |
 
 Category summary:
+
 - Category complexity: Medium-High.
 - Category key dependencies: localized behavioral threat intelligence, explanation-grounding validation, confidence calibration, robust EN/VI mixed-text preprocessing.
 
@@ -63,6 +66,7 @@ Features to explicitly avoid in v1 because they increase risk, cost, and deliver
 | Real-time omnichannel scraping of personal accounts | Privacy and platform compliance risk; huge integration complexity | Manual user-provided text input only in v1 | High | OAuth integrations, compliance framework, monitoring stack |
 
 Category summary:
+
 - Category complexity: High and scope-destabilizing.
 - Category key dependencies: multimodal pipelines, third-party platform integrations, legal/compliance overhead, larger infra footprint.
 
@@ -77,6 +81,7 @@ Category summary:
 ## v1 Recommendation (Grounded)
 
 Prioritize in order:
+
 1. Text ingestion + VN/mixed EN/VI normalization
 2. Risk classification + threat type labeling (financial scam taxonomy only)
 3. Explainable structured output (evidence spans + actionable recommendations)
@@ -84,6 +89,7 @@ Prioritize in order:
 5. Recall-focused evaluation gate and thresholding policy
 
 Defer:
+
 - Multimodal input (images/audio), autonomous actions, broad cybersecurity copilot behavior, deep third-party channel integrations.
 
 ## Scope Creep Warnings

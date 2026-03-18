@@ -15,10 +15,12 @@
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
+
 **Goal**: A reproducible, versioned text dataset pipeline exists for Vietnamese financial phishing model development and evaluation.
 **Depends on**: Nothing (first phase)
 **Requirements**: DATA-01, DATA-02, DATA-03
 **Success Criteria** (what must be TRUE):
+
 1. Team can run one command flow and produce normalized seed records from NCSC sources without manual spreadsheet cleanup.
 2. Team can generate and review a curated synthetic dataset in the 2,000-3,000 JSONL target band.
 3. Every dataset build is versioned with reproducible lineage and split definitions that prevent train/eval leakage.
@@ -26,10 +28,12 @@
 **Plans**: TBD
 
 ### Phase 2: Offline Text Ingestion and Privacy Baseline
+
 **Goal**: Users can submit suspicious text and receive analysis while keeping content local by default.
 **Depends on**: Phase 1
 **Requirements**: ING-01, ING-02, RUN-01
 **Success Criteria** (what must be TRUE):
+
 1. User can paste raw messages from SMS, Zalo, Messenger, Telegram, or Facebook into the analyzer.
 2. System correctly accepts Vietnamese and mixed Vietnamese-English content, including common code-switch phrasing.
 3. In default operation, message text is analyzed without cloud API submission and still returns a usable result offline.
@@ -37,10 +41,12 @@
 **Plans**: TBD
 
 ### Phase 3: Local Model Adaptation and Deployment Paths
+
 **Goal**: The project can adapt an open 8B model to domain data and run it locally across target hardware tiers.
 **Depends on**: Phase 2
 **Requirements**: MOD-01, RUN-02, RUN-03
 **Success Criteria** (what must be TRUE):
+
 1. Team can execute a LoRA fine-tuning pipeline on the project dataset and produce a versioned adapted checkpoint.
 2. User can run a GGUF quantized model path on consumer laptop CPU/iGPU baseline hardware.
 3. User can optionally switch to an accelerated path on prosumer GPU hardware with consistent output schema.
@@ -48,10 +54,12 @@
 **Plans**: TBD
 
 ### Phase 4: Threat Detection and Explainable Decisioning
+
 **Goal**: Users receive clear risk decisions, in-scope threat labels, and evidence-bound safety guidance for pasted text.
 **Depends on**: Phase 3
 **Requirements**: DET-01, DET-02, XAI-01, XAI-02
 **Success Criteria** (what must be TRUE):
+
 1. For each message, system returns one risk tier: benign, suspicious, or high-risk.
 2. For risky inputs, system returns one or more in-scope labels: bank impersonation, account takeover/social engineering, or light-work-high-pay task scam.
 3. Explanations cite concrete suspicious cues or spans from the provided text rather than generic warnings.
@@ -60,10 +68,12 @@
 **Plans**: TBD
 
 ### Phase 5: Recall-Priority Evaluation and Release Gates
+
 **Goal**: Release decisions are controlled by safety-focused evaluation gates, with recall prioritized for high-harm scam classes.
 **Depends on**: Phase 4
 **Requirements**: EVAL-01, EVAL-02, EVAL-03
 **Success Criteria** (what must be TRUE):
+
 1. Evaluation reports include overall F1 and per-class metrics on held-out offline data.
 2. Go/no-go gating enforces recall-priority thresholds to minimize false negatives on high-harm classes.
 3. Explanation outputs pass a defined quality rubric for correctness, relevance, and actionability.
@@ -88,6 +98,7 @@
 - duplicate mappings: 0
 
 Coverage map:
+
 - DATA-01 -> Phase 1
 - DATA-02 -> Phase 1
 - DATA-03 -> Phase 1

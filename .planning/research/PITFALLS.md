@@ -17,8 +17,10 @@
 ## Critical Pitfalls
 
 ### 1) Vietnamese fraud lexicon drift is missed
+
 **What goes wrong:** New scam slang, regional wording, and euphemisms appear faster than dataset updates.
 **Warning signs:**
+
 - Stable validation metrics but rising user-reported misses for new scam styles.
 - Frequent OOV-like token spikes in recent production text.
 - Classifier confidence drops on messages containing new bait phrases.
@@ -29,8 +31,10 @@
 **Roadmap phase owner:** Phase 7 (primary), Phase 2 (initial setup).
 
 ### 2) Code-switching and obfuscation bypass detection
+
 **What goes wrong:** Attackers mix Vietnamese-English, split keywords, use homoglyphs, or alter spacing/punctuation to evade pattern learning.
 **Warning signs:**
+
 - High miss rate on mixed-language samples versus pure Vietnamese samples.
 - Recall collapse when characters are normalized or spacing is perturbed.
 - URL/domain risk not detected when text contains altered separators.
@@ -41,8 +45,10 @@
 **Roadmap phase owner:** Phase 2 (normalization pipeline), Phase 4 (robustness training).
 
 ### 3) False-negative risk is under-controlled
+
 **What goes wrong:** Teams optimize for aggregate F1 and accuracy, then ship thresholds that miss high-risk scams.
 **Warning signs:**
+
 - Good macro metrics but severe misses in high-harm classes (bank impersonation, account takeover).
 - Threshold chosen on convenience, not cost-weighted policy.
 - No per-class recall gate in release checklist.
@@ -53,8 +59,10 @@
 **Roadmap phase owner:** Phase 1 (policy), Phase 4 (calibration and gating).
 
 ### 4) Explanation hallucination creates unsafe trust
+
 **What goes wrong:** Model outputs plausible but unsupported reasons, fake evidence, or overconfident advice.
 **Warning signs:**
+
 - Explanations reference cues not present in the input text.
 - Similar predictions produce inconsistent rationale.
 - User testing shows high trust in wrong recommendations.
@@ -65,8 +73,10 @@
 **Roadmap phase owner:** Phase 5 (primary), Phase 1 (contract definition).
 
 ### 5) Dataset leakage inflates offline metrics
+
 **What goes wrong:** Near-duplicate or template-related examples leak across train/val/test, especially from synthetic generation.
 **Warning signs:**
+
 - Very high validation scores but weak field performance.
 - Same URL patterns, phone formats, or template skeletons across splits.
 - Performance drops sharply on time-based holdout.
@@ -77,8 +87,10 @@
 **Roadmap phase owner:** Phase 2 (split governance), Phase 3 (synthetic controls).
 
 ### 6) Synthetic data mode collapse narrows coverage
+
 **What goes wrong:** Synthetic expansion repeats a few templates and fails to represent real attacker creativity.
 **Warning signs:**
+
 - High n-gram/template repetition in synthetic corpus.
 - Strong benchmark results but poor robustness to novel scam phrasings.
 - Class coverage appears balanced numerically but not linguistically diverse.
@@ -89,8 +101,10 @@
 **Roadmap phase owner:** Phase 3 (primary).
 
 ### 7) Label ontology is too coarse or inconsistent
+
 **What goes wrong:** Labels mix scam mechanism, intent, and severity without clear boundaries, causing unstable learning and explanations.
 **Warning signs:**
+
 - Frequent annotator disagreement between similar classes.
 - Explanation text conflicts with assigned class semantics.
 - Confusion matrix shows persistent class collapse.
@@ -101,8 +115,10 @@
 **Roadmap phase owner:** Phase 1 (taxonomy), Phase 2 (annotation ops).
 
 ### 8) Privacy promises break in telemetry/logging
+
 **What goes wrong:** "Offline-first" product still leaks sensitive raw text via logs, crash reports, or debug exports.
 **Warning signs:**
+
 - Raw user messages appear in local logs by default.
 - Support workflows request full message copy/paste.
 - No data retention policy for local artifacts.
@@ -113,8 +129,10 @@
 **Roadmap phase owner:** Phase 1 (policy), Phase 6 (runtime controls), Phase 7 (ops audits).
 
 ### 9) Quantization regression harms recall/explanation quality
+
 **What goes wrong:** GGUF quantization and CPU-focused optimization reduce subtle linguistic detection ability and rationale quality.
 **Warning signs:**
+
 - Recall gap between FP16 reference and quantized builds exceeds safety threshold.
 - Explanations become shorter, generic, or contradictory after optimization.
 - Regression appears only on long, mixed-language messages.
@@ -125,8 +143,10 @@
 **Roadmap phase owner:** Phase 6 (primary), Phase 4 (reference baseline).
 
 ### 10) Alert fatigue from false positives reduces real-world safety
+
 **What goes wrong:** Overly aggressive detector flags too many benign financial messages; users start ignoring warnings.
 **Warning signs:**
+
 - High override/dismiss rate in user trials.
 - Declining user trust scores despite high recall.
 - Repeated complaints that recommendations are "always panic".
