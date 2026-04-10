@@ -15,11 +15,16 @@ Build a reproducible, versioned Vietnamese financial phishing dataset pipeline: 
 <decisions>
 ## Implementation Decisions
 
-### NCSC Seed Collection
-- **D-01:** Python-based scraper using BeautifulSoup or Playwright targeting khonggianmang.vn threat advisories. Must parse DOM to extract actual raw phishing text payloads (SMS/Zalo scripts) embedded within articles, not just alert titles.
-- **D-02:** Implement polite scraping with randomized delays to respect NCSC rate limits and avoid IP blocks.
-- **D-03:** Target 100-300 usable seed examples from NCSC.
-- **D-04:** NCSC is the primary seed source. Fall back to other Vietnamese sources (forums, news) only if NCSC yields insufficient seeds.
+### Seed Collection (Multi-Source)
+- **D-01:** Python-based scraper using BeautifulSoup or Playwright with a unified extractor interface — base class with `extract(url) -> SeedRecord[]`. Each source is a subclass with its own CSS selectors. Adding new sources = adding a new config/subclass.
+- **D-02:** Implement polite scraping with randomized delays to respect rate limits and avoid IP blocks on all sources.
+- **D-03:** Target 100-300 usable seed examples total across all sources. Once target is reached from any combination of sources, stop.
+- **D-04:** Waterfall priority source order:
+  1. **khonggianmang.vn** (NCSC primary portal) — threat advisories with embedded phishing payloads
+  2. **chongluadao.vn** (community-driven) — massive Vietnamese scam/phishing link tracker, goldmine for raw message seeds
+  3. **tinnhiemmang.vn** (NCSC secondary portal) — fake banking domain alerts, scam notifications
+  4. **VnExpress / Tuổi Trẻ** ("Lừa đảo trực tuyến" tag) — newspaper articles with exact quotes of scam SMS/Zalo messages
+  Try each in order. If a source is down or yields too few, move to next. Aggregate all that work.
 - **D-05:** Output language is Vietnamese with natural code-switching — English fintech loanwords (OTP, Internet Banking, Smart OTP, link, login, app, account) and Vietnamese teencode/SMS shorthand must be preserved, not normalized away. This matches real-world phishing linguistic distribution.
 
 ### Synthetic Data Generation

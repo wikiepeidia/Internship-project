@@ -3,9 +3,49 @@
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-04-10
+**Date:** 2026-04-10 (updated 2026-04-10)
 **Phase:** 01-data-foundation-and-split-governance
 **Areas discussed:** NCSC Seed Collection, Synthetic Generation, Dataset Schema, Versioning & Splits
+
+---
+
+## UPDATE SESSION (2026-04-10)
+
+### Seed Collection — Backup Sources
+
+**Context:** NCSC site (khonggianmang.vn) may be down or unreliable. User identified concrete backup sources.
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Waterfall priority | Try sources in order: NCSC -> chongluadao -> tinnhiemmang -> newspapers | ✓ |
+| Parallel scrape all | Hit all 4 sources simultaneously | |
+| Best two only | NCSC + chongluadao.vn only | |
+
+**User's choice:** Waterfall priority — try each in order, aggregate all that work.
+**Sources identified:**
+1. khonggianmang.vn (NCSC primary)
+2. chongluadao.vn (community-driven, "goldmine")
+3. tinnhiemmang.vn (NCSC secondary)
+4. VnExpress / Tuổi Trẻ ("Lừa đảo trực tuyến" tags)
+
+### Seed Target with Multiple Sources
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Keep 100-300 | Multiple sources are fallbacks, not multipliers | ✓ |
+| Raise to 300-500 | More sources = more seeds | |
+| No fixed target | Take whatever we get | |
+
+**User's choice:** Keep 100-300. Stop once target is reached.
+
+### Scraper Architecture
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Unified interface | Base class with extract() -> SeedRecord[]. Each source = subclass. | ✓ |
+| Separate modules | Each source is standalone script | |
+
+**User's choice:** Unified interface — adding sources = adding a config/subclass.
 
 ---
 
