@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p Documents/reports/supervisor)",
+      "Bash(pandoc --version)"
+    ]
+  }
+}

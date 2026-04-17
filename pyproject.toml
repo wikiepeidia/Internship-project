@@ -1,0 +1,29 @@
+[project]
+name = "vn-phishing-detection"
+version = "0.1.0"
+description = "Localized Explainable AI Engine for Vietnamese Financial Phishing Detection"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14",
+    "playwright>=1.58",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.0",
+    "polars>=1.38",
+    "anthropic>=0.93",
+    "httpx>=0.28",
+    "sentence-transformers>=5.2",
+    "rapidfuzz>=3.14",
+    "datasketch>=1.9",
+    "underthesea>=9.2",
+    "ftfy>=6.0",
+    "scikit-learn>=1.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
