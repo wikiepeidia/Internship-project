@@ -31,7 +31,7 @@ def extract_phishing_payloads(html: str) -> list[str]:
     for area in content_areas:
         # Extract from quotes (both Vietnamese and standard) or backticks
         # We can also get text inside blockquote, code, pre tags
-        text_nodes = area.find_all(text=True)
+        text_nodes = area.find_all(string=True)
         full_text = "".join(text_nodes)
         
         import re

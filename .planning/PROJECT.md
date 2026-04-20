@@ -12,7 +12,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Validated
 
-(None yet — ship to validate)
+- Phase 1 complete (2026-04-20): reproducible data foundation established with seed scraping, synthetic generation, quality judging, deterministic split governance, and SHA256 manifest verification.
 
 ### Active
 
@@ -48,5 +48,11 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Require explainable structured output, not binary labels | Vulnerable users need actionable reasoning and recommendations | — Pending |
 | Prioritize recall in evaluation while using balanced release gates | Missing a true threat is costlier than false alarms | — Pending |
 
+## Current State
+
+- Phase 1 is complete and verified.
+- The project now has a governed dataset pipeline: seed scraping, synthetic data generation, quality gating, deterministic train/val/test splitting, and manifest-based integrity verification.
+- Next focus: Phase 2 offline text ingestion and privacy baseline.
+
 ---
-*Last updated: 2026-03-18 after initialization*
+*Last updated: 2026-04-20 after Phase 1 completion*

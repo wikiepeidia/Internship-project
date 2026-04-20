@@ -11,9 +11,9 @@
 
 ## UPDATE SESSION (2026-04-10)
 
-### Seed Collection — Backup Sources
+### Seed Collection — Backup Sources and Scraper Reliability Risk
 
-**Context:** NCSC site (khonggianmang.vn) may be down or unreliable. User identified concrete backup sources.
+**Context:** NCSC site (khonggianmang.vn) and other scraping targets may be down or unreliable at runtime. User identified concrete backup sources and explicit fallback strategy. This is a critical runtime risk.
 
 | Option | Description | Selected |
 |--------|-------------|----------|
@@ -106,9 +106,9 @@
 | OpenAI GPT-4o | Proven multilingual | |
 | Mix / best of both | One for generation, other for validation | |
 | You decide | Claude discretion | |
-| Other (custom) | Claude + budget alternatives (DeepSeek, OpenRouter) | ✓ |
+| Other (custom) | Claude + Gemini + OpenRouter (pilot comparison) | ✓ |
 
-**User's choice:** Has Claude API but not OpenAI. Budget-conscious — open to DeepSeek, HuggingFace, OpenRouter as alternatives.
+**User's choice:** Claude API for premium high-quality expansion; Gemini for bulk cost-effective variations; OpenRouter for experiment/fallback. Pilot comparison script validates model quality before scale.
 
 ### Q2: Generation pipeline approach?
 
@@ -116,9 +116,9 @@
 |--------|-------------|----------|
 | Claude API primary | Use Claude, fallback to cheaper for bulk | |
 | Free-tier first | Minimize cost, Claude only for validation | |
-| Tiered approach | Claude for complex, cheaper for bulk | ✓ |
+| Tiered approach | Claude for complex, Gemini for bulk, OpenRouter for fallback/experiment | ✓ |
 
-**User's choice:** Tiered approach — Claude for complex seed expansion, cheaper models for bulk variations.
+**User's choice:** Tiered approach — Claude for complex seed expansion and high-quality reference path; Gemini for bulk variations at optimal cost/performance; OpenRouter as experiment/fallback. Pilot comparison validates realistic Vietnamese code-switching before scale.
 
 ### Q3: Quality validation?
 

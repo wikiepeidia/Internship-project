@@ -45,7 +45,7 @@ class DatasetRecord(BaseModel):
         min_length=20,
         description="Teacher model's localized explanation for user-facing XAI output"
     )
-    source: Literal["ncsc_seed", "synthetic_claude", "synthetic_deepseek", "synthetic_openrouter"] = Field(
+    source: Literal["ncsc_seed", "synthetic_claude", "synthetic_gemini", "synthetic_openrouter"] = Field(
         description="Data provenance tag"
     )
     seed_id: str = Field(description="Link back to originating seed record for split governance")

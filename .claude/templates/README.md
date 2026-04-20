@@ -44,9 +44,10 @@ cd [repo]
 # Install dependencies
 [npm install]
 
-# Copy environment variables
-cp .env.example .env.local
-# Edit .env.local and fill in required values
+# Copy environment template to the local .env/ folder
+mkdir -p .env
+cp .env.example .env/APIKEY.json
+# Edit .env/APIKEY.json and fill in required values
 ```
 
 ### Running Locally
@@ -104,7 +105,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `[NEXTAUTH_URL]` | Yes | [App base URL] |
 | `[OTHER_VAR]` | No | [Description] |
 
-See `.env.example` for all available variables.
+See `.env.example` for all available variables. Local runtime secrets should go under `.env/`.
 
 ---
 

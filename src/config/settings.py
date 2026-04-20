@@ -1,25 +1,28 @@
-"""
-Environment-based pipeline configuration using pydantic-settings.
+"""Environment-based pipeline configuration using pydantic-settings.
 
-Loads API keys and pipeline parameters from .env file or environment variables.
-Never hardcode secrets or environment-specific values in source code.
+Loads API keys and pipeline parameters from local files under .env/ or from
+OS environment variables. Never hardcode secrets or environment-specific
+values in source code.
 """
 
 from pydantic_settings import BaseSettings
 from pathlib import Path
 
 
+ENV_FILE_CANDIDATES = (".env/APIKEY.json", ".env/.env")
+
+
 class Settings(BaseSettings):
-    """
-    Global configuration for the Vietnamese phishing detection pipeline.
-    
-    All settings can be overridden via environment variables or .env file.
-    API keys must be provided via environment - no defaults for security.
+    """Global configuration for the Vietnamese phishing detection pipeline.
+
+    Real local secret files live under .env/. OS environment variables still
+    override file-based values when they are present.
     """
     # API Keys - no defaults, must be provided via environment
     anthropic_api_key: str = ""
-    deepseek_api_key: str = ""
+    gemini_api_key: str = ""
     openrouter_api_key: str = ""
+    deepseek_api_key: str = ""
     
     # Data Pipeline Paths
     data_dir: Path = Path("data")
@@ -36,15 +39,12 @@ class Settings(BaseSettings):
     ncsc_base_url: str = "https://canhbao.khonggianmang.vn"
     
     model_config = {
-        "env_file": ".env",
+        "env_file": list(ENV_FILE_CANDIDATES),
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
 
 def get_settings() -> Settings:
-    """
-    Get the global settings instance.
-    
-    Returns cached settings to avoid re-reading .env file on every call.
-    """
+    """Build a Settings instance from .env/ files and OS environment vars."""
     return Settings()

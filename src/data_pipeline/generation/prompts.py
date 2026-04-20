@@ -1,0 +1,118 @@
+"""Prompt builders for tiered synthetic dataset generation and judging."""
+
+from textwrap import dedent
+
+
+THREAT_CLASSES = ["bank_impersonation", "zalo_social_engineering", "task_scam", "benign"]
+
+
+def build_complex_prompt(seed_text: str, threat_class: str, num_variants: int = 3) -> str:
+    """Build the high-quality Claude prompt for complex synthetic examples."""
+    return dedent(
+        f"""
+        You are generating realistic Vietnamese financial messaging examples for a phishing
+        detection dataset.
+
+        Seed text anchor:
+        {seed_text}
+
+        Target threat class: {threat_class}
+        Variants required: {num_variants}
+
+        Requirements:
+        - Generate {num_variants} realistic Vietnamese message variants as a JSON array.
+        - Preserve natural Vietnamese code-switching with real fintech terms such as OTP,
+          Internet Banking, Smart OTP, link, login, app, and account.
+        - Use Vietnamese teencode or SMS shorthand when natural, including k, ko, dc, nha, ak.
+        - Vary URLs, phone numbers, urgency level, sender persona, and channel style.
+        - Produce a mix of short SMS-like messages and longer Zalo or Messenger-like messages.
+        - Do not copy the seed URL, sender, or phone number directly.
+        - risk_tier is contextual and MUST be assigned from semantic severity, not derived from label.
+        - suspicious_spans must contain exact substrings from the generated text.
+        - xai_explanation must be localized, specific, and explain why the message is suspicious.
+
+        Return ONLY a JSON array. Every item must include:
+        - text
+        - label
+        - risk_tier
+        - suspicious_spans
+        - xai_explanation
+        """
+    ).strip()
+
+
+def build_bulk_prompt(seed_text: str, threat_class: str, count: int = 10) -> str:
+    """Build the higher-diversity prompt for Gemini or OpenRouter bulk generation."""
+    return dedent(
+        f"""
+        Generate {count} Vietnamese financial messaging examples as a JSON array.
+
+        Seed text anchor:
+        {seed_text}
+
+        Target threat class: {threat_class}
+
+        Diversity instructions:
+        - Prioritize diversity across phrasing, sender identity, urgency, fake URLs,
+          phone numbers, formatting, and social-engineering hooks.
+        - Keep natural Vietnamese code-switching with OTP, Internet Banking, Smart OTP,
+          login, app, account, and link where realistic.
+        - Include natural teencode or shorthand such as k, ko, dc, nha, ak where appropriate.
+        - Shorter xai_explanation is acceptable, but it must still be specific and actionable.
+        - risk_tier is contextual and not a fixed mapping from label.
+
+        Return ONLY a JSON array with text, label, risk_tier, suspicious_spans, and xai_explanation.
+        """
+    ).strip()
+
+
+def build_judge_prompt(record_text: str, record_label: str, record_explanation: str) -> str:
+    """Build the LLM-as-judge prompt for synthetic sample validation."""
+    return dedent(
+        f"""
+        You are validating a synthetic Vietnamese financial messaging sample.
+
+        Text:
+        {record_text}
+
+        Label: {record_label}
+        Explanation:
+        {record_explanation}
+
+        Score each dimension from 1 to 5:
+        - realism
+        - label_correctness
+        - code_switch_naturalness
+
+        Mark pass true only if all three scores are at least 3.
+
+        Return ONLY this JSON object:
+        {{
+          "realism": 1,
+          "label_correctness": 1,
+          "code_switch_naturalness": 1,
+          "pass": false,
+          "reason": "brief reason"
+        }}
+        """
+    ).strip()
+
+
+def build_benign_prompt(num_variants: int = 10) -> str:
+    """Build a benign-only generation prompt to diversify the negative class."""
+    return dedent(
+        f"""
+        Generate {num_variants} benign Vietnamese financial messages as a JSON array.
+
+        Cover diverse benign scenarios such as bank notifications, transaction confirmations,
+        service updates, marketing offers, OTP confirmations, account statements, and balance alerts.
+
+        Requirements:
+        - Use natural Vietnamese with realistic code-switching such as OTP, Internet Banking,
+          Smart OTP, app, account, and login when appropriate.
+        - Keep risk_tier appropriate to benign or at most low-suspicion edge cases only when
+          the wording justifies it.
+        - suspicious_spans should be empty unless the wording genuinely contains a confusing cue.
+        - Return ONLY a JSON array with text, label, risk_tier, suspicious_spans, and xai_explanation.
+        """
+    ).strip()

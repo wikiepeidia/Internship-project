@@ -76,3 +76,74 @@ def sample_manifest_entry():
             )
         }
     )
+
+
+@pytest.fixture
+def sample_ncsc_html():
+    return """
+    <html><body>
+    <article>
+        <h2 class="post-title"><a href="/advisory/1">Advisory 1</a></h2>
+        <p>“Bạn đã trúng thưởng 1 tỷ đồng. Hãy truy cập ngay link http://phishing.com/claim để nhận thưởng”</p>
+    </article>
+    </body></html>
+    """
+
+@pytest.fixture
+def sample_advisory_listing_html():
+    return """
+    <html><body>
+    <div class="advisory-list">
+        <h3 class="entry-title"><a href="/advisory/1">Phishing SMS 1</a></h3>
+        <h3 class="entry-title"><a href="/advisory/2">Phishing SMS 2</a></h3>
+        <h3 class="entry-title"><a href="https://external.com/advisory/3">External Advisory 3</a></h3>
+    </div>
+    </body></html>
+    """
+
+@pytest.fixture
+def sample_advisory_detail_html():
+    return """
+    <html><body>
+    <article class="post-content">
+        <p>Người dùng nhận được tin nhắn lừa đảo với nội dung sau:</p>
+        <blockquote>“Tài khoản của bạn đã bị khóa. Vui lòng truy cập http://scam.vn để mở khóa.”</blockquote>
+    </article>
+    </body></html>
+    """
+
+
+@pytest.fixture
+def sample_validated_records():
+    labels = ["bank_impersonation", "zalo_social_engineering", "task_scam", "benign"]
+    risk_tiers = {
+        "bank_impersonation": "high-risk",
+        "zalo_social_engineering": "suspicious",
+        "task_scam": "high-risk",
+        "benign": "benign",
+    }
+    records = []
+    for seed_index in range(5):
+        for label_index, label in enumerate(labels):
+            records.append(
+                DatasetRecord(
+                    text=f"Bản ghi {seed_index}-{label_index} với nội dung hợp lệ cho {label} và seed {seed_index}",
+                    label=label,
+                    risk_tier=risk_tiers[label],
+                    suspicious_spans=[] if label == "benign" else [f"seed-{seed_index}"],
+                    xai_explanation="Giải thích đủ dài để mỗi bản ghi hợp lệ và dùng cho kiểm thử pipeline.",
+                    source="synthetic_gemini" if label != "bank_impersonation" else "synthetic_claude",
+                    seed_id=f"seed-{seed_index}",
+                ).model_dump()
+            )
+    return records
+
+
+@pytest.fixture
+def sample_validated_jsonl(tmp_path, sample_validated_records):
+    jsonl_path = tmp_path / "processed" / "validated.jsonl"
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    with jsonl_path.open("w", encoding="utf-8") as handle:
+        for record in sample_validated_records:
+            handle.write(DatasetRecord.model_validate(record).model_dump_json() + "\n")
+    return jsonl_path

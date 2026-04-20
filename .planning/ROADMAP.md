@@ -6,7 +6,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
+- [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
 - [ ] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
 - [ ] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the base model with LoRA and provide laptop baseline plus optional prosumer acceleration paths.
 - [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
@@ -28,10 +28,10 @@
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Project skeleton, Pydantic schemas, config, and test infrastructure
-- [ ] 01-02-PLAN.md -- NCSC seed scraper with BS4/Playwright, text normalizer, seed JSONL output
-- [ ] 01-03-PLAN.md -- Tiered LLM synthetic generation pipeline with quality judge
-- [ ] 01-04-PLAN.md -- Split governance, semantic dedup, SHA256 versioning, pipeline orchestrator
+- [x] 01-01-PLAN.md -- Project skeleton, Pydantic schemas, config, and test infrastructure
+- [x] 01-02-PLAN.md -- NCSC seed scraper with BS4/Playwright, text normalizer, seed JSONL output
+- [x] 01-03-PLAN.md -- Tiered LLM synthetic generation pipeline with quality judge
+- [x] 01-04-PLAN.md -- Split governance, semantic dedup, SHA256 versioning, pipeline orchestrator
 
 ### Phase 2: Offline Text Ingestion and Privacy Baseline
 
@@ -90,7 +90,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Foundation and Split Governance | 0/4 | Planned | - |
+| 1. Data Foundation and Split Governance | 4/4 | Complete | 2026-04-20 |
 | 2. Offline Text Ingestion and Privacy Baseline | 0/TBD | Not started | - |
 | 3. Local Model Adaptation and Deployment Paths | 0/TBD | Not started | - |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |

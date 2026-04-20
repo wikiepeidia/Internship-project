@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 1 builds a reproducible Vietnamese financial phishing dataset from scratch: scrape 100-300 seed threat examples from Vietnam NCSC (khonggianmang.vn / canhbao.ncsc.gov.vn), expand to 2,000-3,000 synthetic JSONL samples via tiered LLM generation (Claude API for complex examples, DeepSeek/OpenRouter for bulk), enforce XAI-optimized schema with rich metadata fields, and lock down train/val/test splits with seed-level governance and semantic deduplication.
+Phase 1 builds a reproducible Vietnamese financial phishing dataset from scratch: scrape 100-300 seed threat examples from Vietnam NCSC (khonggianmang.vn / canhbao.ncsc.gov.vn), expand to 2,000-3,000 synthetic JSONL samples via tiered LLM generation (Claude API for complex examples, Gemini for bulk, OpenRouter for fallback/experiments), enforce XAI-optimized schema with rich metadata fields, and lock down train/val/test splits with seed-level governance and semantic deduplication.
 
 The core technical risks are: (1) NCSC site scraping reliability -- the site may use JavaScript rendering and its DOM structure must be discovered at implementation time, (2) synthetic data mode collapse producing repetitive templates rather than linguistically diverse Vietnamese phishing examples, and (3) data leakage through near-duplicate synthetic variants crossing split boundaries. All three have well-established mitigation strategies documented below.
 
@@ -18,11 +18,13 @@ The core technical risks are: (1) NCSC site scraping reliability -- the site may
 ### Locked Decisions
 - D-01: Python-based scraper using BeautifulSoup or Playwright targeting khonggianmang.vn threat advisories. Must parse DOM to extract actual raw phishing text payloads (SMS/Zalo scripts) embedded within articles, not just alert titles.
 - D-02: Implement polite scraping with randomized delays to respect NCSC rate limits and avoid IP blocks.
+- D-02a: Some scraping target sites may be down or unreliable at runtime. Source fallback prioritization and live site reconnaissance remain critical.
 - D-03: Target 100-300 usable seed examples from NCSC.
 - D-04: NCSC is the primary seed source. Fall back to other Vietnamese sources (forums, news) only if NCSC yields insufficient seeds.
 - D-05: Output language is Vietnamese with natural code-switching -- English fintech loanwords and teencode/SMS shorthand must be preserved, not normalized away.
-- D-06: Tiered generation approach -- Claude API for high-quality complex examples; cheaper models (DeepSeek via Colab, OpenRouter) for bulk simple variations.
-- D-07: User has Claude API access. Does NOT have OpenAI API key. Budget-conscious.
+- D-06: Tiered generation approach -- Claude API for high-quality complex examples; Gemini for bulk simple variations at optimal cost/quality ratio; OpenRouter as fallback/experiment channel.
+- D-06a: Small pilot script runs quality comparison between Claude, Gemini, and OpenRouter on sample seeds before large-scale generation.
+- D-07: User has Claude API and Gemini API access. Does NOT have OpenAI API key. Budget-conscious — Gemini chosen for bulk generation.
 - D-08: Generation prompts must explicitly instruct the LLM to naturally code-switch and use common abbreviations.
 - D-09: Quality validation: LLM-as-judge + manual spot-check of 5-10% subset.
 - D-10: Balanced class distribution across all threat classes plus robust benign class.
@@ -50,14 +52,14 @@ None -- discussion stayed within phase scope.
 | ID | Description | Research Support |
 |----|-------------|------------------|
 | DATA-01 | System can scrape seed Vietnamese financial threat examples from NCSC sources into normalized raw records | NCSC scraping architecture (BS4 + Playwright fallback), Pydantic schema validation, polite scraping patterns |
-| DATA-02 | System can generate a curated synthetic training dataset of 2,000-3,000 JSONL samples from seed data using a controlled LLM generation pipeline | Tiered Claude/DeepSeek/OpenRouter generation architecture, LLM-as-judge quality gate, diversity metrics |
+| DATA-02 | System can generate a curated synthetic training dataset of 2,000-3,000 JSONL samples from seed data using a controlled LLM generation pipeline | Tiered Claude/Gemini/OpenRouter generation architecture, pilot comparison script, LLM-as-judge quality gate, diversity metrics |
 | DATA-03 | System can maintain reproducible dataset versions with split governance to reduce leakage and evaluation contamination | Git + SHA256 manifests, seed-level splitting algorithm, sentence-transformers semantic dedup, manifest schema |
 </phase_requirements>
 
 ## Project Constraints (from CLAUDE.md)
 
 - **Conventional Commits format** required for all git operations in this phase
-- **No hardcoded secrets** -- API keys (Claude, DeepSeek, OpenRouter) must come from environment variables or .env files (excluded from git)
+- **No hardcoded secrets** -- API keys (Claude, Gemini, OpenRouter) must come from environment variables or .env files (excluded from git)
 - **Run tests before marking implementation tasks complete**
 - **Update docs/ files** after significant changes
 - **TypeScript strict mode** is the project default but Phase 1 is Python-only data pipeline -- Python code style should follow equivalent discipline (type hints, no console debug in committed code)
@@ -76,7 +78,7 @@ None -- discussion stayed within phase scope.
 | pydantic | 2.12.5 | JSONL schema validation at every pipeline stage | Already installed, enforces D-11 schema contract |
 | polars | 1.39.3 | DataFrame operations for dataset analysis and split computation | Near-latest installed; fast for batch transforms |
 | anthropic | 0.93.0 | Claude API client for complex synthetic generation | Already installed, official SDK |
-| httpx | 0.28.1 | HTTP client for OpenRouter/DeepSeek API calls | Already installed, async-capable |
+| httpx | 0.28.1 | HTTP client for Gemini/OpenRouter API calls | Already installed, async-capable |
 | sentence-transformers | 5.4.0 | Multilingual embeddings for semantic dedup across splits | 5.2.3 installed, upgrade to 5.4.0 for latest |
 | rapidfuzz | 3.14.5 | Fast fuzzy string matching for lexical dedup | Latest available |
 | datasketch | 1.9.0 | MinHash/LSH for scalable near-duplicate detection | Latest available |
@@ -184,7 +186,7 @@ class DatasetRecord(BaseModel):
     risk_tier: Literal["benign", "suspicious", "high-risk"]
     suspicious_spans: list[str] = Field(default_factory=list)
     xai_explanation: str = Field(min_length=20)
-    source: Literal["ncsc_seed", "synthetic_claude", "synthetic_deepseek", "synthetic_openrouter"]
+    source: Literal["ncsc_seed", "synthetic_claude", "synthetic_gemini", "synthetic_openrouter"]
     seed_id: str  # Links synthetic variants back to originating seed
 
 # Every stage boundary:
@@ -249,7 +251,7 @@ def build_manifest(data_dir: Path, version_tag: str) -> dict:
 
 - **Normalizing away code-switch tokens:** Do NOT strip English loanwords (OTP, link, Smart OTP, Internet Banking) or teencode from Vietnamese text. These are signal, not noise. Normalization should fix encoding issues only.
 - **Global random split without seed grouping:** Random shuffled split will scatter synthetic variants of the same seed across train/eval/test, inflating metrics via near-duplicate leakage.
-- **Single LLM temperature for all generation:** Using one temperature produces either all-conservative or all-creative outputs. Use lower temperature for complex Teacher-quality examples (Claude) and higher temperature for bulk diversity (DeepSeek).
+- **Single LLM temperature for all generation:** Using one temperature produces either all-conservative or all-creative outputs. Use lower temperature for complex Teacher-quality examples (Claude) and higher temperature for bulk diversity (Gemini/OpenRouter).
 - **Validating schema only at final output:** Validate at every stage boundary. A malformed record from the scraper will cascade errors through generation and splitting.
 - **Storing API keys in code or config files committed to git:** Use environment variables or .env (gitignored).
 
@@ -312,7 +314,7 @@ def build_manifest(data_dir: Path, version_tag: str) -> dict:
 
 **What goes wrong:** Using the same model family for generation and quality judgment creates confirmation bias. The judge rates its own generation style as high quality.
 **Why it happens:** Same model biases in both generation and evaluation.
-**How to avoid:** Use a different model for judging than for generation. If Claude generates, use DeepSeek or a different Claude model tier as judge. Cross-validate with human spot-check (D-09 mandates 5-10%).
+**How to avoid:** Use a different model for judging than for generation. If Claude generates, use Gemini or a different Claude model tier as judge. Cross-validate with human spot-check (D-09 mandates 5-10%).
 **Warning signs:** LLM judge passes >95% of samples with minimal differentiation in scores.
 
 ## Code Examples
@@ -386,7 +388,7 @@ class TieredGenerator:
             api_key=os.environ["ANTHROPIC_API_KEY"]
         )
         self.openrouter_key = os.environ.get("OPENROUTER_API_KEY")
-        self.deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+        self.gemini_key = os.environ.get("GEMINI_API_KEY")
     
     def generate_complex(self, seed: dict, threat_class: str) -> list[dict]:
         """Use Claude for complex, high-quality examples."""
@@ -399,11 +401,11 @@ class TieredGenerator:
         return self._parse_generation_response(response.content[0].text)
     
     def generate_bulk(self, seed: dict, threat_class: str, count: int = 10) -> list[dict]:
-        """Use DeepSeek/OpenRouter for bulk simple variations."""
+        """Use Gemini/OpenRouter for bulk simple variations."""
         prompt = self._build_bulk_prompt(seed, threat_class, count)
         
-        if self.deepseek_key:
-            return self._call_deepseek(prompt)
+        if self.gemini_key:
+            return self._call_gemini(prompt)
         elif self.openrouter_key:
             return self._call_openrouter(prompt)
         else:
@@ -434,20 +436,18 @@ CRITICAL REQUIREMENTS:
 
 Return as JSON array."""
     
-    def _call_deepseek(self, prompt: str) -> list[dict]:
-        """DeepSeek API: $0.28/M input, $0.42/M output tokens."""
+    def _call_gemini(self, prompt: str) -> list[dict]:
+        """Gemini 2.5 Flash API for cost-balanced bulk generation."""
         response = httpx.post(
-            "https://api.deepseek.com/chat/completions",
-            headers={"Authorization": f"Bearer {self.deepseek_key}"},
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            params={"key": self.gemini_key},
             json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,  # Higher for diversity
-                "max_tokens": 4000
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.9, "maxOutputTokens": 4000}
             },
             timeout=60
         )
-        return json.loads(response.json()["choices"][0]["message"]["content"])
+        return json.loads(response.json()["candidates"][0]["content"]["parts"][0]["text"])
 ```
 
 ### Semantic Dedup Across Splits
@@ -498,7 +498,7 @@ def cross_split_dedup(
 |--------------|------------------|--------------|--------|
 | DVC for dataset versioning | Git-native for small datasets (<100MB) + SHA256 manifests | 2024-2025 | DVC overhead not justified for <10MB JSONL; git tags + manifests simpler |
 | Random train/test split | Group-aware splitting (seed-level, entity-level) | 2023-2024 | Prevents synthetic-variant leakage that inflates metrics by 5-15% |
-| Single-model generation | Tiered multi-model generation (quality + bulk) | 2025-2026 | Claude/GPT for quality, DeepSeek/open models for volume -- 10-50x cost reduction |
+| Single-model generation | Tiered multi-model generation (quality + bulk) | 2025-2026 | Claude/GPT for quality, Gemini/open models for volume -- strong cost reduction with better multilingual fit |
 | English-only embedding models | Multilingual sentence-transformers (50+ languages) | 2023+ | paraphrase-multilingual-MiniLM-L12-v2 supports Vietnamese semantic similarity out of the box |
 | Manual data validation | LLM-as-judge + programmatic checks | 2024-2025 | Scales quality assessment to thousands of records while maintaining spot-check |
 
@@ -519,15 +519,15 @@ def cross_split_dedup(
    - What's unclear: Whether 0.85 is appropriate for Vietnamese text which has different token density and code-switching patterns.
    - Recommendation: Start at 0.85, manually review flagged pairs in first batch, adjust threshold up (stricter) or down (more permissive) based on false positive/negative rate. This is a Claude's discretion area.
 
-3. **DeepSeek Free Tier Sufficiency**
-   - What we know: DeepSeek gives 5M free tokens to new users (30-day expiry). Pricing is $0.28/M input, $0.42/M output for cache misses.
-   - What's unclear: Whether 5M free tokens is sufficient for bulk generation of 1,500-2,000 synthetic examples, or if paid credits will be needed.
-   - Recommendation: Estimate ~500 tokens per generated example * 2000 examples = ~1M output tokens. At $0.42/M this is ~$0.42 if free tier exhausted. Budget is minimal. OpenRouter free models are viable zero-cost fallback.
+3. **Gemini Pay-As-You-Go Sufficiency**
+    - What we know: Gemini 2.5 Flash is the current cost/quality bulk choice and matches the user's pay-as-you-go preference.
+    - What's unclear: Exact spend after final prompt length, retries, and judge usage are measured.
+    - Recommendation: Run the pilot comparison script first, record prompt/output token usage on a small batch, then project the full run cost. Keep OpenRouter as fallback if quota or spend becomes an issue.
 
 4. **Benign Class Seed Sources**
    - What we know: NCSC primarily publishes threat advisories, not examples of benign financial messages.
    - What's unclear: Where to source diverse, realistic benign Vietnamese financial messages for the benign class.
-   - Recommendation: Generate benign examples synthetically using Claude/DeepSeek with prompts covering real banking notification patterns (transaction alerts, OTP messages, balance updates, marketing offers). Supplement with manually written examples. Mark source as "synthetic_claude" or "synthetic_deepseek".
+    - Recommendation: Generate benign examples synthetically using Claude/Gemini with prompts covering real banking notification patterns (transaction alerts, OTP messages, balance updates, marketing offers). Supplement with manually written examples. Mark source as "synthetic_claude" or "synthetic_gemini".
 
 ## Environment Availability
 
@@ -540,7 +540,7 @@ def cross_split_dedup(
 | pydantic | Schema validation | Yes | 2.12.5 | -- |
 | polars | DataFrame ops | Yes | 1.38.1 (1.39.3 latest) | Works as-is |
 | anthropic | Claude API | Yes | 0.93.0 | -- |
-| httpx | DeepSeek/OpenRouter API | Yes | 0.28.1 | -- |
+| httpx | Gemini/OpenRouter API | Yes | 0.28.1 | -- |
 | sentence-transformers | Semantic dedup | Yes | 5.2.3 (5.4.0 latest) | Works as-is, upgrade optional |
 | rapidfuzz | Fuzzy matching | No (available on PyPI) | 3.14.5 (PyPI) | Install: `pip install rapidfuzz` |
 | datasketch | MinHash LSH | No (available on PyPI) | 1.9.0 (PyPI) | Install: `pip install datasketch` |
@@ -549,8 +549,8 @@ def cross_split_dedup(
 | pytest | Testing | Yes | 9.0.2 | -- |
 | git | Version control | Yes | -- | -- |
 | ANTHROPIC_API_KEY | Claude generation | Unknown | -- | Must be set as env var |
-| DEEPSEEK_API_KEY | Bulk generation | Unknown | -- | OpenRouter as fallback |
-| OPENROUTER_API_KEY | Bulk generation fallback | Unknown | -- | DeepSeek as fallback |
+| GEMINI_API_KEY | Bulk generation | Unknown | -- | OpenRouter as fallback |
+| OPENROUTER_API_KEY | Bulk generation fallback | Unknown | -- | Gemini as primary |
 
 **Missing dependencies with no fallback:**
 - None -- all missing packages are installable from PyPI
@@ -607,15 +607,15 @@ def cross_split_dedup(
 - Estimate: ~100 complex examples * ~800 output tokens each = ~80K output tokens = ~$1.20
 - With Batch API (50% discount): ~$0.60
 
-### DeepSeek API (Bulk Generation)
-- Model: deepseek-chat
-- Pricing: $0.28/M input (cache miss), $0.42/M output tokens
-- Estimate: ~2000 bulk examples * ~500 output tokens each = ~1M output tokens = ~$0.42
-- Free tier: 5M tokens (likely sufficient for entire bulk generation)
+### Gemini API (Bulk Generation)
+- Model: gemini-2.5-flash
+- Pricing: pay-as-you-go and still low enough for this pilot-sized dataset; exact estimate should be taken from the pilot comparison script output
+- Estimate: bulk generation remains the low-cost path relative to Claude, with OpenRouter available if Gemini quota becomes a blocker
+- Validation step: record sample token usage in the pilot comparison before full-scale generation
 
 ### OpenRouter (Fallback)
 - Free models available (20 req/min, 200 req/day limits)
-- Paid models: DeepSeek V3.2 available at same pricing as direct API
+- Paid models: use as a flexible fallback route when the primary Gemini path is unavailable or needs comparison
 - Total estimated cost: $0-$2 for entire Phase 1 generation
 
 ## NCSC Scraping Strategy
@@ -655,7 +655,7 @@ def cross_split_dedup(
 - [NCSC Vietnam portal structure](https://khonggianmang.vn) -- confirmed as official NCSC site via multiple Vietnamese government sources
 - [sentence-transformers pretrained models](https://sbert.net/docs/sentence_transformer/pretrained_models.html) -- paraphrase-multilingual-MiniLM-L12-v2 supports Vietnamese
 - [dangvantuan/vietnamese-embedding](https://huggingface.co/dangvantuan/vietnamese-embedding) -- Vietnamese-specific SBERT achieving 84.87 Pearson on STS
-- [DeepSeek API pricing](https://api-docs.deepseek.com/quick_start/pricing/) -- $0.28/$0.42 per M tokens, 5M free tokens for new users
+- [Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) -- primary reference for current bulk-generation cost planning
 - [OpenRouter free models](https://openrouter.ai/collections/free-models) -- zero-cost models available with rate limits
 - [Claude API pricing](https://platform.claude.com/docs/en/about-claude/pricing) -- Sonnet $3/$15 per M tokens, 50% batch discount
 - [Vietnamese SMS spam detection with PhoBERT](https://link.springer.com/chapter/10.1007/978-3-031-77731-8_24) -- PhoBERT achieves 93.56% recall on Vietnamese spam
@@ -671,7 +671,7 @@ def cross_split_dedup(
 - Standard stack: HIGH -- all packages verified on PyPI, most already installed locally
 - Architecture: HIGH -- pipeline patterns well-established, Pydantic + JSONL + git versioning is standard
 - NCSC scraping: MEDIUM -- site exists and is confirmed official, but DOM structure unknown
-- Synthetic generation: HIGH -- Claude/DeepSeek/OpenRouter APIs are production-grade, pricing verified
+- Synthetic generation: HIGH -- Claude/Gemini/OpenRouter APIs are production-grade, with pilot comparison planned before scale
 - Split governance: HIGH -- seed-level splitting and semantic dedup are well-documented patterns
 - Pitfalls: HIGH -- based on documented project risks + domain experience in synthetic data pipelines
 

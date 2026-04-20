@@ -145,12 +145,11 @@ rabbitmq-data/
 
 # ActiveMQ
 activemq-data/
-
 # SageMath parsed files
 *.sage.py
 
 # Environments
-.env
+.env/
 .envrc
 .venv
 env/
@@ -216,3 +215,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+init.json

@@ -150,7 +150,7 @@ class TestDatasetRecord:
     
     def test_dataset_record_all_valid_sources(self):
         """DatasetRecord accepts all defined source values."""
-        valid_sources = ["ncsc_seed", "synthetic_claude", "synthetic_deepseek", "synthetic_openrouter"]
+        valid_sources = ["ncsc_seed", "synthetic_claude", "synthetic_gemini", "synthetic_openrouter"]
         for source in valid_sources:
             record = DatasetRecord(
                 text="This is a test message with sufficient length",
