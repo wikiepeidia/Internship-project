@@ -28,6 +28,7 @@
 **Plans**: 4 plans
 
 Plans:
+
 - [x] 01-01-PLAN.md -- Project skeleton, Pydantic schemas, config, and test infrastructure
 - [x] 01-02-PLAN.md -- NCSC seed scraper with BS4/Playwright, text normalizer, seed JSONL output
 - [x] 01-03-PLAN.md -- Tiered LLM synthetic generation pipeline with quality judge
