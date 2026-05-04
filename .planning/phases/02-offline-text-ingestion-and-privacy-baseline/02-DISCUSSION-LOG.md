@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD060 -->
+
 # Phase 2: Offline Text Ingestion and Privacy Baseline - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
@@ -153,3 +155,5 @@
 ## Deferred Ideas
 
 None.
+
+<!-- markdownlint-enable MD060 -->

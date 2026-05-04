@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD001 MD022 MD032 MD033 -->
+
 # Phase 2: Offline Text Ingestion and Privacy Baseline - Context
 
 **Gathered:** 2026-05-04
@@ -100,3 +102,5 @@ None — discussion stayed within phase scope
 
 *Phase: 02-offline-text-ingestion-and-privacy-baseline*
 *Context gathered: 2026-05-04*
+
+<!-- markdownlint-enable MD001 MD022 MD032 MD033 -->
