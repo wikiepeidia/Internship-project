@@ -5,6 +5,7 @@ description = "Localized Explainable AI Engine for Vietnamese Financial Phishing
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.14",
+    "requests>=2.32",
     "playwright>=1.58",
     "pydantic>=2.12",
     "pydantic-settings>=2.0",

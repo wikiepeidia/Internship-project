@@ -29,6 +29,10 @@ def test_phase1_cli_help_shows_operator_flags(capsys):
     assert "--seed-input" in stdout
     assert "--target-count" in stdout
     assert "--version-tag" in stdout
+    assert "--bulk-provider" in stdout
+    assert "--resume" in stdout
+    assert "--max-parallel-batches" in stdout
+    assert "--generate-only" in stdout
 
 
 def test_phase1_cli_uses_seed_input_and_persists_outputs(tmp_path, monkeypatch, sample_seed_record, sample_dataset_record, capsys):
@@ -54,12 +58,28 @@ def test_phase1_cli_uses_seed_input_and_persists_outputs(tmp_path, monkeypatch, 
     )
 
     class FakeGenerator:
-        def __init__(self, settings, anthropic_client=None):
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
             self.settings = settings
+            self.bulk_provider = bulk_provider
 
-        def generate_dataset(self, seeds, target_count=2500):
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
             assert len(seeds) == 1
             assert target_count == 50
+            assert self.bulk_provider == "claude"
+            assert max_parallel_batches == 2
+            assert resume is True
+            assert checkpoint_path == tmp_path / "synthetic" / ".checkpoint.jsonl"
+            assert partial_output_path == tmp_path / "synthetic" / "generated-partial.jsonl"
+            assert progress_callback is not None
             return generated_records
 
         def save_generated(self, records, output_path=None):
@@ -74,8 +94,9 @@ def test_phase1_cli_uses_seed_input_and_persists_outputs(tmp_path, monkeypatch, 
         def __init__(self, settings, anthropic_client=None):
             self.settings = settings
 
-        def filter_passed(self, records):
+        def filter_passed(self, records, progress_callback=None):
             assert records == generated_records
+            assert progress_callback is not None
             return validated_records, quality_stats
 
     class FakeBuilder:
@@ -124,6 +145,11 @@ def test_phase1_cli_uses_seed_input_and_persists_outputs(tmp_path, monkeypatch, 
         "50",
         "--version-tag",
         "phase1-uat-gap",
+        "--bulk-provider",
+        "claude",
+        "--resume",
+        "--max-parallel-batches",
+        "2",
     ])
 
     assert exit_code == 0
@@ -169,10 +195,21 @@ def test_phase1_cli_scrapes_when_seed_input_is_omitted(tmp_path, monkeypatch, sa
             return destination
 
     class FakeGenerator:
-        def __init__(self, settings, anthropic_client=None):
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
             self.settings = settings
+            self.bulk_provider = bulk_provider
 
-        def generate_dataset(self, seeds, target_count=2500):
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
+            assert self.bulk_provider == "auto"
             return [sample_dataset_record.model_dump()]
 
         def save_generated(self, records, output_path=None):
@@ -185,7 +222,7 @@ def test_phase1_cli_scrapes_when_seed_input_is_omitted(tmp_path, monkeypatch, sa
         def __init__(self, settings, anthropic_client=None):
             self.settings = settings
 
-        def filter_passed(self, records):
+        def filter_passed(self, records, progress_callback=None):
             return [sample_dataset_record.model_dump()], quality_stats
 
     class FakeBuilder:
@@ -233,10 +270,19 @@ def test_phase1_cli_rejects_out_of_band_generation_count(tmp_path, monkeypatch, 
     _write_seed_jsonl(seed_input, [sample_seed_record])
 
     class FakeGenerator:
-        def __init__(self, settings, anthropic_client=None):
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
             self.settings = settings
 
-        def generate_dataset(self, seeds, target_count=2500):
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
             return [sample_dataset_record.model_dump()]
 
         def save_generated(self, records, output_path=None):
@@ -273,10 +319,19 @@ def test_phase1_cli_fails_when_judge_accepts_zero_records(tmp_path, monkeypatch,
     )
 
     class FakeGenerator:
-        def __init__(self, settings, anthropic_client=None):
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
             self.settings = settings
 
-        def generate_dataset(self, seeds, target_count=2500):
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
             return [sample_dataset_record.model_dump()]
 
         def save_generated(self, records, output_path=None):
@@ -289,7 +344,7 @@ def test_phase1_cli_fails_when_judge_accepts_zero_records(tmp_path, monkeypatch,
         def __init__(self, settings, anthropic_client=None):
             self.settings = settings
 
-        def filter_passed(self, records):
+        def filter_passed(self, records, progress_callback=None):
             return [], quality_stats
 
     monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
@@ -318,3 +373,166 @@ def test_phase1_cli_fails_when_seed_input_is_missing(tmp_path, monkeypatch, caps
 
     assert exit_code == 1
     assert "Seed input not found" in capsys.readouterr().err
+
+
+def test_phase1_cli_generate_only_skips_judge_and_build(tmp_path, monkeypatch, sample_seed_record, sample_dataset_record, capsys):
+    settings = SimpleNamespace(
+        anthropic_api_key="anthropic",
+        gemini_api_key="gemini",
+        openrouter_api_key="",
+        data_dir=tmp_path,
+    )
+    seed_input = tmp_path / "raw" / "seeds.jsonl"
+    _write_seed_jsonl(seed_input, [sample_seed_record])
+
+    generated_records = [sample_dataset_record.model_dump()]
+
+    class FakeGenerator:
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
+            self.settings = settings
+            self.bulk_provider = bulk_provider
+
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
+            assert len(seeds) == 1
+            assert target_count == 50
+            assert self.bulk_provider == "auto"
+            assert resume is True
+            assert checkpoint_path == tmp_path / "synthetic" / ".checkpoint.jsonl"
+            assert partial_output_path == tmp_path / "synthetic" / "generated.jsonl"
+            assert progress_callback is not None
+            return generated_records
+
+        def save_generated(self, records, output_path=None):
+            destination = output_path or (self.settings.data_dir / "synthetic" / "generated.jsonl")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("w", encoding="utf-8") as handle:
+                for record in records:
+                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            return destination
+
+    class ShouldNotRunJudge:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("judge should not run in --generate-only mode")
+
+    class ShouldNotRunBuilder:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("split builder should not run in --generate-only mode")
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("src.data_pipeline.cli.TieredGenerator", FakeGenerator)
+    monkeypatch.setattr("src.data_pipeline.cli.QualityJudge", ShouldNotRunJudge)
+    monkeypatch.setattr("src.data_pipeline.cli.DatasetBuilder", ShouldNotRunBuilder)
+    monkeypatch.setattr("src.data_pipeline.cli._build_anthropic_client", lambda api_key: object())
+
+    exit_code = main([
+        "--seed-input",
+        str(seed_input),
+        "--target-count",
+        "50",
+        "--resume",
+        "--generate-only",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["seed_count"] == 1
+    assert summary["generated_count"] == 1
+    assert summary["validated_count"] == 0
+    assert summary["split_counts"] == {}
+    assert summary["generate_only"] is True
+    assert summary["validated_path"] is None
+    assert summary["quality_stats_path"] is None
+    assert summary["manifest_path"] is None
+    assert (tmp_path / "synthetic" / "generated.jsonl").exists()
+    assert not (tmp_path / "processed" / "validated.jsonl").exists()
+
+
+def test_phase1_cli_generate_only_resume_rebuilds_generated_output_from_checkpoint(
+    tmp_path,
+    monkeypatch,
+    sample_seed_record,
+    sample_dataset_record,
+    capsys,
+):
+    settings = SimpleNamespace(
+        anthropic_api_key="anthropic",
+        gemini_api_key="gemini",
+        openrouter_api_key="",
+        data_dir=tmp_path,
+    )
+    seed_input = tmp_path / "raw" / "seeds.jsonl"
+    _write_seed_jsonl(seed_input, [sample_seed_record])
+
+    checkpoint_path = tmp_path / "synthetic" / ".checkpoint.jsonl"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path.write_text('{"batch_key":"bank_impersonation:bulk:0"}\n', encoding="utf-8")
+    generated_path = tmp_path / "synthetic" / "generated.jsonl"
+    generated_path.write_text('{"stale": true}\n', encoding="utf-8")
+
+    generated_records = [sample_dataset_record.model_dump()]
+
+    class FakeGenerator:
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
+            self.settings = settings
+
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+        ):
+            assert resume is True
+            assert checkpoint_path == tmp_path / "synthetic" / ".checkpoint.jsonl"
+            assert partial_output_path == generated_path
+            assert not partial_output_path.exists()
+            return generated_records
+
+        def save_generated(self, records, output_path=None):
+            destination = output_path or generated_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("w", encoding="utf-8") as handle:
+                for record in records:
+                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            return destination
+
+    class ShouldNotRunJudge:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("judge should not run in --generate-only mode")
+
+    class ShouldNotRunBuilder:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("split builder should not run in --generate-only mode")
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("src.data_pipeline.cli.TieredGenerator", FakeGenerator)
+    monkeypatch.setattr("src.data_pipeline.cli.QualityJudge", ShouldNotRunJudge)
+    monkeypatch.setattr("src.data_pipeline.cli.DatasetBuilder", ShouldNotRunBuilder)
+    monkeypatch.setattr("src.data_pipeline.cli._build_anthropic_client", lambda api_key: object())
+
+    exit_code = main([
+        "--seed-input",
+        str(seed_input),
+        "--target-count",
+        "50",
+        "--resume",
+        "--generate-only",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["generated_count"] == 1
+    assert generated_path.exists()
+    assert "stale" not in generated_path.read_text(encoding="utf-8")

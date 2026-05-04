@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.config.settings import get_settings
 from src.data_pipeline.generation.generator import TieredGenerator
@@ -19,7 +19,7 @@ from src.data_pipeline.versioning.build import DatasetBuilder
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src.data_pipeline.cli",
-        description="Run the Phase 1 scrape -> generate -> judge -> build dataset flow.",
+        description="Run the Phase 1 scrape -> generate flow, with optional judging and split building.",
     )
     parser.add_argument(
         "--seed-input",
@@ -55,7 +55,39 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional cap on scraped seed count when --seed-input is omitted.",
     )
+    parser.add_argument(
+        "--bulk-provider",
+        choices=("auto", "claude", "gemini", "openrouter"),
+        default="auto",
+        help="Preferred provider for bulk synthetic generation. Use 'claude' to keep retained runs on Anthropic.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from the last saved generation checkpoint instead of starting from scratch.",
+    )
+    parser.add_argument(
+        "--max-parallel-batches",
+        type=int,
+        default=1,
+        help="Number of generation batches to run concurrently. Use 1 for sequential, 2-4 for faster retained runs.",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=None,
+        help="Directory for incremental generation checkpoint files. Defaults to data/synthetic/.",
+    )
+    parser.add_argument(
+        "--generate-only",
+        action="store_true",
+        help="Generate records only and skip all LLM judging, validation outputs, and split building.",
+    )
     return parser
+
+
+def _stderr_progress(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
 
 
 def _build_anthropic_client(api_key: str) -> Any | None:
@@ -113,8 +145,20 @@ def run_phase1(
     max_pages: int = 1,
     max_links_per_page: int = 5,
     max_seeds: int | None = None,
+    bulk_provider: str = "auto",
+    resume: bool = False,
+    max_parallel_batches: int = 1,
+    checkpoint_dir: Path | None = None,
+    generate_only: bool = False,
 ) -> dict[str, Any]:
     settings = get_settings()
+    checkpoint_base = checkpoint_dir or (settings.data_dir / "synthetic")
+    checkpoint_path = checkpoint_base / ".checkpoint.jsonl"
+    generated_path = settings.data_dir / "synthetic" / "generated.jsonl"
+    incremental_generated_path = generated_path if generate_only else (checkpoint_base / "generated-partial.jsonl")
+
+    if generate_only and resume and checkpoint_path.exists() and generated_path.exists():
+        generated_path.unlink()
 
     if seed_input is not None:
         seeds = _load_seed_records(seed_input)
@@ -132,8 +176,20 @@ def run_phase1(
         raise ValueError("No seeds available for Phase 1 generation")
 
     anthropic_client = _build_anthropic_client(settings.anthropic_api_key)
-    generator = TieredGenerator(settings=settings, anthropic_client=anthropic_client)
-    generated_records = generator.generate_dataset(seeds, target_count=target_count)
+    generator = TieredGenerator(
+        settings=settings,
+        anthropic_client=anthropic_client,
+        bulk_provider=bulk_provider,
+    )
+    generated_records = generator.generate_dataset(
+        seeds,
+        target_count=target_count,
+        max_parallel_batches=max_parallel_batches,
+        checkpoint_path=checkpoint_path,
+        partial_output_path=incremental_generated_path,
+        resume=resume,
+        progress_callback=_stderr_progress,
+    )
     generated_count = len(generated_records)
 
     if 2000 <= target_count <= 3000 and not (2000 <= generated_count <= 3000):
@@ -141,10 +197,30 @@ def run_phase1(
             f"Generated record count {generated_count} is outside the required 2000-3000 band"
         )
 
-    generated_path = generator.save_generated(generated_records)
+    generated_path = generator.save_generated(generated_records, output_path=generated_path)
+
+    if generate_only:
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()
+        return {
+            "seed_count": len(seeds),
+            "generated_count": generated_count,
+            "validated_count": 0,
+            "split_counts": {},
+            "generated_path": str(generated_path),
+            "validated_path": None,
+            "quality_stats_path": None,
+            "manifest_path": None,
+            "bulk_provider": bulk_provider,
+            "max_parallel_batches": max_parallel_batches,
+            "generate_only": True,
+        }
 
     judge = QualityJudge(settings=settings, anthropic_client=anthropic_client)
-    validated_records, quality_stats = judge.filter_passed(generated_records)
+    validated_records, quality_stats = judge.filter_passed(
+        generated_records,
+        progress_callback=_stderr_progress,
+    )
     if not validated_records:
         raise ValueError("Judge produced zero accepted records")
 
@@ -157,6 +233,11 @@ def run_phase1(
     builder = DatasetBuilder(version_tag=version_tag)
     build_result = builder.build_splits(input_path=validated_path)
 
+    if checkpoint_path.exists():
+        checkpoint_path.unlink()
+    if incremental_generated_path.exists() and incremental_generated_path != generated_path:
+        incremental_generated_path.unlink()
+
     return {
         "seed_count": len(seeds),
         "generated_count": generated_count,
@@ -166,6 +247,8 @@ def run_phase1(
         "validated_path": str(validated_path),
         "quality_stats_path": str(quality_stats_path),
         "manifest_path": build_result["manifest_path"],
+        "bulk_provider": bulk_provider,
+        "max_parallel_batches": max_parallel_batches,
     }
 
 
@@ -181,7 +264,18 @@ def main(argv: list[str] | None = None) -> int:
             max_pages=args.max_pages,
             max_links_per_page=args.max_links_per_page,
             max_seeds=args.max_seeds,
+            bulk_provider=args.bulk_provider,
+            resume=args.resume,
+            max_parallel_batches=args.max_parallel_batches,
+            checkpoint_dir=args.checkpoint_dir,
+            generate_only=args.generate_only,
         )
+    except KeyboardInterrupt:
+        print(
+            "Interrupted. Completed generation batches were checkpointed. Resume with --resume.",
+            file=sys.stderr,
+        )
+        return 130
     except Exception as error:
         print(str(error), file=sys.stderr)
         return 1

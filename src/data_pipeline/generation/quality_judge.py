@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 from pydantic import BaseModel, Field
@@ -18,9 +18,10 @@ from src.config.settings import Settings, get_settings
 from src.data_pipeline.generation.prompts import build_judge_prompt
 
 
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+JUDGE_PROGRESS_INTERVAL = 25
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
@@ -95,13 +96,30 @@ class QualityJudge:
             reason=result.get("reason", ""),
         )
 
-    def judge_batch(self, records: list[dict[str, Any]]) -> list[tuple[dict[str, Any], JudgeVerdict]]:
+    def judge_batch(
+        self,
+        records: list[dict[str, Any]],
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> list[tuple[dict[str, Any], JudgeVerdict]]:
         """Judge a batch of records one by one."""
-        return [(record, self.judge_record(record)) for record in records]
+        judged: list[tuple[dict[str, Any], JudgeVerdict]] = []
+        total = len(records)
+        for index, record in enumerate(records, start=1):
+            judged.append((record, self.judge_record(record)))
+            if progress_callback and (index == total or index % JUDGE_PROGRESS_INTERVAL == 0):
+                progress_callback(f"[judge {index}/{total}] scored generated records")
+        return judged
 
-    def filter_passed(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], QualityStats]:
+    def filter_passed(
+        self,
+        records: list[dict[str, Any]],
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> tuple[list[dict[str, Any]], QualityStats]:
         """Return only passed records plus aggregate quality statistics."""
-        judged = self.judge_batch(records)
+        if progress_callback is None:
+            judged = self.judge_batch(records)
+        else:
+            judged = self.judge_batch(records, progress_callback=progress_callback)
         passed_records = [record for record, verdict in judged if verdict.pass_verdict]
         verdicts = [verdict for _, verdict in judged]
         stats = QualityStats(
@@ -134,17 +152,22 @@ class QualityJudge:
 
     def _call_judge(self, prompt: str, model: str) -> str:
         if model == GEMINI_MODEL and self.gemini_key:
-            response = self.http_client.post(
-                GEMINI_URL,
-                params={"key": self.gemini_key},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 500},
-                },
-            )
-            if hasattr(response, "raise_for_status"):
-                response.raise_for_status()
-            return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            try:
+                response = self.http_client.post(
+                    GEMINI_URL,
+                    params={"key": self.gemini_key},
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 500},
+                    },
+                )
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+                return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            except httpx.HTTPError:
+                if self.anthropic_client is None and not self.anthropic_key:
+                    raise
+                return self._call_judge(prompt, CLAUDE_MODEL)
         if model == CLAUDE_MODEL and self.anthropic_client:
             response = self.anthropic_client.messages.create(
                 model=CLAUDE_MODEL,

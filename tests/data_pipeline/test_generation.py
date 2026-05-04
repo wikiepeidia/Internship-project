@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import httpx
+
 from src.data_pipeline.generation.generator import TieredGenerator
 from src.data_pipeline.generation.prompts import THREAT_CLASSES, build_bulk_prompt, build_complex_prompt
 
@@ -73,6 +75,33 @@ def test_generate_complex(sample_seed_record, tmp_path):
     assert all(record["seed_id"] == records[0]["seed_id"] for record in records)
 
 
+def test_generate_complex_normalizes_provider_risk_tier_aliases(sample_seed_record, tmp_path):
+    response_records = [_make_record("bank_impersonation", 1) | {"risk_tier": "critical"}]
+    anthropic_client = SimpleNamespace(
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(content=[SimpleNamespace(text=json.dumps(response_records))])
+        )
+    )
+    generator = TieredGenerator(
+        settings=_settings(tmp_path),
+        anthropic_client=anthropic_client,
+    )
+
+    records = generator.generate_complex(sample_seed_record, "bank_impersonation", num_variants=1)
+
+    assert records[0]["risk_tier"] == "high-risk"
+
+
+def test_generate_complex_uses_configured_api_key_without_prebuilt_client(sample_seed_record, tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path), anthropic_client=None)
+    generator._call_claude = lambda prompt, max_tokens=2000: [_make_record("bank_impersonation", 1)]
+
+    records = generator.generate_complex(sample_seed_record, "bank_impersonation", num_variants=1)
+
+    assert len(records) == 1
+    assert records[0]["source"] == "synthetic_claude"
+
+
 def test_generate_bulk(sample_seed_record, tmp_path):
     response = SimpleNamespace(
         raise_for_status=lambda: None,
@@ -112,8 +141,72 @@ def test_generate_bulk_falls_back_to_openrouter(sample_seed_record, tmp_path):
     assert records[0]["source"] == "synthetic_openrouter"
 
 
+def test_generate_bulk_falls_back_to_openrouter_when_gemini_request_fails(sample_seed_record, tmp_path):
+    request = httpx.Request("POST", "https://generativelanguage.googleapis.com")
+    gemini_error = httpx.HTTPStatusError(
+        "Gemini disabled",
+        request=request,
+        response=httpx.Response(403, request=request),
+    )
+
+    def fake_post(url, *args, **kwargs):
+        if "generativelanguage.googleapis.com" in url:
+            raise gemini_error
+        return SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                [_make_record("task_scam", 1, source="synthetic_openrouter")]
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    generator = TieredGenerator(settings=_settings(tmp_path), http_client=SimpleNamespace(post=fake_post))
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert records[0]["source"] == "synthetic_openrouter"
+
+
+def test_generate_bulk_falls_back_to_claude_when_other_bulk_providers_fail(sample_seed_record, tmp_path):
+    request = httpx.Request("POST", "https://provider.example")
+    provider_error = httpx.HTTPStatusError(
+        "Provider forbidden",
+        request=request,
+        response=httpx.Response(403, request=request),
+    )
+
+    def fake_post(*args, **kwargs):
+        raise provider_error
+
+    anthropic_client = SimpleNamespace(
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(
+                content=[SimpleNamespace(text=json.dumps([_make_record("task_scam", 1)]))]
+            )
+        )
+    )
+    generator = TieredGenerator(
+        settings=_settings(tmp_path),
+        anthropic_client=anthropic_client,
+        http_client=SimpleNamespace(post=fake_post),
+    )
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert records[0]["source"] == "synthetic_claude"
+
+
 def test_generate_bulk_raises_value_error_without_bulk_key(sample_seed_record, tmp_path):
-    generator = TieredGenerator(settings=_settings(tmp_path, gemini_key="", openrouter_key=""))
+    generator = TieredGenerator(
+        settings=_settings(tmp_path, anthropic_key="", gemini_key="", openrouter_key="")
+    )
 
     try:
         generator.generate_bulk(sample_seed_record, "task_scam", count=1)
@@ -144,6 +237,110 @@ def test_class_balance(sample_seed_record, tmp_path):
     average = sum(counts.values()) / len(counts)
     for count in counts.values():
         assert abs(count - average) <= average * 0.2
+
+
+def test_generate_dataset_batches_large_requests(sample_seed_record, tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path))
+    complex_batch_sizes: list[int] = []
+    bulk_batch_sizes: list[int] = []
+
+    def fake_complex(seed, threat_class, num_variants=3):
+        complex_batch_sizes.append(num_variants)
+        return [_make_record(threat_class, index, source="synthetic_claude") for index in range(num_variants)]
+
+    def fake_bulk(seed, threat_class, count=10):
+        bulk_batch_sizes.append(count)
+        return [_make_record(threat_class, index, source="synthetic_gemini") for index in range(count)]
+
+    generator.generate_complex = fake_complex
+    generator.generate_bulk = fake_bulk
+
+    records = generator.generate_dataset([sample_seed_record], target_count=250)
+
+    assert len(records) == 250
+    assert max(complex_batch_sizes) <= 5
+    assert max(bulk_batch_sizes) <= 10
+    assert len(complex_batch_sizes) > len(THREAT_CLASSES)
+    assert len(bulk_batch_sizes) > len(THREAT_CLASSES)
+
+
+def test_generate_dataset_writes_checkpoint_and_partial_output(sample_seed_record, tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path))
+    checkpoint_path = tmp_path / "synthetic" / ".checkpoint.jsonl"
+    partial_output_path = tmp_path / "synthetic" / "generated-partial.jsonl"
+    progress_messages: list[str] = []
+
+    def fake_complex(seed, threat_class, num_variants=3):
+        return [_make_record(threat_class, index, source="synthetic_claude") for index in range(num_variants)]
+
+    def fake_bulk(seed, threat_class, count=10):
+        return [_make_record(threat_class, index, source="synthetic_gemini") for index in range(count)]
+
+    generator.generate_complex = fake_complex
+    generator.generate_bulk = fake_bulk
+
+    records = generator.generate_dataset(
+        [sample_seed_record],
+        target_count=20,
+        checkpoint_path=checkpoint_path,
+        partial_output_path=partial_output_path,
+        progress_callback=progress_messages.append,
+    )
+
+    assert len(records) == 20
+    assert checkpoint_path.exists()
+    assert partial_output_path.exists()
+    assert len(checkpoint_path.read_text(encoding="utf-8").splitlines()) == 8
+    assert len(partial_output_path.read_text(encoding="utf-8").splitlines()) == 20
+    assert progress_messages
+
+
+def test_generate_dataset_resume_skips_completed_batches(sample_seed_record, tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path))
+    checkpoint_path = tmp_path / "synthetic" / ".checkpoint.jsonl"
+    partial_output_path = tmp_path / "synthetic" / "generated-partial.jsonl"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+
+    restored_record = _make_record("bank_impersonation", 99)
+    checkpoint_entry = {
+        "batch_key": "bank_impersonation:complex:0",
+        "order": 0,
+        "threat_class": "bank_impersonation",
+        "batch_type": "complex",
+        "batch_index": 0,
+        "requested_count": 1,
+        "returned_count": 1,
+        "provider": "synthetic_claude",
+        "timestamp": "2026-05-04T00:00:00Z",
+        "records": [restored_record],
+    }
+    checkpoint_path.write_text(json.dumps(checkpoint_entry, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    call_log: list[tuple[str, str, int]] = []
+
+    def fake_complex(seed, threat_class, num_variants=3):
+        call_log.append(("complex", threat_class, num_variants))
+        return [_make_record(threat_class, index, source="synthetic_claude") for index in range(num_variants)]
+
+    def fake_bulk(seed, threat_class, count=10):
+        call_log.append(("bulk", threat_class, count))
+        return [_make_record(threat_class, index, source="synthetic_gemini") for index in range(count)]
+
+    generator.generate_complex = fake_complex
+    generator.generate_bulk = fake_bulk
+
+    records = generator.generate_dataset(
+        [sample_seed_record],
+        target_count=20,
+        checkpoint_path=checkpoint_path,
+        partial_output_path=partial_output_path,
+        resume=True,
+    )
+
+    assert len(records) == 20
+    assert restored_record in records
+    assert ("complex", "bank_impersonation", 1) not in call_log
+    assert partial_output_path.exists()
 
 
 def test_save_generated_writes_jsonl(tmp_path):

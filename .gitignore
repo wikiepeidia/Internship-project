@@ -216,3 +216,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 init.json
+
+# Local dataset artifacts
+data/raw/*
+!data/raw/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/splits/*
+!data/splits/.gitkeep
+data/manifests/*
+!data/manifests/.gitkeep

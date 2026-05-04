@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import httpx
+
 from src.data_pipeline.generation.quality_judge import CLAUDE_MODEL, GEMINI_MODEL, QualityJudge
 
 
@@ -120,6 +122,28 @@ def test_quality_stats(sample_dataset_record, sample_benign_record):
     assert stats.avg_code_switch_naturalness == 3.5
 
 
+def test_filter_passed_emits_progress(sample_dataset_record):
+    judge = QualityJudge(settings=_settings())
+    progress_messages: list[str] = []
+    judge.judge_batch = lambda records, progress_callback=None: [
+        (
+            records[0],
+            SimpleNamespace(
+                realism=4,
+                label_correctness=4,
+                code_switch_naturalness=4,
+                pass_verdict=True,
+                reason="ok",
+            ),
+        )
+    ]
+
+    passed, stats = judge.filter_passed([sample_dataset_record.model_dump()], progress_callback=progress_messages.append)
+
+    assert len(passed) == 1
+    assert stats.passed == 1
+
+
 def test_uses_different_model_than_generator():
     judge = QualityJudge(settings=_settings())
 
@@ -127,3 +151,29 @@ def test_uses_different_model_than_generator():
 
     claude_judge = QualityJudge(settings=_settings(gemini_key="", anthropic_key="anthropic"), anthropic_client=object())
     assert claude_judge._select_judge_model("synthetic_gemini") == CLAUDE_MODEL
+
+
+def test_judge_falls_back_to_claude_when_gemini_is_disabled(sample_dataset_record):
+    request = httpx.Request("POST", "https://generativelanguage.googleapis.com")
+    gemini_error = httpx.HTTPStatusError(
+        "Gemini disabled",
+        request=request,
+        response=httpx.Response(403, request=request),
+    )
+
+    anthropic_client = SimpleNamespace(
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(content=[SimpleNamespace(text=_response_text(4, 4, 4, "Claude fallback"))])
+        )
+    )
+    judge = QualityJudge(
+        settings=_settings(),
+        anthropic_client=anthropic_client,
+        http_client=SimpleNamespace(post=lambda *args, **kwargs: (_ for _ in ()).throw(gemini_error)),
+    )
+    record = sample_dataset_record.model_dump() | {"source": "synthetic_claude"}
+
+    verdict = judge.judge_record(record)
+
+    assert verdict.pass_verdict is True
+    assert verdict.reason == "Claude fallback"

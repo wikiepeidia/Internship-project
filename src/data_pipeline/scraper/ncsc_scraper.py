@@ -16,8 +16,9 @@ class NCSCScraper:
         settings = get_settings()
         self.base_urls = base_urls or [
             settings.ncsc_base_url,
-            "https://scam.vn",
-            "https://chongluadao.vn"
+            "https://chongluadao.vn/posts",
+            "https://tinnhiemmang.vn/canh-bao-lua-dao",
+            "https://scam.vn/bai-viet",
         ]
         self.use_playwright = use_playwright
         self.session = requests.Session()
@@ -60,8 +61,14 @@ class NCSCScraper:
         except Exception:
             return None
 
-    def scrape_advisory_list(self, max_pages: int = 1) -> list[SeedRecord]:
+    def scrape_advisory_list(
+        self,
+        max_pages: int = 1,
+        max_links_per_page: int = 5,
+        max_seeds: int | None = None,
+    ) -> list[SeedRecord]:
         seeds: list[SeedRecord] = []
+        seen_payloads: set[str] = set()
         timestamp = datetime.now(timezone.utc).isoformat()
 
         for base_url in self.base_urls:
@@ -72,18 +79,19 @@ class NCSCScraper:
                 if soup is None:
                     break
 
-                links = extract_advisory_links(str(soup), base_url)
+                links = extract_advisory_links(str(soup), page_url)
                 if not links:
                     break
 
-                for link in links:
+                for link in links[:max_links_per_page]:
                     detail_soup = self.fetch_page(link)
                     if detail_soup is None:
                         continue
                     payloads = extract_phishing_payloads(str(detail_soup))
                     for payload in payloads:
                         normalized = normalize_text(payload)
-                        if len(normalized) >= 10:
+                        if len(normalized) >= 10 and normalized not in seen_payloads:
+                            seen_payloads.add(normalized)
                             seed = SeedRecord(
                                 text=normalized,
                                 source_url=link,
@@ -91,6 +99,8 @@ class NCSCScraper:
                                 raw_label_hint=None
                             )
                             seeds.append(seed)
+                            if max_seeds is not None and len(seeds) >= max_seeds:
+                                return seeds
         return seeds
 
     def save_seeds(self, seeds: list[SeedRecord], output_path: Path | None = None) -> Path:
