@@ -147,7 +147,8 @@ rabbitmq-data/
 activemq-data/
 # SageMath parsed files
 *.sage.py
-
+.claude/
+.gemini/
 # Environments
 .env/
 .envrc
