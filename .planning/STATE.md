@@ -13,7 +13,7 @@
 
 - Current phase: 2 - Offline Text Ingestion and Privacy Baseline
 - Current plan: Not started (ready for Phase 2 discussion)
-- Project status: Phase 1 complete and verified; dataset foundation, synthetic generation, and governed splits are ready.
+- Project status: Phase 1 complete and verified; a dated fallback seed artifact was refreshed on 2026-04-24 for supervisor handoff, and Phase 2 discussion remains next.
 - Overall progress: 1/5 phases complete (4/4 plans in Phase 1 complete)
 - Progress bar: [=----] 20%
 
@@ -45,10 +45,11 @@
 - Explanation hallucination risk without strict evidence-linking.
 - Quantization regressions that reduce recall on high-harm scam classes.
 - Mixed-language/code-switch robustness drift over time.
+- Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
 
 ## Session Continuity
 
-- Last session: 2026-04-20
-- Stopped at: Phase 1 complete and verified; ready to start Phase 2.
-- Resume file: .planning/ROADMAP.md
+- Last session: 2026-05-04
+- Stopped at: Session resumed, state verified, and user routed to Phase 2 discussion after confirming there was no interrupted agent, handoff, checkpoint, or incomplete plan execution.
+- Resume file: none
 - Next command: /gsd-discuss-phase 2
