@@ -137,12 +137,12 @@ celerybeat.pid
 *.rdb
 *.aof
 *.pid
-
+NUL
 # RabbitMQ
 mnesia/
 rabbitmq/
 rabbitmq-data/
-
+data/backup/*
 # ActiveMQ
 activemq-data/
 # SageMath parsed files

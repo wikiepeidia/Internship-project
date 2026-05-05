@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     # API Keys - no defaults, must be provided via environment
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
+    google_oauth_access_token: str = ""
     openrouter_api_key: str = ""
     deepseek_api_key: str = ""
+    google_application_credentials: str = ""
+    google_cloud_project: str = ""
+    gemini_use_adc: bool = False
     
     # Data Pipeline Paths
     data_dir: Path = Path("data")

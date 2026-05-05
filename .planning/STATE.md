@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-04T09:58:27.513Z"
+status: waiting-review
+last_updated: "2026-05-05T11:45:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -25,13 +25,13 @@ progress:
 
 ## Current Position
 
-Phase: 01 (data-foundation-and-split-governance) — EXECUTING
-Plan: 1 of 6
+Phase: 01 (data-foundation-and-split-governance) — WAITING FOR JUDGE
+Plan: dataset review gate
 
-- Current phase: 2 - Offline Text Ingestion and Privacy Baseline
-- Current plan: Phase 2 planned (3 execution plans ready)
-- Project status: Phase 1 remains complete and verified; Phase 2 planning is checker-clean with 3 execution plans ready for the offline text-ingestion runtime.
-- Overall progress: 1/5 phases complete (4/4 plans in Phase 1 complete)
+- Current phase: 1 - Data Foundation and Split Governance
+- Current plan: Hold Phase 2 execution while the recovered Phase 1 dataset is judged and curated.
+- Project status: Phase 1 implementation work is complete. Recovery and offline optimization produced a merged corpus above the 3,000-record target band and a balanced salvage subset for review; the next decision gate is judging, not more generation.
+- Overall progress: Phase 1 generation target reached via recovered artifacts; judging and final acceptance are still pending before Phase 2 execution resumes.
 - Progress bar: [=----] 20%
 
 ## Performance Metrics (Baseline Targets)
@@ -66,7 +66,7 @@ Plan: 1 of 6
 
 ## Session Continuity
 
-- Last session: 2026-05-04
-- Stopped at: Phase 2 planning completed after the research, planner, and checker loop produced 02-01 through 02-03 with explicit docs coverage and fail-closed CLI error handling.
-- Resume file: .planning/phases/02-offline-text-ingestion-and-privacy-baseline/02-01-PLAN.md
-- Next command: /gsd-execute-phase 2
+- Last session: 2026-05-05
+- Stopped at: Recovered and merged historical synthetic artifacts into a 3,074-record exact-unique corpus, produced a 956-record balanced offline subset capped by benign scarcity, and confirmed the current checkpoint files should be treated as salvage artifacts rather than authoritative resume state.
+- Resume file: .planning/debug/checkpoint-split-w-fix.md
+- Next command: Judge the recovered Phase 1 dataset, then decide whether to accept the balanced salvage set or top up benign coverage before resuming Phase 2.

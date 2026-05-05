@@ -73,3 +73,16 @@ After the 3000 records are finished:
 1. Do sample-based QA, not full per-record judging.
 2. Spend the next few dollars on auditing a random subset with Claude or Gemini.
 3. If the sample looks strong, treat the 3000-row generated set as the retained Phase 1 artifact and only then decide whether deeper judging is worth it.
+
+dêepseek
+
+```
+python.exe -m src.data_pipeline.cli \
+  --seed-input data/raw/seeds-2026-04-24.jsonl \
+  --target-count 3000 \
+  --version-tag phase1-uat-gap \
+  --bulk-provider deepseek \
+  --resume \
+  --generate-only \
+  --max-parallel-batches 2
+  ```

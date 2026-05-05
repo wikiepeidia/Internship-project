@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - exercised via lazy provider fallback
     anthropic = None
 
 from src.config.settings import Settings, get_settings
+from src.data_pipeline.generation.gemini_auth import GeminiAuthSession
 from src.data_pipeline.generation.prompts import (
     THREAT_CLASSES,
     build_benign_prompt,
@@ -34,11 +35,15 @@ CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-CLAUDE_DEFAULT_MAX_TOKENS = 2000
-CLAUDE_LARGE_BATCH_MAX_TOKENS = 4096
-COMPLEX_BATCH_SIZE = 5
-BULK_BATCH_SIZE = 10
+DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+CLAUDE_DEFAULT_MAX_TOKENS = 1400
+CLAUDE_LARGE_BATCH_MAX_TOKENS = 2200
+BULK_PROVIDER_MAX_TOKENS = 2200
+COMPLEX_BATCH_SIZE = 3
+BULK_BATCH_SIZE = 5
 MAX_EMPTY_BATCHES = 2
+CHECKPOINT_KEEP_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -103,10 +108,12 @@ class TieredGenerator:
         self.anthropic_api_key = self.settings.anthropic_api_key
         self.gemini_api_key = self.settings.gemini_api_key
         self.openrouter_api_key = self.settings.openrouter_api_key
+        self.deepseek_api_key = self.settings.deepseek_api_key
         self.data_dir = self.settings.data_dir
         self.anthropic_client = anthropic_client
         self.http_client = http_client or httpx.Client(timeout=60)
         self.bulk_provider = bulk_provider
+        self.gemini_session = GeminiAuthSession(self.settings)
 
     def generate_complex(
         self,
@@ -128,12 +135,12 @@ class TieredGenerator:
         threat_class: str,
         count: int = 10,
     ) -> list[dict[str, Any]]:
-        """Generate higher-volume variations with Gemini or OpenRouter."""
+        """Generate higher-volume variations with Gemini, OpenRouter, or DeepSeek."""
         prompt = self._build_generation_prompt(seed, threat_class, count=count, bulk=True)
-        if self.bulk_provider not in {"auto", "gemini", "openrouter", "claude"}:
+        if self.bulk_provider not in {"auto", "gemini", "openrouter", "deepseek", "claude"}:
             raise ValueError(f"Unsupported bulk provider: {self.bulk_provider}")
 
-        if self.bulk_provider in {"auto", "gemini"} and self.gemini_api_key:
+        if self.bulk_provider in {"auto", "gemini"} and self.gemini_session.is_configured():
             try:
                 records = self._call_gemini(prompt)
                 return self._finalize_records(records, seed, threat_class, "synthetic_gemini")
@@ -150,6 +157,15 @@ class TieredGenerator:
                 if not self.anthropic_api_key and self.anthropic_client is None:
                     raise
                 if self.bulk_provider == "openrouter":
+                    raise
+        if self.bulk_provider in {"auto", "deepseek"} and self.deepseek_api_key:
+            try:
+                records = self._call_deepseek(prompt)
+                return self._finalize_records(records, seed, threat_class, "synthetic_deepseek")
+            except httpx.HTTPError:
+                if not self.anthropic_api_key and self.anthropic_client is None:
+                    raise
+                if self.bulk_provider == "deepseek":
                     raise
         if self.bulk_provider in {"auto", "claude"} and (self.anthropic_api_key or self.anthropic_client is not None):
             records = self._call_claude(prompt, max_tokens=CLAUDE_LARGE_BATCH_MAX_TOKENS)
@@ -222,7 +238,7 @@ class TieredGenerator:
         else:
             comparison["claude"] = {"available": False, "notes": "Anthropic API key not configured"}
 
-        if self.gemini_api_key:
+        if self.gemini_session.is_configured():
             gemini_records = self._call_gemini(self._build_generation_prompt(seed, threat_class, count=1, bulk=True))
             comparison["gemini"] = self._summarize_provider("gemini", gemini_records, GEMINI_MODEL)
         else:
@@ -239,6 +255,18 @@ class TieredGenerator:
             )
         else:
             comparison["openrouter"] = {"available": False, "notes": "OpenRouter API key not configured"}
+
+        if self.deepseek_api_key:
+            deepseek_records = self._call_deepseek(
+                self._build_generation_prompt(seed, threat_class, count=1, bulk=True)
+            )
+            comparison["deepseek"] = self._summarize_provider(
+                "deepseek",
+                deepseek_records,
+                DEEPSEEK_MODEL,
+            )
+        else:
+            comparison["deepseek"] = {"available": False, "notes": "DeepSeek API key not configured"}
 
         return comparison
 
@@ -292,13 +320,12 @@ class TieredGenerator:
         return payload
 
     def _call_gemini(self, prompt: str) -> list[dict[str, Any]]:
-        response = self.http_client.post(
-            GEMINI_URL,
-            params={"key": self.gemini_api_key},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.9, "maxOutputTokens": 4000},
-            },
+        response = self.gemini_session.post_generate_content(
+            self.http_client,
+            GEMINI_MODEL,
+            prompt,
+            temperature=0.9,
+            max_output_tokens=BULK_PROVIDER_MAX_TOKENS,
         )
         if hasattr(response, "raise_for_status"):
             response.raise_for_status()
@@ -316,7 +343,7 @@ class TieredGenerator:
                 "model": "openai/gpt-4.1-mini",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.9,
-                "max_tokens": 4000,
+                "max_tokens": BULK_PROVIDER_MAX_TOKENS,
             },
         )
         if hasattr(response, "raise_for_status"):
@@ -325,6 +352,25 @@ class TieredGenerator:
         payload = _load_json_payload(text)
         if not isinstance(payload, list):
             raise ValueError("OpenRouter response must be a JSON array")
+        return payload
+
+    def _call_deepseek(self, prompt: str) -> list[dict[str, Any]]:
+        response = self.http_client.post(
+            DEEPSEEK_URL,
+            headers={"Authorization": f"Bearer {self.deepseek_api_key}"},
+            json={
+                "model": DEEPSEEK_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": BULK_PROVIDER_MAX_TOKENS,
+            },
+        )
+        if hasattr(response, "raise_for_status"):
+            response.raise_for_status()
+        text = response.json()["choices"][0]["message"]["content"]
+        payload = _load_json_payload(text)
+        if not isinstance(payload, list):
+            raise ValueError("DeepSeek response must be a JSON array")
         return payload
 
     def _finalize_records(
@@ -359,9 +405,12 @@ class TieredGenerator:
         progress_callback: Callable[[str], None] | None,
     ) -> tuple[dict[str, tuple[int, list[dict[str, Any]]]], list[dict[str, Any]]]:
         if not resume:
-            for artifact_path in (checkpoint_path, partial_output_path):
-                if artifact_path and artifact_path.exists():
-                    artifact_path.unlink()
+            # checkpoint_path is a directory — delete numbered checkpoint files inside it
+            if checkpoint_path and checkpoint_path.exists():
+                for cp_file in checkpoint_path.glob("checkpoint-*.jsonl"):
+                    cp_file.unlink(missing_ok=True)
+            if partial_output_path and partial_output_path.exists():
+                partial_output_path.unlink()
             return {}, []
 
         completed_batches = self._load_checkpoint(checkpoint_path)
@@ -558,12 +607,29 @@ class TieredGenerator:
                 validated = DatasetRecord.model_validate(record)
                 handle.write(validated.model_dump_json() + "\n")
 
-    def _load_checkpoint(self, path: Path | None) -> dict[str, tuple[int, list[dict[str, Any]]]]:
-        if path is None or not path.exists():
+    def _find_latest_checkpoint_file(self, checkpoint_dir: Path | None) -> Path | None:
+        if checkpoint_dir is None or not checkpoint_dir.exists():
+            return None
+        files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
+        return files[-1] if files else None
+
+    def _next_checkpoint_number(self, checkpoint_dir: Path) -> int:
+        files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
+        if not files:
+            return 1
+        stem = files[-1].stem  # e.g. "checkpoint-003"
+        try:
+            return int(stem.rsplit("-", 1)[-1]) + 1
+        except ValueError:
+            return len(files) + 1
+
+    def _load_checkpoint(self, checkpoint_dir: Path | None) -> dict[str, tuple[int, list[dict[str, Any]]]]:
+        latest = self._find_latest_checkpoint_file(checkpoint_dir)
+        if latest is None:
             return {}
 
         completed: dict[str, tuple[int, list[dict[str, Any]]]] = {}
-        with path.open("r", encoding="utf-8") as handle:
+        with latest.open("r", encoding="utf-8") as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
@@ -573,9 +639,20 @@ class TieredGenerator:
                 completed[entry["batch_key"]] = (entry["order"], records)
         return completed
 
-    def _save_batch_checkpoint(self, path: Path, spec: BatchSpec, records: list[dict[str, Any]]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        entry = {
+    def _save_batch_checkpoint(self, checkpoint_dir: Path, spec: BatchSpec, records: list[dict[str, Any]]) -> None:
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load all entries from the latest checkpoint file (cumulative state)
+        existing_entries: list[dict[str, Any]] = []
+        latest = self._find_latest_checkpoint_file(checkpoint_dir)
+        if latest is not None:
+            with latest.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if line:
+                        existing_entries.append(json.loads(line))
+
+        new_entry = {
             "batch_key": self._batch_key(spec),
             "order": spec.order,
             "threat_class": spec.threat_class,
@@ -587,8 +664,21 @@ class TieredGenerator:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "records": records,
         }
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        # Replace entry for same batch_key if it already exists, otherwise append
+        entry_map = {e["batch_key"]: e for e in existing_entries}
+        entry_map[new_entry["batch_key"]] = new_entry
+        all_entries = list(entry_map.values())
+
+        next_num = self._next_checkpoint_number(checkpoint_dir)
+        next_file = checkpoint_dir / f"checkpoint-{next_num:03d}.jsonl"
+        with next_file.open("w", encoding="utf-8") as handle:
+            for entry in all_entries:
+                handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+        # Prune: keep only the last CHECKPOINT_KEEP_COUNT files
+        all_files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
+        for old_file in all_files[:-CHECKPOINT_KEEP_COUNT]:
+            old_file.unlink(missing_ok=True)
 
     def _batch_key(self, spec: BatchSpec) -> str:
         return f"{spec.threat_class}:{spec.batch_type}:{spec.batch_index}"

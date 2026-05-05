@@ -1,159 +1,87 @@
-# [Project Name] — Claude Instructions
+# VN Phishing Detection
 
-> Stack: [e.g., Next.js 14 · TypeScript · PostgreSQL · Prisma · Railway]
-> Last updated: [YYYY-MM-DD]
+Localized explainable AI pipeline for Vietnamese financial phishing detection.
 
-## Project Context
+## Phase 1 Operator Flow
 
-[2–3 sentences: what this product does, who it serves, and the core problem it solves.]
+Phase 1 builds and retains the dataset artifacts needed for downstream model work.
+The repo now exposes a single operator command path through `python -m src.data_pipeline.cli`.
 
-**Tech stack summary**: [Frontend] · [Backend] · [Database] · [Hosting]
+## Prerequisites
 
----
+- Python 3.12
+- Dependencies installed with `python -m pip install -e .[dev]`
+- Environment variables:
+  - `ANTHROPIC_API_KEY` for complex synthetic generation
+  - `GEMINI_API_KEY` for bulk generation and quality judging
+  - `OPENROUTER_API_KEY` optional fallback for bulk generation
 
-## Agents Available
+## Fast Path: Use the Retained Raw Seeds
 
-**Mandatory delegation — this is not optional.** Every task that falls within a specialist's domain MUST be routed to that agent. Do not implement code, design schemas, write docs, or configure pipelines yourself — delegate. Only handle directly: project-level questions, routing decisions, and tasks explicitly outside all specialist domains.
+Use the existing retained seed artifact when you want to reproduce Phase 1 outputs without reopening scraping.
 
-| Agent | Role | Invoke when... |
-|-------|------|----------------|
-| `project-manager` | Backlog & coordination | "What's next?", sprint planning, breaking down features, reprioritizing |
-| `systems-architect` | Architecture & ADRs | New feature design, tech decisions, system integration |
-| `frontend-developer` | UI implementation | Components, pages, client-side state, styling |
-| `react-native-developer` | Mobile UI implementation | React Native screens, navigation, native modules, platform styling, mobile performance |
-| `backend-developer` | API & business logic | Endpoints, auth, background jobs, integrations |
-| `ui-ux-designer` | UX & design system | User flows, wireframes, component specs, accessibility |
-| `database-expert` | Schema & queries | Migrations, schema design, query optimization |
-| `qa-engineer` | Testing (Playwright) | E2E tests, test strategy, coverage gaps |
-| `documentation-writer` | Living docs | User guide updates, post-feature documentation |
-| `cicd-engineer` | CI/CD & GitHub Actions | Pipelines, deployments, branch protection, release automation |
-| `docker-expert` | Containerization | Dockerfiles, docker-compose, image optimization, container networking |
-| `copywriter-seo` | Copy & SEO | Landing page copy, marketing content, meta tags, keyword strategy, structured data specs, brand voice |
-
----
-
-## Critical Rules
-
-These apply to all agents at all times. No exceptions without explicit human instruction.
-
-1. **PRD.md requires explicit human approval to modify.** Do not edit it unless the human has clearly instructed you to do so in the current conversation. Read it to understand requirements.
-2. **TODO.md is the living backlog.** Agents may add items, mark items complete, and move items to "Completed". Preserve section order and existing item priority — do not reorder items within a section unless explicitly asked to reprioritize.
-3. **All commits use Conventional Commits format** (see Git Conventions below).
-4. **Update the relevant `docs/` file** after every significant change before marking a task complete.
-5. **Run tests before marking any implementation task complete.**
-6. **Never hardcode secrets, credentials, or environment-specific values** in source code.
-7. **Consult `docs/technical/DECISIONS.md`** before proposing changes that may conflict with prior architectural decisions.
-8. **Always delegate to the right specialist.** If a task touches frontend, mobile (React Native), backend, database, UX/design, QA, documentation, CI/CD, Docker, or copy/SEO — invoke the appropriate agent immediately. Do not implement it yourself. The delegation table above is binding, not advisory.
-9. **Commit your own changes; never push.** After completing your work, create a local commit (Conventional Commits format). Do not `git push`. The orchestrator is responsible for pushing the branch and opening the PR.
-
----
-
-## Project Structure
-
-```
-src/                    # Application source code
-  app/                  # [e.g., Next.js App Router pages]
-  components/           # Shared UI components
-  lib/                  # Utilities, helpers, shared logic
-tests/
-  e2e/                  # Playwright E2E tests (*.spec.ts)
-docs/
-  user/USER_GUIDE.md    # User-facing documentation
-  technical/            # Architecture, API, DB, decisions, design system (DESIGN_SYSTEM.md owned by @ui-ux-designer)
-  content/              # Content strategy, brand voice, keyword targets (owned by @copywriter-seo)
-.claude/agents/         # Specialist agent definitions
-.claude/templates/      # Blank doc templates (synced from upstream — do not edit)
-.tasks/                 # Detailed task files — one per TODO item (owned by @project-manager)
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 2500 --version-tag phase1-uat-gap
 ```
 
----
+If you want to finish generation first and postpone all LLM judging, add `--generate-only`. In that mode, completed batches append directly into `data/synthetic/generated.jsonl` and resume from the same checkpoint.
 
-## Git Conventions
-
-### Commit Format
-```
-<type>(<scope>): <short description>
-
-[optional body]
-[optional footer: Closes #issue]
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
 ```
 
-**Types**: `feat` · `fix` · `docs` · `style` · `refactor` · `test` · `chore` · `perf` · `ci`
+## Smoke Check
 
-Examples:
-```
-feat(auth): add OAuth2 login with Google
-fix(api): handle null response from payment provider
-docs(user-guide): update onboarding section after flow change
-```
+Run a smaller preflight first when you only want to validate the command path and artifact wiring.
 
-### Branch Naming
-```
-feature/<ticket-id>-short-description
-fix/<ticket-id>-short-description
-chore/<description>
-docs/<description>
-refactor/<description>
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 50 --version-tag phase1-uat-gap
 ```
 
-### PR Requirements
+## Safer Long Runs
 
-> **Workflow note:** Specialist agents commit locally; the orchestrator pushes and opens the PR.
+For expensive retained runs, keep batches small, turn on incremental checkpoints, and only raise parallelism as high as your provider limits can tolerate.
 
-- PR title follows Conventional Commits format
-- Fill out `.github/PULL_REQUEST_TEMPLATE.md` completely — do not delete sections
-- Link to the related issue/ticket (`Closes #XXX`)
-- At least one reviewer required before merge
-- All CI checks must pass
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --generate-only
+```
 
----
+If the process is interrupted after some batches finish, resume from the saved checkpoint instead of starting over.
 
-## Code Style
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
+```
 
-> Fill in when project tooling is set up.
+During the run, progress is printed to `stderr`, completed generation batches are checkpointed under `data/synthetic/`, and `data/synthetic/generated.jsonl` is appended incrementally so successful batches are not lost on interruption.
 
-- **Language**: TypeScript (strict mode)
-- **Formatter**: [Prettier — config in `.prettierrc`]
-- **Linter**: [ESLint — config in `.eslintrc`]
-- **Import style**: [absolute imports from `src/`]
-- **No `console.log`** in production code — use the project logger utility
-- **No commented-out code** committed — delete it or track it in TODO.md
+## Fresh Scrape Path
 
----
+If you need a new seed batch, omit `--seed-input` and the CLI will scrape first, then continue through generation, judging, and split building.
 
-## Testing Conventions
+```bash
+python -m src.data_pipeline.cli --target-count 2500 --version-tag phase1-fresh
+```
 
-> Fill in when test infrastructure is set up.
+## Expected Outputs
 
-- **Unit tests**: [Vitest — colocated as `*.test.ts` next to source files]
-- **E2E tests**: [Playwright — in `tests/e2e/*.spec.ts`]
-- **Run unit**: `[npm test]`
-- **Run E2E**: `[npm run test:e2e]`
-- **Coverage target**: 80% for new features
-- E2E tests use Page Object Model pattern and `data-testid` selectors
+Successful runs retain these artifacts in the workspace:
 
----
+- `data/synthetic/generated.jsonl`
+- `data/processed/validated.jsonl`
+- `data/processed/quality-stats.json`
+- `data/splits/train.jsonl`
+- `data/splits/val.jsonl`
+- `data/splits/test.jsonl`
+- `data/manifests/manifest-<version-tag>.json`
 
-## Environment & Commands
+When `--generate-only` is active, only `data/synthetic/generated.jsonl` is produced. The judge, validated outputs, splits, and manifest are intentionally skipped.
 
-> Fill in when project is initialized.
+The CLI prints a JSON summary to stdout with counts and output paths, including the final manifest path.
 
-- **Node**: [x.x.x] (see `.nvmrc`)
-- **Package manager**: [npm / pnpm / yarn]
-- `[npm run dev]` — start dev server
-- `[npm run build]` — production build
-- `[npm test]` — unit tests
-- `[npm run test:e2e]` — E2E tests
-- `[npm run lint]` — lint check
-- `[npm run typecheck]` — TypeScript check
+## Notes
 
----
-
-## Key Documentation
-
-@docs/technical/ARCHITECTURE.md
-@docs/technical/DESIGN_SYSTEM.md
-@docs/technical/DECISIONS.md
-@docs/technical/API.md
-@docs/technical/DATABASE.md
-@docs/user/USER_GUIDE.md
+- The retained Phase 1 dataset target band is `2000-3000` generated records.
+- If the judged output is empty, the CLI exits non-zero instead of silently writing incomplete artifacts.
+- If `--seed-input` points to a missing file, the CLI exits non-zero immediately.
+- `--bulk-provider auto` prefers Gemini for bulk generation when `GEMINI_API_KEY` is configured, then falls back to OpenRouter or Claude.
+- Dataset artifacts under `data/` are local-only and should not be committed; keep the tracked `.gitkeep` files so fresh clones preserve the directory layout.

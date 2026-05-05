@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover - exercised via lazy provider fallback
     anthropic = None
 
 from src.config.settings import Settings, get_settings
+from src.data_pipeline.generation.gemini_auth import GeminiAuthSession
 from src.data_pipeline.generation.prompts import build_judge_prompt
 
 
@@ -22,6 +23,7 @@ CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 JUDGE_PROGRESS_INTERVAL = 25
+JUDGE_MAX_TOKENS = 180
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
@@ -74,6 +76,7 @@ class QualityJudge:
         self.judge_model = judge_model
         self.anthropic_client = anthropic_client
         self.http_client = http_client or httpx.Client(timeout=60)
+        self.gemini_session = GeminiAuthSession(self.settings)
 
     def judge_record(self, record: dict[str, Any]) -> JudgeVerdict:
         """Judge a single dataset record and return its verdict."""
@@ -140,26 +143,25 @@ class QualityJudge:
     def _select_judge_model(self, source: str | None) -> str:
         if self.judge_model:
             return self.judge_model
-        if source == "synthetic_claude" and self.gemini_key:
+        if source == "synthetic_claude" and self.gemini_session.is_configured():
             return GEMINI_MODEL
         if source in {"synthetic_gemini", "synthetic_openrouter"} and self.anthropic_client:
             return CLAUDE_MODEL
-        if self.gemini_key:
+        if self.gemini_session.is_configured():
             return GEMINI_MODEL
         if self.anthropic_client:
             return CLAUDE_MODEL
         raise ValueError("No judge API key configured")
 
     def _call_judge(self, prompt: str, model: str) -> str:
-        if model == GEMINI_MODEL and self.gemini_key:
+        if model == GEMINI_MODEL and self.gemini_session.is_configured():
             try:
-                response = self.http_client.post(
-                    GEMINI_URL,
-                    params={"key": self.gemini_key},
-                    json={
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 500},
-                    },
+                response = self.gemini_session.post_generate_content(
+                    self.http_client,
+                    GEMINI_MODEL,
+                    prompt,
+                    temperature=0.3,
+                    max_output_tokens=JUDGE_MAX_TOKENS,
                 )
                 if hasattr(response, "raise_for_status"):
                     response.raise_for_status()
@@ -171,7 +173,7 @@ class QualityJudge:
         if model == CLAUDE_MODEL and self.anthropic_client:
             response = self.anthropic_client.messages.create(
                 model=CLAUDE_MODEL,
-                max_tokens=500,
+                max_tokens=JUDGE_MAX_TOKENS,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text
@@ -181,7 +183,7 @@ class QualityJudge:
             self.anthropic_client = anthropic.Anthropic(api_key=self.anthropic_key)
             response = self.anthropic_client.messages.create(
                 model=CLAUDE_MODEL,
-                max_tokens=500,
+                max_tokens=JUDGE_MAX_TOKENS,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text

@@ -9,7 +9,10 @@ import numpy as np
 
 try:
     from rapidfuzz import fuzz
+    RAPIDFUZZ_AVAILABLE = True
 except ImportError:  # pragma: no cover - exercised only when rapidfuzz is absent
+    RAPIDFUZZ_AVAILABLE = False
+
     class _FallbackFuzz:
         @staticmethod
         def ratio(left: str, right: str) -> float:

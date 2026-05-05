@@ -23,11 +23,22 @@ def _make_record(label: str, index: int, source: str = "synthetic_claude", seed_
     }
 
 
-def _settings(tmp_path, anthropic_key: str = "anthropic", gemini_key: str = "gemini", openrouter_key: str = "openrouter"):
+def _settings(
+    tmp_path,
+    anthropic_key: str = "anthropic",
+    gemini_key: str = "gemini",
+    openrouter_key: str = "openrouter",
+    deepseek_key: str = "",
+):
     return SimpleNamespace(
         anthropic_api_key=anthropic_key,
         gemini_api_key=gemini_key,
+        google_oauth_access_token="",
         openrouter_api_key=openrouter_key,
+        deepseek_api_key=deepseek_key,
+        google_application_credentials="",
+        google_cloud_project="",
+        gemini_use_adc=False,
         data_dir=tmp_path,
     )
 
@@ -121,6 +132,123 @@ def test_generate_bulk(sample_seed_record, tmp_path):
     assert records[0]["seed_id"]
 
 
+def test_generate_bulk_uses_adc_when_configured(sample_seed_record, tmp_path, monkeypatch):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": json.dumps([_make_record("task_scam", 1)])}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    class FakeCredentials:
+        valid = False
+        token = None
+        quota_project_id = None
+
+        def refresh(self, request):
+            self.valid = True
+            self.token = "adc-token"
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["url"] = url
+        request_capture["headers"] = kwargs.get("headers")
+        request_capture["params"] = kwargs.get("params")
+        return response
+
+    monkeypatch.setattr(
+        "src.data_pipeline.generation.gemini_auth._load_google_credentials",
+        lambda credentials_path, scopes: (FakeCredentials(), "quota-project"),
+    )
+    settings = _settings(tmp_path, gemini_key="")
+    settings.google_application_credentials = "creds.json"
+    settings.google_cloud_project = "quota-project"
+    settings.gemini_use_adc = True
+    generator = TieredGenerator(
+        settings=settings,
+        http_client=SimpleNamespace(post=fake_post),
+    )
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert records[0]["source"] == "synthetic_gemini"
+    assert request_capture["params"] is None
+    assert request_capture["headers"]["Authorization"] == "Bearer adc-token"
+    assert request_capture["headers"]["x-goog-user-project"] == "quota-project"
+
+
+def test_generate_bulk_uses_oauth_access_token_when_configured(sample_seed_record, tmp_path):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": json.dumps([_make_record("task_scam", 1)])}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["url"] = url
+        request_capture["headers"] = kwargs.get("headers")
+        request_capture["params"] = kwargs.get("params")
+        return response
+
+    settings = _settings(tmp_path, gemini_key="")
+    settings.google_oauth_access_token = "oauth-token"
+    settings.google_cloud_project = "project-37c29ced-23da-4655-aff"
+    generator = TieredGenerator(settings=settings, http_client=SimpleNamespace(post=fake_post))
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert records[0]["source"] == "synthetic_gemini"
+    assert request_capture["params"] is None
+    assert request_capture["headers"]["Authorization"] == "Bearer oauth-token"
+    assert request_capture["headers"]["x-goog-user-project"] == "project-37c29ced-23da-4655-aff"
+
+
+def test_generate_bulk_prefers_adc_over_oauth_token_when_adc_is_explicit(sample_seed_record, tmp_path, monkeypatch):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": json.dumps([_make_record("task_scam", 1)])}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    class FakeCredentials:
+        valid = False
+        token = None
+        quota_project_id = None
+
+        def refresh(self, request):
+            self.valid = True
+            self.token = "adc-token"
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["headers"] = kwargs.get("headers")
+        return response
+
+    monkeypatch.setattr(
+        "src.data_pipeline.generation.gemini_auth._load_google_credentials",
+        lambda credentials_path, scopes: (FakeCredentials(), "quota-project"),
+    )
+    settings = _settings(tmp_path, gemini_key="")
+    settings.google_oauth_access_token = "stale-oauth-token"
+    settings.google_cloud_project = "quota-project"
+    settings.gemini_use_adc = True
+    generator = TieredGenerator(settings=settings, http_client=SimpleNamespace(post=fake_post))
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert records[0]["source"] == "synthetic_gemini"
+    assert request_capture["headers"]["Authorization"] == "Bearer adc-token"
+
+
 def test_generate_bulk_falls_back_to_openrouter(sample_seed_record, tmp_path):
     response = SimpleNamespace(
         raise_for_status=lambda: None,
@@ -139,6 +267,28 @@ def test_generate_bulk_falls_back_to_openrouter(sample_seed_record, tmp_path):
     records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
 
     assert records[0]["source"] == "synthetic_openrouter"
+
+
+def test_generate_bulk_uses_deepseek_when_configured(sample_seed_record, tmp_path):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "choices": [
+                {"message": {"content": json.dumps([_make_record("task_scam", 1, source="synthetic_deepseek")])}}
+            ]
+        },
+    )
+    http_client = SimpleNamespace(post=lambda *args, **kwargs: response)
+    generator = TieredGenerator(
+        settings=_settings(tmp_path, gemini_key="", openrouter_key="", deepseek_key="deepseek"),
+        http_client=http_client,
+        bulk_provider="deepseek",
+    )
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert len(records) == 1
+    assert records[0]["source"] == "synthetic_deepseek"
 
 
 def test_generate_bulk_falls_back_to_openrouter_when_gemini_request_fails(sample_seed_record, tmp_path):
@@ -258,15 +408,15 @@ def test_generate_dataset_batches_large_requests(sample_seed_record, tmp_path):
     records = generator.generate_dataset([sample_seed_record], target_count=250)
 
     assert len(records) == 250
-    assert max(complex_batch_sizes) <= 5
-    assert max(bulk_batch_sizes) <= 10
+    assert max(complex_batch_sizes) <= 3
+    assert max(bulk_batch_sizes) <= 5
     assert len(complex_batch_sizes) > len(THREAT_CLASSES)
     assert len(bulk_batch_sizes) > len(THREAT_CLASSES)
 
 
 def test_generate_dataset_writes_checkpoint_and_partial_output(sample_seed_record, tmp_path):
     generator = TieredGenerator(settings=_settings(tmp_path))
-    checkpoint_path = tmp_path / "synthetic" / ".checkpoint.jsonl"
+    checkpoint_dir = tmp_path / "synthetic"
     partial_output_path = tmp_path / "synthetic" / "generated-partial.jsonl"
     progress_messages: list[str] = []
 
@@ -282,24 +432,26 @@ def test_generate_dataset_writes_checkpoint_and_partial_output(sample_seed_recor
     records = generator.generate_dataset(
         [sample_seed_record],
         target_count=20,
-        checkpoint_path=checkpoint_path,
+        checkpoint_path=checkpoint_dir,
         partial_output_path=partial_output_path,
         progress_callback=progress_messages.append,
     )
 
+    checkpoint_files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
     assert len(records) == 20
-    assert checkpoint_path.exists()
+    assert checkpoint_files, "Expected at least one numbered checkpoint file"
+    latest_checkpoint = checkpoint_files[-1]
+    assert len(latest_checkpoint.read_text(encoding="utf-8").splitlines()) == 8
     assert partial_output_path.exists()
-    assert len(checkpoint_path.read_text(encoding="utf-8").splitlines()) == 8
     assert len(partial_output_path.read_text(encoding="utf-8").splitlines()) == 20
     assert progress_messages
 
 
 def test_generate_dataset_resume_skips_completed_batches(sample_seed_record, tmp_path):
     generator = TieredGenerator(settings=_settings(tmp_path))
-    checkpoint_path = tmp_path / "synthetic" / ".checkpoint.jsonl"
+    checkpoint_dir = tmp_path / "synthetic"
     partial_output_path = tmp_path / "synthetic" / "generated-partial.jsonl"
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     restored_record = _make_record("bank_impersonation", 99)
     checkpoint_entry = {
@@ -314,7 +466,9 @@ def test_generate_dataset_resume_skips_completed_batches(sample_seed_record, tmp
         "timestamp": "2026-05-04T00:00:00Z",
         "records": [restored_record],
     }
-    checkpoint_path.write_text(json.dumps(checkpoint_entry, ensure_ascii=False) + "\n", encoding="utf-8")
+    (checkpoint_dir / "checkpoint-001.jsonl").write_text(
+        json.dumps(checkpoint_entry, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
     call_log: list[tuple[str, str, int]] = []
 
@@ -332,7 +486,7 @@ def test_generate_dataset_resume_skips_completed_batches(sample_seed_record, tmp
     records = generator.generate_dataset(
         [sample_seed_record],
         target_count=20,
-        checkpoint_path=checkpoint_path,
+        checkpoint_path=checkpoint_dir,
         partial_output_path=partial_output_path,
         resume=True,
     )
@@ -353,15 +507,18 @@ def test_save_generated_writes_jsonl(tmp_path):
     assert saved_path.read_text(encoding="utf-8").count("\n") == 1
 
 
-def test_compare_models_includes_claude_gemini_and_openrouter(sample_seed_record, tmp_path):
+def test_compare_models_includes_claude_gemini_openrouter_and_deepseek(sample_seed_record, tmp_path):
     generator = TieredGenerator(settings=_settings(tmp_path), anthropic_client=object())
     generator._call_claude = lambda prompt: [_make_record("bank_impersonation", 1)]
     generator._call_gemini = lambda prompt: [_make_record("bank_impersonation", 1, source="synthetic_gemini")]
     generator._call_openrouter = lambda prompt: [_make_record("bank_impersonation", 1, source="synthetic_openrouter")]
+    generator.deepseek_api_key = "deepseek"
+    generator._call_deepseek = lambda prompt: [_make_record("bank_impersonation", 1, source="synthetic_deepseek")]
 
     comparison = generator.compare_models(sample_seed_record, "bank_impersonation")
 
-    assert set(comparison) == {"claude", "gemini", "openrouter"}
+    assert set(comparison) == {"claude", "gemini", "openrouter", "deepseek"}
     assert comparison["claude"]["notes"]
     assert comparison["gemini"]["notes"]
     assert comparison["openrouter"]["notes"]
+    assert comparison["deepseek"]["notes"]

@@ -11,7 +11,14 @@ from src.data_pipeline.generation.quality_judge import CLAUDE_MODEL, GEMINI_MODE
 
 
 def _settings(gemini_key: str = "gemini", anthropic_key: str = "anthropic"):
-    return SimpleNamespace(gemini_api_key=gemini_key, anthropic_api_key=anthropic_key)
+    return SimpleNamespace(
+        gemini_api_key=gemini_key,
+        google_oauth_access_token="",
+        anthropic_api_key=anthropic_key,
+        google_application_credentials="",
+        google_cloud_project="",
+        gemini_use_adc=False,
+    )
 
 
 def _response_text(realism: int, label_correctness: int, code_switch_naturalness: int, reason: str) -> str:
@@ -153,6 +160,20 @@ def test_uses_different_model_than_generator():
     assert claude_judge._select_judge_model("synthetic_gemini") == CLAUDE_MODEL
 
 
+def test_selects_gemini_when_adc_is_configured():
+    judge = QualityJudge(
+        settings=SimpleNamespace(
+            gemini_api_key="",
+            anthropic_api_key="anthropic",
+            google_application_credentials="creds.json",
+            google_cloud_project="quota-project",
+            gemini_use_adc=True,
+        )
+    )
+
+    assert judge._select_judge_model("synthetic_claude") == GEMINI_MODEL
+
+
 def test_judge_falls_back_to_claude_when_gemini_is_disabled(sample_dataset_record):
     request = httpx.Request("POST", "https://generativelanguage.googleapis.com")
     gemini_error = httpx.HTTPStatusError(
@@ -177,3 +198,123 @@ def test_judge_falls_back_to_claude_when_gemini_is_disabled(sample_dataset_recor
 
     assert verdict.pass_verdict is True
     assert verdict.reason == "Claude fallback"
+
+
+def test_judge_uses_adc_when_configured(sample_dataset_record, monkeypatch):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, "ADC Gemini")}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    class FakeCredentials:
+        valid = False
+        token = None
+        quota_project_id = None
+
+        def refresh(self, request):
+            self.valid = True
+            self.token = "adc-token"
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["headers"] = kwargs.get("headers")
+        request_capture["params"] = kwargs.get("params")
+        return response
+
+    monkeypatch.setattr(
+        "src.data_pipeline.generation.gemini_auth._load_google_credentials",
+        lambda credentials_path, scopes: (FakeCredentials(), "quota-project"),
+    )
+    judge = QualityJudge(
+        settings=SimpleNamespace(
+            gemini_api_key="",
+            anthropic_api_key="anthropic",
+            google_application_credentials="creds.json",
+            google_cloud_project="quota-project",
+            gemini_use_adc=True,
+        ),
+        http_client=SimpleNamespace(post=fake_post),
+    )
+    record = sample_dataset_record.model_dump() | {"source": "synthetic_claude"}
+
+    verdict = judge.judge_record(record)
+
+    assert verdict.pass_verdict is True
+    assert verdict.reason == "ADC Gemini"
+    assert request_capture["params"] is None
+    assert request_capture["headers"]["Authorization"] == "Bearer adc-token"
+
+
+def test_judge_uses_oauth_access_token_when_configured(sample_dataset_record):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, "OAuth Gemini")}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["headers"] = kwargs.get("headers")
+        request_capture["params"] = kwargs.get("params")
+        return response
+
+    settings = _settings(gemini_key="", anthropic_key="")
+    settings.google_oauth_access_token = "oauth-token"
+    settings.google_cloud_project = "project-37c29ced-23da-4655-aff"
+    judge = QualityJudge(settings=settings, http_client=SimpleNamespace(post=fake_post))
+
+    verdict = judge.judge_record(sample_dataset_record.model_dump() | {"source": "synthetic_claude"})
+
+    assert verdict.pass_verdict is True
+    assert verdict.reason == "OAuth Gemini"
+    assert request_capture["params"] is None
+    assert request_capture["headers"]["Authorization"] == "Bearer oauth-token"
+    assert request_capture["headers"]["x-goog-user-project"] == "project-37c29ced-23da-4655-aff"
+
+
+def test_judge_prefers_adc_over_oauth_token_when_adc_is_explicit(sample_dataset_record, monkeypatch):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "candidates": [
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, "ADC beats stale token")}]}}
+            ]
+        },
+    )
+    request_capture: dict[str, object] = {}
+
+    class FakeCredentials:
+        valid = False
+        token = None
+        quota_project_id = None
+
+        def refresh(self, request):
+            self.valid = True
+            self.token = "adc-token"
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["headers"] = kwargs.get("headers")
+        return response
+
+    monkeypatch.setattr(
+        "src.data_pipeline.generation.gemini_auth._load_google_credentials",
+        lambda credentials_path, scopes: (FakeCredentials(), "quota-project"),
+    )
+    settings = _settings(gemini_key="", anthropic_key="")
+    settings.google_oauth_access_token = "stale-oauth-token"
+    settings.google_cloud_project = "quota-project"
+    settings.gemini_use_adc = True
+    judge = QualityJudge(settings=settings, http_client=SimpleNamespace(post=fake_post))
+
+    verdict = judge.judge_record(sample_dataset_record.model_dump() | {"source": "synthetic_claude"})
+
+    assert verdict.pass_verdict is True
+    assert verdict.reason == "ADC beats stale token"
+    assert request_capture["headers"]["Authorization"] == "Bearer adc-token"
