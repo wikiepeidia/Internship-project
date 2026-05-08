@@ -1,5 +1,6 @@
 """Prompt builders for tiered synthetic dataset generation and judging."""
 
+import json
 from textwrap import dedent
 
 
@@ -58,29 +59,46 @@ def build_bulk_prompt(seed_text: str, threat_class: str, count: int = 10) -> str
     ).strip()
 
 
-def build_judge_prompt(record_text: str, record_label: str, record_explanation: str) -> str:
+def build_judge_prompt(
+        record_text: str,
+        record_label: str,
+        record_risk_tier: str,
+        record_suspicious_spans: list[str],
+        record_explanation: str,
+) -> str:
     """Build the LLM-as-judge prompt for synthetic sample validation."""
     return dedent(
         f"""
-    Validate this synthetic Vietnamese financial messaging sample.
+                Validate this synthetic Vietnamese financial messaging sample.
 
         Text:
         {record_text}
 
         Label: {record_label}
+                Risk tier: {record_risk_tier}
+                Suspicious spans: {json.dumps(record_suspicious_spans, ensure_ascii=False)}
         Explanation:
         {record_explanation}
 
-        Score realism, label_correctness, and code_switch_naturalness from 1 to 5.
-        Mark pass true only if all three scores are at least 3.
+                Score these dimensions from 1 to 5:
+                - realism
+                - label_correctness
+                - code_switch_naturalness
+                - risk_tier_correctness
+                - suspicious_span_accuracy
+
+                For suspicious_span_accuracy, score whether the spans are exact substrings from the text and whether they point to genuinely suspicious cues.
+                Mark pass true only if all five scores are at least 3.
 
         Return ONLY this JSON object:
         {{
           "realism": 1,
           "label_correctness": 1,
           "code_switch_naturalness": 1,
+                    "risk_tier_correctness": 1,
+                    "suspicious_span_accuracy": 1,
           "pass": false,
-          "reason": "brief reason"
+                    "reason": "very short reason, max 18 words"
         }}
         """
     ).strip()

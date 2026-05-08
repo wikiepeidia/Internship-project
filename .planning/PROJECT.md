@@ -12,7 +12,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Validated
 
-- Phase 1 complete (2026-04-20): reproducible data foundation established with seed scraping, synthetic generation, quality judging, deterministic split governance, and SHA256 manifest verification.
+- Phase 1 complete and closed (implementation 2026-04-20, retained artifact closure 2026-05-07): reproducible data foundation established with seed scraping, synthetic generation, recovered-artifact curation, quality judging, deterministic split governance, and SHA256 manifest verification.
 
 ### Active
 
@@ -41,7 +41,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
-|----------|-----------|---------|
+| ---------- | ----------- | ------- |
 | Keep v1 strictly text-only | Tight scope improves delivery speed and quality for highest-risk channel | — Pending |
 | Use localized domain fine-tuning instead of general cloud prompting | Better fit for Vietnamese fraud patterns and privacy requirements | — Pending |
 | Optimize baseline runtime for consumer laptops via GGUF quantization | Enables broad real-world access without dedicated GPU | — Pending |
@@ -50,9 +50,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 ## Current State
 
-- Phase 1 is complete and verified.
-- The project now has a governed dataset pipeline: seed scraping, synthetic data generation, quality gating, deterministic train/val/test splitting, and manifest-based integrity verification.
+- Phase 1 is complete, closed in tracking, and verified against the retained recovered artifact set.
+- The project now has a governed dataset pipeline plus a retained recovered Phase 1 dataset lineage: `data/processed/recovered-balanced-validated-claude-v2.jsonl`, governed splits under `data/splits/recovered-balanced-claude-v2/`, and `data/manifests/manifest-phase1-recovered-balanced-claude-v2.json`.
 - Next focus: Phase 2 offline text ingestion and privacy baseline.
 
 ---
-*Last updated: 2026-04-20 after Phase 1 completion*
+Last updated: 2026-05-07 after Phase 1 close-out

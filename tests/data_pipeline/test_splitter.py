@@ -41,6 +41,20 @@ def test_split_dataset_preserves_all_records(sample_validated_records):
     assert sum(len(records) for records in splits.values()) == len(sample_validated_records)
 
 
+def test_split_dataset_uses_all_splits_when_seed_pool_allows(sample_validated_records):
+    limited_seed_records = [
+        record
+        for record in sample_validated_records
+        if record["seed_id"] in {"seed-0", "seed-1", "seed-2", "seed-3"}
+    ]
+
+    splits = split_dataset(limited_seed_records, salt="small-seed-pool")
+
+    assert len(splits["train"]) == 8
+    assert len(splits["val"]) == 4
+    assert len(splits["test"]) == 4
+
+
 def test_split_and_dedup(sample_validated_records, monkeypatch):
     extra_records = sample_validated_records + [
         {

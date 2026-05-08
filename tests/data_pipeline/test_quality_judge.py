@@ -21,13 +21,31 @@ def _settings(gemini_key: str = "gemini", anthropic_key: str = "anthropic"):
     )
 
 
-def _response_text(realism: int, label_correctness: int, code_switch_naturalness: int, reason: str) -> str:
+def _response_text(
+    realism: int,
+    label_correctness: int,
+    code_switch_naturalness: int,
+    risk_tier_correctness: int,
+    suspicious_span_accuracy: int,
+    reason: str,
+) -> str:
     return json.dumps(
         {
             "realism": realism,
             "label_correctness": label_correctness,
             "code_switch_naturalness": code_switch_naturalness,
-            "pass": realism >= 3 and label_correctness >= 3 and code_switch_naturalness >= 3,
+            "risk_tier_correctness": risk_tier_correctness,
+            "suspicious_span_accuracy": suspicious_span_accuracy,
+            "pass": all(
+                value >= 3
+                for value in (
+                    realism,
+                    label_correctness,
+                    code_switch_naturalness,
+                    risk_tier_correctness,
+                    suspicious_span_accuracy,
+                )
+            ),
             "reason": reason,
         }
     )
@@ -38,7 +56,7 @@ def test_judge_record_pass(sample_dataset_record):
         raise_for_status=lambda: None,
         json=lambda: {
             "candidates": [
-                {"content": {"parts": [{"text": _response_text(4, 4, 5, "Looks realistic")}]}}
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, 4, 5, "Looks realistic")}]}}
             ]
         },
     )
@@ -52,6 +70,8 @@ def test_judge_record_pass(sample_dataset_record):
 
     assert verdict.pass_verdict is True
     assert verdict.realism == 4
+    assert verdict.risk_tier_correctness == 4
+    assert verdict.suspicious_span_accuracy == 5
 
 
 def test_judge_record_fail(sample_dataset_record):
@@ -59,7 +79,7 @@ def test_judge_record_fail(sample_dataset_record):
         raise_for_status=lambda: None,
         json=lambda: {
             "candidates": [
-                {"content": {"parts": [{"text": _response_text(2, 4, 4, "Too templated")}]}}
+                {"content": {"parts": [{"text": _response_text(2, 4, 4, 4, 4, "Too templated")}]}}
             ]
         },
     )
@@ -85,6 +105,8 @@ def test_filter_passed(sample_dataset_record, sample_benign_record):
         realism=4,
         label_correctness=4,
         code_switch_naturalness=4,
+        risk_tier_correctness=4,
+        suspicious_span_accuracy=4,
         pass_verdict=record["label"] != "benign",
         reason="ok",
     )
@@ -105,6 +127,8 @@ def test_quality_stats(sample_dataset_record, sample_benign_record):
                 realism=5,
                 label_correctness=4,
                 code_switch_naturalness=5,
+                risk_tier_correctness=5,
+                suspicious_span_accuracy=4,
                 pass_verdict=True,
                 reason="good",
             ),
@@ -115,6 +139,8 @@ def test_quality_stats(sample_dataset_record, sample_benign_record):
                 realism=2,
                 label_correctness=3,
                 code_switch_naturalness=2,
+                risk_tier_correctness=3,
+                suspicious_span_accuracy=2,
                 pass_verdict=False,
                 reason="weak",
             ),
@@ -127,6 +153,8 @@ def test_quality_stats(sample_dataset_record, sample_benign_record):
     assert stats.avg_realism == 3.5
     assert stats.avg_label_correctness == 3.5
     assert stats.avg_code_switch_naturalness == 3.5
+    assert stats.avg_risk_tier_correctness == 4.0
+    assert stats.avg_suspicious_span_accuracy == 3.0
 
 
 def test_filter_passed_emits_progress(sample_dataset_record):
@@ -139,6 +167,8 @@ def test_filter_passed_emits_progress(sample_dataset_record):
                 realism=4,
                 label_correctness=4,
                 code_switch_naturalness=4,
+                risk_tier_correctness=4,
+                suspicious_span_accuracy=4,
                 pass_verdict=True,
                 reason="ok",
             ),
@@ -184,7 +214,7 @@ def test_judge_falls_back_to_claude_when_gemini_is_disabled(sample_dataset_recor
 
     anthropic_client = SimpleNamespace(
         messages=SimpleNamespace(
-            create=lambda **_: SimpleNamespace(content=[SimpleNamespace(text=_response_text(4, 4, 4, "Claude fallback"))])
+            create=lambda **_: SimpleNamespace(content=[SimpleNamespace(text=_response_text(4, 4, 4, 4, 4, "Claude fallback"))])
         )
     )
     judge = QualityJudge(
@@ -205,7 +235,7 @@ def test_judge_uses_adc_when_configured(sample_dataset_record, monkeypatch):
         raise_for_status=lambda: None,
         json=lambda: {
             "candidates": [
-                {"content": {"parts": [{"text": _response_text(4, 4, 5, "ADC Gemini")}]}}
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, 4, 4, "ADC Gemini")}]}}
             ]
         },
     )
@@ -254,7 +284,7 @@ def test_judge_uses_oauth_access_token_when_configured(sample_dataset_record):
         raise_for_status=lambda: None,
         json=lambda: {
             "candidates": [
-                {"content": {"parts": [{"text": _response_text(4, 4, 5, "OAuth Gemini")}]}}
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, 4, 4, "OAuth Gemini")}]}}
             ]
         },
     )
@@ -284,7 +314,7 @@ def test_judge_prefers_adc_over_oauth_token_when_adc_is_explicit(sample_dataset_
         raise_for_status=lambda: None,
         json=lambda: {
             "candidates": [
-                {"content": {"parts": [{"text": _response_text(4, 4, 5, "ADC beats stale token")}]}}
+                {"content": {"parts": [{"text": _response_text(4, 4, 5, 4, 4, "ADC beats stale token")}]}}
             ]
         },
     )

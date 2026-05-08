@@ -23,7 +23,7 @@ CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 JUDGE_PROGRESS_INTERVAL = 25
-JUDGE_MAX_TOKENS = 180
+JUDGE_MAX_TOKENS = 260
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
@@ -44,6 +44,8 @@ class JudgeVerdict(BaseModel):
     realism: int = Field(ge=1, le=5)
     label_correctness: int = Field(ge=1, le=5)
     code_switch_naturalness: int = Field(ge=1, le=5)
+    risk_tier_correctness: int = Field(ge=1, le=5)
+    suspicious_span_accuracy: int = Field(ge=1, le=5)
     pass_verdict: bool
     reason: str
 
@@ -58,6 +60,8 @@ class QualityStats(BaseModel):
     avg_realism: float
     avg_label_correctness: float
     avg_code_switch_naturalness: float
+    avg_risk_tier_correctness: float
+    avg_suspicious_span_accuracy: float
 
 
 class QualityJudge:
@@ -83,18 +87,28 @@ class QualityJudge:
         prompt = build_judge_prompt(
             record_text=record["text"],
             record_label=record["label"],
+            record_risk_tier=record["risk_tier"],
+            record_suspicious_spans=record.get("suspicious_spans", []),
             record_explanation=record["xai_explanation"],
         )
         model = self._select_judge_model(record.get("source"))
         result = _extract_json_object(self._call_judge(prompt, model))
         pass_verdict = all(
             result.get(metric, 0) >= 3
-            for metric in ("realism", "label_correctness", "code_switch_naturalness")
+            for metric in (
+                "realism",
+                "label_correctness",
+                "code_switch_naturalness",
+                "risk_tier_correctness",
+                "suspicious_span_accuracy",
+            )
         )
         return JudgeVerdict(
             realism=result["realism"],
             label_correctness=result["label_correctness"],
             code_switch_naturalness=result["code_switch_naturalness"],
+            risk_tier_correctness=result["risk_tier_correctness"],
+            suspicious_span_accuracy=result["suspicious_span_accuracy"],
             pass_verdict=pass_verdict,
             reason=result.get("reason", ""),
         )
@@ -136,6 +150,12 @@ class QualityJudge:
             ),
             avg_code_switch_naturalness=(
                 sum(verdict.code_switch_naturalness for verdict in verdicts) / max(len(verdicts), 1)
+            ),
+            avg_risk_tier_correctness=(
+                sum(verdict.risk_tier_correctness for verdict in verdicts) / max(len(verdicts), 1)
+            ),
+            avg_suspicious_span_accuracy=(
+                sum(verdict.suspicious_span_accuracy for verdict in verdicts) / max(len(verdicts), 1)
             ),
         )
         return passed_records, stats

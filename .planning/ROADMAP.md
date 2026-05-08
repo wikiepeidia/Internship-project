@@ -25,7 +25,7 @@
 2. Team can generate and review a curated synthetic dataset in the 2,000-3,000 JSONL target band.
 3. Every dataset build is versioned with reproducible lineage and split definitions that prevent train/eval leakage.
 4. Evaluators can reproduce the same train/validation/test splits from versioned artifacts on another machine.
-**Plans**: 4 plans
+**Plans**: 6 plans
 
 Plans:
 
@@ -33,6 +33,8 @@ Plans:
 - [x] 01-02-PLAN.md -- NCSC seed scraper with BS4/Playwright, text normalizer, seed JSONL output
 - [x] 01-03-PLAN.md -- Tiered LLM synthetic generation pipeline with quality judge
 - [x] 01-04-PLAN.md -- Split governance, semantic dedup, SHA256 versioning, pipeline orchestrator
+- [x] 01-05-PLAN.md -- Repo-level Phase 1 CLI and retained-seed operator flow
+- [x] 01-06-PLAN.md -- Retained artifact gap closure and final recovered dataset lineage
 
 ### Phase 2: Offline Text Ingestion and Privacy Baseline
 
@@ -90,8 +92,8 @@ Plans:
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Data Foundation and Split Governance | 4/4 | Complete | 2026-04-20 |
+| ----- | ---------------- | ------ | --------- |
+| 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 0/TBD | Not started | - |
 | 3. Local Model Adaptation and Deployment Paths | 0/TBD | Not started | - |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |

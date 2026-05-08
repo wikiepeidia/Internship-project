@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: waiting-review
-last_updated: "2026-05-05T11:45:00.000Z"
+status: phase1-closed
+last_updated: "2026-05-07T00:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 9
-  completed_plans: 5
-  percent: 56
+  completed_plans: 6
+  percent: 67
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -25,13 +25,13 @@ progress:
 
 ## Current Position
 
-Phase: 01 (data-foundation-and-split-governance) — WAITING FOR JUDGE
-Plan: dataset review gate
+Phase: 01 (data-foundation-and-split-governance) — CLOSED
+Plan: Phase 1 retained artifact set finalized
 
 - Current phase: 1 - Data Foundation and Split Governance
-- Current plan: Hold Phase 2 execution while the recovered Phase 1 dataset is judged and curated.
-- Project status: Phase 1 implementation work is complete. Recovery and offline optimization produced a merged corpus above the 3,000-record target band and a balanced salvage subset for review; the next decision gate is judging, not more generation.
-- Overall progress: Phase 1 generation target reached via recovered artifacts; judging and final acceptance are still pending before Phase 2 execution resumes.
+- Current plan: Phase 1 tracking is closed on the recovered retained artifact lineage, and the next actionable work is Phase 2.
+- Project status: Phase 1 now has a final accepted judged dataset at 956 records, balanced at 239 per class, stored under `data/processed/recovered-balanced-validated-claude-v2.jsonl`, plus governed retained splits at `data/splits/recovered-balanced-claude-v2/` and a verified manifest at `data/manifests/manifest-phase1-recovered-balanced-claude-v2.json`.
+- Overall progress: Phase 1 implementation, recovery, judging, and retained artifact closure are complete; the project is ready to transition into Phase 2.
 - Progress bar: [=----] 20%
 
 ## Performance Metrics (Baseline Targets)
@@ -66,7 +66,7 @@ Plan: dataset review gate
 
 ## Session Continuity
 
-- Last session: 2026-05-05
-- Stopped at: Recovered and merged historical synthetic artifacts into a 3,074-record exact-unique corpus, produced a 956-record balanced offline subset capped by benign scarcity, and confirmed the current checkpoint files should be treated as salvage artifacts rather than authoritative resume state.
+- Last session: 2026-05-07
+- Stopped at: Patched the Phase 1 judge to score `risk_tier` and `suspicious_spans`, ran Claude on `data/synthetic/recovered-balanced.jsonl`, repaired the rejected benign metadata mismatch, accepted the final 956-record balanced judged set as the Phase 1 review artifact, then fixed the small-seed split allocation bug and rebuilt downstream outputs. The accepted judged set now produces 891 retained split records after dedup, with train=476, val=207, test=208, and the manifest verifies cleanly.
 - Resume file: .planning/debug/checkpoint-split-w-fix.md
-- Next command: Judge the recovered Phase 1 dataset, then decide whether to accept the balanced salvage set or top up benign coverage before resuming Phase 2.
+- Next command: Begin Phase 2 planning or execution.
