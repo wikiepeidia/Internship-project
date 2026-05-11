@@ -1,0 +1,150 @@
+{
+  "phase": "2",
+  "phase_name": "Offline Text Ingestion and Privacy Baseline",
+  "timestamp": "2026-05-04T14:32:38+07:00",
+  "areas_completed": [
+    "User entry surface",
+    "Offline baseline result",
+    "Privacy and failure behavior",
+    "Cue presentation style",
+    "Local setup and diagnostics experience"
+  ],
+  "areas_remaining": [],
+  "decisions": {
+    "User entry surface": [
+      {
+        "question": "What should the first user-facing entry surface be for Phase 2?",
+        "answer": "CLI first, backed by a reusable Python service",
+        "options_presented": [
+          "CLI first, backed by a reusable Python service",
+          "Python service/API only",
+          "Simple local web UI now"
+        ]
+      },
+      {
+        "question": "How should people use that surface in v1?",
+        "answer": "Analyze one pasted message at a time",
+        "options_presented": [
+          "Analyze one pasted message at a time",
+          "Support both single-message and batch input in Phase 2",
+          "Interactive session mode"
+        ]
+      },
+      {
+        "question": "How opinionated should the launch flow be?",
+        "answer": "One obvious command with minimal flags",
+        "options_presented": [
+          "One obvious command with minimal flags",
+          "Command plus advanced flags from day one",
+          "Expose both a simple mode and an advanced mode immediately"
+        ]
+      }
+    ],
+    "Offline baseline result": [
+      {
+        "question": "Before Phase 3/4 model work exists, what should Phase 2 use to produce a usable offline result?",
+        "answer": "Local heuristic/rule-based screener behind a reusable analyzer interface",
+        "options_presented": [
+          "Local heuristic/rule-based screener behind a reusable analyzer interface",
+          "Validation-only intake with no verdict yet",
+          "Bundle a lightweight local model immediately"
+        ]
+      },
+      {
+        "question": "How should that baseline communicate risk?",
+        "answer": "Use the same three tiers as the dataset schema, but mark them as provisional",
+        "options_presented": [
+          "Use the same three tiers as the dataset schema, but mark them as provisional",
+          "Use softer screening labels such as low concern / review / suspicious",
+          "Binary suspicious vs not suspicious only"
+        ]
+      },
+      {
+        "question": "What should the user actually see from that baseline result?",
+        "answer": "A short human-readable summary plus the top suspicious cues",
+        "options_presented": [
+          "A short human-readable summary plus the top suspicious cues",
+          "Structured JSON-style output only",
+          "A plain text verdict only"
+        ]
+      }
+    ],
+    "Privacy and failure behavior": [
+      {
+        "question": "What should happen to raw submitted messages by default?",
+        "answer": "Do not persist raw messages by default",
+        "options_presented": [
+          "Do not persist raw messages by default",
+          "Keep an explicit local history by default",
+          "Save only sanitized/redacted copies by default"
+        ]
+      },
+      {
+        "question": "How strict should the text-only boundary be in Phase 2?",
+        "answer": "Reject non-text input and tell the user to paste extracted text manually",
+        "options_presented": [
+          "Reject non-text input and tell the user to paste extracted text manually",
+          "Accept non-text placeholders and warn that analysis is incomplete",
+          "Try to infer meaning from filenames or attachment descriptions"
+        ]
+      },
+      {
+        "question": "What should happen if the local analyzer is unavailable or errors out?",
+        "answer": "Fail closed with clear local setup/error guidance and no cloud fallback",
+        "options_presented": [
+          "Fail closed with clear local setup/error guidance and no cloud fallback",
+          "Offer an explicit opt-in cloud fallback",
+          "Return a generic warning with no setup guidance"
+        ]
+      }
+    ],
+    "Cue presentation style": [
+      {
+        "question": "How should the Phase 2 summary present suspicious cues?",
+        "answer": "Quote exact text spans and add a short plain-language reason for each",
+        "options_presented": [
+          "Quote exact text spans and add a short plain-language reason for each",
+          "Show generalized reasons only",
+          "Quote exact spans only"
+        ]
+      },
+      {
+        "question": "How much cue detail should the baseline show?",
+        "answer": "Show the top 3 cues at most",
+        "options_presented": [
+          "Show the top 3 cues at most",
+          "Show only the single strongest cue",
+          "Show every detected cue"
+        ]
+      }
+    ],
+    "Local setup and diagnostics experience": [
+      {
+        "question": "What should the main analyze command do if the local analyzer environment is not ready?",
+        "answer": "Run a self-check and print exact local setup steps automatically",
+        "options_presented": [
+          "Run a self-check and print exact local setup steps automatically",
+          "Fail immediately and tell the user to run a separate diagnostic command",
+          "Assume the environment is prepared and return a generic error"
+        ]
+      },
+      {
+        "question": "Should Phase 2 also include a dedicated local diagnostics/helper path?",
+        "answer": "Yes, add a simple explicit doctor/check command alongside the main command",
+        "options_presented": [
+          "Yes, add a simple explicit doctor/check command alongside the main command",
+          "No, keep everything inside the one analyze command only",
+          "Add a heavier interactive setup wizard"
+        ]
+      }
+    ]
+  },
+  "deferred_ideas": [],
+  "canonical_refs": [
+    ".planning/PROJECT.md",
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/phases/01-data-foundation-and-split-governance/01-CONTEXT.md"
+  ]
+}

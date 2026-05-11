@@ -16,7 +16,6 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Build an offline-first text-only threat analysis pipeline for Vietnamese and mixed Vietnamese-English scam messages.
 - [ ] Generate explainable structured outputs with threat reasoning and clear user recommendations.
 - [ ] Achieve production-ready local inference with strong phishing recall and robust end-to-end evaluation.
 
@@ -27,14 +26,14 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ## Context
 
-The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The initial data pipeline will scrape seed threats from Vietnam NCSC, expand to 2,000-3,000 synthetic JSONL samples via frontier LLM API, then fine-tune an open 8B model with LoRA, quantize to GGUF for local inference, and evaluate against an F1 target of >= 0.85 with recall emphasized.
+The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The initial data pipeline will scrape seed threats from Vietnam NCSC, expand to 2,000-3,000 synthetic JSONL samples via frontier LLM API, then fine-tune an open local model family with LoRA through a 4B-primary path for 8GB VRAM, quantize selected artifacts to GGUF for local inference, and evaluate against an F1 target of >= 0.85 with recall emphasized.
 
 ## Constraints
 
 - **Input Scope**: Raw text only (Vietnamese + mixed Vietnamese-English) — maintain strict v1 boundaries and reduce implementation surface.
 - **Privacy**: Offline-capable inference for user-facing checks — sensitive financial text should not require cloud API submission.
 - **Deployment Target**: Consumer laptops (CPU/iGPU) as baseline with GGUF quantization; optional prosumer GPU acceleration — maximize practical accessibility.
-- **Model Strategy**: Parameter-efficient LoRA fine-tuning on open-source 8B model — balance capability with local deployment feasibility.
+- **Model Strategy**: Parameter-efficient LoRA fine-tuning on an open-source local model family with a 4B-primary path and optional larger comparison candidates — balance capability with local deployment feasibility.
 - **Data Source Dependency**: NCSC seed extraction quality impacts downstream synthetic data quality — pipeline reliability is critical.
 - **Evaluation Policy**: Balanced acceptance gate (recall, explanation quality, latency), with aggressive recall priority — reduce false negatives in safety-critical context.
 
@@ -50,9 +49,10 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 ## Current State
 
-- Phase 1 is complete, closed in tracking, and verified against the retained recovered artifact set.
-- The project now has a governed dataset pipeline plus a retained recovered Phase 1 dataset lineage: `data/processed/recovered-balanced-validated-claude-v2.jsonl`, governed splits under `data/splits/recovered-balanced-claude-v2/`, and `data/manifests/manifest-phase1-recovered-balanced-claude-v2.json`.
-- Next focus: Phase 2 offline text ingestion and privacy baseline.
+- Phase 1 remains complete and closed on the retained recovered dataset lineage.
+- Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
+- Phase 3 is now complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, and profile-aware local model docs.
+- Next focus: Phase 4 threat detection and explainable decisioning.
 
 ---
-Last updated: 2026-05-07 after Phase 1 close-out
+Last updated: 2026-05-11 after Phase 3 completion

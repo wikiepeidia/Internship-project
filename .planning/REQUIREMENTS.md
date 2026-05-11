@@ -15,8 +15,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Ingestion
 
-- [ ] **ING-01**: User can paste raw text messages for analysis from channels such as SMS, Zalo, Messenger, Telegram, and Facebook.
-- [ ] **ING-02**: System can process Vietnamese and mixed Vietnamese-English text, including common code-switch patterns.
+- [x] **ING-01**: User can paste raw text messages for analysis from channels such as SMS, Zalo, Messenger, Telegram, and Facebook.
+- [x] **ING-02**: System can process Vietnamese and mixed Vietnamese-English text, including common code-switch patterns.
 
 ### Detection
 
@@ -30,13 +30,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Runtime and Deployment
 
-- [ ] **RUN-01**: User can run inference in local/offline mode without sending message content to cloud APIs in default operation.
-- [ ] **RUN-02**: System provides a GGUF quantized inference path that works on consumer laptop CPU/iGPU baseline.
-- [ ] **RUN-03**: System provides an optional accelerated inference path for prosumer GPU hardware.
+- [x] **RUN-01**: User can run inference in local/offline mode without sending message content to cloud APIs in default operation.
+- [x] **RUN-02**: System provides a GGUF quantized inference path that works on consumer laptop CPU/iGPU baseline.
+- [x] **RUN-03**: System provides an optional accelerated inference path for prosumer GPU hardware.
 
 ### Model Adaptation
 
-- [ ] **MOD-01**: System supports LoRA-based fine-tuning of an open-source 8B class model using project dataset artifacts.
+- [x] **MOD-01**: System supports LoRA-based fine-tuning of an open-source local model family using project dataset artifacts, with a 4B-primary path for 8GB VRAM and optional larger comparison candidates.
 
 ### Evaluation and Safety Gates
 
@@ -67,7 +67,7 @@ Deferred to future release. Tracked but not in current roadmap.
 Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
-|---------|--------|
+| ------- | ------ |
 | OCR and image understanding | Violates strict v1 text-only boundary and expands scope significantly |
 | Voice/call analysis | Requires separate ASR/audio pipeline and is outside current objective |
 | Cloud-default inference | Conflicts with privacy-first local/offline value proposition |
@@ -79,20 +79,20 @@ Explicitly excluded. Documented to prevent scope creep.
 Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
-|-------------|-------|--------|
+| ----------- | ----- | ------ |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
-| ING-01 | Phase 2 | Pending |
-| ING-02 | Phase 2 | Pending |
+| ING-01 | Phase 2 | Complete |
+| ING-02 | Phase 2 | Complete |
 | DET-01 | Phase 4 | Pending |
 | DET-02 | Phase 4 | Pending |
 | XAI-01 | Phase 4 | Pending |
 | XAI-02 | Phase 4 | Pending |
-| RUN-01 | Phase 2 | Pending |
-| RUN-02 | Phase 3 | Pending |
-| RUN-03 | Phase 3 | Pending |
-| MOD-01 | Phase 3 | Pending |
+| RUN-01 | Phase 2 | Complete |
+| RUN-02 | Phase 3 | Complete |
+| RUN-03 | Phase 3 | Complete |
+| MOD-01 | Phase 3 | Complete |
 | EVAL-01 | Phase 5 | Pending |
 | EVAL-02 | Phase 5 | Pending |
 | EVAL-03 | Phase 5 | Pending |
@@ -105,4 +105,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-04-20 after Phase 1 completion*
+*Last updated: 2026-05-11 after Phase 3 completion*

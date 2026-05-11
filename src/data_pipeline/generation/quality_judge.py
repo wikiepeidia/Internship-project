@@ -60,8 +60,8 @@ class QualityStats(BaseModel):
     avg_realism: float
     avg_label_correctness: float
     avg_code_switch_naturalness: float
-    avg_risk_tier_correctness: float
-    avg_suspicious_span_accuracy: float
+    avg_risk_tier_correctness: float = 0.0
+    avg_suspicious_span_accuracy: float = 0.0
 
 
 class QualityJudge:

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase1-closed
-last_updated: "2026-05-07T00:00:00.000Z"
+status: phase4-ready
+last_updated: "2026-05-11T00:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 9
-  completed_plans: 6
-  percent: 67
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 13
+  percent: 60
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -25,14 +25,14 @@ progress:
 
 ## Current Position
 
-Phase: 01 (data-foundation-and-split-governance) — CLOSED
-Plan: Phase 1 retained artifact set finalized
+Phase: 04 (threat-detection-and-explainable-decisioning) — READY FOR CONTEXT
+Plan: Phase 3 is complete; Phase 4 discuss-phase is the next action
 
-- Current phase: 1 - Data Foundation and Split Governance
-- Current plan: Phase 1 tracking is closed on the recovered retained artifact lineage, and the next actionable work is Phase 2.
-- Project status: Phase 1 now has a final accepted judged dataset at 956 records, balanced at 239 per class, stored under `data/processed/recovered-balanced-validated-claude-v2.jsonl`, plus governed retained splits at `data/splits/recovered-balanced-claude-v2/` and a verified manifest at `data/manifests/manifest-phase1-recovered-balanced-claude-v2.json`.
-- Overall progress: Phase 1 implementation, recovery, judging, and retained artifact closure are complete; the project is ready to transition into Phase 2.
-- Progress bar: [=----] 20%
+- Current phase: 4 - Threat Detection and Explainable Decisioning
+- Current plan: Phase 3 is complete with the local model adaptation, GGUF baseline, accelerated profile, and profile-aware docs shipped. Phase 4 needs context gathering before planning because no Phase 4 context artifacts exist yet.
+- Project status: Phases 1, 2, and 3 are complete. The repo is ready to move from deployment-path scaffolding into threat labeling and explainable decision logic.
+- Overall progress: Three of five roadmap phases are complete.
+- Progress bar: [====-] 60%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -46,9 +46,10 @@ Plan: Phase 1 retained artifact set finalized
 ### Decisions Locked
 
 - Keep v1 strictly text-only to protect scope and delivery certainty.
-- Use localized adaptation of an open 8B model via LoRA, then deploy local quantized runtime.
+- Use localized adaptation of an open local model family via LoRA, with a 4B-primary path for 8GB VRAM and optional larger comparison candidates.
 - Enforce structured explainability output, not binary-only labels.
 - Use explicit release gates that prioritize recall to reduce dangerous false negatives.
+- Phase 3 is now planned around a Qwen pilot with a 4B primary path, a three-model comparison, and adapter plus GGUF artifacts for the winner and runner-up.
 
 ### Requirement Coverage Snapshot
 
@@ -66,7 +67,7 @@ Plan: Phase 1 retained artifact set finalized
 
 ## Session Continuity
 
-- Last session: 2026-05-07
-- Stopped at: Patched the Phase 1 judge to score `risk_tier` and `suspicious_spans`, ran Claude on `data/synthetic/recovered-balanced.jsonl`, repaired the rejected benign metadata mismatch, accepted the final 956-record balanced judged set as the Phase 1 review artifact, then fixed the small-seed split allocation bug and rebuilt downstream outputs. The accepted judged set now produces 891 retained split records after dedup, with train=476, val=207, test=208, and the manifest verifies cleanly.
-- Resume file: .planning/debug/checkpoint-split-w-fix.md
-- Next command: Begin Phase 2 planning or execution.
+- Last session: 2026-05-11
+- Stopped at: Completed Phase 3, including the accelerated backend, profile-aware doctor guidance, and local-model docs. The next step is Phase 4 discussion/context gathering.
+- Resume file: none
+- Next command: /gsd-discuss-phase 4

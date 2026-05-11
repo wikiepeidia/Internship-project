@@ -7,8 +7,8 @@
 ## Phases
 
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
-- [ ] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
-- [ ] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the base model with LoRA and provide laptop baseline plus optional prosumer acceleration paths.
+- [x] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
+- [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the base model with LoRA and provide laptop baseline plus optional prosumer acceleration paths.
 - [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
 - [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
 
@@ -47,20 +47,33 @@ Plans:
 2. System correctly accepts Vietnamese and mixed Vietnamese-English content, including common code-switch phrasing.
 3. In default operation, message text is analyzed without cloud API submission and still returns a usable result offline.
 4. Product behavior and docs clearly state v1 is text-only; image/OCR and voice channels are not accepted.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [x] 02-01-PLAN.md -- Runtime contracts, privacy defaults, and Wave 0 tests
+- [x] 02-02-PLAN.md -- Heuristic analyzer, normalize-first service, and privacy-safe rendering
+- [x] 02-03-PLAN.md -- Doctor command, stdin-first CLI, console script wiring, and user-facing docs
 
 ### Phase 3: Local Model Adaptation and Deployment Paths
 
-**Goal**: The project can adapt an open 8B model to domain data and run it locally across target hardware tiers.
+**Goal**: The project can adapt an open local model family to domain data with a 4B-primary path for 8GB VRAM and run it locally across target hardware tiers.
 **Depends on**: Phase 2
 **Requirements**: MOD-01, RUN-02, RUN-03
 **Success Criteria** (what must be TRUE):
 
-1. Team can execute a LoRA fine-tuning pipeline on the project dataset and produce a versioned adapted checkpoint.
+1. Team can execute a LoRA fine-tuning pipeline on the project dataset and produce versioned adapted artifacts for the selected 4B baseline winner and runner-up.
 2. User can run a GGUF quantized model path on consumer laptop CPU/iGPU baseline hardware.
 3. User can optionally switch to an accelerated path on prosumer GPU hardware with consistent output schema.
 4. Runtime selection is explicit and does not require switching to cloud-default inference.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+- [x] 03-01-PLAN.md -- Candidate registry, pilot scorecard, and local model-artifact manifests
+- [x] 03-02-PLAN.md -- QLoRA training pipeline and adapter artifact builds for winner plus runner-up
+- [x] 03-03-PLAN.md -- GGUF conversion, CPU baseline backend, and explicit runtime profile selection
+- [x] 03-04-PLAN.md -- Accelerated local backend, profile-aware doctor checks, and local-model docs
 
 ### Phase 4: Threat Detection and Explainable Decisioning
 
@@ -94,8 +107,8 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 | ----- | ---------------- | ------ | --------- |
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
-| 2. Offline Text Ingestion and Privacy Baseline | 0/TBD | Not started | - |
-| 3. Local Model Adaptation and Deployment Paths | 0/TBD | Not started | - |
+| 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
+| 3. Local Model Adaptation and Deployment Paths | 4/4 | Complete | 2026-05-11 |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 

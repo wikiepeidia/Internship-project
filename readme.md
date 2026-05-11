@@ -2,6 +2,54 @@
 
 Localized explainable AI pipeline for Vietnamese financial phishing detection.
 
+## Phase 2 Local Runtime
+
+Phase 2 adds a stdin-first local runtime for one-message text analysis. The normal path is local-only and does not persist raw text by default.
+
+Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2.
+
+### Quick Start
+
+Install dependencies:
+
+```bash
+python -m pip install -e .[dev]
+```
+
+Check local readiness:
+
+```bash
+vnphish doctor
+python -m src.runtime.cli doctor
+```
+
+Run the stdin-first analyze flow:
+
+```bash
+vnphish analyze
+python -m src.runtime.cli analyze
+```
+
+Paste one message, then end stdin in your shell.
+
+Optional automation escape hatch:
+
+```bash
+vnphish analyze --text "VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP." --channel sms
+python -m src.runtime.cli analyze --text "VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP." --channel sms
+```
+
+`--text` is for automation and testing. The default user path remains stdin-first.
+
+## Phase 3 Local Model Profiles
+
+Phase 3 adds two explicit local-only model profiles behind the same runtime command surface:
+
+- `GGUF` laptop baseline for the selected 4B winner.
+- `accelerated` local profile for stronger hardware.
+
+Use `vnphish doctor` or `python -m src.runtime.cli doctor` after selecting the target profile in settings, and see `docs/user/LOCAL_MODELS.md` for the profile matrix, artifact expectations, and doctor guidance.
+
 ## Phase 1 Operator Flow
 
 Phase 1 builds and retains the dataset artifacts needed for downstream model work.

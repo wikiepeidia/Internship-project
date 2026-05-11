@@ -1,0 +1,122 @@
+"""Wave 0 CLI expectations for the Phase 2 runtime."""
+
+import argparse
+import importlib
+import io
+import sys
+
+from src.runtime.contracts import AnalysisResult, DoctorStatus
+
+
+def _load_cli_module():
+    return importlib.import_module("src.runtime.cli")
+
+
+def test_analyze_reads_single_message_from_stdin_when_text_flag_absent(
+    monkeypatch,
+    capsys,
+    sample_mixed_vn_en_message,
+):
+    cli_module = _load_cli_module()
+    captured = {}
+
+    class FakeService:
+        def analyze_text(self, text: str, channel: str = "unknown") -> AnalysisResult:
+            captured["text"] = text
+            captured["channel"] = channel
+            return AnalysisResult(
+                risk_tier="suspicious",
+                summary="Provisional suspicious result.",
+                backend_name="heuristic",
+            )
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(ready=True, backend_name="heuristic", checks=[]),
+    )
+    monkeypatch.setattr(cli_module, "build_default_runtime_service", lambda: FakeService())
+    monkeypatch.setattr(
+        cli_module,
+        "render_analysis_result",
+        lambda result: "\n".join(
+            [
+                "Provisional suspicious result.",
+                '"mã OTP" - Yêu cầu mã xác thực nhạy cảm',
+                '"Smart OTP" - Nhắc tới công cụ xác thực ngân hàng',
+                '"link đăng nhập" - Dẫn người dùng tới liên kết đăng nhập',
+            ]
+        ),
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(sample_mixed_vn_en_message))
+
+    exit_code = cli_module.main(["analyze"])
+
+    output = capsys.readouterr().out.strip().splitlines()
+    assert exit_code == 0
+    assert captured["text"] == sample_mixed_vn_en_message
+    assert captured["channel"] == "unknown"
+    assert len([line for line in output if line.startswith('"')]) <= 3
+
+
+def test_analyze_accepts_text_escape_hatch_for_automation(monkeypatch, sample_benign_message):
+    cli_module = _load_cli_module()
+    captured = {}
+
+    class FakeService:
+        def analyze_text(self, text: str, channel: str = "unknown") -> AnalysisResult:
+            captured["text"] = text
+            captured["channel"] = channel
+            return AnalysisResult(
+                risk_tier="benign",
+                summary="Provisional benign result.",
+                backend_name="heuristic",
+            )
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(ready=True, backend_name="heuristic", checks=[]),
+    )
+    monkeypatch.setattr(cli_module, "build_default_runtime_service", lambda: FakeService())
+    monkeypatch.setattr(cli_module, "render_analysis_result", lambda result: result.summary)
+
+    exit_code = cli_module.main(
+        ["analyze", "--text", sample_benign_message, "--channel", "telegram"]
+    )
+
+    assert exit_code == 0
+    assert captured["text"] == sample_benign_message
+    assert captured["channel"] == "telegram"
+
+
+def test_cli_only_exposes_analyze_and_doctor_commands():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+
+    assert sorted(subparsers_action.choices.keys()) == ["analyze", "doctor"]
+
+
+def test_analyze_returns_setup_guidance_when_doctor_is_not_ready(monkeypatch, capsys):
+    cli_module = _load_cli_module()
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(
+            ready=False,
+            backend_name="heuristic",
+            checks=[],
+            setup_steps=["python -m src.runtime.cli doctor"],
+        ),
+    )
+    monkeypatch.setattr(cli_module, "format_doctor_report", lambda status: "NOT READY")
+
+    exit_code = cli_module.main(["analyze", "--text", "hello world"])
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "NOT READY"
