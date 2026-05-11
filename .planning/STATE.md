@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: phase4-ready
-last_updated: "2026-05-11T00:00:00.000Z"
+last_updated: "2026-05-11T14:29:52.000Z"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -69,5 +69,7 @@ Plan: Phase 3 is complete; Phase 4 discuss-phase is the next action
 
 - Last session: 2026-05-11
 - Stopped at: Completed Phase 3, including the accelerated backend, profile-aware doctor guidance, and local-model docs. The next step is Phase 4 discussion/context gathering.
+- Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
+- The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - Resume file: none
 - Next command: /gsd-discuss-phase 4

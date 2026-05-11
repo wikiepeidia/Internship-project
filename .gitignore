@@ -143,6 +143,7 @@ mnesia/
 rabbitmq/
 rabbitmq-data/
 data/backup/*
+data/models/
 # ActiveMQ
 activemq-data/
 # SageMath parsed files
