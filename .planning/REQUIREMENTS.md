@@ -1,6 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
+**Milestone update:** 2026-05-14
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -44,7 +45,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **EVAL-02**: Release gating enforces recall-priority thresholds that minimize false negatives for high-harm scam classes.
 - [ ] **EVAL-03**: Release gating includes explanation quality checks using a defined rubric for correctness, relevance, and actionability.
 
-## v2 Requirements
+## Future Product Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
@@ -62,6 +63,27 @@ Deferred to future release. Tracked but not in current roadmap.
 - **CHN-01**: System supports OCR/image-based text extraction from screenshots.
 - **CHN-02**: System supports audio/voice scam analysis.
 
+## v2 Thesis Report Milestone Requirements
+
+Documentation and planning milestone for a thesis-grade report that will be handed to the judge and supervisor. This milestone does not mark DET/XAI/EVAL implementation complete.
+
+### Report Architecture and Evidence
+
+- [ ] **TR-01**: Thesis report has a chapter structure that covers background, project framing, Phases 1-3 implemented evidence, planned Phase 4 threat detection design, planned Phase 5 evaluation design, risks, and conclusions.
+- [ ] **TR-02**: Thesis report maps every completed implementation claim to concrete repo artifacts such as manifests, splits, runtime code, model-adaptation assets, docs, and supervisor reports.
+
+### Planned Technical Chapters
+
+- [ ] **TR-03**: Thesis report includes a specification chapter for planned Phase 4 threat detection and explainable decisioning, clearly labeled as planned work.
+- [ ] **TR-04**: Thesis report includes a specification chapter for planned Phase 5 evaluation, recall-priority release gates, and explanation-quality rubric, clearly labeled as planned work.
+- [ ] **TR-05**: Thesis report includes a risk and limitations register covering data leakage, explanation hallucination, quantization regression, mixed-language robustness, and live seed-source brittleness.
+- [ ] **TR-06**: Thesis report explicitly separates completed implementation (Phases 1-3) from deferred product work and future scope (Phases 4-5 and post-v1 enhancements).
+
+### Delivery and Review
+
+- [ ] **TR-07**: Milestone provides a dated writing and review schedule for 2026-05-18 through 2026-05-31, broken down by thesis parts.
+- [ ] **TR-08**: Milestone ends with a judge-facing readiness checklist covering chapter completeness, provenance traceability, and submission packaging.
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
@@ -73,6 +95,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Cloud-default inference | Conflicts with privacy-first local/offline value proposition |
 | Autonomous actions (auto-report/auto-block/auto-reply) | High harm risk from false positives in early versions |
 | Broad generic cybersecurity assistant behavior | Dilutes focused financial scam detection mission |
+| Presenting planned Phase 4-5 work as completed thesis results | Would misrepresent current project maturity to the judge and supervisor |
 
 ## Traceability
 
@@ -96,13 +119,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-01 | Phase 5 | Pending |
 | EVAL-02 | Phase 5 | Pending |
 | EVAL-03 | Phase 5 | Pending |
+| TR-01 | Phase 6 | Pending |
+| TR-02 | Phase 6 | Pending |
+| TR-03 | Phase 7 | Pending |
+| TR-04 | Phase 7 | Pending |
+| TR-05 | Phase 8 | Pending |
+| TR-06 | Phase 7 | Pending |
+| TR-07 | Phase 8 | Pending |
+| TR-08 | Phase 8 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 16 total
-- Mapped to phases: 16
-- Unmapped: 0 ✅
+- Product v1 requirements: 16 total, 16 mapped, 0 unmapped ✅
+- Thesis-report milestone requirements: 8 total, 8 mapped, 0 unmapped ✅
+- Future product requirements intentionally deferred outside the current roadmap: 4
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-05-11 after Phase 3 completion*
+*Last updated: 2026-05-14 for v2 thesis-report planning*
