@@ -4,8 +4,6 @@
 **Granularity:** standard
 **v1 scope guardrails:** text-only inputs, offline-first privacy, recall-priority safety gates
 
-**Milestone note:** v2 Thesis Report is a documentation and planning milestone for judge-facing thesis preparation. It does not change the completion status of v1 product Phases 4 and 5.
-
 ## Phases
 
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
@@ -13,9 +11,6 @@
 - [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the base model with LoRA and provide laptop baseline plus optional prosumer acceleration paths.
 - [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
 - [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
-- [ ] **Phase 6: Thesis Architecture and Evidence Baseline** - Lock the thesis structure, artifact inventory, and completed-vs-planned framing for judge-facing writing.
-- [ ] **Phase 7: Planned Detection and Evaluation Chapters** - Convert pending Phase 4 and Phase 5 work into thesis-grade specification chapters without overstating implementation.
-- [ ] **Phase 8: Writing Schedule, Risks, and Submission Readiness** - Define the dated writing path, risk register, and final checklist for thesis handoff.
 
 ## Phase Details
 
@@ -107,67 +102,6 @@ Plans:
 4. A release candidate cannot be marked ready if recall or explanation-quality thresholds fail.
 **Plans**: TBD
 
-## Milestone Boundary Note
-
-Within v2 Thesis Report, product Phases 4 and 5 remain pending implementation work. They should be represented in thesis material as proposed or planned chapters, not as implemented or validated results.
-
-### Phase 6: Thesis Architecture and Evidence Baseline
-
-**Goal**: Lock the thesis structure and evidence map so the report clearly distinguishes completed implementation from planned future work.
-**Depends on**: Phase 3
-**Requirements**: TR-01, TR-02
-**Success Criteria** (what must be TRUE):
-
-1. The thesis has a chapter outline that covers background, project framing, implemented evidence, planned detection/evaluation chapters, risks, and conclusions.
-2. An artifact inventory maps datasets, manifests, runtime outputs, model assets, docs, and supervisor reports to the right report sections.
-3. The report framing explicitly marks Phases 1-3 as completed evidence and Phases 4-5 as planned future work.
-4. Each core chapter can be traced either to concrete repo artifacts or to an explicitly planned specification section.
-**Plans**: 3 plans
-
-Plans:
-
-- [ ] 06-01-PLAN.md -- Chapter architecture and thesis outline
-- [ ] 06-02-PLAN.md -- Artifact inventory and provenance matrix
-- [ ] 06-03-PLAN.md -- Completed-vs-planned evidence framing
-
-### Phase 7: Planned Detection and Evaluation Chapters
-
-**Goal**: Produce thesis-grade specification chapters for the unbuilt detection and evaluation work without overstating implementation status.
-**Depends on**: Phase 6
-**Requirements**: TR-03, TR-04, TR-06
-**Success Criteria** (what must be TRUE):
-
-1. The report contains a Phase 4 chapter that specifies risk tiers, threat labels, explanation behavior, and user guidance as planned design.
-2. The report contains a Phase 5 chapter that specifies evaluation methodology, recall-priority thresholds, explanation rubric, and release gates as planned validation design.
-3. Deferred scope and future work are explicit and do not read as implemented results.
-4. A reader can understand the intended end-to-end product path while still seeing that DET/XAI/EVAL work is not yet implemented.
-**Plans**: 3 plans
-
-Plans:
-
-- [ ] 07-01-PLAN.md -- Phase 4 threat-detection specification chapter
-- [ ] 07-02-PLAN.md -- Phase 5 evaluation and release-gate chapter
-- [ ] 07-03-PLAN.md -- Future-work and deferred-scope section
-
-### Phase 8: Writing Schedule, Risks, and Submission Readiness
-
-**Goal**: Turn the thesis package into a supervised, dated writing effort with explicit risks, limitations, and a final submission-readiness gate.
-**Depends on**: Phase 7
-**Requirements**: TR-05, TR-07, TR-08
-**Success Criteria** (what must be TRUE):
-
-1. The thesis includes a risk register covering evidence gaps, pending Phases 4-5, evaluation limitations, and writing/review risks.
-2. A dated writing and review schedule covers 2026-05-18 to 2026-05-31 by thesis part or chapter.
-3. A final checklist verifies chapter completeness, provenance traceability, figure/table readiness, and judge-facing submission packaging.
-4. The milestone ends with a clear readiness decision for supervisor and judge handoff.
-**Plans**: 3 plans
-
-Plans:
-
-- [ ] 08-01-PLAN.md -- Risk register and limitations section
-- [ ] 08-02-PLAN.md -- 2026-05-18 to 2026-05-31 writing and review schedule
-- [ ] 08-03-PLAN.md -- Final review and submission checklist
-
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -177,17 +111,12 @@ Plans:
 | 3. Local Model Adaptation and Deployment Paths | 4/4 | Complete | 2026-05-11 |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
-| 6. Thesis Architecture and Evidence Baseline | 0/3 | Not started | - |
-| 7. Planned Detection and Evaluation Chapters | 0/3 | Not started | - |
-| 8. Writing Schedule, Risks, and Submission Readiness | 0/3 | Not started | - |
 
 ## Coverage Validation
 
-- product v1 requirements total: 16
-- product v1 requirements mapped: 16
-- thesis-report milestone requirements total: 8
-- thesis-report milestone requirements mapped: 8
-- orphaned active milestone requirements: 0
+- v1 requirements total: 16
+- v1 requirements mapped: 16
+- orphaned v1 requirements: 0
 - duplicate mappings: 0
 
 Coverage map:
@@ -208,11 +137,3 @@ Coverage map:
 - EVAL-01 -> Phase 5
 - EVAL-02 -> Phase 5
 - EVAL-03 -> Phase 5
-- TR-01 -> Phase 6
-- TR-02 -> Phase 6
-- TR-03 -> Phase 7
-- TR-04 -> Phase 7
-- TR-05 -> Phase 8
-- TR-06 -> Phase 7
-- TR-07 -> Phase 8
-- TR-08 -> Phase 8

@@ -8,29 +8,16 @@ This project builds a localized, offline-capable LLM system that detects, classi
 
 Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
-## Current Milestone: v2 Thesis Report
-
-**Goal:** Produce a thesis-grade report plan that synthesizes completed project evidence, translates pending detection and evaluation work into explicit specification chapters, and prepares a dated writing path for judge-facing submission.
-
-**Target outcomes:**
-
-- Lock a chapter architecture and evidence inventory that cleanly separates implemented work from planned future work.
-- Define thesis-ready specification chapters for Phase 4 threat detection/explainability and Phase 5 evaluation/release gates.
-- Produce a dated writing and review window for 2026-05-18 to 2026-05-31 plus final readiness criteria for judge handoff.
-
 ## Requirements
 
 ### Validated
 
 - Phase 1 complete and closed (implementation 2026-04-20, retained artifact closure 2026-05-07): reproducible data foundation established with seed scraping, synthetic generation, recovered-artifact curation, quality judging, deterministic split governance, and SHA256 manifest verification.
-- Phase 2 complete (2026-05-09): local/offline text ingestion, privacy-safe runtime contracts, and stdin-first analyzer flow are in place.
-- Phase 3 complete (2026-05-11): local model adaptation scaffolding, GGUF baseline runtime selection, accelerated local profile support, and model artifact guidance are in place.
 
 ### Active
 
-- [ ] Synthesize Phases 1-3 into a thesis-ready evidence baseline with reproducible references to datasets, manifests, runtime code, and model artifacts.
-- [ ] Define the pending Phase 4 and Phase 5 work as planned report chapters without overstating implementation status.
-- [ ] Produce a dated writing and review plan for 2026-05-18 to 2026-05-31 for the judge-facing thesis package.
+- [ ] Generate explainable structured outputs with threat reasoning and clear user recommendations.
+- [ ] Achieve production-ready local inference with strong phishing recall and robust end-to-end evaluation.
 
 ### Out of Scope
 
@@ -39,7 +26,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ## Context
 
-The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The initial data pipeline will scrape seed threats from Vietnam NCSC, expand to 2,000-3,000 synthetic JSONL samples via frontier LLM API, then fine-tune an open local model family with LoRA through a 4B-primary path for 8GB VRAM, quantize selected artifacts to GGUF for local inference, and evaluate against an F1 target of >= 0.85 with recall emphasized. The current v2 milestone is a documentation and planning track for a thesis-grade report that will be handed to the judge and supervisor. It must synthesize completed work from Phases 1-3, preserve pending Phases 4-5 as planned future work, and avoid any language that implies the unfinished detection and evaluation stack has already been delivered.
+The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The initial data pipeline will scrape seed threats from Vietnam NCSC, expand to 2,000-3,000 synthetic JSONL samples via frontier LLM API, then fine-tune an open local model family with LoRA through a 4B-primary path for 8GB VRAM, quantize selected artifacts to GGUF for local inference, and evaluate against an F1 target of >= 0.85 with recall emphasized.
 
 ## Constraints
 
@@ -59,34 +46,13 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Optimize baseline runtime for consumer laptops via GGUF quantization | Enables broad real-world access without dedicated GPU | — Pending |
 | Require explainable structured output, not binary labels | Vulnerable users need actionable reasoning and recommendations | — Pending |
 | Prioritize recall in evaluation while using balanced release gates | Missing a true threat is costlier than false alarms | — Pending |
-| Treat v2 as a thesis-report milestone, not a product-release label | Supervisor/judge planning is needed before the remaining implementation closes | Accepted 2026-05-14 |
-| Separate implemented evidence (Phases 1-3) from planned work (Phases 4-5) in all report language | Prevents false completion claims in judge-facing material | Accepted 2026-05-14 |
 
 ## Current State
 
-- Product implementation remains mid-v1: Phase 1, Phase 2, and Phase 3 are complete and provide the evidence base for the report.
-- Phase 4 threat detection/explainable decisioning and Phase 5 evaluation/release gates remain pending product work and will be represented as planned specification chapters in the thesis.
-- The active milestone is v2 Thesis Report, a documentation and planning track for judge-facing submission rather than a claim of product completion.
-- Next focus: Phase 6 thesis architecture and evidence baseline.
-
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-
-1. Requirements invalidated? -> Move to Out of Scope with reason
-2. Requirements validated? -> Move to Validated with phase reference
-3. New requirements emerged? -> Add to Active
-4. Decisions to log? -> Add to Key Decisions
-5. "What This Is" still accurate? -> Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-
-1. Full review of all sections
-2. Core Value check - still the right priority?
-3. Audit Out of Scope - reasons still valid?
-4. Update Context with current state
+- Phase 1 remains complete and closed on the retained recovered dataset lineage.
+- Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
+- Phase 3 is now complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, and profile-aware local model docs.
+- Next focus: Phase 4 threat detection and explainable decisioning.
 
 ---
-Last updated: 2026-05-14 for v2 thesis-report planning
+Last updated: 2026-05-11 after Phase 3 completion
