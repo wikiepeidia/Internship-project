@@ -31,6 +31,7 @@ Implemented the Phase 3 training scaffold around the pilot-selected winner and r
 ## Deviations from Plan
 
 - The non-dry-run training path is intentionally pluggable through a trainer callable rather than hardwiring a heavyweight stack into the unit-test path. This keeps the orchestration real while matching the plan's dry-run-first validation requirement.
+- As of 2026-05-14, this means the plan is complete only at the scaffold level. The repo still needs a concrete QLoRA trainer integration plus local installs for `peft`, `trl`, and `datasets` before real fine-tuning can begin.
 
 ## Notes
 
@@ -40,4 +41,6 @@ Implemented the Phase 3 training scaffold around the pilot-selected winner and r
 
 ## Next Steps
 
-Proceed to Plan 03-03 to add GGUF conversion, explicit runtime-profile selection, and the laptop-baseline local backend.
+Historical next step was Plan 03-03, which is already complete.
+
+Current re-entry step after the larger pilot lock is to return to this plan's real-training gap: wire a concrete non-dry-run trainer for `qwen3-4b-instruct-2507`, keep `qwen3.5-4b` as the runner-up path, and only then continue with training-generated artifacts.

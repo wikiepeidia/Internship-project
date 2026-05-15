@@ -46,13 +46,15 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Optimize baseline runtime for consumer laptops via GGUF quantization | Enables broad real-world access without dedicated GPU | — Pending |
 | Require explainable structured output, not binary labels | Vulnerable users need actionable reasoning and recommendations | — Pending |
 | Prioritize recall in evaluation while using balanced release gates | Missing a true threat is costlier than false alarms | — Pending |
+| Lock `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up for local training/deployment | Larger local pilot on 33 balanced validated samples kept the 4B baseline rule while favoring the best latency and memory fit under the 8GB-VRAM target | Accepted 2026-05-14 |
 
 ## Current State
 
 - Phase 1 remains complete and closed on the retained recovered dataset lineage.
 - Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
-- Phase 3 is now complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, and profile-aware local model docs.
-- Next focus: Phase 4 threat detection and explainable decisioning.
+- Phase 3 planning and dry-run scaffolding are complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, profile-aware local model docs, and a saved larger pilot result that locks `qwen3-4b-instruct-2507` as the laptop baseline winner with `qwen3.5-4b` as the runner-up.
+- Real fine-tuning is still a remaining Phase 3 execution item because the current repo exposes only a dry-run training scaffold, and the local environment is still missing `peft`, `trl`, and `datasets`.
+- Immediate focus is temporarily back on Phase 3 real training readiness before moving fully into Phase 4 threat detection and explainable decisioning.
 
 ---
-Last updated: 2026-05-11 after Phase 3 completion
+Last updated: 2026-05-14 after reopening Phase 3 for real training readiness

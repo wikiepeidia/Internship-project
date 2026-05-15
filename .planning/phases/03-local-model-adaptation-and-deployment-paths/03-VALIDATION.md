@@ -73,7 +73,7 @@ created: 2026-05-09
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Three-model pilot produces a usable scorecard on the project dataset | MOD-01 | A human should confirm the scorecard is intelligible and the selected winner/runner-up make sense before starting longer training runs | Run the Phase 3 pilot command on a small held-out slice, inspect the saved scorecard, and confirm the chosen winner/runner-up match the intended 8GB-VRAM tradeoff |
+| Three-model pilot produces a usable scorecard on the project dataset | MOD-01 | A human should confirm the scorecard is intelligible and the selected winner/runner-up make sense before starting longer training runs | Completed 2026-05-14 with a larger local pilot on 33 balanced validated samples (11 benign, 11 suspicious, 11 high-risk). Result: `qwen3-4b-instruct-2507` locked as laptop baseline winner, `qwen3.5-4b` locked as runner-up, and the saved scorecards live in `D:\PROJEct\AI MODELS\manifests\model-registry.json` plus `data/manifests/phase3-large-pilot-2026-05-14.json`. |
 | GGUF baseline works on real laptop hardware | RUN-02 | Mocked tests cannot prove actual local throughput and memory fit on the target class of machine | Run the GGUF profile on the intended laptop baseline, analyze representative suspicious text, and confirm doctor + runtime output stay local-only and contract-compatible |
 | Accelerated profile works on stronger hardware without schema drift | RUN-03 | GPU availability and local driver behavior cannot be trusted from mocked CI checks alone | Run the accelerated profile on compatible local hardware and compare the output schema and doctor report against the GGUF baseline |
 

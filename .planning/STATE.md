@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase4-ready
-last_updated: "2026-05-11T14:29:52.000Z"
+status: phase3-training-ready
+last_updated: "2026-05-14T00:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 13
-  percent: 60
+  completed_plans: 12
+  percent: 52
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -25,14 +25,14 @@ progress:
 
 ## Current Position
 
-Phase: 04 (threat-detection-and-explainable-decisioning) — READY FOR CONTEXT
-Plan: Phase 3 is complete; Phase 4 discuss-phase is the next action
+Phase: 03 (local-model-adaptation-and-deployment-paths) — READY FOR REAL TRAINING
+Plan: Phase 3 pilot winner is locked; real fine-tuning readiness is the next action
 
-- Current phase: 4 - Threat Detection and Explainable Decisioning
-- Current plan: Phase 3 is complete with the local model adaptation, GGUF baseline, accelerated profile, and profile-aware docs shipped. Phase 4 needs context gathering before planning because no Phase 4 context artifacts exist yet.
-- Project status: Phases 1, 2, and 3 are complete. The repo is ready to move from deployment-path scaffolding into threat labeling and explainable decision logic.
-- Overall progress: Three of five roadmap phases are complete.
-- Progress bar: [====-] 60%
+- Current phase: 3 - Local Model Adaptation and Deployment Paths
+- Current plan: The larger local pilot is complete and the baseline winner is locked, but real fine-tuning has not started because the repo currently exposes only a dry-run training scaffold and the local environment is missing parts of the QLoRA stack.
+- Project status: Phases 1 and 2 are complete. Phase 3 is reopened for real training readiness and execution before Phase 4 planning resumes.
+- Overall progress: Two phases are fully closed; Phase 3 remains active for real-training follow-through.
+- Progress bar: [===--] 52%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -50,6 +50,8 @@ Plan: Phase 3 is complete; Phase 4 discuss-phase is the next action
 - Enforce structured explainability output, not binary-only labels.
 - Use explicit release gates that prioritize recall to reduce dangerous false negatives.
 - Phase 3 is now planned around a Qwen pilot with a 4B primary path, a three-model comparison, and adapter plus GGUF artifacts for the winner and runner-up.
+- A larger local pilot on 33 balanced validated samples locked `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up; the 7B checkpoint remains a comparison or accelerated-path option.
+- Real non-dry-run training remains Phase 3 work until a concrete trainer callable is wired and the missing local QLoRA packages are installed.
 
 ### Requirement Coverage Snapshot
 
@@ -64,12 +66,14 @@ Plan: Phase 3 is complete; Phase 4 discuss-phase is the next action
 - Quantization regressions that reduce recall on high-harm scam classes.
 - Mixed-language/code-switch robustness drift over time.
 - Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
+- Real training readiness gap: the current CLI and training module support dry-run scaffolding, but non-dry-run execution still needs a concrete trainer callable plus `peft`, `trl`, and `datasets` in the local environment.
 
 ## Session Continuity
 
-- Last session: 2026-05-11
-- Stopped at: Completed Phase 3, including the accelerated backend, profile-aware doctor guidance, and local-model docs. The next step is Phase 4 discussion/context gathering.
+- Last session: 2026-05-14
+- Stopped at: Completed a larger Phase 3 local pilot and saved the locked winner/runner-up selection into the off-repo model registry. The next step is to make real Phase 3 training executable, not to start Phase 4 yet.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
+- The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
 - Resume file: none
-- Next command: /gsd-discuss-phase 4
+- Next command: continue Phase 3 training readiness for `qwen3-4b-instruct-2507`

@@ -1,10 +1,12 @@
 ---
-status: complete
+status: complete-with-gap
 phase: 03-local-model-adaptation-and-deployment-paths
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md
 started: 2026-05-11T14:10:53Z
-updated: 2026-05-11T14:10:53Z
+updated: 2026-05-14T00:00:00Z
 ---
+
+# Phase 03 UAT
 
 ## Current Test
 
@@ -41,12 +43,26 @@ result: pass
 
 total: 5
 passed: 5
-issues: 0
+issues: 1
 pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-No code gaps found in the no-download dry-run smoke scope.
-Real downloaded model weights, real fine-tuning, real GGUF inference, and real GPU-backed accelerated execution were not exercised in this verification run.
+- truth: "The Phase 3 training workflow should support a real non-dry-run fine-tune for the locked baseline winner and runner-up."
+  status: failed
+  reason: "Current verification confirms only the dry-run scaffold. `src/model_adaptation.training.run_training()` still requires an external trainer callable for non-dry-run execution, and the local Python environment is missing `peft`, `trl`, and `datasets`."
+  severity: major
+  test: follow-up
+  artifacts:
+  - src/model_adaptation/training.py
+  - src/model_adaptation/cli.py
+  - D:/PROJEct/AI MODELS/manifests/model-registry.json
+  missing:
+  - Concrete QLoRA trainer integration for non-dry-run execution
+  - Local install of `peft`
+  - Local install of `trl`
+  - Local install of `datasets`
+
+Dry-run smoke scope remains green, but real downloaded model weights, real fine-tuning, real GGUF inference, and real GPU-backed accelerated execution have not yet been exercised end-to-end.

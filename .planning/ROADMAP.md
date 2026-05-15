@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
 - [x] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
-- [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the base model with LoRA and provide laptop baseline plus optional prosumer acceleration paths.
+- [ ] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the locked Qwen baseline with LoRA/QLoRA and provide laptop GGUF inference plus optional prosumer acceleration paths.
 - [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
 - [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
 
@@ -60,6 +60,9 @@ Plans:
 **Goal**: The project can adapt an open local model family to domain data with a 4B-primary path for 8GB VRAM and run it locally across target hardware tiers.
 **Depends on**: Phase 2
 **Requirements**: MOD-01, RUN-02, RUN-03
+
+**Follow-up note (2026-05-14)**: The Phase 3 pilot winner is now locked to `qwen3-4b-instruct-2507` with `qwen3.5-4b` as runner-up, but the phase is reopened until a real non-dry-run QLoRA training path is wired and executed. The CPU/iGPU target in this phase refers to GGUF inference after adaptation, not to CPU-only fine-tuning.
+
 **Success Criteria** (what must be TRUE):
 
 1. Team can execute a LoRA fine-tuning pipeline on the project dataset and produce versioned adapted artifacts for the selected 4B baseline winner and runner-up.
@@ -71,7 +74,7 @@ Plans:
 Plans:
 
 - [x] 03-01-PLAN.md -- Candidate registry, pilot scorecard, and local model-artifact manifests
-- [x] 03-02-PLAN.md -- QLoRA training pipeline and adapter artifact builds for winner plus runner-up
+- [x] 03-02-PLAN.md -- QLoRA training scaffold and adapter artifact flow for winner plus runner-up
 - [x] 03-03-PLAN.md -- GGUF conversion, CPU baseline backend, and explicit runtime profile selection
 - [x] 03-04-PLAN.md -- Accelerated local backend, profile-aware doctor checks, and local-model docs
 
@@ -108,7 +111,7 @@ Plans:
 | ----- | ---------------- | ------ | --------- |
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
-| 3. Local Model Adaptation and Deployment Paths | 4/4 | Complete | 2026-05-11 |
+| 3. Local Model Adaptation and Deployment Paths | 4/4 scaffold | Reopened for real training | 2026-05-11 (reopened 2026-05-14) |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 

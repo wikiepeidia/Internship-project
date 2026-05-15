@@ -1,7 +1,7 @@
 # Phase 3: Local Model Adaptation and Deployment Paths - Context
 
 **Gathered:** 2026-05-09
-**Status:** Ready for planning
+**Status:** Reopened for real training follow-through
 
 ## Phase Boundary
 
@@ -38,6 +38,13 @@ Adapt the current local runtime from Phase 2 to a real local model backend and d
 - **D-09:** Required Phase 3 artifact set for those two models is adapters plus GGUF builds.
 - **D-10:** Merged checkpoints are not required for Phase 3 scope.
 - **D-11:** Large training and deployment artifacts stay local-only and untracked by git.
+
+### Locked Follow-up Decisions (2026-05-14)
+
+- **D-15:** The larger local pilot on 33 balanced validated samples locked `qwen3-4b-instruct-2507` as the laptop baseline winner.
+- **D-16:** `qwen3.5-4b` remains the locked runner-up for adaptation follow-through and backup deployment work.
+- **D-17:** Phase 3 is reopened until a real non-dry-run QLoRA training path is executable for the locked winner and runner-up.
+- **D-18:** The CPU/iGPU target in Phase 3 refers to GGUF inference after adaptation. LoRA/QLoRA remains the training method, and the current plan assumes local GPU-capable execution for real training rather than CPU-only fine-tuning.
 
 ### Runtime Compatibility Constraints
 
@@ -105,7 +112,13 @@ Adapt the current local runtime from Phase 2 to a real local model backend and d
 - Exact merged-checkpoint export workflow is deferred; it is out of current Phase 3 scope unless planning later finds a hard blocker without it.
 - Final threat-label behavior, explanation rubric, and release-gate metrics remain Phase 4 and Phase 5 concerns and should not expand Phase 3 scope.
 
+## Current Re-entry Point
+
+- The pilot decision is no longer the open question. The next actionable work is to make `src/model_adaptation/training.py` run a real non-dry-run trainer for `qwen3-4b-instruct-2507`, with `qwen3.5-4b` kept as runner-up.
+- Missing local readiness items currently known in-chat and in UAT: `peft`, `trl`, `datasets`, plus a concrete trainer callable wired into the current dry-run scaffold.
+- GGUF laptop support remains the post-training CPU/iGPU inference target, not the training device target.
+
 ---
 
 *Phase: 03-local-model-adaptation-and-deployment-paths*
-*Context gathered: 2026-05-09*
+*Context updated: 2026-05-14 after larger pilot lock and Phase 3 reopen*

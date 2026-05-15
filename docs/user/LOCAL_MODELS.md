@@ -13,6 +13,12 @@ python -m src.runtime.cli analyze
 
 The difference is which local backend/profile is selected through settings.
 
+Important distinction:
+
+- LoRA/QLoRA is the Phase 3 training path used to adapt the selected Qwen checkpoints.
+- GGUF is the laptop CPU/iGPU inference artifact used after training.
+- In other words, the CPU baseline in Phase 3 is for local inference, not for the main fine-tuning step.
+
 ## Profiles
 
 ### GGUF Laptop Baseline
