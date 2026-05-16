@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase3-training-ready
-last_updated: "2026-05-14T00:00:00.000Z"
+status: phase3-training-smoke-validated
+last_updated: "2026-05-16T00:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 2
@@ -25,11 +25,11 @@ progress:
 
 ## Current Position
 
-Phase: 03 (local-model-adaptation-and-deployment-paths) — READY FOR REAL TRAINING
-Plan: Phase 3 pilot winner is locked; real fine-tuning readiness is the next action
+Phase: 03 (local-model-adaptation-and-deployment-paths) — REAL TRAINING PATH SMOKE-VALIDATED
+Plan: Phase 3 pilot winner is locked; the next action is a longer baseline training run and artifact review
 
 - Current phase: 3 - Local Model Adaptation and Deployment Paths
-- Current plan: The larger local pilot is complete and the baseline winner is locked, but real fine-tuning has not started because the repo currently exposes only a dry-run training scaffold and the local environment is missing parts of the QLoRA stack.
+- Current plan: The larger local pilot is complete, the baseline winner is locked, and the repo now exposes a real non-dry-run local PEFT training path with smoke-tested checkpoint resume on the local RTX 5050 laptop GPU. The next Phase 3 action is a longer baseline training run plus artifact review.
 - Project status: Phases 1 and 2 are complete. Phase 3 is reopened for real training readiness and execution before Phase 4 planning resumes.
 - Overall progress: Two phases are fully closed; Phase 3 remains active for real-training follow-through.
 - Progress bar: [===--] 52%
@@ -51,7 +51,7 @@ Plan: Phase 3 pilot winner is locked; real fine-tuning readiness is the next act
 - Use explicit release gates that prioritize recall to reduce dangerous false negatives.
 - Phase 3 is now planned around a Qwen pilot with a 4B primary path, a three-model comparison, and adapter plus GGUF artifacts for the winner and runner-up.
 - A larger local pilot on 33 balanced validated samples locked `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up; the 7B checkpoint remains a comparison or accelerated-path option.
-- Real non-dry-run training remains Phase 3 work until a concrete trainer callable is wired and the missing local QLoRA packages are installed.
+- Real non-dry-run training is now wired in-repo, using a local PEFT and transformers backend with smoke-tested checkpoint resume for the winner and runner-up.
 
 ### Requirement Coverage Snapshot
 
@@ -66,14 +66,15 @@ Plan: Phase 3 pilot winner is locked; real fine-tuning readiness is the next act
 - Quantization regressions that reduce recall on high-harm scam classes.
 - Mixed-language/code-switch robustness drift over time.
 - Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
-- Real training readiness gap: the current CLI and training module support dry-run scaffolding, but non-dry-run execution still needs a concrete trainer callable plus `peft`, `trl`, and `datasets` in the local environment.
+- Longer training still needs run budgeting, artifact review, and downstream conversion and evaluation follow-through after the successful smoke and resume checks.
 
 ## Session Continuity
 
-- Last session: 2026-05-14
-- Stopped at: Completed a larger Phase 3 local pilot and saved the locked winner/runner-up selection into the off-repo model registry. The next step is to make real Phase 3 training executable, not to start Phase 4 yet.
+- Last session: 2026-05-16
+- Stopped at: Wired the real local training backend, added a Phase 3 training doctor plus smoke-test and resume CLI flags, installed the training extras, and completed successful smoke runs for the locked baseline winner and runner-up plus resume-from-checkpoint for the baseline winner.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
+- Successful smoke artifacts now exist under `D:\PROJEct\AI MODELS\phase3-smoke-baseline-20260516\qwen3-4b-instruct-2507` and `D:\PROJEct\AI MODELS\phase3-smoke-runnerup-20260516\qwen3.5-4b`, including checkpoint directories and adapter summaries.
 - Resume file: none
-- Next command: continue Phase 3 training readiness for `qwen3-4b-instruct-2507`
+- Next command: `python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-main-20260516 --registry-path "D:/PROJEct/AI MODELS/manifests/model-registry.json"`

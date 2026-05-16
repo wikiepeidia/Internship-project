@@ -36,7 +36,7 @@ def test_cli_exposes_pilot_and_train_commands():
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
 
-    assert sorted(subparsers_action.choices.keys()) == ["pilot", "train"]
+    assert sorted(subparsers_action.choices.keys()) == ["doctor", "pilot", "train"]
 
 
 def test_train_dry_run_uses_baseline_winner_and_runner_up_only(tmp_path, monkeypatch):
@@ -121,3 +121,20 @@ def test_train_command_returns_error_for_non_selected_candidate(tmp_path):
     )
 
     assert exit_code == 1
+
+
+def test_doctor_command_formats_report_and_returns_success(monkeypatch, capsys):
+    cli_module = _load_cli_module()
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_training_doctor",
+        lambda **kwargs: SimpleNamespace(ready=True),
+    )
+    monkeypatch.setattr(cli_module, "format_training_doctor_report", lambda status: "TRAIN READY")
+
+    exit_code = cli_module.main(["doctor", "--candidate", "baseline-winner"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "TRAIN READY" in captured.out

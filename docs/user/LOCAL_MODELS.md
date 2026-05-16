@@ -87,7 +87,23 @@ The doctor guidance remains local-only. It should not suggest cloud fallback.
 Recommended order:
 
 1. Run the Phase 3 pilot dry-run to record the baseline winner and runner-up.
-2. Run the Phase 3 training dry-run for `baseline-winner` and `runner-up`.
-3. Stage the `GGUF` baseline artifact.
-4. Select the target profile in settings.
-5. Run the doctor command before `analyze`.
+2. Run the Phase 3 training doctor to confirm local dependencies, base-model paths, and smoke-test commands.
+3. Run a short Phase 3 smoke training job for `baseline-winner`, let it save checkpoints, then resume from `latest` if the short probe succeeds.
+4. Run the Phase 3 training dry-run or full run for `runner-up` when needed.
+5. Stage the `GGUF` baseline artifact.
+6. Select the target profile in settings.
+7. Run the runtime doctor command before `analyze`.
+
+Phase 3 operator commands:
+
+```bash
+python -m src.model_adaptation.cli doctor --candidate baseline-winner
+python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-smoke --smoke-test
+python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-main --resume-from-checkpoint latest
+```
+
+If the local environment is missing the training stack, install the optional extra first:
+
+```bash
+python -m pip install -e .[dev,train]
+```

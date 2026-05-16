@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from src.data_pipeline.schemas import DatasetRecord
 from src.model_adaptation.catalog import build_default_catalog
 from src.model_adaptation.data import build_training_examples, load_split_records
+from src.model_adaptation.registry import build_model_checksum
 from src.model_adaptation.prompts import format_training_prompt
 from src.model_adaptation.registry import load_model_registry
 from src.model_adaptation.schemas import PilotSelection
@@ -138,6 +140,31 @@ def test_build_training_config_uses_selected_candidate(tmp_path):
     assert config.dry_run is True
 
 
+def test_build_training_config_smoke_test_uses_checkpoint_friendly_defaults(tmp_path):
+    train_path = tmp_path / "splits" / "train.jsonl"
+    val_path = tmp_path / "splits" / "val.jsonl"
+    records = _sample_records()
+    _write_split(train_path, records)
+    _write_split(val_path, records[:1])
+
+    config = build_training_config(
+        candidate_id="qwen3.5-4b",
+        train_split_path=train_path,
+        val_split_path=val_path,
+        version_tag="phase3-smoke",
+        output_root=tmp_path / "models",
+        registry_path=tmp_path / "manifests" / "model-registry.json",
+        selection=_selection(),
+        smoke_test=True,
+    )
+
+    assert config.smoke_test is True
+    assert config.max_steps == 2
+    assert config.save_steps == 1
+    assert config.logging_steps == 1
+    assert config.gradient_accumulation_steps == 1
+
+
 def test_run_training_rejects_non_selected_candidate(tmp_path):
     train_path = tmp_path / "splits" / "train.jsonl"
     val_path = tmp_path / "splits" / "val.jsonl"
@@ -215,3 +242,183 @@ def test_run_training_dry_run_registers_placeholder_artifact(tmp_path):
     assert result["train_examples"] == 2
     assert result["val_examples"] == 1
     assert result["artifact_record"].local_path.exists()
+
+
+def test_run_training_non_dry_run_uses_local_backend_and_registers_directory_artifact(tmp_path, monkeypatch):
+    import src.model_adaptation.training as training_module
+
+    train_path = tmp_path / "splits" / "train.jsonl"
+    val_path = tmp_path / "splits" / "val.jsonl"
+    records = _sample_records()
+    _write_split(train_path, records)
+    _write_split(val_path, records[:1])
+
+    config = build_training_config(
+        candidate_id="qwen3.5-4b",
+        train_split_path=train_path,
+        val_split_path=val_path,
+        version_tag="phase3-real-smoke",
+        output_root=tmp_path / "models",
+        registry_path=tmp_path / "manifests" / "model-registry.json",
+        selection=_selection(),
+        smoke_test=True,
+    )
+
+    def fake_local_backend(config, train_examples, val_examples):
+        adapter_dir = tmp_path / "models" / "phase3-real-smoke" / "qwen3.5-4b" / "adapter"
+        checkpoint_dir = tmp_path / "models" / "phase3-real-smoke" / "qwen3.5-4b" / "trainer" / "checkpoint-1"
+        adapter_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        (adapter_dir / "adapter_config.json").write_text('{"peft_type": "LORA"}', encoding="utf-8")
+        (adapter_dir / "adapter_model.safetensors").write_bytes(b"weights")
+        summary_path = adapter_dir / "training-summary.json"
+        summary_path.write_text('{"device": "cpu"}', encoding="utf-8")
+        return {
+            "artifact_path": adapter_dir,
+            "device": "cpu",
+            "quantization_mode": "full-precision-lora",
+            "checkpoint_path": checkpoint_dir,
+            "summary_path": summary_path,
+        }
+
+    monkeypatch.setattr(training_module, "_run_local_adapter_training", fake_local_backend)
+
+    result = run_training(config, selection=_selection())
+    loaded_registry = load_model_registry(config.registry_path)
+
+    assert result["dry_run"] is False
+    assert result["device"] == "cpu"
+    assert result["checkpoint_path"].name == "checkpoint-1"
+    assert result["artifact_record"].local_path.is_dir()
+    assert result["artifact_record"].sha256 == build_model_checksum(result["artifact_record"].local_path)
+    assert loaded_registry.artifacts[0].local_path.is_dir()
+
+
+def test_build_training_arguments_supports_transformers_v5_names(tmp_path):
+    import src.model_adaptation.training as training_module
+
+    train_path = tmp_path / "splits" / "train.jsonl"
+    val_path = tmp_path / "splits" / "val.jsonl"
+    records = _sample_records()
+    _write_split(train_path, records)
+    _write_split(val_path, records[:1])
+
+    config = build_training_config(
+        candidate_id="qwen3.5-4b",
+        train_split_path=train_path,
+        val_split_path=val_path,
+        version_tag="phase3-smoke",
+        output_root=tmp_path / "models",
+        registry_path=tmp_path / "manifests" / "model-registry.json",
+        selection=_selection(),
+        smoke_test=True,
+    )
+    captured_kwargs: dict[str, object] = {}
+
+    class V5TrainingArguments:
+        def __init__(
+            self,
+            output_dir,
+            num_train_epochs,
+            max_steps,
+            per_device_train_batch_size,
+            per_device_eval_batch_size,
+            gradient_accumulation_steps,
+            learning_rate,
+            logging_steps,
+            save_steps,
+            save_total_limit,
+            eval_strategy,
+            eval_steps,
+            remove_unused_columns,
+            report_to,
+            logging_first_step,
+            save_safetensors,
+            use_cpu,
+            dataloader_pin_memory,
+            fp16,
+            bf16,
+            gradient_checkpointing,
+        ):
+            captured_kwargs.update(locals())
+            captured_kwargs.pop("self", None)
+
+    fake_transformers = SimpleNamespace(TrainingArguments=V5TrainingArguments)
+
+    training_module._build_training_arguments(
+        fake_transformers,
+        config,
+        tmp_path / "trainer",
+        has_eval_data=True,
+        device="cpu",
+        use_bf16=False,
+    )
+
+    assert captured_kwargs["eval_strategy"] == "steps"
+    assert captured_kwargs["use_cpu"] is True
+
+
+def test_build_training_arguments_supports_legacy_transformers_names(tmp_path):
+    import src.model_adaptation.training as training_module
+
+    train_path = tmp_path / "splits" / "train.jsonl"
+    val_path = tmp_path / "splits" / "val.jsonl"
+    records = _sample_records()
+    _write_split(train_path, records)
+    _write_split(val_path, records[:1])
+
+    config = build_training_config(
+        candidate_id="qwen3.5-4b",
+        train_split_path=train_path,
+        val_split_path=val_path,
+        version_tag="phase3-smoke",
+        output_root=tmp_path / "models",
+        registry_path=tmp_path / "manifests" / "model-registry.json",
+        selection=_selection(),
+        smoke_test=True,
+    )
+    captured_kwargs: dict[str, object] = {}
+
+    class LegacyTrainingArguments:
+        def __init__(
+            self,
+            output_dir,
+            overwrite_output_dir,
+            num_train_epochs,
+            max_steps,
+            per_device_train_batch_size,
+            per_device_eval_batch_size,
+            gradient_accumulation_steps,
+            learning_rate,
+            logging_steps,
+            save_steps,
+            save_total_limit,
+            evaluation_strategy,
+            eval_steps,
+            remove_unused_columns,
+            report_to,
+            logging_first_step,
+            save_safetensors,
+            no_cuda,
+            dataloader_pin_memory,
+            fp16,
+            bf16,
+            gradient_checkpointing,
+        ):
+            captured_kwargs.update(locals())
+            captured_kwargs.pop("self", None)
+
+    fake_transformers = SimpleNamespace(TrainingArguments=LegacyTrainingArguments)
+
+    training_module._build_training_arguments(
+        fake_transformers,
+        config,
+        tmp_path / "trainer",
+        has_eval_data=True,
+        device="cpu",
+        use_bf16=False,
+    )
+
+    assert captured_kwargs["evaluation_strategy"] == "steps"
+    assert captured_kwargs["no_cuda"] is True
+    assert captured_kwargs["overwrite_output_dir"] is False

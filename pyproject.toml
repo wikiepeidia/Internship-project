@@ -25,6 +25,12 @@ dependencies = [
 dev = [
     "pytest>=9.0",
 ]
+train = [
+    "torch>=2.4",
+    "transformers>=4.45",
+    "accelerate>=0.33",
+    "peft>=0.12",
+]
 
 [project.scripts]
 vnphish = "src.runtime.cli:main"

@@ -8,12 +8,32 @@ from pathlib import Path
 from src.model_adaptation.schemas import ModelRegistry
 
 
+def _update_digest_from_file(digest: "hashlib._Hash", file_path: Path) -> None:
+    with file_path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+
+
 def build_model_checksum(file_path: Path) -> str:
-    """Build a stable SHA256 checksum for one local artifact file."""
+    """Build a stable SHA256 checksum for one local artifact path."""
 
     if not file_path.exists():
         raise FileNotFoundError(f"Missing artifact file: {file_path}")
-    return hashlib.sha256(file_path.read_bytes()).hexdigest()
+    if file_path.is_file():
+        digest = hashlib.sha256()
+        _update_digest_from_file(digest, file_path)
+        return digest.hexdigest()
+
+    digest = hashlib.sha256()
+    for child in sorted(path for path in file_path.rglob("*") if path.is_file()):
+        digest.update(child.relative_to(file_path).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        _update_digest_from_file(digest, child)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def save_model_registry(registry: ModelRegistry, output_path: Path) -> Path:

@@ -53,8 +53,8 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - Phase 1 remains complete and closed on the retained recovered dataset lineage.
 - Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
 - Phase 3 planning and dry-run scaffolding are complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, profile-aware local model docs, and a saved larger pilot result that locks `qwen3-4b-instruct-2507` as the laptop baseline winner with `qwen3.5-4b` as the runner-up.
-- Real fine-tuning is still a remaining Phase 3 execution item because the current repo exposes only a dry-run training scaffold, and the local environment is still missing `peft`, `trl`, and `datasets`.
-- Immediate focus is temporarily back on Phase 3 real training readiness before moving fully into Phase 4 threat detection and explainable decisioning.
+- Real fine-tuning is now executable: the repo has a local PEFT and transformers training backend, a training doctor, smoke-test plus checkpoint-resume CLI flags, and verified one-step smoke runs on the local RTX 5050 laptop GPU for the baseline winner and runner-up.
+- Immediate focus remains on Phase 3 follow-through: run longer baseline training and review resulting adapter artifacts before moving fully into Phase 4 threat detection and explainable decisioning.
 
 ---
 Last updated: 2026-05-14 after reopening Phase 3 for real training readiness

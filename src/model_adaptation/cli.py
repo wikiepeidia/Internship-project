@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config.settings import get_settings
 from src.model_adaptation.catalog import build_default_catalog
+from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
 from src.model_adaptation.pilot import run_pilot
 from src.model_adaptation.registry import load_model_registry, save_model_registry
 from src.model_adaptation.schemas import ModelRegistry, PilotSelection
@@ -120,8 +121,121 @@ def build_parser() -> argparse.ArgumentParser:
         default=_default_registry_path(),
         help="Path to the local model registry JSON",
     )
+    train_parser.add_argument(
+        "--base-model-path",
+        type=Path,
+        default=None,
+        help="Override the local base checkpoint path",
+    )
+    train_parser.add_argument(
+        "--num-train-epochs",
+        type=float,
+        default=1.0,
+        help="Epoch count for full runs when --max-steps is not set",
+    )
+    train_parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Maximum optimizer steps; use small values for smoke tests",
+    )
+    train_parser.add_argument(
+        "--per-device-train-batch-size",
+        type=int,
+        default=1,
+        help="Per-device train batch size",
+    )
+    train_parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=4,
+        help="Gradient accumulation steps",
+    )
+    train_parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=2e-4,
+        help="Learning rate for adapter tuning",
+    )
+    train_parser.add_argument(
+        "--logging-steps",
+        type=int,
+        default=10,
+        help="Training log interval in optimizer steps",
+    )
+    train_parser.add_argument(
+        "--save-steps",
+        type=int,
+        default=50,
+        help="Checkpoint save interval in optimizer steps",
+    )
+    train_parser.add_argument(
+        "--save-total-limit",
+        type=int,
+        default=2,
+        help="Maximum number of saved checkpoints to keep",
+    )
+    train_parser.add_argument(
+        "--max-seq-length",
+        type=int,
+        default=1024,
+        help="Maximum tokenized sequence length",
+    )
+    train_parser.add_argument(
+        "--resume-from-checkpoint",
+        default=None,
+        help="Checkpoint path to resume from, or 'latest'",
+    )
+    train_parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Execution device for the training backend",
+    )
+    train_parser.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help="Run a short checkpoint-friendly preflight training job",
+    )
+    train_parser.add_argument(
+        "--full-precision",
+        action="store_true",
+        help="Disable optional 4-bit loading and force full-precision LoRA",
+    )
     train_parser.add_argument("--dry-run", action="store_true", help="Validate config without a real fine-tune")
     train_parser.set_defaults(handler=handle_train)
+
+    doctor_parser = subparsers.add_parser("doctor", help="Check local Phase 3 training readiness")
+    doctor_parser.add_argument(
+        "--candidate",
+        default="baseline-winner",
+        help="Candidate id or alias: baseline-winner | runner-up",
+    )
+    doctor_parser.add_argument(
+        "--train-split",
+        type=Path,
+        default=_default_split_path("train"),
+        help="Training split JSONL path",
+    )
+    doctor_parser.add_argument(
+        "--val-split",
+        type=Path,
+        default=_default_split_path("val"),
+        help="Validation split JSONL path",
+    )
+    doctor_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=get_settings().model_artifact_root,
+        help="Root directory for local model artifacts",
+    )
+    doctor_parser.add_argument(
+        "--registry-path",
+        type=Path,
+        default=_default_registry_path(),
+        help="Path to the local model registry JSON",
+    )
+    doctor_parser.set_defaults(handler=handle_doctor)
 
     return parser
 
@@ -164,14 +278,52 @@ def handle_train(args: argparse.Namespace) -> int:
         registry_path=args.registry_path,
         selection=selection,
         dry_run=args.dry_run,
+        base_model_path=args.base_model_path,
+        num_train_epochs=args.num_train_epochs,
+        max_steps=args.max_steps,
+        per_device_train_batch_size=args.per_device_train_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        learning_rate=args.learning_rate,
+        logging_steps=args.logging_steps,
+        save_steps=args.save_steps,
+        save_total_limit=args.save_total_limit,
+        max_seq_length=args.max_seq_length,
+        smoke_test=args.smoke_test,
+        resume_from_checkpoint=args.resume_from_checkpoint,
+        device=args.device,
+        use_4bit=not args.full_precision,
     )
     result = run_training(config, selection=selection)
-    print(
-        f"Training {'dry-run' if result['dry_run'] else 'run'} complete: "
-        f"candidate={result['candidate_id']} train_examples={result['train_examples']} "
-        f"val_examples={result['val_examples']}"
-    )
+    summary_parts = [
+        f"candidate={result['candidate_id']}",
+        f"train_examples={result['train_examples']}",
+        f"val_examples={result['val_examples']}",
+    ]
+    if not result["dry_run"]:
+        if result.get("device") is not None:
+            summary_parts.append(f"device={result['device']}")
+        if result.get("quantization_mode") is not None:
+            summary_parts.append(f"quantization={result['quantization_mode']}")
+        if result.get("checkpoint_path") is not None:
+            summary_parts.append(f"checkpoint={result['checkpoint_path']}")
+        if result.get("summary_path") is not None:
+            summary_parts.append(f"summary={result['summary_path']}")
+    print(f"Training {'dry-run' if result['dry_run'] else 'run'} complete: {' '.join(summary_parts)}")
     return 0
+
+
+def handle_doctor(args: argparse.Namespace) -> int:
+    """Run the training doctor command and print the readiness report."""
+
+    status = run_training_doctor(
+        candidate=args.candidate,
+        train_split=args.train_split,
+        val_split=args.val_split,
+        output_root=args.output_root,
+        registry_path=args.registry_path,
+    )
+    print(format_training_doctor_report(status))
+    return 0 if status.ready else 1
 
 
 def main(argv: list[str] | None = None) -> int:

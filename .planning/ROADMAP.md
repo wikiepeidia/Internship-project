@@ -61,7 +61,7 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: MOD-01, RUN-02, RUN-03
 
-**Follow-up note (2026-05-14)**: The Phase 3 pilot winner is now locked to `qwen3-4b-instruct-2507` with `qwen3.5-4b` as runner-up, but the phase is reopened until a real non-dry-run QLoRA training path is wired and executed. The CPU/iGPU target in this phase refers to GGUF inference after adaptation, not to CPU-only fine-tuning.
+**Follow-up note (2026-05-16)**: The Phase 3 pilot winner is locked to `qwen3-4b-instruct-2507` with `qwen3.5-4b` as runner-up, and the repo now has a real non-dry-run local training path with smoke-validated checkpoint resume on the target laptop GPU. Phase 3 remains open until longer training runs produce the versioned adapter artifacts needed for downstream conversion and runtime follow-through. The CPU/iGPU target in this phase refers to GGUF inference after adaptation, not to CPU-only fine-tuning.
 
 **Success Criteria** (what must be TRUE):
 
@@ -111,7 +111,7 @@ Plans:
 | ----- | ---------------- | ------ | --------- |
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
-| 3. Local Model Adaptation and Deployment Paths | 4/4 scaffold | Reopened for real training | 2026-05-11 (reopened 2026-05-14) |
+| 3. Local Model Adaptation and Deployment Paths | 4/4 scaffold | In progress - smoke validated | 2026-05-11 (reopened 2026-05-14, smoke validated 2026-05-16) |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 
