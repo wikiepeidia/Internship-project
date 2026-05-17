@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
 - [x] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
-- [ ] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the locked Qwen baseline with LoRA/QLoRA and provide laptop GGUF inference plus optional prosumer acceleration paths.
+- [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the locked Qwen baseline with LoRA/QLoRA and provide laptop GGUF inference plus optional prosumer acceleration paths.
 - [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
 - [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
 
@@ -61,7 +61,7 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: MOD-01, RUN-02, RUN-03
 
-**Follow-up note (2026-05-16)**: The Phase 3 pilot winner is locked to `qwen3-4b-instruct-2507` with `qwen3.5-4b` as runner-up, and the repo now has a real non-dry-run local training path with smoke-validated checkpoint resume on the target laptop GPU. Phase 3 remains open until longer training runs produce the versioned adapter artifacts needed for downstream conversion and runtime follow-through. The CPU/iGPU target in this phase refers to GGUF inference after adaptation, not to CPU-only fine-tuning.
+**Follow-up note (2026-05-17)**: The Phase 3 pilot winner is locked to `qwen3-4b-instruct-2507` with `qwen3.5-4b` as runner-up. Both retained-dataset adapter runs completed on the target laptop GPU, the baseline and runner-up GGUF artifacts are now generated under the off-repo D-drive model root, `gguf-laptop` and `accelerated-local` have both passed real doctor plus live analyze smokes, and the supervisor-facing 8B-to-4B reconciliation note is now recorded. The CPU/iGPU target in this phase refers to GGUF inference after adaptation, not to CPU-only fine-tuning.
 
 **Success Criteria** (what must be TRUE):
 
@@ -69,7 +69,7 @@ Plans:
 2. User can run a GGUF quantized model path on consumer laptop CPU/iGPU baseline hardware.
 3. User can optionally switch to an accelerated path on prosumer GPU hardware with consistent output schema.
 4. Runtime selection is explicit and does not require switching to cloud-default inference.
-**Plans**: 4 plans
+**Plans**: 7 plans
 
 Plans:
 
@@ -77,6 +77,9 @@ Plans:
 - [x] 03-02-PLAN.md -- QLoRA training scaffold and adapter artifact flow for winner plus runner-up
 - [x] 03-03-PLAN.md -- GGUF conversion, CPU baseline backend, and explicit runtime profile selection
 - [x] 03-04-PLAN.md -- Accelerated local backend, profile-aware doctor checks, and local-model docs
+- [x] 03-05-PLAN.md -- Real GGUF conversion, operator convert command, and doctor-ready registered artifact closeout
+- [x] 03-06-PLAN.md -- Trained runner-up accelerated inference closeout and contract-stable runtime proof
+- [x] 03-07-PLAN.md -- Supervisor-facing 8B-to-4B reconciliation note and proposal addendum
 
 ### Phase 4: Threat Detection and Explainable Decisioning
 
@@ -111,7 +114,7 @@ Plans:
 | ----- | ---------------- | ------ | --------- |
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
-| 3. Local Model Adaptation and Deployment Paths | 4/4 scaffold | In progress - smoke validated | 2026-05-11 (reopened 2026-05-14, smoke validated 2026-05-16) |
+| 3. Local Model Adaptation and Deployment Paths | 7/7 | Complete | 2026-05-17 closeout complete |
 | 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 

@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-import re
+import importlib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from src.config.settings import get_settings
 from src.model_adaptation.registry import load_model_registry
-from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, DoctorStatus, SuspiciousCue
+from src.runtime.analyzers.local_model import (
+    build_analysis_result,
+    build_structured_analysis_prompt,
+    extract_structured_payload,
+)
+from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, DoctorStatus
 
 
-GGUF_SETUP_GUIDE = "Run the Phase 3 GGUF conversion flow to register the selected local artifact."
+GGUF_SETUP_GUIDE = (
+    "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and run the Phase 3 GGUF conversion flow to register the selected local artifact."
+)
 
 
 @dataclass
@@ -21,6 +29,8 @@ class GGUFAnalyzer:
     registry_path: Path = field(default_factory=lambda: get_settings().model_registry_path)
     runtime_profile: str = field(default_factory=lambda: get_settings().runtime_profile_gguf)
     backend_name: str = "gguf"
+    _cached_runtime: Any | None = field(default=None, init=False, repr=False)
+    _cached_artifact_path: Path | None = field(default=None, init=False, repr=False)
 
     def _allowed_profiles(self) -> dict[str, str]:
         settings = get_settings()
@@ -28,6 +38,58 @@ class GGUFAnalyzer:
             settings.runtime_profile_gguf: "baseline_winner_id",
             settings.runtime_profile_gguf_runner_up: "runner_up_id",
         }
+
+    def _resolve_artifact_path(self) -> Path:
+        registry = load_model_registry(self.registry_path)
+        if registry.selection is None:
+            raise RuntimeError("Pilot selection metadata is missing")
+
+        candidate_field = self._allowed_profiles()[self.runtime_profile]
+        target_candidate_id = getattr(registry.selection, candidate_field)
+        gguf_artifact = next(
+            (
+                artifact
+                for artifact in registry.artifacts
+                if artifact.candidate_id == target_candidate_id and artifact.artifact_type == "gguf"
+            ),
+            None,
+        )
+        if gguf_artifact is None or not gguf_artifact.local_path.exists():
+            raise FileNotFoundError(f"Missing GGUF artifact for candidate_id={target_candidate_id}")
+        return gguf_artifact.local_path
+
+    def _load_runtime(self, artifact_path: Path) -> Any:
+        if self._cached_runtime is not None and self._cached_artifact_path == artifact_path:
+            return self._cached_runtime
+
+        llama_cpp = importlib.import_module("llama_cpp")
+        runtime = llama_cpp.Llama(
+            model_path=str(artifact_path),
+            n_ctx=1024,
+            n_gpu_layers=0,
+            verbose=False,
+        )
+        self._cached_runtime = runtime
+        self._cached_artifact_path = artifact_path
+        return runtime
+
+    def _infer_payload(self, runtime: Any, text: str) -> dict[str, Any]:
+        prompt = build_structured_analysis_prompt(text)
+        if hasattr(runtime, "create_completion"):
+            response = runtime.create_completion(
+                prompt=prompt,
+                max_tokens=256,
+                temperature=0.0,
+            )
+        else:
+            response = runtime(
+                prompt,
+                max_tokens=256,
+                temperature=0.0,
+                echo=False,
+            )
+        generated_text = str(response["choices"][0]["text"])
+        return extract_structured_payload(generated_text)
 
     def doctor(self) -> DoctorStatus:
         checks: list[DoctorCheck] = []
@@ -100,6 +162,28 @@ class GGUFAnalyzer:
             )
         )
 
+        if artifact_ready:
+            try:
+                artifact_path = self._resolve_artifact_path()
+                self._load_runtime(artifact_path)
+                checks.append(
+                    DoctorCheck(
+                        name="gguf-runtime-load",
+                        passed=True,
+                        detail=f"GGUF runtime can load {artifact_path}",
+                        remediation_command=GGUF_SETUP_GUIDE,
+                    )
+                )
+            except Exception as exc:
+                checks.append(
+                    DoctorCheck(
+                        name="gguf-runtime-load",
+                        passed=False,
+                        detail=f"GGUF runtime failed to load local resources: {exc}",
+                        remediation_command=GGUF_SETUP_GUIDE,
+                    )
+                )
+
         ready = all(check.passed for check in checks)
         setup_steps = [] if ready else [GGUF_SETUP_GUIDE]
         return DoctorStatus(
@@ -114,48 +198,7 @@ class GGUFAnalyzer:
         if not status.ready:
             raise RuntimeError("GGUF backend is not ready")
 
-        lowered_text = request.text.casefold()
-        cues: list[SuspiciousCue] = []
-        url_match = re.search(r"https?://\S+|\b\S+\.\S+/\S*", request.text)
-        if url_match is not None:
-            cues.append(
-                SuspiciousCue(
-                    span=url_match.group(0),
-                    reason="Contains a link that should be verified before any login or transfer.",
-                    cue_type="link_prompt",
-                )
-            )
-        if "otp" in lowered_text:
-            cues.append(
-                SuspiciousCue(
-                    span="OTP",
-                    reason="Mentions one-time-password credentials.",
-                    cue_type="credential_request",
-                )
-            )
-        if any(bank_name in lowered_text for bank_name in ("vietcombank", "vpbank", "techcombank", "mb bank")):
-            cues.append(
-                SuspiciousCue(
-                    span="bank-brand",
-                    reason="Mentions a bank brand in a high-risk context.",
-                    cue_type="bank_impersonation",
-                )
-            )
-
-        if len(cues) >= 2:
-            risk_tier = "high-risk"
-            summary = "Local GGUF baseline flagged strong phishing indicators."
-        elif len(cues) == 1:
-            risk_tier = "suspicious"
-            summary = "Local GGUF baseline found a suspicious indicator that needs review."
-        else:
-            risk_tier = "benign"
-            summary = "Local GGUF baseline found no strong phishing indicators."
-
-        return AnalysisResult(
-            risk_tier=risk_tier,
-            summary=summary,
-            top_cues=cues[:3],
-            backend_name=self.backend_name,
-            normalized_text=request.text,
-        )
+        artifact_path = self._resolve_artifact_path()
+        runtime = self._load_runtime(artifact_path)
+        payload = self._infer_payload(runtime, request.text)
+        return build_analysis_result(payload, request, self.backend_name)

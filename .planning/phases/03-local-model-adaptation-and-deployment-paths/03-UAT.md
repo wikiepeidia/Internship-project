@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: complete
 phase: 03-local-model-adaptation-and-deployment-paths
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, documents/internship-proposal.md, .planning/PROJECT.md, .planning/ROADMAP.md, .planning/STATE.md
 started: 2026-05-11T14:10:53Z
-updated: 2026-05-16T00:00:00Z
+updated: 2026-05-17T00:00:00Z
 ---
 
 # Phase 03 UAT
@@ -52,62 +52,49 @@ result: pass
 ### 8. Default training dataset aligns with the retained Phase 1 dataset lineage
 
 expected: The default Phase 3 training command should point at the retained governed split lineage that best represents the project's final Phase 1 dataset evidence, rather than an earlier UAT-gap sample set.
-result: issue
-reported: "The active training CLI and doctor defaults still point to data/splits/train.jsonl and val.jsonl (37/12 rows from manifest-phase1-uat-gap), while Phase 1 closure and the larger local pilot treat recovered-balanced-claude-v2 as the final retained dataset evidence (476/207/208 governed rows)."
-severity: major
+result: pass
 
 ### 9. Proposal deviation is explicitly documented for university reporting
 
 expected: The repo should contain a concise supervisor-facing note that explains why the original proposal's 8B fine-tuning task was narrowed to a 4B baseline winner and how this still serves the local deployment and quality goals.
-result: issue
-reported: "The planning docs justify the 4B decision internally, but there is not yet a dedicated supervisor-facing reconciliation note for the proposal's original 8B wording."
-severity: minor
+result: pass
+
+### 10. Full retained-dataset baseline training completes and registers artifacts locally
+
+expected: Running the Phase 3 baseline-winner command without --dry-run or --smoke-test should complete a longer retained-dataset QLoRA run, save periodic checkpoints plus an adapter directory under D drive, and register the final adapter artifact in the local model registry.
+result: pass
+
+### 11. Full retained-dataset runner-up training completes and registers artifacts locally
+
+expected: Running the Phase 3 runner-up command without --dry-run or --smoke-test should complete a longer retained-dataset QLoRA run, save periodic checkpoints plus an adapter directory under D drive, and register the final adapter artifact in the local model registry.
+result: pass
+
+### 12. Real GGUF conversion produces a registered laptop artifact from the trained baseline adapter
+
+expected: Running the real GGUF conversion flow against the trained baseline winner should produce a registered GGUF artifact under D drive, and `RUNTIME_BACKEND=gguf RUNTIME_PROFILE=gguf-laptop python -m src.runtime.cli doctor` should report READY without relying on staged placeholders.
+result: pass
+
+### 13. Accelerated runtime uses the trained runner-up artifact for real inference
+
+expected: With the trained runner-up adapter registered, the accelerated runtime should load and use the adapted model for inference instead of rule-based placeholder logic while preserving the stable output schema.
+result: pass
+
+### 14. Runtime profile selection remains explicit across local backends
+
+expected: Operators should be able to switch between gguf and accelerated runtime profiles explicitly via settings and receive profile-specific readiness results without any cloud fallback.
+result: pass
 
 ## Summary
 
-total: 9
-passed: 7
-issues: 2
+total: 14
+passed: 14
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- truth: "The default Phase 3 training command should target the retained governed dataset lineage adopted at Phase 1 closure."
-  status: failed
-  reason: "Quick proposal check found that `src.model_adaptation.cli` defaults to `data/splits/train.jsonl` and `val.jsonl` (37/12 rows from `phase1-uat-gap`), while Phase 1 closure designates `recovered-balanced-claude-v2` (476/207/208) as the final retained dataset evidence and the larger Phase 3 pilot used the retained recovered-balanced validated source."
-  severity: major
-  test: 8
-  root_cause: "The CLI helper `_default_split_path()` still resolves to the legacy top-level `data/splits/*.jsonl` files created for the earlier `phase1-uat-gap` lineage, and no retained-dataset profile or updated default was added after the recovered dataset closure."
-  artifacts:
-  - path: "src/model_adaptation/cli.py"
-    issue: "Train and doctor defaults still point to `data/splits/*.jsonl`."
-  - path: ".planning/phases/01-data-foundation-and-split-governance/01-06-SUMMARY.md"
-    issue: "Phase 1 closure declares `recovered-balanced-claude-v2` as the final retained dataset evidence."
-  - path: ".planning/phases/03-local-model-adaptation-and-deployment-paths/03-REVIEWS.md"
-    issue: "The larger locked pilot cites `recovered-balanced-validated-claude-v2.jsonl` as its source dataset."
-  missing:
-  - "Retarget the Phase 3 train and doctor defaults to the retained `recovered-balanced-claude-v2` split lineage, or add an explicit dataset-profile argument and make the retained lineage the documented main-run command."
-  - "Re-run the short smoke command once against the retained dataset path before launching the longer baseline training run."
-  debug_session: ""
+- none. Phase 3 Wave 5 closeout plans 03-05, 03-06, and 03-07 are complete.
 
-- truth: "The project should preserve a supervisor-facing explanation for the proposal deviation from an 8B target to a 4B baseline winner."
-  status: failed
-  reason: "The internal planning files now justify the 4B-primary decision, but the university proposal still says Task 3 fine-tunes an 8B model and no dedicated reconciliation note exists yet for external reporting."
-  severity: minor
-  test: 9
-  root_cause: "The proposal was written before the local pilot and hardware-fit comparison locked the 4B baseline, so the deviation was captured in planning artifacts but not yet translated into a supervisor-facing progress note."
-  artifacts:
-  - path: "documents/internship-proposal.md"
-    issue: "Task 3 still states an open-source 8B model."
-  - path: ".planning/PROJECT.md"
-    issue: "Current plan now uses a 4B-primary path."
-  - path: ".planning/ROADMAP.md"
-    issue: "Phase 3 follow-up note locks the 4B winner and runner-up."
-  missing:
-  - "Add a brief supervisor or progress note that explains the 8B-to-4B decision as a quality and hardware-fit optimization rather than a scope reduction."
-  - "Mention that the 7B path remains a comparison or accelerated-path option, so larger-model exploration was not discarded outright."
-  debug_session: ""
-
-Overall direction remains aligned with the proposal, but the next longer training run should use the retained final dataset lineage and the 8B-to-4B rationale should be recorded explicitly for university-facing reporting.
+Overall direction remains aligned with the proposal, both retained-dataset 4B training runs are complete, the baseline GGUF laptop path is now converted and smoke-validated on the real D-drive artifact set, the accelerated runner-up path uses the trained adapter for live inference, and the supervisor-facing 8B-to-4B reconciliation note is now present. Phase 4 is unblocked.

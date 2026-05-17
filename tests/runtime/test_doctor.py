@@ -3,6 +3,9 @@
 import importlib
 from pathlib import Path
 
+import src.runtime.analyzers.accelerated as accelerated_module
+import src.runtime.analyzers.gguf as gguf_module
+from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.schemas import PilotSelection
 from src.model_adaptation.training import build_training_config, save_adapter_artifacts
 
@@ -13,16 +16,17 @@ def _load_doctor_module():
 
 def _selection() -> PilotSelection:
     return PilotSelection(
-        baseline_winner_id="qwen3.5-4b",
-        runner_up_id="qwen2.5-7b-instruct",
+        baseline_winner_id="qwen3-4b-instruct-2507",
+        runner_up_id="qwen3.5-4b",
         selection_notes="Winner and runner-up selected in the pilot.",
     )
 
 
 def _stage_accelerated_registry(tmp_path: Path) -> Path:
     registry_path = tmp_path / "manifests" / "model-registry.json"
+    (tmp_path / "models" / "base" / "qwen3.5-4b").mkdir(parents=True, exist_ok=True)
     config = build_training_config(
-        candidate_id="qwen2.5-7b-instruct",
+        candidate_id="qwen3.5-4b",
         train_split_path=tmp_path / "splits" / "train.jsonl",
         val_split_path=tmp_path / "splits" / "val.jsonl",
         version_tag="phase3-smoke",
@@ -32,6 +36,31 @@ def _stage_accelerated_registry(tmp_path: Path) -> Path:
         dry_run=True,
     )
     save_adapter_artifacts(config, selection=_selection())
+    return registry_path
+
+
+def _stage_gguf_registry(tmp_path: Path) -> Path:
+    registry_path = tmp_path / "manifests" / "model-registry-gguf.json"
+    (tmp_path / "models" / "base" / "qwen3-4b-instruct-2507").mkdir(parents=True, exist_ok=True)
+    config = build_training_config(
+        candidate_id="qwen3-4b-instruct-2507",
+        train_split_path=tmp_path / "splits" / "train.jsonl",
+        val_split_path=tmp_path / "splits" / "val.jsonl",
+        version_tag="phase3-smoke",
+        output_root=tmp_path / "models",
+        registry_path=registry_path,
+        selection=_selection(),
+        dry_run=True,
+    )
+    save_adapter_artifacts(config, selection=_selection())
+    request = build_gguf_request(
+        "qwen3-4b-instruct-2507",
+        "phase3-smoke",
+        registry_path=registry_path,
+        output_root=tmp_path / "models",
+        selection=_selection(),
+    )
+    convert_to_gguf(request, registry_path=registry_path, selection=_selection(), dry_run=True)
     return registry_path
 
 
@@ -114,18 +143,30 @@ def test_doctor_reports_profile_specific_readiness_for_accelerated_backend(tmp_p
     doctor_module = _load_doctor_module()
     registry_path = _stage_accelerated_registry(tmp_path)
 
-    class FakeSettings:
-        runtime_backend = "accelerated"
-        runtime_profile = "accelerated-local"
-        runtime_profile_gguf = "gguf-laptop"
-        runtime_profile_gguf_runner_up = "gguf-runner-up"
-        runtime_profile_accelerated = "accelerated-local"
-        model_registry_path = registry_path
-        runtime_max_cues = 3
-        runtime_fail_closed = True
-        runtime_store_raw_text = False
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_backend": "accelerated",
+            "runtime_profile": "accelerated-local",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_fail_closed": True,
+            "runtime_store_raw_text": False,
+        },
+    )()
 
-    monkeypatch.setattr(doctor_module, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(doctor_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(accelerated_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        doctor_module.AcceleratedAnalyzer,
+        "_load_runtime",
+        lambda self, *, adapter_path, base_model_path: {"adapter_path": adapter_path, "base_model_path": base_model_path},
+    )
 
     status = doctor_module.run_runtime_doctor()
     report = doctor_module.format_doctor_report(status)
@@ -134,3 +175,39 @@ def test_doctor_reports_profile_specific_readiness_for_accelerated_backend(tmp_p
     assert status.backend_name == "accelerated"
     assert "accelerated-local" in report
     assert "cloud" not in report.casefold()
+
+
+def test_doctor_reports_ready_for_registered_real_gguf_artifact(tmp_path, monkeypatch):
+    doctor_module = _load_doctor_module()
+    registry_path = _stage_gguf_registry(tmp_path)
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_backend": "gguf",
+            "runtime_profile": "gguf-laptop",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_fail_closed": True,
+            "runtime_store_raw_text": False,
+        },
+    )()
+
+    monkeypatch.setattr(doctor_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(gguf_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        doctor_module.GGUFAnalyzer,
+        "_load_runtime",
+        lambda self, artifact_path: {"artifact_path": artifact_path},
+    )
+
+    status = doctor_module.run_runtime_doctor()
+    report = doctor_module.format_doctor_report(status)
+
+    assert status.ready is True
+    assert status.backend_name == "gguf"
+    assert "gguf-laptop" in report

@@ -31,6 +31,9 @@ train = [
     "accelerate>=0.33",
     "peft>=0.12",
 ]
+runtime = [
+    "llama-cpp-python>=0.3",
+]
 
 [project.scripts]
 vnphish = "src.runtime.cli:main"

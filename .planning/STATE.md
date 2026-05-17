@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase3-training-smoke-validated
-last_updated: "2026-05-16T00:00:00.000Z"
+status: phase4-ready
+last_updated: "2026-05-17T00:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 13
-  completed_plans: 12
-  percent: 52
+  completed_phases: 3
+  total_plans: 16
+  completed_plans: 16
+  percent: 60
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -25,14 +25,14 @@ progress:
 
 ## Current Position
 
-Phase: 03 (local-model-adaptation-and-deployment-paths) — REAL TRAINING PATH SMOKE-VALIDATED
-Plan: Phase 3 pilot winner is locked; the next action is a longer baseline training run and artifact review
+Phase: 04 (threat-detection-and-explainable-decisioning) — READY TO START
+Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection and explainable decisioning on top of the now-real local deployment paths
 
-- Current phase: 3 - Local Model Adaptation and Deployment Paths
-- Current plan: The larger local pilot is complete, the baseline winner is locked, and the repo now exposes a real non-dry-run local PEFT training path with smoke-tested checkpoint resume on the local RTX 5050 laptop GPU. The next Phase 3 action is a longer baseline training run plus artifact review.
-- Project status: Phases 1 and 2 are complete. Phase 3 is reopened for real training readiness and execution before Phase 4 planning resumes.
-- Overall progress: Two phases are fully closed; Phase 3 remains active for real-training follow-through.
-- Progress bar: [===--] 52%
+- Current phase: 4 - Threat Detection and Explainable Decisioning
+- Current plan: Phase 3 is closed. The baseline winner and runner-up are locked, both retained-dataset adapter runs completed, the real GGUF conversion plus operator convert flow is in place, and both the baseline GGUF path and accelerated runner-up path have passed live local smokes on the D-drive artifact set.
+- Project status: Phases 1, 2, and 3 are complete. The project can now move into Phase 4 decisioning work on top of real local deployment paths rather than scaffolds.
+- Overall progress: Three phases are fully closed; the next milestone work is threat detection and explainable decisioning.
+- Progress bar: [====-] 60%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -52,6 +52,7 @@ Plan: Phase 3 pilot winner is locked; the next action is a longer baseline train
 - Phase 3 is now planned around a Qwen pilot with a 4B primary path, a three-model comparison, and adapter plus GGUF artifacts for the winner and runner-up.
 - A larger local pilot on 33 balanced validated samples locked `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up; the 7B checkpoint remains a comparison or accelerated-path option.
 - Real non-dry-run training is now wired in-repo, using a local PEFT and transformers backend with smoke-tested checkpoint resume for the winner and runner-up.
+- The baseline winner `qwen3-4b-instruct-2507` and runner-up `qwen3.5-4b` have now both completed full three-epoch retained-dataset QLoRA runs with saved adapter artifacts and periodic checkpoints under the off-repo model root.
 
 ### Requirement Coverage Snapshot
 
@@ -66,15 +67,19 @@ Plan: Phase 3 pilot winner is locked; the next action is a longer baseline train
 - Quantization regressions that reduce recall on high-harm scam classes.
 - Mixed-language/code-switch robustness drift over time.
 - Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
-- Longer training still needs run budgeting, artifact review, and downstream conversion and evaluation follow-through after the successful smoke and resume checks.
+- The optional `gguf-runner-up` profile now has a registered artifact, but a direct `llama_cpp` load smoke still failed on that runner-up GGUF file; the validated shipped local paths remain `gguf-laptop` and `accelerated-local`.
 
 ## Session Continuity
 
-- Last session: 2026-05-16
-- Stopped at: Wired the real local training backend, added a Phase 3 training doctor plus smoke-test and resume CLI flags, installed the training extras, and completed successful smoke runs for the locked baseline winner and runner-up plus resume-from-checkpoint for the baseline winner.
+- Last session: 2026-05-17
+- Stopped at: Closed Phase 3 Wave 5 with real GGUF conversion, live GGUF plus accelerated runtime smokes, and the supervisor-facing 8B-to-4B reconciliation note.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
 - Successful smoke artifacts now exist under `D:\PROJEct\AI MODELS\phase3-smoke-baseline-20260516\qwen3-4b-instruct-2507` and `D:\PROJEct\AI MODELS\phase3-smoke-runnerup-20260516\qwen3.5-4b`, including checkpoint directories and adapter summaries.
+- The retained-dataset baseline training artifacts now exist under `D:\PROJEct\AI MODELS\phase3-main-20260517\qwen3-4b-instruct-2507`, with the final checkpoint at `trainer\checkpoint-357`, the adapter directory registered in the model registry, and a training summary reporting 476 train examples, 207 validation examples, `train_loss=0.4951`, and `train_runtime=1733.30s`.
+- The retained-dataset runner-up training artifacts now exist under `D:\PROJEct\AI MODELS\phase3-runnerup-main-20260517\qwen3.5-4b`, with the final checkpoint at `trainer\checkpoint-357`, the adapter directory registered in the model registry, and a training summary reporting 476 train examples, 207 validation examples, `train_loss=0.4768`, and `train_runtime=4290.87s`.
+- The baseline GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3-4b-instruct-2507\gguf-laptop.gguf`, is registered in the off-repo model registry, and has passed real `gguf-laptop` doctor plus analyze smokes.
+- The runner-up GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3.5-4b\gguf-runner-up.gguf` and is registered in the off-repo model registry, though only artifact creation was validated successfully; a direct `gguf-runner-up` loader smoke still failed and remains a non-blocking follow-up.
 - Resume file: none
-- Next command: `python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-main-20260516 --registry-path "D:/PROJEct/AI MODELS/manifests/model-registry.json"`
+- Next command: none - next repo task is Phase 4 threat detection and explainable decisioning.

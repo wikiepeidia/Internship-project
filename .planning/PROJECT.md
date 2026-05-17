@@ -52,9 +52,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 - Phase 1 remains complete and closed on the retained recovered dataset lineage.
 - Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
-- Phase 3 planning and dry-run scaffolding are complete: the repo has a locked Qwen pilot catalog, dry-run training scaffolding, GGUF baseline runtime selection, an accelerated local profile, profile-aware local model docs, and a saved larger pilot result that locks `qwen3-4b-instruct-2507` as the laptop baseline winner with `qwen3.5-4b` as the runner-up.
-- Real fine-tuning is now executable: the repo has a local PEFT and transformers training backend, a training doctor, smoke-test plus checkpoint-resume CLI flags, and verified one-step smoke runs on the local RTX 5050 laptop GPU for the baseline winner and runner-up.
-- Immediate focus remains on Phase 3 follow-through: run longer baseline training and review resulting adapter artifacts before moving fully into Phase 4 threat detection and explainable decisioning.
+- Phase 3 is complete: the repo has a locked Qwen pilot catalog, real local PEFT and transformers training, completed retained-dataset adapter runs for `qwen3-4b-instruct-2507` and `qwen3.5-4b`, a real GGUF conversion path, a doctor-ready baseline GGUF runtime, and a real accelerated runner-up runtime.
+- The consumer-laptop CPU or iGPU target is already satisfied as an inference requirement through the GGUF path. Training remains a GPU-capable local workflow, not a CPU-only objective.
+- Immediate focus is now Phase 4 threat detection and explainable decisioning on top of the real local deployment paths completed in Phase 3.
 
 ---
-Last updated: 2026-05-14 after reopening Phase 3 for real training readiness
+Last updated: 2026-05-17 after closing Phase 3 and preparing Phase 4 context

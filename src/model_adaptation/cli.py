@@ -1,4 +1,4 @@
-"""Operator-facing CLI for Phase 3 pilot and training workflows."""
+"""Operator-facing CLI for Phase 3 pilot, training, and conversion workflows."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config.settings import get_settings
 from src.model_adaptation.catalog import build_default_catalog
+from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
 from src.model_adaptation.pilot import run_pilot
 from src.model_adaptation.registry import load_model_registry, save_model_registry
@@ -14,8 +15,16 @@ from src.model_adaptation.schemas import ModelRegistry, PilotSelection
 from src.model_adaptation.training import build_training_config, run_training
 
 
+def _default_split_root() -> Path:
+    settings = get_settings()
+    retained_root = settings.data_dir / "splits" / "recovered-balanced-claude-v2"
+    if retained_root.exists():
+        return retained_root
+    return settings.data_dir / "splits"
+
+
 def _default_split_path(split_name: str) -> Path:
-    return get_settings().data_dir / "splits" / f"{split_name}.jsonl"
+    return _default_split_root() / f"{split_name}.jsonl"
 
 
 def _default_registry_path() -> Path:
@@ -25,20 +34,20 @@ def _default_registry_path() -> Path:
 def _build_dry_run_pilot_rows() -> list[dict[str, object]]:
     return [
         {
-            "candidate_id": "qwen3.5-4b",
+            "candidate_id": "qwen3-4b-instruct-2507",
             "quality_score": 0.91,
             "recall_score": 0.94,
-            "latency_score": 0.83,
-            "memory_fit_score": 0.95,
-            "profile_notes": "Balanced 4B candidate for the laptop baseline.",
+            "latency_score": 0.90,
+            "memory_fit_score": 0.97,
+            "profile_notes": "Locked 4B baseline winner for the laptop profile.",
         },
         {
-            "candidate_id": "qwen3-4b-instruct-2507",
+            "candidate_id": "qwen3.5-4b",
             "quality_score": 0.89,
             "recall_score": 0.90,
-            "latency_score": 0.90,
+            "latency_score": 0.83,
             "memory_fit_score": 0.94,
-            "profile_notes": "Faster 4B fallback with slightly lower recall.",
+            "profile_notes": "Locked 4B runner-up for the accelerated profile.",
         },
         {
             "candidate_id": "qwen2.5-7b-instruct",
@@ -68,7 +77,7 @@ def _resolve_candidate_alias(candidate_arg: str, selection: PilotSelection) -> s
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the operator parser for pilot and training flows."""
+    """Build the operator parser for pilot, training, and conversion flows."""
 
     parser = argparse.ArgumentParser(prog="python -m src.model_adaptation.cli", allow_abbrev=False)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -205,6 +214,33 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--dry-run", action="store_true", help="Validate config without a real fine-tune")
     train_parser.set_defaults(handler=handle_train)
 
+    convert_parser = subparsers.add_parser("convert", help="Convert one trained adapter into a GGUF artifact")
+    convert_parser.add_argument(
+        "--candidate",
+        required=True,
+        help="Candidate id or alias: baseline-winner | runner-up",
+    )
+    convert_parser.add_argument("--version-tag", required=True, help="Version tag for GGUF outputs")
+    convert_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=get_settings().model_artifact_root,
+        help="Root directory for local model artifacts",
+    )
+    convert_parser.add_argument(
+        "--registry-path",
+        type=Path,
+        default=_default_registry_path(),
+        help="Path to the local model registry JSON",
+    )
+    convert_parser.add_argument(
+        "--quantization-profile",
+        default="q4_k_m",
+        help="Requested GGUF quantization profile",
+    )
+    convert_parser.add_argument("--dry-run", action="store_true", help="Validate conversion wiring without producing GGUF output")
+    convert_parser.set_defaults(handler=handle_convert)
+
     doctor_parser = subparsers.add_parser("doctor", help="Check local Phase 3 training readiness")
     doctor_parser.add_argument(
         "--candidate",
@@ -309,6 +345,33 @@ def handle_train(args: argparse.Namespace) -> int:
         if result.get("summary_path") is not None:
             summary_parts.append(f"summary={result['summary_path']}")
     print(f"Training {'dry-run' if result['dry_run'] else 'run'} complete: {' '.join(summary_parts)}")
+    return 0
+
+
+def handle_convert(args: argparse.Namespace) -> int:
+    """Run the GGUF conversion flow for the selected candidate alias."""
+
+    selection = _load_selection(args.registry_path)
+    resolved_candidate_id = _resolve_candidate_alias(args.candidate, selection)
+    request = build_gguf_request(
+        resolved_candidate_id,
+        args.version_tag,
+        registry_path=args.registry_path,
+        output_root=args.output_root,
+        selection=selection,
+        quantization_profile=args.quantization_profile,
+    )
+    result = convert_to_gguf(
+        request,
+        registry_path=args.registry_path,
+        selection=selection,
+        dry_run=args.dry_run,
+    )
+    artifact_record = result["artifact_record"]
+    print(
+        f"Conversion {'dry-run' if result['dry_run'] else 'run'} complete: "
+        f"candidate={artifact_record.candidate_id} profile={artifact_record.profile_name} artifact={artifact_record.local_path}"
+    )
     return 0
 
 

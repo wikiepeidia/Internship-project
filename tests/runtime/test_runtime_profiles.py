@@ -6,6 +6,8 @@ import importlib
 from pathlib import Path
 
 import pytest
+import src.runtime.analyzers.accelerated as accelerated_module
+import src.runtime.analyzers.gguf as gguf_module
 
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.schemas import PilotSelection
@@ -22,16 +24,17 @@ def _load_doctor_module():
 
 def _selection() -> PilotSelection:
     return PilotSelection(
-        baseline_winner_id="qwen3.5-4b",
-        runner_up_id="qwen2.5-7b-instruct",
+        baseline_winner_id="qwen3-4b-instruct-2507",
+        runner_up_id="qwen3.5-4b",
         selection_notes="Winner and runner-up selected in the pilot.",
     )
 
 
 def _stage_gguf_registry(tmp_path: Path) -> Path:
     registry_path = tmp_path / "manifests" / "model-registry.json"
+    (tmp_path / "models" / "base" / "qwen3-4b-instruct-2507").mkdir(parents=True, exist_ok=True)
     config = build_training_config(
-        candidate_id="qwen3.5-4b",
+        candidate_id="qwen3-4b-instruct-2507",
         train_split_path=tmp_path / "splits" / "train.jsonl",
         val_split_path=tmp_path / "splits" / "val.jsonl",
         version_tag="phase3-smoke",
@@ -42,7 +45,7 @@ def _stage_gguf_registry(tmp_path: Path) -> Path:
     )
     save_adapter_artifacts(config, selection=_selection())
     request = build_gguf_request(
-        "qwen3.5-4b",
+        "qwen3-4b-instruct-2507",
         "phase3-smoke",
         registry_path=registry_path,
         output_root=tmp_path / "models",
@@ -54,8 +57,9 @@ def _stage_gguf_registry(tmp_path: Path) -> Path:
 
 def _stage_accelerated_registry(tmp_path: Path) -> Path:
     registry_path = tmp_path / "manifests" / "model-registry-accelerated.json"
+    (tmp_path / "models" / "base" / "qwen3.5-4b").mkdir(parents=True, exist_ok=True)
     config = build_training_config(
-        candidate_id="qwen2.5-7b-instruct",
+        candidate_id="qwen3.5-4b",
         train_split_path=tmp_path / "splits" / "train.jsonl",
         val_split_path=tmp_path / "splits" / "val.jsonl",
         version_tag="phase3-smoke",
@@ -94,22 +98,43 @@ def test_runtime_service_rejects_unknown_runtime_profile(tmp_path, monkeypatch):
 def test_build_default_runtime_service_uses_explicit_gguf_profile(tmp_path, monkeypatch):
     service_module = _load_service_module()
     registry_path = _stage_gguf_registry(tmp_path)
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_backend": "gguf",
+            "runtime_profile": "gguf-laptop",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_min_text_chars": 8,
+            "runtime_store_raw_text": False,
+            "runtime_fail_closed": True,
+            "runtime_text_only_message": (
+                "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+            ),
+        },
+    )()
 
-    class FakeSettings:
-        runtime_backend = "gguf"
-        runtime_profile = "gguf-laptop"
-        runtime_profile_gguf = "gguf-laptop"
-        runtime_profile_gguf_runner_up = "gguf-runner-up"
-        model_registry_path = registry_path
-        runtime_max_cues = 3
-        runtime_min_text_chars = 8
-        runtime_store_raw_text = False
-        runtime_fail_closed = True
-        runtime_text_only_message = (
-            "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
-        )
-
-    monkeypatch.setattr(service_module, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(gguf_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        service_module.GGUFAnalyzer,
+        "_load_runtime",
+        lambda self, artifact_path: {"artifact_path": artifact_path},
+    )
+    monkeypatch.setattr(
+        service_module.GGUFAnalyzer,
+        "_infer_payload",
+        lambda self, runtime, text: {
+            "risk_tier": "high-risk",
+            "suspicious_spans": ["https://vpbank-safe.example", "OTP"],
+            "xai_explanation": "GGUF mocked response.",
+        },
+    )
 
     service = service_module.build_default_runtime_service()
     result = service.analyze_text(
@@ -125,18 +150,30 @@ def test_build_default_runtime_service_uses_explicit_gguf_profile(tmp_path, monk
 def test_runtime_doctor_reports_gguf_readiness_without_cloud_fallback(tmp_path, monkeypatch):
     doctor_module = _load_doctor_module()
     registry_path = _stage_gguf_registry(tmp_path)
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_backend": "gguf",
+            "runtime_profile": "gguf-laptop",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_fail_closed": True,
+            "runtime_store_raw_text": False,
+        },
+    )()
 
-    class FakeSettings:
-        runtime_backend = "gguf"
-        runtime_profile = "gguf-laptop"
-        runtime_profile_gguf = "gguf-laptop"
-        runtime_profile_gguf_runner_up = "gguf-runner-up"
-        model_registry_path = registry_path
-        runtime_max_cues = 3
-        runtime_fail_closed = True
-        runtime_store_raw_text = False
-
-    monkeypatch.setattr(doctor_module, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(doctor_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(gguf_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        doctor_module.GGUFAnalyzer,
+        "_load_runtime",
+        lambda self, artifact_path: {"artifact_path": artifact_path},
+    )
 
     status = doctor_module.run_runtime_doctor()
     report = doctor_module.format_doctor_report(status)
@@ -155,42 +192,136 @@ def test_gguf_and_accelerated_profiles_share_contract_shape(tmp_path, monkeypatc
         "https://vpbank-safe.example"
     )
 
-    class GGUFSettings:
-        runtime_backend = "gguf"
-        runtime_profile = "gguf-laptop"
-        runtime_profile_gguf = "gguf-laptop"
-        runtime_profile_gguf_runner_up = "gguf-runner-up"
-        runtime_profile_accelerated = "accelerated-local"
-        model_registry_path = gguf_registry_path
-        runtime_max_cues = 3
-        runtime_min_text_chars = 8
-        runtime_store_raw_text = False
-        runtime_fail_closed = True
-        runtime_text_only_message = (
-            "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
-        )
+    gguf_settings = type(
+        "GGUFSettings",
+        (),
+        {
+            "runtime_backend": "gguf",
+            "runtime_profile": "gguf-laptop",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": gguf_registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_min_text_chars": 8,
+            "runtime_store_raw_text": False,
+            "runtime_fail_closed": True,
+            "runtime_text_only_message": (
+                "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+            ),
+        },
+    )()
+    accelerated_settings = type(
+        "AcceleratedSettings",
+        (),
+        {
+            "runtime_backend": "accelerated",
+            "runtime_profile": "accelerated-local",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": accelerated_registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_min_text_chars": 8,
+            "runtime_store_raw_text": False,
+            "runtime_fail_closed": True,
+            "runtime_text_only_message": (
+                "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+            ),
+        },
+    )()
 
-    class AcceleratedSettings:
-        runtime_backend = "accelerated"
-        runtime_profile = "accelerated-local"
-        runtime_profile_gguf = "gguf-laptop"
-        runtime_profile_gguf_runner_up = "gguf-runner-up"
-        runtime_profile_accelerated = "accelerated-local"
-        model_registry_path = accelerated_registry_path
-        runtime_max_cues = 3
-        runtime_min_text_chars = 8
-        runtime_store_raw_text = False
-        runtime_fail_closed = True
-        runtime_text_only_message = (
-            "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
-        )
+    monkeypatch.setattr(
+        service_module.GGUFAnalyzer,
+        "_load_runtime",
+        lambda self, artifact_path: {"artifact_path": artifact_path},
+    )
+    monkeypatch.setattr(
+        service_module.GGUFAnalyzer,
+        "_infer_payload",
+        lambda self, runtime, text: {
+            "risk_tier": "suspicious",
+            "suspicious_spans": ["OTP"],
+            "xai_explanation": "GGUF mocked response.",
+        },
+    )
+    monkeypatch.setattr(
+        service_module.AcceleratedAnalyzer,
+        "_load_runtime",
+        lambda self, *, adapter_path, base_model_path: {"adapter_path": adapter_path, "base_model_path": base_model_path},
+    )
+    monkeypatch.setattr(
+        service_module.AcceleratedAnalyzer,
+        "_infer_payload",
+        lambda self, runtime, text: {
+            "risk_tier": "suspicious",
+            "suspicious_spans": ["OTP"],
+            "xai_explanation": "Accelerated mocked response.",
+        },
+    )
 
-    monkeypatch.setattr(service_module, "get_settings", lambda: GGUFSettings())
+    monkeypatch.setattr(service_module, "get_settings", lambda: gguf_settings)
+    monkeypatch.setattr(gguf_module, "get_settings", lambda: gguf_settings)
     gguf_result = service_module.build_default_runtime_service().analyze_text(sample_text, channel="sms")
 
-    monkeypatch.setattr(service_module, "get_settings", lambda: AcceleratedSettings())
+    monkeypatch.setattr(service_module, "get_settings", lambda: accelerated_settings)
+    monkeypatch.setattr(accelerated_module, "get_settings", lambda: accelerated_settings)
     accelerated_result = service_module.build_default_runtime_service().analyze_text(sample_text, channel="sms")
 
     assert set(gguf_result.model_dump().keys()) == set(accelerated_result.model_dump().keys())
     assert gguf_result.backend_name == "gguf"
     assert accelerated_result.backend_name == "accelerated"
+
+
+def test_accelerated_profile_stays_explicit_when_model_loader_is_mocked(tmp_path, monkeypatch):
+    service_module = _load_service_module()
+    accelerated_registry_path = _stage_accelerated_registry(tmp_path)
+    settings = type(
+        "AcceleratedSettings",
+        (),
+        {
+            "runtime_backend": "accelerated",
+            "runtime_profile": "accelerated-local",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": accelerated_registry_path,
+            "model_artifact_root": tmp_path / "models",
+            "runtime_max_cues": 3,
+            "runtime_min_text_chars": 8,
+            "runtime_store_raw_text": False,
+            "runtime_fail_closed": True,
+            "runtime_text_only_message": (
+                "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+            ),
+        },
+    )()
+
+    monkeypatch.setattr(service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(accelerated_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        service_module.AcceleratedAnalyzer,
+        "_load_runtime",
+        lambda self, *, adapter_path, base_model_path: {"adapter_path": adapter_path, "base_model_path": base_model_path},
+    )
+    monkeypatch.setattr(
+        service_module.AcceleratedAnalyzer,
+        "_infer_payload",
+        lambda self, runtime, text: {
+            "risk_tier": "high-risk",
+            "suspicious_spans": ["http://verify-vcb.example/", "OTP"],
+            "xai_explanation": "Accelerated mocked response.",
+        },
+    )
+
+    service = service_module.build_default_runtime_service()
+    result = service.analyze_text(
+        "Vietcombank canh bao tai khoan cua ban dang bi tam khoa. Vui long nhap OTP de xac minh.",
+        channel="sms",
+    )
+
+    assert service.backend.backend_name == "accelerated"
+    assert result.backend_name == "accelerated"
+    assert result.risk_tier == "high-risk"
