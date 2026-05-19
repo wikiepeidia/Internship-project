@@ -183,7 +183,7 @@ def test_runtime_doctor_reports_gguf_readiness_without_cloud_fallback(tmp_path, 
     assert "cloud" not in report.casefold()
 
 
-def test_gguf_and_accelerated_profiles_share_contract_shape(tmp_path, monkeypatch):
+def test_gguf_and_accelerated_profiles_share_phase_four_semantics(tmp_path, monkeypatch):
     service_module = _load_service_module()
     gguf_registry_path = _stage_gguf_registry(tmp_path)
     accelerated_registry_path = _stage_accelerated_registry(tmp_path)
@@ -243,8 +243,10 @@ def test_gguf_and_accelerated_profiles_share_contract_shape(tmp_path, monkeypatc
         "_infer_payload",
         lambda self, runtime, text: {
             "risk_tier": "suspicious",
+            "threat_labels": ["bank_impersonation"],
             "suspicious_spans": ["OTP"],
             "xai_explanation": "GGUF mocked response.",
+            "recommendations": ["Khong bam vao lien ket trong tin nhan."],
         },
     )
     monkeypatch.setattr(
@@ -257,8 +259,10 @@ def test_gguf_and_accelerated_profiles_share_contract_shape(tmp_path, monkeypatc
         "_infer_payload",
         lambda self, runtime, text: {
             "risk_tier": "suspicious",
+            "threat_labels": ["bank_impersonation"],
             "suspicious_spans": ["OTP"],
             "xai_explanation": "Accelerated mocked response.",
+            "recommendations": ["Khong bam vao lien ket trong tin nhan."],
         },
     )
 
@@ -271,6 +275,11 @@ def test_gguf_and_accelerated_profiles_share_contract_shape(tmp_path, monkeypatc
     accelerated_result = service_module.build_default_runtime_service().analyze_text(sample_text, channel="sms")
 
     assert set(gguf_result.model_dump().keys()) == set(accelerated_result.model_dump().keys())
+    assert gguf_result.risk_tier == accelerated_result.risk_tier == "suspicious"
+    assert gguf_result.threat_labels == ["bank_impersonation"]
+    assert accelerated_result.threat_labels == ["bank_impersonation"]
+    assert gguf_result.recommendations == ["Khong bam vao lien ket trong tin nhan."]
+    assert accelerated_result.recommendations == ["Khong bam vao lien ket trong tin nhan."]
     assert gguf_result.backend_name == "gguf"
     assert accelerated_result.backend_name == "accelerated"
 
@@ -318,7 +327,7 @@ def test_accelerated_profile_stays_explicit_when_model_loader_is_mocked(tmp_path
 
     service = service_module.build_default_runtime_service()
     result = service.analyze_text(
-        "Vietcombank canh bao tai khoan cua ban dang bi tam khoa. Vui long nhap OTP de xac minh.",
+        "Vietcombank canh bao tai khoan cua ban dang bi tam khoa. Vui long nhap OTP tai http://verify-vcb.example/ de xac minh.",
         channel="sms",
     )
 

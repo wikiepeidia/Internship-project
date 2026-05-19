@@ -35,7 +35,7 @@ def _stage_accelerated_registry(tmp_path: Path) -> Path:
     return registry_path
 
 
-def test_accelerated_analyze_uses_model_output_not_keyword_scaffold(tmp_path, monkeypatch):
+def test_accelerated_analyze_returns_phase_four_result_fields(tmp_path, monkeypatch):
     registry_path = _stage_accelerated_registry(tmp_path)
     settings = type(
         "FakeSettings",
@@ -58,7 +58,7 @@ def test_accelerated_analyze_uses_model_output_not_keyword_scaffold(tmp_path, mo
         captured["text"] = text
         return {
             "risk_tier": "benign",
-            "suspicious_spans": ["xac minh"],
+            "suspicious_spans": ["xác minh"],
             "xai_explanation": "Model output judged this message benign despite the old heuristic keywords.",
         }
 
@@ -84,7 +84,9 @@ def test_accelerated_analyze_uses_model_output_not_keyword_scaffold(tmp_path, mo
     assert status.ready is True
     assert isinstance(result, AnalysisResult)
     assert result.backend_name == "accelerated"
-    assert result.risk_tier == "benign"
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert result.recommendations
     assert Path(captured["adapter_path"]).name == "adapter-placeholder.bin"
     assert len(result.top_cues) <= 3
 

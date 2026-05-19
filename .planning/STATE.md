@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: phase4-ready
-last_updated: "2026-05-17T00:00:00.000Z"
+last_updated: "2026-05-19T00:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -71,8 +71,8 @@ Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection 
 
 ## Session Continuity
 
-- Last session: 2026-05-17
-- Stopped at: Closed Phase 3 Wave 5 with real GGUF conversion, live GGUF plus accelerated runtime smokes, and the supervisor-facing 8B-to-4B reconciliation note.
+- Last session: 2026-05-19
+- Stopped at: Session resumed. No structured handoff, continue-here checkpoint, or incomplete plan execution was found; the project is proceeding from the existing Phase 4 context into planning.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -82,4 +82,4 @@ Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection 
 - The baseline GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3-4b-instruct-2507\gguf-laptop.gguf`, is registered in the off-repo model registry, and has passed real `gguf-laptop` doctor plus analyze smokes.
 - The runner-up GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3.5-4b\gguf-runner-up.gguf` and is registered in the off-repo model registry, though only artifact creation was validated successfully; a direct `gguf-runner-up` loader smoke still failed and remains a non-blocking follow-up.
 - Resume file: none
-- Next command: none - next repo task is Phase 4 threat detection and explainable decisioning.
+- Next command: `/gsd-plan-phase 4`

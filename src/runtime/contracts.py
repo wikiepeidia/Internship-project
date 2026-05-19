@@ -1,12 +1,14 @@
 """Typed contracts for the Phase 2 offline runtime."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 ChannelName = Literal["unknown", "sms", "zalo", "messenger", "telegram", "facebook"]
 RiskTier = Literal["benign", "suspicious", "high-risk"]
+ThreatLabel = Literal["bank_impersonation", "zalo_social_engineering", "task_scam", "benign"]
+RecommendationText = Annotated[str, Field(min_length=1)]
 
 
 class SuspiciousCue(BaseModel):
@@ -46,6 +48,8 @@ class AnalysisResult(BaseModel):
     risk_tier: RiskTier
     summary: str = Field(min_length=1)
     top_cues: list[SuspiciousCue] = Field(default_factory=list, max_length=3)
+    threat_labels: list[ThreatLabel] = Field(default_factory=list, max_length=2)
+    recommendations: list[RecommendationText] = Field(default_factory=list, max_length=3)
     backend_name: str = Field(min_length=1)
     provisional: bool = True
     normalized_text: str | None = None

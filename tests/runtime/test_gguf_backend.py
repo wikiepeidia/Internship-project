@@ -44,7 +44,7 @@ def _stage_gguf_registry(tmp_path: Path) -> Path:
     return registry_path
 
 
-def test_gguf_analyze_uses_registered_baseline_winner_artifact(tmp_path, monkeypatch):
+def test_gguf_analyze_returns_phase_four_result_fields(tmp_path, monkeypatch):
     registry_path = _stage_gguf_registry(tmp_path)
     settings = type(
         "FakeSettings",
@@ -91,5 +91,7 @@ def test_gguf_analyze_uses_registered_baseline_winner_artifact(tmp_path, monkeyp
     assert isinstance(result, AnalysisResult)
     assert result.backend_name == "gguf"
     assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert result.recommendations
     assert Path(captured["artifact_path"]).name == "gguf-laptop.gguf"
     assert len(result.top_cues) <= 3

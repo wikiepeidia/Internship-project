@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from src.config.settings import Settings
+from src.runtime.analyzers.local_model import build_analysis_result, extract_structured_payload
 from src.runtime.contracts import AnalysisResult, DoctorStatus
 
 
@@ -103,4 +104,42 @@ def test_failure_output_redacts_user_message(sample_mixed_vn_en_message):
     output = render_module.render_runtime_error(str(exc_info.value), exc_info.value.steps)
 
     assert sample_mixed_vn_en_message not in output
+    assert "cloud" not in output.casefold()
+
+
+def test_phase_four_failure_output_redacts_user_message_and_model_output(sample_mixed_vn_en_message):
+    service_module = _load_service_module()
+    render_module = importlib.import_module("src.runtime.render")
+    raw_model_output = (
+        '{"risk_tier":"critical","threat_labels":["lottery_scam"],'
+        '"decision_summary":"bad payload","recommendations":[{"text":"click ngay"}]}'
+    )
+
+    class ExplodingPhaseFourBackend:
+        backend_name = "gguf"
+
+        def doctor(self):
+            return DoctorStatus(ready=True, backend_name=self.backend_name, checks=[])
+
+        def analyze(self, request):
+            try:
+                payload = extract_structured_payload(raw_model_output)
+                return build_analysis_result(payload, request, backend_name=self.backend_name)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"phase four parse failure for text={request.text} raw_output={raw_model_output}"
+                ) from exc
+
+    service = service_module.RuntimeService(
+        backend=ExplodingPhaseFourBackend(),
+        settings=Settings(),
+    )
+
+    with pytest.raises(service_module.RuntimeUnavailableError) as exc_info:
+        service.analyze_text(sample_mixed_vn_en_message)
+
+    output = render_module.render_runtime_error(str(exc_info.value), exc_info.value.steps)
+
+    assert sample_mixed_vn_en_message not in output
+    assert raw_model_output not in output
     assert "cloud" not in output.casefold()

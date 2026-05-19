@@ -93,7 +93,14 @@ Plans:
 3. Explanations cite concrete suspicious cues or spans from the provided text rather than generic warnings.
 4. Output includes actionable user-safe recommendations (for example, do not click links and verify identity via trusted channels).
 5. Responses are provided in a structured format that is stable for downstream UI and testing.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+- [ ] 04-01-PLAN.md -- Additive Phase 4 contract, shared decision-layer interface, and Wave 0 runtime verification scaffold
+- [ ] 04-02-PLAN.md -- Shared local-model decision schema, grounding checks, deterministic safety helper, and recommendation sanitization
+- [ ] 04-03-PLAN.md -- GGUF and accelerated Phase 4 integration plus terminal analyze presentation
+- [ ] 04-04-PLAN.md -- Explicit `gguf-laptop` default-profile promotion with doctor-backed fail-closed safety
 
 ### Phase 5: Recall-Priority Evaluation and Release Gates
 
@@ -115,7 +122,7 @@ Plans:
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
 | 3. Local Model Adaptation and Deployment Paths | 7/7 | Complete | 2026-05-17 closeout complete |
-| 4. Threat Detection and Explainable Decisioning | 0/TBD | Not started | - |
+| 4. Threat Detection and Explainable Decisioning | 0/4 | Not started | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 
 ## Coverage Validation

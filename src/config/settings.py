@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     scrape_delay_max: float = 5.0  # Maximum delay between requests (seconds)
     ncsc_base_url: str = "https://canhbao.khonggianmang.vn"
 
-    # Phase 2 Runtime Configuration
-    runtime_backend: str = "heuristic"
-    runtime_profile: str = "heuristic"
+    # Phase 4 Runtime Configuration
+    runtime_backend: str = "gguf"
+    runtime_profile: str = "gguf-laptop"
     runtime_profile_gguf: str = "gguf-laptop"
     runtime_profile_gguf_runner_up: str = "gguf-runner-up"
     runtime_profile_accelerated: str = "accelerated-local"

@@ -15,6 +15,7 @@ from src.runtime.contracts import (
     DoctorStatus,
     RiskTier,
     SuspiciousCue,
+    ThreatLabel,
 )
 
 
@@ -58,6 +59,26 @@ class TestAnalysisResult:
 
         assert result.provisional is True
         assert result.risk_tier == "suspicious"
+        assert result.threat_labels == []
+        assert result.recommendations == []
+
+    def test_analysis_result_accepts_phase_four_labels_and_recommendations(self):
+        result = AnalysisResult(
+            risk_tier="high-risk",
+            summary="Tin nhắn giả danh ngân hàng và dụ người dùng mở liên kết lạ.",
+            threat_labels=["bank_impersonation"],
+            recommendations=[
+                "Khong bam vao lien ket trong tin nhan.",
+                "Xac minh tai khoan bang ung dung hoac tong dai chinh thuc.",
+            ],
+            backend_name="heuristic",
+        )
+
+        assert result.threat_labels == ["bank_impersonation"]
+        assert result.recommendations == [
+            "Khong bam vao lien ket trong tin nhan.",
+            "Xac minh tai khoan bang ung dung hoac tong dai chinh thuc.",
+        ]
 
     def test_analysis_result_caps_top_cues(self):
         cues = [
@@ -104,6 +125,12 @@ class TestProtocolAndSettings:
 
         assert runtime_tiers == dataset_tiers
 
+    def test_runtime_threat_labels_match_dataset_schema(self):
+        runtime_labels = get_args(ThreatLabel)
+        dataset_labels = get_args(get_type_hints(DatasetRecord, include_extras=True)["label"])
+
+        assert runtime_labels == dataset_labels
+
     def test_analyzer_backend_protocol_shape(self):
         assert issubclass(AnalyzerBackend, Protocol)
 
@@ -116,7 +143,8 @@ class TestProtocolAndSettings:
     def test_settings_expose_runtime_defaults(self):
         settings = Settings()
 
-        assert settings.runtime_backend == "heuristic"
+        assert settings.runtime_backend == "gguf"
+        assert settings.runtime_profile == "gguf-laptop"
         assert settings.runtime_max_cues == 3
         assert settings.runtime_min_text_chars == 8
         assert settings.runtime_store_raw_text is False

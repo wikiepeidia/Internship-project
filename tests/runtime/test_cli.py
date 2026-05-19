@@ -101,6 +101,79 @@ def test_cli_only_exposes_analyze_and_doctor_commands():
     assert sorted(subparsers_action.choices.keys()) == ["analyze", "doctor"]
 
 
+def test_analyze_prints_phase_four_result_through_existing_command_surface(monkeypatch, capsys):
+    cli_module = _load_cli_module()
+
+    class FakeService:
+        def analyze_text(self, text: str, channel: str = "unknown") -> AnalysisResult:
+            return AnalysisResult(
+                risk_tier="high-risk",
+                summary="Mocked Phase 4 result.",
+                threat_labels=["bank_impersonation"],
+                recommendations=["Khong bam vao lien ket trong tin nhan."],
+                backend_name="heuristic",
+            )
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(ready=True, backend_name="heuristic", checks=[]),
+    )
+    monkeypatch.setattr(cli_module, "build_default_runtime_service", lambda: FakeService())
+    monkeypatch.setattr(
+        cli_module,
+        "render_analysis_result",
+        lambda result: "\n".join(
+            [
+                "Mocked Phase 4 result.",
+                "Risk tier: High risk",
+                "Threat labels: Bank impersonation",
+                "Next steps:",
+                "- Khong bam vao lien ket trong tin nhan.",
+            ]
+        ),
+    )
+
+    exit_code = cli_module.main(["analyze", "--text", "VPBank yeu cau OTP"])
+
+    output = capsys.readouterr().out.strip()
+    assert exit_code == 0
+    assert "Risk tier: High risk" in output
+    assert "Threat labels: Bank impersonation" in output
+
+
+def test_analyze_uses_phase_four_gguf_default_when_ready(monkeypatch, capsys):
+    cli_module = _load_cli_module()
+
+    class FakeService:
+        def analyze_text(self, text: str, channel: str = "unknown") -> AnalysisResult:
+            return AnalysisResult(
+                risk_tier="high-risk",
+                summary="GGUF default analyze path.",
+                threat_labels=["bank_impersonation"],
+                recommendations=["Khong bam vao lien ket trong tin nhan."],
+                backend_name="gguf",
+            )
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(ready=True, backend_name="gguf", checks=[]),
+    )
+    monkeypatch.setattr(cli_module, "build_default_runtime_service", lambda: FakeService())
+    monkeypatch.setattr(
+        cli_module,
+        "render_analysis_result",
+        lambda result: "\n".join([result.summary, f"backend={result.backend_name}"]),
+    )
+
+    exit_code = cli_module.main(["analyze", "--text", "VPBank yeu cau xac minh OTP"])
+
+    output = capsys.readouterr().out.strip()
+    assert exit_code == 0
+    assert "backend=gguf" in output
+
+
 def test_analyze_returns_setup_guidance_when_doctor_is_not_ready(monkeypatch, capsys):
     cli_module = _load_cli_module()
 
@@ -109,7 +182,7 @@ def test_analyze_returns_setup_guidance_when_doctor_is_not_ready(monkeypatch, ca
         "run_runtime_doctor",
         lambda: DoctorStatus(
             ready=False,
-            backend_name="heuristic",
+            backend_name="gguf",
             checks=[],
             setup_steps=["python -m src.runtime.cli doctor"],
         ),

@@ -3,6 +3,7 @@
 import importlib
 
 from src.config.settings import Settings
+from src.runtime.analyzers.local_model import build_analysis_result
 from src.runtime.contracts import AnalysisResult, DoctorStatus
 
 
@@ -109,3 +110,87 @@ def test_runtime_service_preserves_mixed_language_content(sample_mixed_vn_en_mes
     assert "Internet Banking" in captured["text"]
     assert "link" in captured["text"]
     assert "account" in captured["text"]
+
+
+def test_runtime_service_propagates_phase_four_fields(sample_mixed_vn_en_message):
+    service_module = _load_service_module()
+
+    class FakeBackend:
+        backend_name = "fake"
+
+        def doctor(self):
+            return DoctorStatus(ready=True, backend_name=self.backend_name, checks=[])
+
+        def analyze(self, request):
+            return AnalysisResult(
+                risk_tier="high-risk",
+                summary="Phase 4 fields propagated.",
+                threat_labels=["bank_impersonation"],
+                recommendations=[
+                    "Khong bam vao lien ket trong tin nhan.",
+                    "Xac minh qua ung dung hoac tong dai chinh thuc.",
+                ],
+                backend_name=self.backend_name,
+                normalized_text=request.text,
+            )
+
+    service = service_module.RuntimeService(backend=FakeBackend(), settings=Settings())
+    result = service.analyze_text(sample_mixed_vn_en_message, channel="sms")
+
+    assert result.threat_labels == ["bank_impersonation"]
+    assert result.recommendations == [
+        "Khong bam vao lien ket trong tin nhan.",
+        "Xac minh qua ung dung hoac tong dai chinh thuc.",
+    ]
+    assert result.backend_name == "fake"
+
+
+def test_runtime_service_preserves_grounded_phase_four_cues(sample_mixed_vn_en_message):
+    service_module = _load_service_module()
+    captured = {}
+
+    class FakeBackend:
+        backend_name = "gguf"
+
+        def doctor(self):
+            return DoctorStatus(ready=True, backend_name=self.backend_name, checks=[])
+
+        def analyze(self, request):
+            captured["request"] = request
+            return build_analysis_result(
+                {
+                    "risk_tier": "high-risk",
+                    "threat_labels": ["bank_impersonation"],
+                    "decision_summary": "Tin nhan gia danh ngan hang va yeu cau xac minh.",
+                    "evidence": [
+                        {
+                            "span": "OTP",
+                            "reason": "Tin nhan yeu cau ma xac thuc nhay cam.",
+                            "cue_type": "otp_request",
+                            "supports_labels": ["bank_impersonation"],
+                            "severity": "high",
+                        },
+                        {
+                            "span": "https://vpbank-secure.example",
+                            "reason": "Lien ket la co the dan toi trang gia danh.",
+                            "cue_type": "url",
+                            "supports_labels": ["bank_impersonation"],
+                            "severity": "high",
+                        },
+                    ],
+                    "recommendations": [
+                        {"text": "Khong bam vao lien ket trong tin nhan."},
+                        {"text": "Xac minh qua kenh chinh thuc cua ngan hang."},
+                    ],
+                },
+                request,
+                backend_name=self.backend_name,
+            )
+
+    service = service_module.RuntimeService(backend=FakeBackend(), settings=Settings())
+    result = service.analyze_text(sample_mixed_vn_en_message, channel="sms")
+
+    assert captured["request"].channel == "sms"
+    assert result.top_cues[0].span in captured["request"].text
+    assert result.top_cues[1].span in captured["request"].text
+    assert result.threat_labels == ["bank_impersonation"]

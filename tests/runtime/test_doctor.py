@@ -96,12 +96,12 @@ def test_analyze_self_check_returns_setup_guidance_when_backend_unavailable(monk
         def run(self):
             return doctor_module.DoctorStatus(
                 ready=False,
-                backend_name="heuristic",
+                backend_name="gguf",
                 checks=[
                     doctor_module.DoctorCheck(
                         name="backend",
                         passed=False,
-                        detail="Heuristic backend is unavailable.",
+                        detail="GGUF backend is unavailable.",
                         remediation_command="python -m src.runtime.cli doctor",
                     )
                 ],
@@ -177,7 +177,7 @@ def test_doctor_reports_profile_specific_readiness_for_accelerated_backend(tmp_p
     assert "cloud" not in report.casefold()
 
 
-def test_doctor_reports_ready_for_registered_real_gguf_artifact(tmp_path, monkeypatch):
+def test_doctor_uses_gguf_laptop_as_phase_four_default(tmp_path, monkeypatch):
     doctor_module = _load_doctor_module()
     registry_path = _stage_gguf_registry(tmp_path)
     settings = type(
@@ -210,4 +210,5 @@ def test_doctor_reports_ready_for_registered_real_gguf_artifact(tmp_path, monkey
 
     assert status.ready is True
     assert status.backend_name == "gguf"
+    assert "READY backend=gguf" in report
     assert "gguf-laptop" in report

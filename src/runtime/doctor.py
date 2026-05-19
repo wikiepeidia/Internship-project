@@ -1,4 +1,4 @@
-"""Local readiness checks and guidance for the Phase 2 runtime."""
+"""Local readiness checks and guidance for the promoted Phase 4 runtime."""
 
 import importlib
 import sys
@@ -16,7 +16,7 @@ DOCTOR_COMMAND = "python -m src.runtime.cli doctor"
 
 
 class RuntimeDoctor:
-    """Evaluate whether the local heuristic runtime is ready for use."""
+    """Evaluate whether the selected local runtime is ready for use."""
 
     def run(self) -> DoctorStatus:
         checks: list[DoctorCheck] = []
@@ -188,7 +188,7 @@ class RuntimeDoctor:
 
 
 def run_runtime_doctor() -> DoctorStatus:
-    """Run the local readiness checks for the Phase 2 runtime."""
+    """Run the local readiness checks for the Phase 4 runtime."""
 
     return RuntimeDoctor().run()
 
