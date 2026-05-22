@@ -15,9 +15,9 @@ updated: 2026-05-22T00:00:00Z
 ## Current Test
 
 number: complete
-name: Phase 4 UAT session complete pending GGUF runtime follow-up
+name: Phase 4 UAT session complete
 expected: |
-  All currently runnable Phase 4 checks have been executed in this shell. Remaining gap is the default GGUF path, which still depends on `llama-cpp-python` being available.
+  All planned Phase 4 UAT checks have been executed in this shell and the current local runtime paths now pass.
 awaiting: user response
 
 ## Tests
@@ -25,9 +25,7 @@ awaiting: user response
 ### 1. Default GGUF Analyze Flow
 
 expected: On a ready local setup, running the existing analyze command without extra backend flags should use the shipped GGUF default and print a summary-first report with risk tier, mapped threat labels, grounded cues, and safe next steps, without raw JSON.
-result: blocked
-blocked_by: other
-reason: "After migrating the repo to Python 3.13 and reinstalling base dependencies, the default `analyze` flow now reaches the runtime doctor gate but stops at `NOT READY backend=gguf` with `backend-ready: FAIL - backend=gguf ready=False`. The app correctly stays fail-closed, but this shell still lacks a ready GGUF runtime for the default-profile smoke."
+result: pass
 
 ### 2. Fail-Closed Doctor Guidance
 
@@ -47,12 +45,12 @@ result: pass
 ## Summary
 
 total: 4
-passed: 3
-blocked: 1
+passed: 4
+blocked: 0
 issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- Live model-backed UAT remains environment-constrained only for the default GGUF path: the GGUF artifact is present but `llama-cpp-python` is still missing in this Python 3.13 environment.
+none at the current Phase 4 UAT level
