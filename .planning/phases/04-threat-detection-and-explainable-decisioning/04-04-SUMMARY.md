@@ -12,6 +12,6 @@ Promoted `gguf-laptop` to the shipped Phase 4 default while preserving explicit 
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_contracts.py tests/runtime/test_doctor.py tests/runtime/test_runtime_profiles.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_cli.py tests/runtime/test_runtime_profiles.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_contracts.py tests/runtime/test_doctor.py tests/runtime/test_runtime_profiles.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_cli.py tests/runtime/test_runtime_profiles.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime -q`

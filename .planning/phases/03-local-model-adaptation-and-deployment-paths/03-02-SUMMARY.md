@@ -24,9 +24,9 @@ Implemented the Phase 3 training scaffold around the pilot-selected winner and r
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_training.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_cli.py tests/model_adaptation/test_training.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_training.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_cli.py tests/model_adaptation/test_training.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation tests/runtime -q`
 
 ## Deviations from Plan
 

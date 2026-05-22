@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase4-ready
-last_updated: "2026-05-19T00:00:00.000Z"
+status: phase4-testing
+last_updated: "2026-05-22T00:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 20
+  completed_plans: 20
   percent: 60
 ---
 
@@ -25,13 +25,13 @@ progress:
 
 ## Current Position
 
-Phase: 04 (threat-detection-and-explainable-decisioning) — READY TO START
-Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection and explainable decisioning on top of the now-real local deployment paths
+Phase: 04 (threat-detection-and-explainable-decisioning) — IMPLEMENTED, AWAITING UAT/VERIFICATION
+Plan: The existing 04-01 through 04-04 plan set is already sufficient and matched by execution summaries; the next action is Phase 4 verification and conversational UAT, not more planning
 
 - Current phase: 4 - Threat Detection and Explainable Decisioning
-- Current plan: Phase 3 is closed. The baseline winner and runner-up are locked, both retained-dataset adapter runs completed, the real GGUF conversion plus operator convert flow is in place, and both the baseline GGUF path and accelerated runner-up path have passed live local smokes on the D-drive artifact set.
-- Project status: Phases 1, 2, and 3 are complete. The project can now move into Phase 4 decisioning work on top of real local deployment paths rather than scaffolds.
-- Overall progress: Three phases are fully closed; the next milestone work is threat detection and explainable decisioning.
+- Current plan: 04-01 through 04-04 are already planned and summarized. The additive public contract, shared local-model decision layer, GGUF and accelerated integration, renderer updates, and explicit `gguf-laptop` default promotion are already present in the repository.
+- Project status: Phases 1, 2, and 3 are complete. Phase 4 implementation artifacts are present and the project is now in testing for this phase rather than planning.
+- Overall progress: Three phases are fully closed; Phase 4 execution artifacts exist and the next milestone work is Phase 4 verification/UAT before Phase 5 release-gate work.
 - Progress bar: [====-] 60%
 
 ## Performance Metrics (Baseline Targets)
@@ -71,8 +71,8 @@ Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection 
 
 ## Session Continuity
 
-- Last session: 2026-05-19
-- Stopped at: Session resumed. No structured handoff, continue-here checkpoint, or incomplete plan execution was found; the project is proceeding from the existing Phase 4 context into planning.
+- Last session: 2026-05-22
+- Stopped at: `/gsd-plan-phase 4` revalidated the existing Phase 4 plan set. The phase already had 04-01 through 04-04 plan and summary artifacts, no additional plan file was needed, and the stale planning metadata was corrected toward verification/UAT follow-up.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -81,5 +81,6 @@ Plan: Phase 3 closeout is complete; the next action is Phase 4 threat detection 
 - The retained-dataset runner-up training artifacts now exist under `D:\PROJEct\AI MODELS\phase3-runnerup-main-20260517\qwen3.5-4b`, with the final checkpoint at `trainer\checkpoint-357`, the adapter directory registered in the model registry, and a training summary reporting 476 train examples, 207 validation examples, `train_loss=0.4768`, and `train_runtime=4290.87s`.
 - The baseline GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3-4b-instruct-2507\gguf-laptop.gguf`, is registered in the off-repo model registry, and has passed real `gguf-laptop` doctor plus analyze smokes.
 - The runner-up GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3.5-4b\gguf-runner-up.gguf` and is registered in the off-repo model registry, though only artifact creation was validated successfully; a direct `gguf-runner-up` loader smoke still failed and remains a non-blocking follow-up.
+- Phase 4 has no phase-level `VERIFICATION.md` yet, while `.planning/phases/04-threat-detection-and-explainable-decisioning/04-UAT.md` remains in `status: testing` with pending user responses.
 - Resume file: none
-- Next command: `/gsd-plan-phase 4`
+- Next command: `/gsd-verify-work 4`

@@ -12,5 +12,5 @@ Confirmed both real local profiles and the existing analyze surface now emit the
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_render.py tests/runtime/test_cli.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_render.py tests/runtime/test_cli.py -q`

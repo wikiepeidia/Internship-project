@@ -24,11 +24,11 @@ Shipped the runnable Phase 2 shell interface. Users can now run a dedicated doct
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_doctor.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_cli.py tests/runtime/test_doctor.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m src.runtime.cli doctor`
-- `printf '%s' 'VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP hoặc Smart OTP và không bấm vào link đăng nhập https://vpbank-secure.example để xác minh ngay.' | C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m src.runtime.cli analyze`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_doctor.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_cli.py tests/runtime/test_doctor.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m src.runtime.cli doctor`
+- `printf '%s' 'VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP hoặc Smart OTP và không bấm vào link đăng nhập https://vpbank-secure.example để xác minh ngay.' | C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m src.runtime.cli analyze`
 
 ## Deviations from Plan
 

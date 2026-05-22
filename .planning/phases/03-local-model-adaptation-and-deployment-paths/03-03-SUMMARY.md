@@ -24,9 +24,9 @@ Delivered the laptop-baseline GGUF runtime path for Phase 3. The repo can now de
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_convert.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_runtime_profiles.py tests/runtime/test_cli.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_convert.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_runtime_profiles.py tests/runtime/test_cli.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation tests/runtime -q`
 
 ## Deviations from Plan
 

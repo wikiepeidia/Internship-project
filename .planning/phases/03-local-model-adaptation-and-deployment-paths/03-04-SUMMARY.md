@@ -26,10 +26,10 @@ Finished the Phase 3 deployment profile work with an explicit accelerated local 
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_doctor.py tests/runtime/test_runtime_profiles.py tests/runtime/test_cli.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_doctor.py tests/runtime/test_runtime_profiles.py tests/runtime/test_cli.py -q`
 - `grep -nE "GGUF|accelerated|local-only|doctor|profile" readme.md docs/user/LOCAL_MODELS.md`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation tests/runtime -q`
 
 ## Deviations from Plan
 

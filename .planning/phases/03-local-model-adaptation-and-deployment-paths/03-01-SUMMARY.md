@@ -24,10 +24,10 @@ Established the Phase 3 model-selection foundation before any training work star
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_schemas.py tests/runtime/test_contracts.py tests/runtime/test_doctor.py tests/runtime/test_cli.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_registry.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation/test_pilot.py tests/model_adaptation/test_registry.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/model_adaptation tests/runtime -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_schemas.py tests/runtime/test_contracts.py tests/runtime/test_doctor.py tests/runtime/test_cli.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_registry.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation/test_pilot.py tests/model_adaptation/test_registry.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/model_adaptation tests/runtime -q`
 
 ## Deviations from Plan
 

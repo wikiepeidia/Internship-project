@@ -17,7 +17,7 @@ Primary risks are false negatives hidden by broad metrics, explanation hallucina
 
 ### Recommended Stack
 
-Use Python 3.11-3.12 with PyTorch 2.10.x and Transformers plus PEFT plus TRL for LoRA/QLoRA fine-tuning, and DVC-backed reproducible data artifacts. Serve local inference via GGUF on llama.cpp (optional llama-cpp-python embedding), defaulting to Q4_K_M for CPU baseline and Q5_K_M for quality-first devices.
+Use Python 3.11-3.13 with PyTorch 2.10.x and Transformers plus PEFT plus TRL for LoRA/QLoRA fine-tuning, and DVC-backed reproducible data artifacts. Serve local inference via GGUF on llama.cpp (optional llama-cpp-python embedding), defaulting to Q4_K_M for CPU baseline and Q5_K_M for quality-first devices.
 
 **Core technologies:**
 

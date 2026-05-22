@@ -67,7 +67,7 @@ The future swap seam should be a narrow analyzer backend interface using `typing
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| Python stdlib `argparse` | Python 3.12.10 available | CLI parsing for `analyze` and `doctor` | Enough for a two-command CLI, explicit behavior, no new dependency, and matches the repo's minimal Python-first style. |
+| Python stdlib `argparse` | Python 3.13.13 available | CLI parsing for `analyze` and `doctor` | Enough for a two-command CLI, explicit behavior, no new dependency, and matches the repo's minimal Python-first style. |
 | `pydantic` | Repo floor `>=2.12`; installed `2.12.5`; current `2.13.3` | Request/result contracts and doctor status models | Already used in this repo, and current code already uses V2 idioms such as `model_validate()` and `model_dump()`. |
 | `pydantic-settings` | Repo floor `>=2.0`; installed `2.13.1`; current `2.14.0` | Runtime configuration | Existing `Settings` pattern is already tested and appropriate for backend choice, cue limits, and privacy flags. |
 | `ftfy` plus existing `normalize_text()` | Repo floor `>=6.0`; installed/current `6.3.1` | Unicode repair and NFC normalization | Already wired into the repo and proven by passing tests; preserves code-switching and teencode. |
@@ -77,8 +77,8 @@ The future swap seam should be a narrow analyzer backend interface using `typing
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `typing.Protocol` | Python 3.12 stdlib | Swap-friendly analyzer backend interface | Use for the heuristic backend now and model backend later, without forcing inheritance coupling. |
-| `re`, `pathlib`, `sys.stdin` | Python 3.12 stdlib | Rule matching, safe I/O, stdin handling | Use for baseline heuristics and stdin-first ingest; sufficient for Phase 2. |
+| `typing.Protocol` | Python 3.13 stdlib | Swap-friendly analyzer backend interface | Use for the heuristic backend now and model backend later, without forcing inheritance coupling. |
+| `re`, `pathlib`, `sys.stdin` | Python 3.13 stdlib | Rule matching, safe I/O, stdin handling | Use for baseline heuristics and stdin-first ingest; sufficient for Phase 2. |
 | `rapidfuzz` | Repo floor `>=3.14`; current `3.14.5` | Optional fuzzy brand or phrase matching | Only use if exact match rules miss obvious bank-name variants; do not make fuzzy logic the baseline explanation path. |
 
 ### Alternatives Considered
@@ -542,7 +542,7 @@ raise SystemExit(args.func(args))
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Python | runtime and tests | Yes | 3.12.10 | - |
+| Python | runtime and tests | Yes | 3.13.13 | - |
 | pip | local install/update steps | Yes | 26.0.1 | - |
 | pytest | validation | Yes | 9.0.2 | `python -m pytest` |
 | `pydantic` | runtime contracts | Yes | installed 2.12.5 | reinstall via `pip install -e .[dev]` |

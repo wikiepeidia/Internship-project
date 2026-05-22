@@ -9,7 +9,7 @@
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
 - [x] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
 - [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the locked Qwen baseline with LoRA/QLoRA and provide laptop GGUF inference plus optional prosumer acceleration paths.
-- [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations.
+- [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations. Implementation artifacts are present; UAT and phase verification remain pending.
 - [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
 
 ## Phase Details
@@ -97,10 +97,27 @@ Plans:
 
 Plans:
 
-- [ ] 04-01-PLAN.md -- Additive Phase 4 contract, shared decision-layer interface, and Wave 0 runtime verification scaffold
-- [ ] 04-02-PLAN.md -- Shared local-model decision schema, grounding checks, deterministic safety helper, and recommendation sanitization
-- [ ] 04-03-PLAN.md -- GGUF and accelerated Phase 4 integration plus terminal analyze presentation
-- [ ] 04-04-PLAN.md -- Explicit `gguf-laptop` default-profile promotion with doctor-backed fail-closed safety
+#### Wave 1
+
+- [x] 04-01-PLAN.md -- Additive Phase 4 contract, shared decision-layer interface, and Wave 0 runtime verification scaffold
+
+#### Wave 2 *(blocked on Wave 1 completion)*
+
+- [x] 04-02-PLAN.md -- Shared local-model decision schema, grounding checks, deterministic safety helper, and recommendation sanitization
+
+#### Wave 3 *(blocked on Wave 2 completion)*
+
+- [x] 04-03-PLAN.md -- GGUF and accelerated Phase 4 integration plus terminal analyze presentation
+
+#### Wave 4 *(blocked on Wave 3 completion)*
+
+- [x] 04-04-PLAN.md -- Explicit `gguf-laptop` default-profile promotion with doctor-backed fail-closed safety
+
+#### Cross-cutting constraints
+
+- Keep GGUF and accelerated-local aligned through one shared Phase 4 decision layer instead of backend-specific decision logic.
+- Preserve grounded cues and safe user-next-step recommendations without widening the existing analyze, render, or doctor operator surfaces.
+- Keep explicit runtime-profile selection and fail-closed local behavior intact, including after the `gguf-laptop` default promotion.
 
 ### Phase 5: Recall-Priority Evaluation and Release Gates
 
@@ -122,7 +139,7 @@ Plans:
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
 | 3. Local Model Adaptation and Deployment Paths | 7/7 | Complete | 2026-05-17 closeout complete |
-| 4. Threat Detection and Explainable Decisioning | 0/4 | Not started | - |
+| 4. Threat Detection and Explainable Decisioning | 4/4 | Testing | - |
 | 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
 
 ## Coverage Validation

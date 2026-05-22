@@ -50,7 +50,7 @@
 
 ## Project Constraints (from workspace and prior phases)
 
-- Prefer `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe` when concrete Python execution matters in this repo.
+- Prefer `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe` when concrete Python execution matters in this repo.
 - Do not create virtual-environment directories inside the OneDrive workspace.
 - Keep raw user text local and memory-only by default; Phase 3 must not weaken the Phase 2 privacy boundary.
 - Reuse the existing dataset-manifest pattern from `src/data_pipeline/versioning/manifest.py` instead of inventing a second lineage format for model artifacts.
@@ -70,7 +70,7 @@ The current repo already has the right runtime seam for this: `AnalyzerBackend` 
 
 | Library | Version family | Purpose | Why this fits Phase 3 |
 |---------|----------------|---------|------------------------|
-| Python | 3.12 | Training orchestration, registry, CLI glue | Already the repo standard and matches the preferred local interpreter. |
+| Python | 3.13 | Training orchestration, registry, CLI glue | Already the repo standard and matches the preferred local interpreter. |
 | PyTorch | 2.x | Model training and accelerated inference path | Standard base for PEFT and local GPU execution. |
 | Transformers | 4.5x+ | Checkpoint loading, tokenization, local model APIs | Needed for Qwen-family checkpoint handling and a consistent HF workflow. |
 | PEFT | 0.1x | LoRA and QLoRA adapters | Directly supports the adapter-first artifact strategy. |

@@ -1,12 +1,14 @@
 # Summary: Phase 1 Plan 01 - Project Skeleton and Data Schemas
 
 ## Status
+
 - **Plan**: 01-01
 - **Status**: Completed
 - **Completion Date**: 2026-04-20
 - **Verified by**: Gemini CLI
 
 ## Achievements
+
 - [x] Python project skeleton created with `pyproject.toml` and Pydantic dependencies.
 - [x] Pydantic schemas implemented in `src/data_pipeline/schemas.py` covering `SeedRecord`, `DatasetRecord`, and `ManifestEntry`.
 - [x] Environment-based configuration implemented in `src/config/settings.py` using `pydantic-settings`.
@@ -18,6 +20,7 @@
 - [x] `.env.example` updated with all required LLM provider keys.
 
 ## Verified Artifacts
+
 - `src/data_pipeline/schemas.py` (SeedRecord, DatasetRecord, ManifestEntry)
 - `src/config/settings.py` (Settings, get_settings)
 - `tests/data_pipeline/test_schemas.py` (Validation tests)
@@ -26,9 +29,11 @@
 - `.env.example` (Config template)
 
 ## Technical Notes
+
 - **Settings resilience**: Explicitly set `extra="ignore"` in `Settings.model_config` to prevent validation errors when extra environment variables (like `DEEPSEEK_API_KEY`) are present in the `.env` files.
-- **Python Version**: Project targets Python >= 3.12.
+- **Python Version**: Project targets Python >= 3.13.
 - **Schema Contracts**: `DatasetRecord` enforces a 20-character minimum for `xai_explanation` and strict `Literal` values for labels and risk tiers to ensure downstream quality.
 
 ## Next Steps
+
 - Proceed to **Plan 01-02**: NCSC seed scraper with BS4/Playwright, text normalizer, and seed JSONL output.

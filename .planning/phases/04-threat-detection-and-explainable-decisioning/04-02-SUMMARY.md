@@ -14,7 +14,7 @@ Moved Phase 4 semantics into one validated shared decision layer with exact-grou
 
 ## Verification
 
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_local_model.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_local_model.py tests/runtime/test_service.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_local_model.py tests/runtime/test_privacy.py -q`
-- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_local_model.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_local_model.py tests/runtime/test_service.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_local_model.py tests/runtime/test_privacy.py -q`
+- `C:/Users/wikiepeidia/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/runtime/test_gguf_backend.py tests/runtime/test_accelerated_backend.py tests/runtime/test_runtime_profiles.py -q`

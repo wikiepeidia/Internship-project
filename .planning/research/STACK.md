@@ -20,7 +20,7 @@ This is the most standard, maintainable 2026 path for small teams shipping domai
 
 | Layer | Choice | Version family (2026) | Why this is the default | Confidence |
 |---|---|---|---|---|
-| Language/runtime | Python | 3.11-3.12 | Best library support for NLP fine-tuning and evaluation; stable packaging ecosystem | HIGH |
+| Language/runtime | Python | 3.11-3.13 | Best library support for NLP fine-tuning and evaluation; stable packaging ecosystem | HIGH |
 | DL framework | PyTorch | 2.10.x stable | Current stable baseline with broad ecosystem support and CUDA/CPU paths | HIGH |
 | Model APIs | Hugging Face Transformers | 4.5x-5.x family | Standard model-definition layer and interoperability hub | HIGH |
 | Data format | JSONL + Parquet | N/A | JSONL for training examples, Parquet for analytics and reproducibility | HIGH |

@@ -57,7 +57,7 @@ The repo now exposes a single operator command path through `python -m src.data_
 
 ## Prerequisites
 
-- Python 3.12
+- Python 3.13
 - Dependencies installed with `python -m pip install -e .[dev]`
 - Environment variables:
   - `ANTHROPIC_API_KEY` for complex synthetic generation

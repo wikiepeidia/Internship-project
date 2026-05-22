@@ -88,7 +88,7 @@ No new core dependency is required for the recommended Phase 4 path. The standar
 
 | Component or Library | Repo Version Floor or Current Use | Phase 4 Role | Why Standard Here |
 |----------------------|-----------------------------------|--------------|-------------------|
-| Python | 3.12 | Runtime orchestration and typed decisioning | Already the repo baseline and the required runtime for the current service, CLI, and analyzers. [CITED: pyproject.toml](pyproject.toml); [CITED: src/runtime/service.py](src/runtime/service.py) |
+| Python | 3.13 | Runtime orchestration and typed decisioning | Already the repo baseline and the required runtime for the current service, CLI, and analyzers. [CITED: pyproject.toml](pyproject.toml); [CITED: src/runtime/service.py](src/runtime/service.py) |
 | pydantic | >=2.12 | Strict decision-schema validation and public contract stability | The repo already uses Pydantic models for requests, results, and doctor output; Phase 4 should extend that pattern instead of delegating structure to raw generation alone. [CITED: pyproject.toml](pyproject.toml); [CITED: src/runtime/contracts.py](src/runtime/contracts.py) |
 | pydantic-settings | >=2.0 | Backend and profile configuration | Existing settings already control backend, profile, cue caps, and privacy flags; Phase 4 should keep using that single configuration path. [CITED: pyproject.toml](pyproject.toml); [CITED: src/config/settings.py](src/config/settings.py) |
 | llama-cpp-python | >=0.3 | GGUF baseline inference on gguf-laptop | This is already the Phase 3 local baseline path and should remain the consumer-hardware delivery surface. [CITED: pyproject.toml](pyproject.toml); [CITED: src/runtime/analyzers/gguf.py](src/runtime/analyzers/gguf.py) |

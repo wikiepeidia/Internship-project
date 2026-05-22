@@ -90,7 +90,7 @@ This phase extends the repo's existing local runtime into a single-message Vietn
 
 **Selected Framework:** Native repo-local runtime pattern (no new orchestration framework)
 
-**Version:** Python 3.12 with the existing repo runtime stack declared in `pyproject.toml`, including `pydantic>=2.12`, optional `llama-cpp-python>=0.3` for GGUF runtime, and the current local training/runtime dependencies already used by this codebase.
+**Version:** Python 3.13 with the existing repo runtime stack declared in `pyproject.toml`, including `pydantic>=2.12`, optional `llama-cpp-python>=0.3` for GGUF runtime, and the current local training/runtime dependencies already used by this codebase.
 
 **Rationale:**
 This phase is not a RAG system, multi-agent workflow, chatbot, or long-lived tool-calling agent. The repo already has the right architectural seam: typed Pydantic contracts in `src/runtime/contracts.py`, normalization and fail-closed routing in `src/runtime/service.py`, and shared structured-prompt helpers in `src/runtime/analyzers/local_model.py`. Phase 4 is primarily a contract-evolution and structured-local-inference problem. Introducing LangChain, LangGraph, LlamaIndex, or Haystack would add abstraction and dependency surface without solving a real gap in the current offline/local-first design.

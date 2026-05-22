@@ -71,7 +71,7 @@ None -- discussion stayed within phase scope.
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| Python | 3.12.10 | Runtime | Already installed, latest stable, full type hint support |
+| Python | 3.13.13 | Runtime | Already installed, latest stable, full type hint support |
 | beautifulsoup4 | 4.14.3 | HTML parsing for NCSC advisory pages | Already installed, lightweight, sufficient for server-rendered HTML |
 | playwright | 1.58.0 | JS-rendered page fallback scraper | Latest, handles dynamic content NCSC may use; install from PyPI |
 | requests | 2.31.0 | HTTP client for static page fetching | Already installed, simple GET requests |
@@ -533,7 +533,7 @@ def cross_split_dedup(
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Python 3.12 | All pipeline code | Yes | 3.12.10 | -- |
+| Python 3.13 | All pipeline code | Yes | 3.13.13 | -- |
 | pip | Package management | Yes | 26.0.1 | -- |
 | beautifulsoup4 | NCSC scraping | Yes | 4.14.3 | -- |
 | playwright | JS fallback scraping | No (not installed, available on PyPI) | 1.58.0 (PyPI) | Install: `pip install playwright && playwright install chromium` |
