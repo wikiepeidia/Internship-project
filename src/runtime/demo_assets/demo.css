@@ -303,7 +303,7 @@ select:focus {
   line-height: 1.65;
 }
 
-.detail-list li + li {
+.detail-list li+li {
   margin-top: 10px;
 }
 

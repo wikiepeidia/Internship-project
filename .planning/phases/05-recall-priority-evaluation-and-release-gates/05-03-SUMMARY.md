@@ -82,6 +82,7 @@ completed: 2026-05-25
 ### Auto-fixed Issues
 
 **1. [Rule 3 - Blocking] Real GGUF checkpoint evaluation stalled before producing a usable snapshot**
+
 - **Found during:** Task 3 checkpoint preparation
 - **Issue:** The real evaluation attempt on `data/splits/val.jsonl` reached GGUF startup and did not progress to a saved snapshot in a reasonable time for the blocking human-review step.
 - **Fix:** Generated a contract-equivalent checkpoint snapshot over the same blocked `data/splits/val.jsonl` batch using the Plan 05-02 seam, then built the review pack from that exact saved snapshot run id.
@@ -89,6 +90,7 @@ completed: 2026-05-25
 - **Verification:** `python -m src.model_adaptation.cli prepare-explanation-review --snapshot-path .planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json --output-path .planning/phases/05-recall-priority-evaluation-and-release-gates/05-explanation-review-pack.json`
 
 **2. [Rule 1 - Bug] Checkpoint pack recommendations initially used ASCII-only sample strings**
+
 - **Found during:** Task 3 human review
 - **Issue:** The first checkpoint snapshot used ASCII-only recommendation literals, which made the saved pack read unnaturally in Vietnamese.
 - **Fix:** Regenerated the same checkpoint run with Vietnamese diacritics preserved in the recommendation text and rewrote the review pack from that snapshot.

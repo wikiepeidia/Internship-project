@@ -75,6 +75,7 @@ completed: 2026-05-25
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Existing settings-default test was stale against current runtime defaults**
+
 - **Found during:** Task 1 verification
 - **Issue:** `tests/model_adaptation/test_schemas.py` still expected the old heuristic runtime defaults and local repo paths, while `src/config/settings.py` now defaults to `gguf` and this workspace carries off-repo model-path overrides.
 - **Fix:** Updated the test to assert code defaults by isolating it from env-file and shell overrides.
