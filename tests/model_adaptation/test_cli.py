@@ -8,7 +8,19 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from src.model_adaptation.registry import save_model_registry
-from src.model_adaptation.schemas import ModelRegistry, PilotSelection
+from src.model_adaptation.schemas import (
+    ExplanationReviewItem,
+    ExplanationReviewPack,
+    LOCKED_RELEASE_LABELS,
+    HeldOutSupportAudit,
+    ModelRegistry,
+    OverallMetricSummary,
+    PerLabelMetricRow,
+    PilotSelection,
+    ReleaseEvaluationRow,
+    ReleaseEvaluationSnapshot,
+)
+from src.runtime.contracts import SuspiciousCue
 
 
 def _load_cli_module():
@@ -28,6 +40,65 @@ def _write_registry(path: Path) -> None:
     save_model_registry(registry, path)
 
 
+def _write_snapshot(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    audit = HeldOutSupportAudit(
+        evaluated_split_path=Path("data/splits/val.jsonl"),
+        support_by_label={label: 1 for label in LOCKED_RELEASE_LABELS},
+        blocker_reasons=[],
+    )
+    snapshot = ReleaseEvaluationSnapshot(
+        run_id="phase5-run-001",
+        evaluated_split_path=Path("data/splits/val.jsonl"),
+        audit=audit,
+        overall_metrics=OverallMetricSummary(macro_f1=0.8, weighted_f1=0.9, evaluated_rows=1),
+        per_label_metrics=[
+            PerLabelMetricRow(label=label, precision=1.0, recall=1.0, f1=1.0, support=1)
+            for label in LOCKED_RELEASE_LABELS
+        ],
+        rows=[
+            ReleaseEvaluationRow(
+                gold_label="bank_impersonation",
+                predicted_labels=["bank_impersonation"],
+                risk_tier="high-risk",
+                summary="Tin nhan gia danh ngan hang va yeu cau OTP.",
+                top_cues=[SuspiciousCue(span="OTP", reason="Tin nhan nhac ma OTP", cue_type="otp_request")],
+                recommendations=["Khong chia se OTP cho nguoi gui tin nhan."],
+                backend_name="fake-runtime",
+                split_provenance="data/splits/val.jsonl",
+                reviewable_source_text="VPBank yeu cau OTP de xac minh giao dich.",
+            )
+        ],
+    )
+    path.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
+
+
+def _write_review_pack(path: Path, *, run_id: str = "phase5-run-001", review_completed: bool = True) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pack = ExplanationReviewPack(
+        run_id=run_id,
+        source_snapshot_path=Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json"),
+        items=[
+            ExplanationReviewItem(
+                row_index=0,
+                gold_label="bank_impersonation",
+                predicted_labels=["bank_impersonation"],
+                risk_tier="high-risk",
+                reviewable_text="VPBank yeu cau OTP de xac minh giao dich.",
+                top_cues=[SuspiciousCue(span="OTP", reason="Tin nhan nhac ma OTP", cue_type="otp_request")],
+                recommendations=["Khong chia se OTP cho nguoi gui tin nhan."],
+                deterministic_blocker_reasons=[],
+                deterministic_flag_reasons=[],
+                reviewer_blocker_reasons=[],
+                reviewer_flag_reasons=[],
+            )
+        ],
+        review_completed=review_completed,
+        review_notes="approved" if review_completed else None,
+    )
+    path.write_text(pack.model_dump_json(indent=2), encoding="utf-8")
+
+
 def test_cli_exposes_pilot_and_train_commands():
     cli_module = _load_cli_module()
     parser = cli_module.build_parser()
@@ -36,7 +107,25 @@ def test_cli_exposes_pilot_and_train_commands():
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
 
-    assert sorted(subparsers_action.choices.keys()) == ["convert", "doctor", "pilot", "train"]
+    assert sorted(subparsers_action.choices.keys()) == [
+        "convert",
+        "doctor",
+        "pilot",
+        "prepare-explanation-review",
+        "release-eval",
+        "train",
+    ]
+
+
+def test_cli_exposes_prepare_explanation_review_command():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+
+    assert "prepare-explanation-review" in subparsers_action.choices
 
 
 def test_default_split_path_prefers_retained_lineage_when_present(tmp_path, monkeypatch):
@@ -194,3 +283,105 @@ def test_convert_command_resolves_baseline_winner_alias(tmp_path, monkeypatch, c
     assert captured["candidate_id"] == "qwen3-4b-instruct-2507"
     assert captured["version_tag"] == "phase3-gguf"
     assert "Conversion dry-run complete" in captured_output.out
+
+
+def test_prepare_explanation_review_command_prints_saved_pack_path(tmp_path, capsys):
+    cli_module = _load_cli_module()
+    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
+    output_path = tmp_path / "05-explanation-review-pack.json"
+    _write_snapshot(snapshot_path)
+
+    exit_code = cli_module.main(
+        [
+            "prepare-explanation-review",
+            "--snapshot-path",
+            str(snapshot_path),
+            "--output-path",
+            str(output_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert str(output_path) in captured.out
+
+
+def test_cli_exposes_release_eval_command():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+
+    assert "release-eval" in subparsers_action.choices
+
+
+def test_release_eval_command_prints_verdict_and_artifact_paths(tmp_path, capsys):
+    cli_module = _load_cli_module()
+    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
+    review_pack_path = tmp_path / "05-explanation-review-pack.json"
+    report_dir = tmp_path / "phase"
+    manifest_dir = tmp_path / "manifests"
+    _write_snapshot(snapshot_path)
+    _write_review_pack(review_pack_path)
+
+    exit_code = cli_module.main(
+        [
+            "release-eval",
+            "--snapshot-path",
+            str(snapshot_path),
+            "--review-pack-path",
+            str(review_pack_path),
+            "--report-dir",
+            str(report_dir),
+            "--manifest-dir",
+            str(manifest_dir),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "verdict=" in captured.out
+    assert str(report_dir) in captured.out
+    assert str(manifest_dir) in captured.out
+
+
+    def test_release_eval_command_rejects_incomplete_or_mismatched_review_pack(tmp_path):
+        cli_module = _load_cli_module()
+        snapshot_path = tmp_path / "05-evaluation-snapshot.json"
+        incomplete_review_pack_path = tmp_path / "05-explanation-review-pack-incomplete.json"
+        mismatched_review_pack_path = tmp_path / "05-explanation-review-pack-mismatch.json"
+        _write_snapshot(snapshot_path)
+        _write_review_pack(incomplete_review_pack_path, review_completed=False)
+        _write_review_pack(mismatched_review_pack_path, run_id="phase5-run-999")
+
+        with pytest.raises(ValueError, match="incomplete"):
+            cli_module.main(
+                [
+                    "release-eval",
+                    "--snapshot-path",
+                    str(snapshot_path),
+                    "--review-pack-path",
+                    str(incomplete_review_pack_path),
+                    "--report-dir",
+                    str(tmp_path / "phase"),
+                    "--manifest-dir",
+                    str(tmp_path / "manifests"),
+                ]
+            )
+
+        with pytest.raises(ValueError, match="run_id"):
+            cli_module.main(
+                [
+                    "release-eval",
+                    "--snapshot-path",
+                    str(snapshot_path),
+                    "--review-pack-path",
+                    str(mismatched_review_pack_path),
+                    "--report-dir",
+                    str(tmp_path / "phase"),
+                    "--manifest-dir",
+                    str(tmp_path / "manifests"),
+                ]
+            )

@@ -7,10 +7,21 @@ from types import SimpleNamespace
 
 import httpx
 
-from src.data_pipeline.generation.quality_judge import CLAUDE_MODEL, GEMINI_MODEL, QualityJudge
+from src.data_pipeline.generation.quality_judge import (
+    CLAUDE_MODEL,
+    GEMINI_MODEL,
+    OPENAI_COMPATIBLE_JUDGE_KEY,
+    QualityJudge,
+)
 
 
-def _settings(gemini_key: str = "gemini", anthropic_key: str = "anthropic"):
+def _settings(
+    gemini_key: str = "gemini",
+    anthropic_key: str = "anthropic",
+    openai_compatible_base_url: str = "",
+    openai_compatible_api_key: str = "",
+    openai_compatible_model: str = "",
+):
     return SimpleNamespace(
         gemini_api_key=gemini_key,
         google_oauth_access_token="",
@@ -18,6 +29,9 @@ def _settings(gemini_key: str = "gemini", anthropic_key: str = "anthropic"):
         google_application_credentials="",
         google_cloud_project="",
         gemini_use_adc=False,
+        openai_compatible_base_url=openai_compatible_base_url,
+        openai_compatible_api_key=openai_compatible_api_key,
+        openai_compatible_model=openai_compatible_model,
     )
 
 
@@ -198,6 +212,9 @@ def test_selects_gemini_when_adc_is_configured():
             google_application_credentials="creds.json",
             google_cloud_project="quota-project",
             gemini_use_adc=True,
+            openai_compatible_base_url="",
+            openai_compatible_api_key="",
+            openai_compatible_model="",
         )
     )
 
@@ -266,6 +283,9 @@ def test_judge_uses_adc_when_configured(sample_dataset_record, monkeypatch):
             google_application_credentials="creds.json",
             google_cloud_project="quota-project",
             gemini_use_adc=True,
+            openai_compatible_base_url="",
+            openai_compatible_api_key="",
+            openai_compatible_model="",
         ),
         http_client=SimpleNamespace(post=fake_post),
     )
@@ -348,3 +368,65 @@ def test_judge_prefers_adc_over_oauth_token_when_adc_is_explicit(sample_dataset_
     assert verdict.pass_verdict is True
     assert verdict.reason == "ADC beats stale token"
     assert request_capture["headers"]["Authorization"] == "Bearer adc-token"
+
+
+def test_selects_openai_compatible_when_no_other_key_configured():
+    judge = QualityJudge(
+        settings=_settings(
+            gemini_key="",
+            anthropic_key="",
+            openai_compatible_base_url="https://colab-tunnel.example/v1",
+            openai_compatible_model="Qwen/Qwen2.5-32B-Instruct-AWQ",
+        )
+    )
+    assert judge._select_judge_model("synthetic_openai_compatible") == OPENAI_COMPATIBLE_JUDGE_KEY
+    assert judge._select_judge_model(None) == OPENAI_COMPATIBLE_JUDGE_KEY
+
+
+def test_openai_compatible_source_cross_judges_with_gemini_when_available():
+    judge = QualityJudge(
+        settings=_settings(
+            gemini_key="gemini",
+            openai_compatible_base_url="https://colab-tunnel.example/v1",
+            openai_compatible_model="Qwen/Qwen2.5-32B-Instruct-AWQ",
+        )
+    )
+    assert judge._select_judge_model("synthetic_openai_compatible") == GEMINI_MODEL
+
+
+def test_call_judge_openai_compatible(sample_dataset_record):
+    request_capture: dict[str, object] = {}
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["url"] = url
+        request_capture["json"] = kwargs.get("json")
+        request_capture["headers"] = kwargs.get("headers")
+        return SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {
+                "choices": [
+                    {"message": {"content": _response_text(4, 4, 4, 4, 4, "Colab judge ok")}}
+                ]
+            },
+        )
+
+    judge = QualityJudge(
+        settings=_settings(
+            gemini_key="",
+            anthropic_key="",
+            openai_compatible_base_url="https://colab-tunnel.example/v1",
+            openai_compatible_api_key="test-token",
+            openai_compatible_model="Qwen/Qwen2.5-32B-Instruct-AWQ",
+        ),
+        http_client=SimpleNamespace(post=fake_post),
+    )
+    record = sample_dataset_record.model_dump() | {"source": "synthetic_openai_compatible"}
+
+    verdict = judge.judge_record(record)
+
+    assert verdict.pass_verdict is True
+    assert verdict.reason == "Colab judge ok"
+    assert request_capture["url"] == "https://colab-tunnel.example/v1/chat/completions"
+    assert request_capture["headers"]["Authorization"] == "Bearer test-token"
+    assert request_capture["json"]["model"] == "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    assert request_capture["json"]["temperature"] == 0.3

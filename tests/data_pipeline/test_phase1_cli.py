@@ -585,6 +585,9 @@ def test_numbered_checkpoint_creates_sequentially(sample_seed_record, tmp_path):
         gemini_api_key="gemini",
         openrouter_api_key="",
         deepseek_api_key="",
+        openai_compatible_base_url="",
+        openai_compatible_api_key="",
+        openai_compatible_model="",
         google_oauth_access_token="",
         google_application_credentials="",
         google_cloud_project="",
@@ -632,6 +635,9 @@ def test_numbered_checkpoint_keeps_at_most_five(sample_seed_record, tmp_path):
         gemini_api_key="gemini",
         openrouter_api_key="",
         deepseek_api_key="",
+        openai_compatible_base_url="",
+        openai_compatible_api_key="",
+        openai_compatible_model="",
         google_oauth_access_token="",
         google_application_credentials="",
         google_cloud_project="",
@@ -674,6 +680,9 @@ def test_numbered_checkpoint_resume_reads_latest_file(sample_seed_record, tmp_pa
         gemini_api_key="gemini",
         openrouter_api_key="",
         deepseek_api_key="",
+        openai_compatible_base_url="",
+        openai_compatible_api_key="",
+        openai_compatible_model="",
         google_oauth_access_token="",
         google_application_credentials="",
         google_cloud_project="",
@@ -877,3 +886,56 @@ def test_optimize_recovered_cli_flag_runs_and_prints_summary(tmp_path, monkeypat
     assert out["balanced_total"] == 4
     assert out["selected_per_class"] == 1
     assert "balanced_output_path" in out
+
+
+def test_optimize_recovered_records_spreads_balanced_selection_across_seeds(tmp_path):
+    from src.data_pipeline.cli import optimize_recovered_records
+
+    synthetic_dir = tmp_path / "synthetic"
+    synthetic_dir.mkdir(parents=True, exist_ok=True)
+
+    def record(text, label, seed_id):
+        return {
+            "text": text,
+            "label": label,
+            "risk_tier": "benign" if label == "benign" else "high-risk",
+            "suspicious_spans": [] if label == "benign" else [text.split()[0]],
+            "xai_explanation": f"Giải thích hợp lệ cho {label} với nội dung đủ dài.",
+            "source": "synthetic_claude",
+            "seed_id": seed_id,
+        }
+
+    records: list[dict[str, object]] = []
+    for label in ("bank_impersonation", "zalo_social_engineering", "task_scam", "benign"):
+        for seed_index in range(4):
+            records.append(
+                record(
+                    f"{label} seed {seed_index} unique token {seed_index * 17 + 3}",
+                    label,
+                    f"{label}-seed-{seed_index}",
+                )
+            )
+
+    (synthetic_dir / "generated.jsonl").write_text(
+        "\n".join(json.dumps(record, ensure_ascii=False) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    result = optimize_recovered_records(tmp_path, target_count=16)
+
+    assert result["balanced_total"] == 16
+    assert result["selected_per_class"] == 4
+
+    balanced_path = synthetic_dir / "recovered-balanced.jsonl"
+    selected_seed_ids: dict[str, set[str]] = {
+        "bank_impersonation": set(),
+        "zalo_social_engineering": set(),
+        "task_scam": set(),
+        "benign": set(),
+    }
+    with balanced_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            item = json.loads(line)
+            selected_seed_ids[item["label"]].add(item["seed_id"])
+
+    assert all(len(seed_ids) == 4 for seed_ids in selected_seed_ids.values())

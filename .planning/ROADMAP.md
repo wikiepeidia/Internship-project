@@ -2,15 +2,17 @@
 
 **Created:** 2026-03-18
 **Granularity:** standard
-**v1 scope guardrails:** text-only inputs, offline-first privacy, recall-priority safety gates
+**v1 scope guardrails:** text-only inputs, offline-first privacy, recall-priority safety gates, minimal local demo UI only after evaluation gates
 
 ## Phases
 
 - [x] **Phase 1: Data Foundation and Split Governance** - Build reproducible Vietnamese threat datasets from NCSC seed sources with contamination controls.
 - [x] **Phase 2: Offline Text Ingestion and Privacy Baseline** - Deliver text-only message intake and default local/offline inference behavior.
 - [x] **Phase 3: Local Model Adaptation and Deployment Paths** - Fine-tune the locked Qwen baseline with LoRA/QLoRA and provide laptop GGUF inference plus optional prosumer acceleration paths.
-- [ ] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations. Implementation artifacts are present; UAT and phase verification remain pending.
-- [ ] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates.
+- [x] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations. Closed 2026-05-25 after Phase 4 UAT passed and the security review verified `threats_open: 0`.
+- [x] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates. Closed 2026-05-25 after the release-gate engine and paired artifacts shipped; the saved sample run remains `BLOCK` because held-out bank and zalo support are absent.
+- [x] **Phase 6: Local Demo UI for Non-Technical Verification** - Wrap the approved local runtime path in a minimal text-only demo interface aligned with the internship proposal. Closed 2026-05-25 after a local demo server, browser UI, and `vnphish demo` launch path shipped.
+- [ ] **Phase 7: Proposal Closeout and Quantitative Validation** - Freeze final dataset and evaluation artifacts so the remaining school-facing quantitative claims can be proven honestly.
 
 ## Phase Details
 
@@ -97,15 +99,15 @@ Plans:
 
 Plans:
 
-#### Wave 1
+#### Phase 5 Wave 1
 
 - [x] 04-01-PLAN.md -- Additive Phase 4 contract, shared decision-layer interface, and Wave 0 runtime verification scaffold
 
-#### Wave 2 *(blocked on Wave 1 completion)*
+#### Phase 5 Wave 2 *(blocked on Phase 5 Wave 1 completion)*
 
 - [x] 04-02-PLAN.md -- Shared local-model decision schema, grounding checks, deterministic safety helper, and recommendation sanitization
 
-#### Wave 3 *(blocked on Wave 2 completion)*
+#### Phase 5 Wave 3 *(blocked on Phase 5 Wave 2 completion)*
 
 - [x] 04-03-PLAN.md -- GGUF and accelerated Phase 4 integration plus terminal analyze presentation
 
@@ -124,13 +126,73 @@ Plans:
 **Goal**: Release decisions are controlled by safety-focused evaluation gates, with recall prioritized for high-harm scam classes.
 **Depends on**: Phase 4
 **Requirements**: EVAL-01, EVAL-02, EVAL-03
+
+**Follow-up note (2026-05-25)**: Phase 5 is now fully implemented. The project ships a fail-closed readiness audit, a saved evaluation snapshot, a completed explanation review-pack checkpoint, a final `release-eval` command, and paired markdown plus JSON release artifacts. The current saved run `phase5-review-sample-val` is truthfully `BLOCK` because `data/splits/val.jsonl` contains `task_scam` only and has zero held-out support for `bank_impersonation` and `zalo_social_engineering`.
 **Success Criteria** (what must be TRUE):
 
 1. Evaluation reports include overall F1 and per-class metrics on held-out offline data.
 2. Go/no-go gating enforces recall-priority thresholds to minimize false negatives on high-harm classes.
 3. Explanation outputs pass a defined quality rubric for correctness, relevance, and actionability.
 4. A release candidate cannot be marked ready if recall or explanation-quality thresholds fail.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+#### Wave 1
+
+- [x] 05-01-PLAN.md -- Held-out release-eval readiness audit and shared Phase 5 contracts
+
+#### Wave 2 *(blocked on Wave 1 completion)*
+
+- [x] 05-02-PLAN.md -- Contract-bound offline evaluator and explicit-label metrics
+
+#### Wave 3 *(blocked on Wave 2 completion)*
+
+- [x] 05-03-PLAN.md -- Risky-only explanation rubric scoring, saved manual review pack, and pre-verdict review command
+
+#### Phase 5 Wave 4 *(blocked on Phase 5 Wave 3 completion and the completed Phase 5 manual review pack)*
+
+- [x] 05-04-PLAN.md -- Recall-first verdict synthesis, paired release artifacts, and operator release-eval command
+
+### Phase 6: Local Demo UI for Non-Technical Verification
+
+**Goal**: Give non-technical users a minimal local interface to paste suspicious text and view the approved Phase 5 release-gated analysis without using the CLI.
+**Depends on**: Phase 5
+**Requirements**: UI-01, UI-02
+
+**Follow-up note (2026-05-25)**: Phase 6 shipped as one lightweight local demo slice. The project now serves a browser UI from `src/runtime/demo.py`, launches it through `vnphish demo`, and renders risk tier, threat labels, grounded cues, and safe recommendations from the existing runtime contract without adding OCR, cloud-default behavior, or a separate frontend framework.
+**Success Criteria** (what must be TRUE):
+
+1. A user can paste suspicious message text into a local demo interface without learning CLI commands.
+2. The interface presents risk tier, threat labels, grounded cues, and safe recommendations from the shipped local runtime.
+3. The demo stays text-only and local-first rather than adding OCR, screenshots, or cloud-default processing.
+4. The interface is presentation-ready for internship demo use while preserving the Phase 5 release-gated output contract.
+**Plans**: 1 plan
+
+Plans:
+
+- [x] 06-01-PLAN.md -- Local demo server, browser UI, and runtime-backed zero-prompt analysis flow
+
+### Phase 7: Proposal Closeout and Quantitative Validation
+
+**Goal**: Close the two remaining proposal-facing quantitative claims with one final validated dataset artifact and one valid held-out evaluation package for the locked baseline winner.
+**Depends on**: Phase 6
+**Requirements**: CLS-01, CLS-02, CLS-03
+
+**Follow-up note (2026-05-25)**: This milestone should spend the remaining frontier API budget only on targeted dataset closure for missing classes and validated yield, not on broad exploratory regeneration. The outcome must be one frozen dataset lineage and one school-facing held-out metric report.
+
+**Success Criteria** (what must be TRUE):
+
+1. The repo contains one final validated dataset artifact in the 2,500-3,000 JSONL target band, with manifest lineage and per-label counts.
+2. The repo contains frozen train, validation, and test splits with seed-disjoint lineage and non-zero held-out support for `bank_impersonation`, `zalo_social_engineering`, `task_scam`, and `benign` in the final evaluation path.
+3. The locked baseline winner can be retrained or refreshed from the frozen split set and re-exported to the shipped local runtime path when needed.
+4. The repo contains one final held-out evaluation package that explicitly states whether the proposal target F1 >= 0.85 was achieved.
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 07-01-PLAN.md -- Final validated dataset build, targeted Claude-assisted gap closure, and frozen split set
+- [ ] 07-02-PLAN.md -- Final baseline refresh, held-out evaluation package, and proposal-closeout evidence
 
 ## Progress Table
 
@@ -139,14 +201,16 @@ Plans:
 | 1. Data Foundation and Split Governance | 6/6 | Complete | 2026-05-07 |
 | 2. Offline Text Ingestion and Privacy Baseline | 3/3 | Complete | 2026-05-09 |
 | 3. Local Model Adaptation and Deployment Paths | 7/7 | Complete | 2026-05-17 closeout complete |
-| 4. Threat Detection and Explainable Decisioning | 4/4 | Testing | - |
-| 5. Recall-Priority Evaluation and Release Gates | 0/TBD | Not started | - |
+| 4. Threat Detection and Explainable Decisioning | 4/4 | Complete | 2026-05-25 |
+| 5. Recall-Priority Evaluation and Release Gates | 4/4 | Complete | 2026-05-25 |
+| 6. Local Demo UI for Non-Technical Verification | 1/1 | Complete | 2026-05-25 |
+| 7. Proposal Closeout and Quantitative Validation | 0/2 | Planned | — |
 
 ## Coverage Validation
 
-- v1 requirements total: 16
-- v1 requirements mapped: 16
-- orphaned v1 requirements: 0
+- tracked requirements total: 21
+- tracked requirements mapped: 21
+- orphaned tracked requirements: 0
 - duplicate mappings: 0
 
 Coverage map:
@@ -167,3 +231,8 @@ Coverage map:
 - EVAL-01 -> Phase 5
 - EVAL-02 -> Phase 5
 - EVAL-03 -> Phase 5
+- UI-01 -> Phase 6
+- UI-02 -> Phase 6
+- CLS-01 -> Phase 7
+- CLS-02 -> Phase 7
+- CLS-03 -> Phase 7

@@ -8,6 +8,9 @@ SETTINGS_ENV_VARS = [
     "ANTHROPIC_API_KEY",
     "GEMINI_API_KEY",
     "OPENROUTER_API_KEY",
+    "OPENAI_COMPATIBLE_BASE_URL",
+    "OPENAI_COMPATIBLE_API_KEY",
+    "OPENAI_COMPATIBLE_MODEL",
     "DATA_DIR",
     "SPLIT_RATIOS",
     "SIMILARITY_THRESHOLD",
@@ -37,6 +40,8 @@ class TestEnvironmentLoading:
             "ANTHROPIC_API_KEY=test-anthropic-key\n"
             "GEMINI_API_KEY=test-gemini-key\n"
             "OPENROUTER_API_KEY=test-openrouter-key\n"
+            "OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:8000/v1\n"
+            "OPENAI_COMPATIBLE_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ\n"
         )
         
         # Change to tmp directory so Settings finds our test .env/
@@ -48,6 +53,8 @@ class TestEnvironmentLoading:
         assert settings.anthropic_api_key == "test-anthropic-key"
         assert settings.gemini_api_key == "test-gemini-key"
         assert settings.openrouter_api_key == "test-openrouter-key"
+        assert settings.openai_compatible_base_url == "http://127.0.0.1:8000/v1"
+        assert settings.openai_compatible_model == "Qwen/Qwen2.5-32B-Instruct-AWQ"
     
     def test_loads_from_env_folder_dotenv_file(self, monkeypatch, tmp_path):
         """Settings loads from .env/.env standard file when present."""

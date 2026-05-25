@@ -61,9 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--bulk-provider",
-        choices=("auto", "claude", "gemini", "openrouter", "deepseek"),
+        choices=("auto", "claude", "gemini", "openrouter", "deepseek", "openai-compatible"),
         default="auto",
-        help="Preferred provider for bulk synthetic generation. Use 'claude' to keep retained runs on Anthropic.",
+        help="Preferred provider for synthetic generation. Use 'openai-compatible' to target a Colab or local vLLM OpenAI-style endpoint.",
     )
     parser.add_argument(
         "--resume",
@@ -182,8 +182,8 @@ def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
                     seen_texts.add(key)
                     merged.append(line)
 
-    before_generated = sum(1 for _ in generated_path.open("r", encoding="utf-8") if _.strip()) if generated_path.exists() else 0
-    before_partial = sum(1 for _ in partial_path.open("r", encoding="utf-8") if _.strip()) if partial_path.exists() else 0
+    before_generated = _count_nonempty_jsonl_lines(generated_path)
+    before_partial = _count_nonempty_jsonl_lines(partial_path)
     duplicates_dropped = (before_generated + before_partial) - len(merged)
 
     tmp_path = generated_path.with_suffix(".tmp")
@@ -214,6 +214,13 @@ def _write_jsonl_records(output_path: Path, records: list[dict[str, Any]]) -> Pa
     return output_path
 
 
+def _count_nonempty_jsonl_lines(path: Path) -> int:
+    if not path.exists():
+        return 0
+    with path.open("r", encoding="utf-8") as handle:
+        return sum(1 for line in handle if line.strip())
+
+
 def _count_labels(records: list[dict[str, Any]]) -> dict[str, int]:
     counts = {label: 0 for label in THREAT_CLASSES}
     for record in records:
@@ -221,6 +228,33 @@ def _count_labels(records: list[dict[str, Any]]) -> dict[str, int]:
         if label in counts:
             counts[label] += 1
     return counts
+
+
+def _select_seed_diverse_records(records: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    if limit <= 0 or not records:
+        return []
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        grouped.setdefault(record["seed_id"], []).append(record)
+
+    active_seed_ids = sorted(grouped)
+    selected: list[dict[str, Any]] = []
+
+    while active_seed_ids and len(selected) < limit:
+        next_round: list[str] = []
+        for seed_id in active_seed_ids:
+            bucket = grouped[seed_id]
+            if not bucket:
+                continue
+            selected.append(bucket.pop(0))
+            if bucket:
+                next_round.append(seed_id)
+            if len(selected) >= limit:
+                break
+        active_seed_ids = next_round
+
+    return selected
 
 
 def _recoverable_record_paths(data_dir: Path) -> list[Path]:
@@ -332,7 +366,9 @@ def optimize_recovered_records(
 
     balanced_records: list[dict[str, Any]] = []
     for label in THREAT_CLASSES:
-        balanced_records.extend(deduped_by_label[label][:selected_per_class])
+        balanced_records.extend(
+            _select_seed_diverse_records(deduped_by_label[label], selected_per_class)
+        )
 
     merged_output_path = _write_jsonl_records(data_dir / "synthetic" / "recovered-merged.jsonl", exact_unique_records)
     balanced_output_path = _write_jsonl_records(data_dir / "synthetic" / "recovered-balanced.jsonl", balanced_records)

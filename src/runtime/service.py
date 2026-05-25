@@ -12,7 +12,7 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, ChannelName
 
 
 TEXT_ONLY_BOUNDARY_MESSAGE = (
-    "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+    "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
 )
 
 
@@ -84,7 +84,7 @@ class RuntimeService:
     def analyze_text(self, text: str, channel: ChannelName = "unknown") -> AnalysisResult:
         if self.settings.runtime_store_raw_text:
             raise RuntimeUnavailableError(
-                "Raw-text persistence must stay disabled for the Phase 2 local runtime.",
+                "Raw-text persistence must stay disabled for the local runtime.",
                 steps=_default_setup_steps(),
             )
 

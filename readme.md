@@ -50,6 +50,25 @@ Phase 3 adds two explicit local-only model profiles behind the same runtime comm
 
 Use `vnphish doctor` or `python -m src.runtime.cli doctor` after selecting the target profile in settings, and see `docs/user/LOCAL_MODELS.md` for the profile matrix, artifact expectations, and doctor guidance.
 
+## Phase 6 Local Demo UI
+
+Phase 6 adds a local browser demo for non-technical verification on top of the existing runtime contract.
+
+Start the demo UI:
+
+```bash
+vnphish demo
+python -m src.runtime.cli demo
+```
+
+Optional local server controls:
+
+```bash
+python -m src.runtime.cli demo --host 127.0.0.1 --port 8765 --no-browser
+```
+
+The demo remains text-only and local-first. Paste one suspicious message or short conversation, choose an optional channel hint, and the browser UI will render risk tier, threat labels, grounded cues, and safe next steps from the existing runtime output contract.
+
 ## Phase 1 Operator Flow
 
 Phase 1 builds and retains the dataset artifacts needed for downstream model work.

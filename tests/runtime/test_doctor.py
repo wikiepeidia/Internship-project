@@ -1,12 +1,21 @@
 """Wave 0 and Phase 3 doctor expectations for the local runtime."""
 
 import importlib
+import json
 from pathlib import Path
 
 import src.runtime.analyzers.accelerated as accelerated_module
 import src.runtime.analyzers.gguf as gguf_module
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
-from src.model_adaptation.schemas import PilotSelection
+from src.model_adaptation.schemas import (
+    ExplanationRubricSummary,
+    HeldOutSupportAudit,
+    LOCKED_RELEASE_LABELS,
+    OverallMetricSummary,
+    PerLabelMetricRow,
+    PilotSelection,
+    ReleaseEvaluationArtifact,
+)
 from src.model_adaptation.training import build_training_config, save_adapter_artifacts
 
 
@@ -212,3 +221,65 @@ def test_doctor_uses_gguf_laptop_as_phase_four_default(tmp_path, monkeypatch):
     assert status.backend_name == "gguf"
     assert "READY backend=gguf" in report
     assert "gguf-laptop" in report
+
+
+def test_doctor_reads_latest_release_gate_summary(tmp_path, monkeypatch):
+    doctor_module = _load_doctor_module()
+    manifest_dir = tmp_path / "manifests"
+    manifest_dir.mkdir(parents=True)
+    artifact = ReleaseEvaluationArtifact(
+        run_id="phase5-run-001",
+        verdict="FLAG",
+        risky_recall_floor=0.9,
+        overall_metrics=OverallMetricSummary(macro_f1=0.75, weighted_f1=0.82, evaluated_rows=12),
+        per_label_metrics=[
+            PerLabelMetricRow(label=label, precision=1.0, recall=1.0, f1=1.0, support=1)
+            for label in LOCKED_RELEASE_LABELS
+        ],
+        blocker_reasons=[],
+        flag_reasons=["One risky prediction used generic safe advice."],
+        explanation_rubric_summary=ExplanationRubricSummary(
+            evaluated_risky_predictions=3,
+            manual_reviewed_predictions=3,
+            blocker_reasons=[],
+            flag_reasons=["One risky prediction used generic safe advice."],
+        ),
+        readiness_audit=HeldOutSupportAudit(
+            evaluated_split_path=Path("data/splits/val.jsonl"),
+            support_by_label={label: 1 for label in LOCKED_RELEASE_LABELS},
+            blocker_reasons=[],
+        ),
+    )
+    artifact_path = manifest_dir / "phase5-release-eval-phase5-run-001.json"
+    artifact_path.write_text(json.dumps(artifact.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_backend": "heuristic",
+            "runtime_profile": "heuristic",
+            "runtime_profile_gguf": "gguf-laptop",
+            "runtime_profile_gguf_runner_up": "gguf-runner-up",
+            "runtime_profile_accelerated": "accelerated-local",
+            "model_registry_path": tmp_path / "manifests" / "model-registry.json",
+            "runtime_max_cues": 3,
+            "runtime_fail_closed": True,
+            "runtime_store_raw_text": False,
+        },
+    )()
+
+    monkeypatch.setattr(doctor_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        doctor_module.HeuristicAnalyzer,
+        "doctor",
+        lambda self: doctor_module.DoctorStatus(ready=True, backend_name="heuristic", checks=[], setup_steps=[]),
+    )
+    monkeypatch.setattr(doctor_module, "RELEASE_MANIFEST_DIR", manifest_dir)
+
+    status = doctor_module.run_runtime_doctor()
+    report = doctor_module.format_doctor_report(status)
+
+    assert status.ready is True
+    assert "release-gate-summary: PASS - latest_verdict=FLAG" in report
+    assert "phase5-run-001" in report

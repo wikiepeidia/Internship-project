@@ -51,6 +51,7 @@ class DatasetRecord(BaseModel):
         "synthetic_gemini",
         "synthetic_openrouter",
         "synthetic_deepseek",
+        "synthetic_openai_compatible",
     ] = Field(
         description="Data provenance tag"
     )

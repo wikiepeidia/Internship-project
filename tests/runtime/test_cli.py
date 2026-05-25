@@ -90,7 +90,7 @@ def test_analyze_accepts_text_escape_hatch_for_automation(monkeypatch, sample_be
     assert captured["channel"] == "telegram"
 
 
-def test_cli_only_exposes_analyze_and_doctor_commands():
+def test_cli_only_exposes_analyze_doctor_and_demo_commands():
     cli_module = _load_cli_module()
     parser = cli_module.build_parser()
 
@@ -98,7 +98,29 @@ def test_cli_only_exposes_analyze_and_doctor_commands():
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
 
-    assert sorted(subparsers_action.choices.keys()) == ["analyze", "doctor"]
+    assert sorted(subparsers_action.choices.keys()) == ["analyze", "demo", "doctor"]
+
+
+def test_demo_command_starts_local_demo_server(monkeypatch):
+    cli_module = _load_cli_module()
+    captured = {}
+
+    def fake_run_demo_server(*, host: str, port: int, open_browser: bool) -> int:
+        captured["host"] = host
+        captured["port"] = port
+        captured["open_browser"] = open_browser
+        return 0
+
+    monkeypatch.setattr(cli_module, "run_demo_server", fake_run_demo_server)
+
+    exit_code = cli_module.main(["demo", "--host", "127.0.0.1", "--port", "8765", "--no-browser"])
+
+    assert exit_code == 0
+    assert captured == {
+        "host": "127.0.0.1",
+        "port": 8765,
+        "open_browser": False,
+    }
 
 
 def test_analyze_prints_phase_four_result_through_existing_command_surface(monkeypatch, capsys):

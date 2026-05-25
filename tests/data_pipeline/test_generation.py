@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import httpx
 
+from src.data_pipeline.schemas import SeedRecord
 from src.data_pipeline.generation.generator import TieredGenerator
 from src.data_pipeline.generation.prompts import THREAT_CLASSES, build_bulk_prompt, build_complex_prompt
 
@@ -36,6 +37,9 @@ def _settings(
         google_oauth_access_token="",
         openrouter_api_key=openrouter_key,
         deepseek_api_key=deepseek_key,
+        openai_compatible_base_url="",
+        openai_compatible_api_key="",
+        openai_compatible_model="",
         google_application_credentials="",
         google_cloud_project="",
         gemini_use_adc=False,
@@ -291,6 +295,78 @@ def test_generate_bulk_uses_deepseek_when_configured(sample_seed_record, tmp_pat
     assert records[0]["source"] == "synthetic_deepseek"
 
 
+def test_generate_complex_uses_openai_compatible_endpoint(sample_seed_record, tmp_path):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps([
+                            _make_record("bank_impersonation", 1, source="synthetic_openai_compatible")
+                        ])
+                    }
+                }
+            ]
+        },
+    )
+    settings = _settings(tmp_path, anthropic_key="")
+    settings.openai_compatible_base_url = "http://127.0.0.1:8000/v1"
+    settings.openai_compatible_model = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    generator = TieredGenerator(
+        settings=settings,
+        http_client=SimpleNamespace(post=lambda *args, **kwargs: response),
+        bulk_provider="openai-compatible",
+    )
+
+    records = generator.generate_complex(sample_seed_record, "bank_impersonation", num_variants=1)
+
+    assert len(records) == 1
+    assert records[0]["source"] == "synthetic_openai_compatible"
+
+
+def test_generate_bulk_uses_openai_compatible_endpoint(sample_seed_record, tmp_path):
+    request_capture: dict[str, object] = {}
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps([
+                            _make_record("task_scam", 1, source="synthetic_openai_compatible")
+                        ])
+                    }
+                }
+            ]
+        },
+    )
+
+    def fake_post(url, *args, **kwargs):
+        request_capture["url"] = url
+        request_capture["headers"] = kwargs.get("headers")
+        request_capture["json"] = kwargs.get("json")
+        return response
+
+    settings = _settings(tmp_path, anthropic_key="", gemini_key="", openrouter_key="", deepseek_key="")
+    settings.openai_compatible_base_url = "http://127.0.0.1:8000/v1/"
+    settings.openai_compatible_api_key = "colab-token"
+    settings.openai_compatible_model = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    generator = TieredGenerator(
+        settings=settings,
+        http_client=SimpleNamespace(post=fake_post),
+        bulk_provider="openai-compatible",
+    )
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert len(records) == 1
+    assert records[0]["source"] == "synthetic_openai_compatible"
+    assert request_capture["url"] == "http://127.0.0.1:8000/v1/chat/completions"
+    assert request_capture["headers"]["Authorization"] == "Bearer colab-token"
+    assert request_capture["json"]["model"] == "Qwen/Qwen2.5-32B-Instruct-AWQ"
+
+
 def test_generate_bulk_falls_back_to_openrouter_when_gemini_request_fails(sample_seed_record, tmp_path):
     request = httpx.Request("POST", "https://generativelanguage.googleapis.com")
     gemini_error = httpx.HTTPStatusError(
@@ -414,6 +490,38 @@ def test_generate_dataset_batches_large_requests(sample_seed_record, tmp_path):
     assert len(bulk_batch_sizes) > len(THREAT_CLASSES)
 
 
+def test_generate_dataset_spreads_seed_ids_when_multiple_seeds_available(tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path))
+    seeds = [
+        SeedRecord(
+            text=f"Seed text {index} with OTP and login wording {index}",
+            source_url=f"https://seed-{index}.example",
+            scrape_timestamp="2026-05-25T00:00:00Z",
+            raw_label_hint=None,
+        )
+        for index in range(4)
+    ]
+
+    def fake_complex(seed, threat_class, num_variants=3):
+        seed_id = generator._derive_seed_id(seed)
+        return [_make_record(threat_class, index, source="synthetic_claude", seed_id=seed_id) for index in range(num_variants)]
+
+    def fake_bulk(seed, threat_class, count=10):
+        seed_id = generator._derive_seed_id(seed)
+        return [_make_record(threat_class, index, source="synthetic_gemini", seed_id=seed_id) for index in range(count)]
+
+    generator.generate_complex = fake_complex
+    generator.generate_bulk = fake_bulk
+
+    records = generator.generate_dataset(seeds, target_count=80)
+
+    seed_ids_by_label: dict[str, set[str]] = {label: set() for label in THREAT_CLASSES}
+    for record in records:
+        seed_ids_by_label[record["label"]].add(record["seed_id"])
+
+    assert all(len(seed_ids) > 1 for seed_ids in seed_ids_by_label.values())
+
+
 def test_generate_dataset_writes_checkpoint_and_partial_output(sample_seed_record, tmp_path):
     generator = TieredGenerator(settings=_settings(tmp_path))
     checkpoint_dir = tmp_path / "synthetic"
@@ -507,7 +615,7 @@ def test_save_generated_writes_jsonl(tmp_path):
     assert saved_path.read_text(encoding="utf-8").count("\n") == 1
 
 
-def test_compare_models_includes_claude_gemini_openrouter_and_deepseek(sample_seed_record, tmp_path):
+def test_compare_models_includes_all_provider_slots(sample_seed_record, tmp_path):
     generator = TieredGenerator(settings=_settings(tmp_path), anthropic_client=object())
     generator._call_claude = lambda prompt: [_make_record("bank_impersonation", 1)]
     generator._call_gemini = lambda prompt: [_make_record("bank_impersonation", 1, source="synthetic_gemini")]
@@ -517,8 +625,9 @@ def test_compare_models_includes_claude_gemini_openrouter_and_deepseek(sample_se
 
     comparison = generator.compare_models(sample_seed_record, "bank_impersonation")
 
-    assert set(comparison) == {"claude", "gemini", "openrouter", "deepseek"}
+    assert set(comparison) == {"claude", "gemini", "openrouter", "deepseek", "openai-compatible"}
     assert comparison["claude"]["notes"]
     assert comparison["gemini"]["notes"]
     assert comparison["openrouter"]["notes"]
     assert comparison["deepseek"]["notes"]
+    assert comparison["openai-compatible"]["notes"]

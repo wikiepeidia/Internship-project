@@ -1,9 +1,11 @@
 """Local readiness checks and guidance for the promoted Phase 4 runtime."""
 
 import importlib
+from pathlib import Path
 import sys
 
 from src.config.settings import get_settings
+from src.model_adaptation.schemas import ReleaseEvaluationArtifact
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.gguf import GGUFAnalyzer
 from src.runtime.analyzers.heuristic import HeuristicAnalyzer
@@ -13,6 +15,7 @@ from src.runtime.contracts import DoctorCheck, DoctorStatus
 INSTALL_COMMAND = "python -m pip install -e .[dev]"
 TEST_COMMAND = "python -m pytest tests/runtime -q"
 DOCTOR_COMMAND = "python -m src.runtime.cli doctor"
+RELEASE_MANIFEST_DIR = Path("data/manifests")
 
 
 class RuntimeDoctor:
@@ -128,6 +131,8 @@ class RuntimeDoctor:
                 )
             )
 
+        checks.append(self._check_latest_release_gate_summary())
+
         ready = all(check.passed for check in checks)
         setup_steps = self._build_setup_steps(checks)
 
@@ -185,6 +190,39 @@ class RuntimeDoctor:
         if DOCTOR_COMMAND not in steps:
             steps.append(DOCTOR_COMMAND)
         return steps
+
+    def _check_latest_release_gate_summary(self) -> DoctorCheck:
+        artifacts = sorted(
+            RELEASE_MANIFEST_DIR.glob("phase5-release-eval-*.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if not artifacts:
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=True,
+                detail="No saved release evaluation artifact found.",
+            )
+
+        latest_path = artifacts[0]
+        try:
+            artifact = ReleaseEvaluationArtifact.model_validate_json(latest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=False,
+                detail=f"Failed to read latest release artifact: {exc}",
+                remediation_command=DOCTOR_COMMAND,
+            )
+
+        return DoctorCheck(
+            name="release-gate-summary",
+            passed=True,
+            detail=(
+                f"latest_verdict={artifact.verdict} run_id={artifact.run_id} "
+                f"manifest={latest_path}"
+            ),
+        )
 
 
 def run_runtime_doctor() -> DoctorStatus:

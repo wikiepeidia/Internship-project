@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VN Phishing Detection Demo</title>
+    <link rel="stylesheet" href="/static/demo.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero-panel">
+        <p class="eyebrow">Local demo</p>
+        <h1>Verify a suspicious message without terminal commands.</h1>
+        <p class="lede">
+          Paste one SMS, Zalo, Messenger, Telegram, or Facebook message and get a local threat analysis.
+          Text stays on this machine. OCR, screenshots, and voice input are not included in this demo.
+        </p>
+        <div class="trust-strip">
+          <span>Local-first</span>
+          <span>Text-only</span>
+          <span>Grounded cues</span>
+        </div>
+      </section>
+
+      <section class="workspace-panel">
+        <form id="analysis-form" class="composer-panel">
+          <label class="field-label" for="message-input">Suspicious message or short conversation</label>
+          <textarea id="message-input" name="text" rows="12" placeholder="Paste the suspicious text here. Example: VPBank canh bao account cua ban se bi khoa trong 24h..." required></textarea>
+
+          <div class="controls-row">
+            <label class="channel-field" for="channel-select">
+              <span>Channel</span>
+              <select id="channel-select" name="channel">
+                <option value="unknown">Unknown</option>
+                <option value="sms">SMS</option>
+                <option value="zalo">Zalo</option>
+                <option value="messenger">Messenger</option>
+                <option value="telegram">Telegram</option>
+                <option value="facebook">Facebook</option>
+              </select>
+            </label>
+
+            <div class="button-row">
+              <button type="button" id="sample-button" class="secondary-button">Try sample</button>
+              <button type="submit" id="analyze-button" class="primary-button">Analyze locally</button>
+            </div>
+          </div>
+        </form>
+
+        <section id="result-panel" class="result-panel result-panel--empty" aria-live="polite">
+          <div class="result-placeholder">
+            <h2>Analysis result</h2>
+            <p>Paste suspicious text and run a local analysis to see risk tier, labels, grounded cues, and safe next steps.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="result-template">
+      <article class="result-card">
+        <header class="result-card__header">
+          <div>
+            <p class="result-card__kicker">Local analysis</p>
+            <h2 id="result-summary"></h2>
+          </div>
+          <span id="result-risk-tier" class="risk-pill"></span>
+        </header>
+
+        <dl class="meta-grid">
+          <div>
+            <dt>Threat labels</dt>
+            <dd id="result-labels"></dd>
+          </div>
+          <div>
+            <dt>Backend</dt>
+            <dd id="result-backend"></dd>
+          </div>
+        </dl>
+
+        <section>
+          <h3>Grounded cues</h3>
+          <ul id="result-cues" class="detail-list"></ul>
+        </section>
+
+        <section>
+          <h3>Safe next steps</h3>
+          <ul id="result-recommendations" class="detail-list"></ul>
+        </section>
+      </article>
+    </template>
+
+    <template id="error-template">
+      <article class="result-card result-card--error">
+        <header class="result-card__header">
+          <div>
+            <p class="result-card__kicker">Local runtime response</p>
+            <h2 id="error-message"></h2>
+          </div>
+        </header>
+
+        <section>
+          <h3>Next steps</h3>
+          <ul id="error-steps" class="detail-list"></ul>
+        </section>
+      </article>
+    </template>
+
+    <script src="/static/demo.js" defer></script>
+  </body>
+  </html>

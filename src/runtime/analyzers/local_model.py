@@ -198,6 +198,25 @@ STRUCTURED_ANALYSIS_EXAMPLE = {
     ],
 }
 
+STRUCTURED_PAYLOAD_PRIMARY_KEYS = {
+    "risk_tier",
+    "threat_labels",
+    "label",
+    "decision_summary",
+    "summary",
+    "xai_explanation",
+    "evidence",
+    "suspicious_spans",
+    "recommendations",
+}
+STRUCTURED_PAYLOAD_NESTED_KEYS = {
+    "span",
+    "reason",
+    "cue_type",
+    "supports_labels",
+    "severity",
+}
+
 
 def build_structured_analysis_prompt(text: str) -> str:
     schema_text = json.dumps(STRUCTURED_ANALYSIS_SCHEMA, ensure_ascii=False)
@@ -218,8 +237,33 @@ def build_structured_analysis_prompt(text: str) -> str:
     )
 
 
+def _score_structured_payload_candidate(payload: dict[str, Any]) -> tuple[int, int]:
+    keys = set(payload)
+    primary_key_count = len(keys & STRUCTURED_PAYLOAD_PRIMARY_KEYS)
+    nested_key_count = len(keys & STRUCTURED_PAYLOAD_NESTED_KEYS)
+
+    score = primary_key_count * 10
+    if "risk_tier" in payload:
+        score += 8
+    if "threat_labels" in payload or "label" in payload:
+        score += 8
+    if "decision_summary" in payload or "summary" in payload or "xai_explanation" in payload:
+        score += 6
+    if "evidence" in payload or "suspicious_spans" in payload:
+        score += 6
+    if "recommendations" in payload:
+        score += 6
+    if primary_key_count == 0 and nested_key_count:
+        score -= nested_key_count * 3
+
+    return score, len(payload)
+
+
 def extract_structured_payload(raw_output: str) -> dict[str, Any]:
     decoder = json.JSONDecoder()
+    best_payload: dict[str, Any] | None = None
+    best_score: tuple[int, int] | None = None
+
     for index, character in enumerate(raw_output):
         if character != "{":
             continue
@@ -228,7 +272,13 @@ def extract_structured_payload(raw_output: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             continue
         if isinstance(payload, dict):
-            return payload
+            payload_score = _score_structured_payload_candidate(payload)
+            if best_score is None or payload_score > best_score:
+                best_payload = payload
+                best_score = payload_score
+
+    if best_payload is not None:
+        return best_payload
     raise ValueError("Model response did not contain a valid JSON object")
 
 
@@ -374,7 +424,7 @@ def _coerce_payload_evidence(
             span = str(raw_span).strip()
             if not span:
                 continue
-            if span not in normalized_text:
+            if not cue_span_is_grounded(normalized_text, span):
                 raise ValueError("Evidence span was not found in normalized text")
             evidence.append(
                 {
@@ -395,12 +445,15 @@ def _coerce_payload_evidence(
         if not isinstance(item, dict):
             raise ValueError("evidence items must be objects")
         span = str(item.get("span", "")).strip()
-        if span not in normalized_text:
-            raise ValueError("Evidence span was not found in normalized text")
+        if not cue_span_is_grounded(normalized_text, span):
+            continue
         evidence_item = dict(item)
         if not evidence_item.get("supports_labels"):
             evidence_item["supports_labels"] = fallback_labels
         evidence.append(evidence_item)
+
+    if raw_evidence and not evidence:
+        raise ValueError("Evidence span was not found in normalized text")
     return evidence
 
 
@@ -427,6 +480,19 @@ def _is_unsafe_recommendation(text: str) -> bool:
     if lowered.startswith(("khong ", "không ", "tranh ", "tránh ", "xac minh ", "xác minh ")):
         return False
     return any(marker in lowered for marker in UNSAFE_RECOMMENDATION_MARKERS)
+
+
+def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
+    """Return True when a cue span is present in the reviewable normalized text."""
+
+    normalized_span = span.strip()
+    return bool(normalized_span) and normalized_span in normalized_text
+
+
+def is_recommendation_safe(text: str) -> bool:
+    """Expose the Phase 4 recommendation-safety rule for reuse in release evaluation."""
+
+    return not _is_unsafe_recommendation(text)
 
 
 def _sanitize_recommendation_models(recommendations: list[Recommendation], *, risk_tier: str) -> list[Recommendation]:

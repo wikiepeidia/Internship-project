@@ -44,6 +44,23 @@ python -m src.runtime.cli analyze
 
 Paste one suspicious SMS, Zalo, Messenger, Telegram, or Facebook message into stdin, then finish input. The runtime returns a short provisional result and up to three quoted suspicious cues.
 
+## Local Demo UI
+
+If you want a non-terminal flow, launch the local demo UI:
+
+```bash
+vnphish demo
+python -m src.runtime.cli demo
+```
+
+Optional local server controls:
+
+```bash
+python -m src.runtime.cli demo --host 127.0.0.1 --port 8765 --no-browser
+```
+
+The demo opens a local browser page where you can paste suspicious text, choose an optional channel hint, and review risk tier, threat labels, grounded cues, and safe next steps without using CLI syntax.
+
 You can also provide an optional channel hint:
 
 ```bash
@@ -63,6 +80,12 @@ Supported options in Phase 2:
 
 - `--text`
 - `--channel`
+
+Supported demo options in Phase 6:
+
+- `--host`
+- `--port`
+- `--no-browser`
 
 There is no batch mode, file mode, OCR mode, voice mode, or cloud fallback mode in this release.
 

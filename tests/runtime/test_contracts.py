@@ -152,5 +152,5 @@ class TestProtocolAndSettings:
         assert settings.runtime_allow_text_flag is True
         assert (
             settings.runtime_text_only_message
-            == "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+            == "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
         )

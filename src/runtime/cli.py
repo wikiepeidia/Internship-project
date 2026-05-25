@@ -5,6 +5,7 @@ import sys
 from typing import get_args
 
 from src.runtime.contracts import ChannelName
+from src.runtime.demo import run_demo_server
 from src.runtime.doctor import format_doctor_report, run_runtime_doctor
 from src.runtime.render import render_analysis_result, render_runtime_error
 from src.runtime.service import (
@@ -32,6 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor_parser = subparsers.add_parser("doctor", help="Check local runtime readiness")
     doctor_parser.set_defaults(handler=handle_doctor)
+
+    demo_parser = subparsers.add_parser("demo", help="Start the local demo UI for non-technical verification")
+    demo_parser.add_argument("--host", default="127.0.0.1", help="Host interface for the local demo server")
+    demo_parser.add_argument("--port", type=int, default=8765, help="Port for the local demo server")
+    demo_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the demo UI automatically in the default browser",
+    )
+    demo_parser.set_defaults(handler=handle_demo)
 
     return parser
 
@@ -69,6 +80,12 @@ def handle_doctor(args: argparse.Namespace) -> int:
     status = run_runtime_doctor()
     print(format_doctor_report(status))
     return 0 if status.ready else 1
+
+
+def handle_demo(args: argparse.Namespace) -> int:
+    """Start the local demo server."""
+
+    return run_demo_server(host=args.host, port=args.port, open_browser=not args.no_browser)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -22,6 +22,7 @@ from src.data_pipeline.generation.prompts import build_judge_prompt
 CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+OPENAI_COMPATIBLE_JUDGE_KEY = "openai-compatible"
 JUDGE_PROGRESS_INTERVAL = 25
 JUDGE_MAX_TOKENS = 260
 
@@ -77,6 +78,9 @@ class QualityJudge:
         self.settings = settings or get_settings()
         self.gemini_key = self.settings.gemini_api_key
         self.anthropic_key = self.settings.anthropic_api_key
+        self.openai_compatible_base_url = self.settings.openai_compatible_base_url.rstrip("/")
+        self.openai_compatible_api_key = self.settings.openai_compatible_api_key
+        self.openai_compatible_model = self.settings.openai_compatible_model
         self.judge_model = judge_model
         self.anthropic_client = anthropic_client
         self.http_client = http_client or httpx.Client(timeout=60)
@@ -160,6 +164,9 @@ class QualityJudge:
         )
         return passed_records, stats
 
+    def _openai_compatible_is_configured(self) -> bool:
+        return bool(self.openai_compatible_base_url and self.openai_compatible_model)
+
     def _select_judge_model(self, source: str | None) -> str:
         if self.judge_model:
             return self.judge_model
@@ -167,10 +174,18 @@ class QualityJudge:
             return GEMINI_MODEL
         if source in {"synthetic_gemini", "synthetic_openrouter"} and self.anthropic_client:
             return CLAUDE_MODEL
+        # openai-compatible source: prefer a different model for cross-judging
+        if source == "synthetic_openai_compatible":
+            if self.gemini_session.is_configured():
+                return GEMINI_MODEL
+            if self.anthropic_client or self.anthropic_key:
+                return CLAUDE_MODEL
         if self.gemini_session.is_configured():
             return GEMINI_MODEL
-        if self.anthropic_client:
+        if self.anthropic_client or self.anthropic_key:
             return CLAUDE_MODEL
+        if self._openai_compatible_is_configured():
+            return OPENAI_COMPATIBLE_JUDGE_KEY
         raise ValueError("No judge API key configured")
 
     def _call_judge(self, prompt: str, model: str) -> str:
@@ -207,4 +222,21 @@ class QualityJudge:
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text
+        if model == OPENAI_COMPATIBLE_JUDGE_KEY and self._openai_compatible_is_configured():
+            headers = {}
+            if self.openai_compatible_api_key:
+                headers["Authorization"] = f"Bearer {self.openai_compatible_api_key}"
+            response = self.http_client.post(
+                f"{self.openai_compatible_base_url}/chat/completions",
+                headers=headers,
+                json={
+                    "model": self.openai_compatible_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3,
+                    "max_tokens": JUDGE_MAX_TOKENS,
+                },
+            )
+            if hasattr(response, "raise_for_status"):
+                response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
         raise ValueError("No judge API key configured")

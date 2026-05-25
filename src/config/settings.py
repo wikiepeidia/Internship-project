@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     google_oauth_access_token: str = ""
     openrouter_api_key: str = ""
     deepseek_api_key: str = ""
+    openai_compatible_base_url: str = ""
+    openai_compatible_api_key: str = ""
+    openai_compatible_model: str = ""
     google_application_credentials: str = ""
     google_cloud_project: str = ""
     gemini_use_adc: bool = False
@@ -54,7 +57,7 @@ class Settings(BaseSettings):
     runtime_fail_closed: bool = True
     runtime_allow_text_flag: bool = True
     runtime_text_only_message: str = (
-        "Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2."
+        "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
     )
 
     # Phase 3 Model Adaptation Configuration

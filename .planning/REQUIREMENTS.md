@@ -20,13 +20,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Detection
 
-- [ ] **DET-01**: System can classify each input message into risk tiers: benign, suspicious, or high-risk.
-- [ ] **DET-02**: System can assign in-scope threat labels: bank impersonation, account takeover/social engineering, and light-work-high-pay task scam.
+- [x] **DET-01**: System can classify each input message into risk tiers: benign, suspicious, or high-risk.
+- [x] **DET-02**: System can assign in-scope threat labels: bank impersonation, account takeover/social engineering, and light-work-high-pay task scam.
 
 ### Explainability
 
-- [ ] **XAI-01**: User receives evidence-linked reasons tied to suspicious spans or cues from the input text.
-- [ ] **XAI-02**: User receives actionable, safety-focused recommendations (for example: do not click links, verify identity via trusted voice call).
+- [x] **XAI-01**: User receives evidence-linked reasons tied to suspicious spans or cues from the input text.
+- [x] **XAI-02**: User receives actionable, safety-focused recommendations (for example: do not click links, verify identity via trusted voice call).
+
+### Demo Interface
+
+- [x] **UI-01**: Non-technical users can paste suspicious text into a minimal local demo interface without using CLI syntax.
+- [x] **UI-02**: The demo interface clearly presents risk tier, threat labels, grounded cues, and safe recommendations in a zero-prompt flow.
 
 ### Runtime and Deployment
 
@@ -40,9 +45,25 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Evaluation and Safety Gates
 
-- [ ] **EVAL-01**: Offline evaluation reports include overall F1 score and per-class metrics on held-out data.
-- [ ] **EVAL-02**: Release gating enforces recall-priority thresholds that minimize false negatives for high-harm scam classes.
-- [ ] **EVAL-03**: Release gating includes explanation quality checks using a defined rubric for correctness, relevance, and actionability.
+- [x] **EVAL-01**: Offline evaluation reports include overall F1 score and per-class metrics on held-out data.
+- [x] **EVAL-02**: Release gating enforces recall-priority thresholds that minimize false negatives for high-harm scam classes.
+- [x] **EVAL-03**: Release gating includes explanation quality checks using a defined rubric for correctness, relevance, and actionability.
+
+## Proposal Closeout Requirements
+
+Requirements for the follow-up milestone that closes the two remaining quantitative claims in the school proposal.
+
+### Dataset Finalization
+
+- [ ] **CLS-01**: System can produce one final validated dataset artifact in the 2,500-3,000 JSONL band, with manifest lineage and per-label counts.
+
+### Evaluation Readiness
+
+- [ ] **CLS-02**: System can freeze train, validation, and test splits with seed-disjoint lineage and non-zero held-out support for `bank_impersonation`, `zalo_social_engineering`, `task_scam`, and `benign` in the final evaluation path.
+
+### Quantitative Closeout
+
+- [ ] **CLS-03**: System can generate a final held-out evaluation report for the locked baseline winner, including macro and weighted F1, per-class precision/recall/F1, and an explicit statement of whether the proposal target F1 >= 0.85 was achieved.
 
 ## v2 Requirements
 
@@ -85,24 +106,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 1 | Complete |
 | ING-01 | Phase 2 | Complete |
 | ING-02 | Phase 2 | Complete |
-| DET-01 | Phase 4 | Pending |
-| DET-02 | Phase 4 | Pending |
-| XAI-01 | Phase 4 | Pending |
-| XAI-02 | Phase 4 | Pending |
+| DET-01 | Phase 4 | Complete |
+| DET-02 | Phase 4 | Complete |
+| XAI-01 | Phase 4 | Complete |
+| XAI-02 | Phase 4 | Complete |
 | RUN-01 | Phase 2 | Complete |
 | RUN-02 | Phase 3 | Complete |
 | RUN-03 | Phase 3 | Complete |
 | MOD-01 | Phase 3 | Complete |
-| EVAL-01 | Phase 5 | Pending |
-| EVAL-02 | Phase 5 | Pending |
-| EVAL-03 | Phase 5 | Pending |
+| EVAL-01 | Phase 5 | Complete |
+| EVAL-02 | Phase 5 | Complete |
+| EVAL-03 | Phase 5 | Complete |
+| CLS-01 | Phase 7 | Planned |
+| CLS-02 | Phase 7 | Planned |
+| CLS-03 | Phase 7 | Planned |
+| UI-01 | Phase 6 | Complete |
+| UI-02 | Phase 6 | Complete |
 
 **Coverage:**
 
-- v1 requirements: 16 total
-- Mapped to phases: 16
+- tracked requirements: 21 total
+- mapped to phases: 21
 - Unmapped: 0 ✅
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-05-17 after Phase 3 closeout and Phase 4 readiness update*
+*Last updated: 2026-05-25 after queuing the Phase 7 proposal-closeout milestone*

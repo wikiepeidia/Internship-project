@@ -9,9 +9,16 @@ from src.config.settings import get_settings
 from src.model_adaptation.catalog import build_default_catalog
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
+from src.model_adaptation.explanation_review import build_manual_review_pack
 from src.model_adaptation.pilot import run_pilot
+from src.model_adaptation.release_gates import write_release_artifacts, synthesize_release_verdict
 from src.model_adaptation.registry import load_model_registry, save_model_registry
-from src.model_adaptation.schemas import ModelRegistry, PilotSelection
+from src.model_adaptation.schemas import (
+    ExplanationReviewPack,
+    ModelRegistry,
+    PilotSelection,
+    ReleaseEvaluationSnapshot,
+)
 from src.model_adaptation.training import build_training_config, run_training
 
 
@@ -29,6 +36,22 @@ def _default_split_path(split_name: str) -> Path:
 
 def _default_registry_path() -> Path:
     return get_settings().model_registry_path
+
+
+def _default_phase_five_snapshot_path() -> Path:
+    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json")
+
+
+def _default_phase_five_review_pack_path() -> Path:
+    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-explanation-review-pack.json")
+
+
+def _default_phase_five_report_dir() -> Path:
+    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates")
+
+
+def _default_phase_five_manifest_dir() -> Path:
+    return Path("data/manifests")
 
 
 def _build_dry_run_pilot_rows() -> list[dict[str, object]]:
@@ -273,6 +296,60 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_parser.set_defaults(handler=handle_doctor)
 
+    review_parser = subparsers.add_parser(
+        "prepare-explanation-review",
+        help="Build the risky-only Phase 5 explanation review pack from a saved evaluation snapshot",
+    )
+    review_parser.add_argument(
+        "--snapshot-path",
+        type=Path,
+        default=_default_phase_five_snapshot_path(),
+        help="Saved evaluation snapshot JSON path",
+    )
+    review_parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=_default_phase_five_review_pack_path(),
+        help="Output path for the phase-local explanation review pack",
+    )
+    review_parser.add_argument(
+        "--sample-size",
+        type=int,
+        default=None,
+        help="Optional cap for deterministic risky-row sampling",
+    )
+    review_parser.set_defaults(handler=handle_prepare_explanation_review)
+
+    release_eval_parser = subparsers.add_parser(
+        "release-eval",
+        help="Synthesize the final Phase 5 release verdict from the saved snapshot and completed review pack",
+    )
+    release_eval_parser.add_argument(
+        "--snapshot-path",
+        type=Path,
+        default=_default_phase_five_snapshot_path(),
+        help="Saved evaluation snapshot JSON path",
+    )
+    release_eval_parser.add_argument(
+        "--review-pack-path",
+        type=Path,
+        default=_default_phase_five_review_pack_path(),
+        help="Completed explanation review pack JSON path",
+    )
+    release_eval_parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=_default_phase_five_report_dir(),
+        help="Output directory for the phase-local markdown report",
+    )
+    release_eval_parser.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=_default_phase_five_manifest_dir(),
+        help="Output directory for the machine-readable release artifact",
+    )
+    release_eval_parser.set_defaults(handler=handle_release_eval)
+
     return parser
 
 
@@ -389,8 +466,41 @@ def handle_doctor(args: argparse.Namespace) -> int:
     return 0 if status.ready else 1
 
 
+def handle_prepare_explanation_review(args: argparse.Namespace) -> int:
+    """Generate the pre-verdict risky-only explanation review pack for Phase 5."""
+
+    snapshot = ReleaseEvaluationSnapshot.model_validate_json(args.snapshot_path.read_text(encoding="utf-8"))
+    pack = build_manual_review_pack(
+        snapshot,
+        snapshot_path=args.snapshot_path,
+        sample_size=args.sample_size,
+    )
+    args.output_path.parent.mkdir(parents=True, exist_ok=True)
+    args.output_path.write_text(pack.model_dump_json(indent=2), encoding="utf-8")
+    print(f"Explanation review pack ready: {args.output_path}")
+    return 0
+
+
+def handle_release_eval(args: argparse.Namespace) -> int:
+    """Run the final Phase 5 release verdict synthesis and artifact writing flow."""
+
+    snapshot = ReleaseEvaluationSnapshot.model_validate_json(args.snapshot_path.read_text(encoding="utf-8"))
+    review_pack = ExplanationReviewPack.model_validate_json(args.review_pack_path.read_text(encoding="utf-8"))
+    artifact = synthesize_release_verdict(snapshot, review_pack)
+    report_path, manifest_path = write_release_artifacts(
+        artifact,
+        report_dir=args.report_dir,
+        manifest_dir=args.manifest_dir,
+    )
+    print(
+        f"Release eval complete: verdict={artifact.verdict} "
+        f"report={report_path} manifest={manifest_path}"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    """CLI entrypoint for the Phase 3 operator tooling."""
+    """CLI entrypoint for the Phase 3 and Phase 5 operator tooling."""
 
     parser = build_parser()
     args = parser.parse_args(argv)

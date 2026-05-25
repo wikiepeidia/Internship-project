@@ -37,6 +37,7 @@ GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_M
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEEPSEEK_MODEL = "deepseek-chat"
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+OPENAI_COMPATIBLE_SOURCE = "synthetic_openai_compatible"
 CLAUDE_DEFAULT_MAX_TOKENS = 1400
 CLAUDE_LARGE_BATCH_MAX_TOKENS = 2200
 BULK_PROVIDER_MAX_TOKENS = 2200
@@ -109,6 +110,9 @@ class TieredGenerator:
         self.gemini_api_key = self.settings.gemini_api_key
         self.openrouter_api_key = self.settings.openrouter_api_key
         self.deepseek_api_key = self.settings.deepseek_api_key
+        self.openai_compatible_base_url = self.settings.openai_compatible_base_url.rstrip("/")
+        self.openai_compatible_api_key = self.settings.openai_compatible_api_key
+        self.openai_compatible_model = self.settings.openai_compatible_model
         self.data_dir = self.settings.data_dir
         self.anthropic_client = anthropic_client
         self.http_client = http_client or httpx.Client(timeout=60)
@@ -122,6 +126,9 @@ class TieredGenerator:
         num_variants: int = 3,
     ) -> list[dict[str, Any]]:
         """Generate high-quality complex examples with Claude."""
+        if self.bulk_provider == "openai-compatible":
+            records = self._call_openai_compatible(prompt=self._build_generation_prompt(seed, threat_class, count=num_variants, bulk=False), max_tokens=CLAUDE_LARGE_BATCH_MAX_TOKENS)
+            return self._finalize_records(records, seed, threat_class, OPENAI_COMPATIBLE_SOURCE)
         if self.anthropic_client is None and not self.anthropic_api_key:
             raise ValueError("Anthropic API key is required for complex generation")
         prompt = self._build_generation_prompt(seed, threat_class, count=num_variants, bulk=False)
@@ -137,8 +144,12 @@ class TieredGenerator:
     ) -> list[dict[str, Any]]:
         """Generate higher-volume variations with Gemini, OpenRouter, or DeepSeek."""
         prompt = self._build_generation_prompt(seed, threat_class, count=count, bulk=True)
-        if self.bulk_provider not in {"auto", "gemini", "openrouter", "deepseek", "claude"}:
+        if self.bulk_provider not in {"auto", "gemini", "openrouter", "deepseek", "claude", "openai-compatible"}:
             raise ValueError(f"Unsupported bulk provider: {self.bulk_provider}")
+
+        if self.bulk_provider == "openai-compatible":
+            records = self._call_openai_compatible(prompt, max_tokens=BULK_PROVIDER_MAX_TOKENS)
+            return self._finalize_records(records, seed, threat_class, OPENAI_COMPATIBLE_SOURCE)
 
         if self.bulk_provider in {"auto", "gemini"} and self.gemini_session.is_configured():
             try:
@@ -268,6 +279,19 @@ class TieredGenerator:
         else:
             comparison["deepseek"] = {"available": False, "notes": "DeepSeek API key not configured"}
 
+        if self._openai_compatible_is_configured():
+            openai_compatible_records = self._call_openai_compatible(
+                self._build_generation_prompt(seed, threat_class, count=1, bulk=True),
+                max_tokens=BULK_PROVIDER_MAX_TOKENS,
+            )
+            comparison["openai-compatible"] = self._summarize_provider(
+                "openai-compatible",
+                openai_compatible_records,
+                self.openai_compatible_model,
+            )
+        else:
+            comparison["openai-compatible"] = {"available": False, "notes": "OpenAI-compatible endpoint not configured"}
+
         return comparison
 
     def save_generated(
@@ -373,6 +397,35 @@ class TieredGenerator:
             raise ValueError("DeepSeek response must be a JSON array")
         return payload
 
+    def _openai_compatible_is_configured(self) -> bool:
+        return bool(self.openai_compatible_base_url and self.openai_compatible_model)
+
+    def _call_openai_compatible(self, prompt: str, max_tokens: int) -> list[dict[str, Any]]:
+        if not self._openai_compatible_is_configured():
+            raise ValueError(
+                "OPENAI_COMPATIBLE_BASE_URL and OPENAI_COMPATIBLE_MODEL are required for openai-compatible generation"
+            )
+        headers = {}
+        if self.openai_compatible_api_key:
+            headers["Authorization"] = f"Bearer {self.openai_compatible_api_key}"
+        response = self.http_client.post(
+            f"{self.openai_compatible_base_url}/chat/completions",
+            headers=headers,
+            json={
+                "model": self.openai_compatible_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": max_tokens,
+            },
+        )
+        if hasattr(response, "raise_for_status"):
+            response.raise_for_status()
+        text = response.json()["choices"][0]["message"]["content"]
+        payload = _load_json_payload(text)
+        if not isinstance(payload, list):
+            raise ValueError("OpenAI-compatible response must be a JSON array")
+        return payload
+
     def _finalize_records(
         self,
         records: list[dict[str, Any]],
@@ -438,7 +491,6 @@ class TieredGenerator:
         order = 0
 
         for index, threat_class in enumerate(THREAT_CLASSES):
-            seed = seeds[index % len(seeds)]
             class_target = class_targets[threat_class]
             complex_target = min(class_target, max(1, round(class_target * 0.2))) if class_target else 0
             bulk_target = max(class_target - complex_target, 0)
@@ -451,6 +503,7 @@ class TieredGenerator:
                 batch_index = 0
                 while remaining > 0:
                     requested = min(batch_size, remaining)
+                    seed = seeds[(index + batch_index) % len(seeds)]
                     spec = BatchSpec(
                         order=order,
                         threat_class=threat_class,

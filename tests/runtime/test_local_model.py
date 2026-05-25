@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from src.runtime.analyzers.local_model import build_analysis_result, extract_structured_payload
+from src.runtime.analyzers.local_model import (
+    build_analysis_result,
+    cue_span_is_grounded,
+    extract_structured_payload,
+    is_recommendation_safe,
+)
 from src.runtime.contracts import AnalysisRequest
 
 
@@ -100,6 +105,36 @@ def test_build_analysis_result_maps_phase_four_payload_into_public_contract():
     assert [cue.cue_type for cue in result.top_cues] == ["otp_request", "url"]
 
 
+def test_extract_structured_payload_prefers_top_level_analysis_object_over_nested_evidence():
+        raw_output = """https://vpbank-safe.example.com/verify
+
+```json
+{
+    \"risk_tier\": \"high-risk\",
+    \"threat_labels\": [\"bank_impersonation\"],
+    \"decision_summary\": \"Tin nhan gia mao ngan hang va dan nguoi dung toi lien ket khong chinh thuc.\",
+    \"evidence\": [
+        {
+            \"span\": \"OTP\",
+            \"reason\": \"Tin nhan yeu cau ma OTP.\",
+            \"cue_type\": \"otp_request\",
+            \"supports_labels\": [\"bank_impersonation\"],
+            \"severity\": \"high\"
+        }
+    ],
+    \"recommendations\": [
+        {\"text\": \"Khong bam vao lien ket trong tin nhan.\", \"priority\": \"high\", \"offline_safe\": true}
+    ]
+}
+```"""
+
+        payload = extract_structured_payload(raw_output)
+
+        assert payload["risk_tier"] == "high-risk"
+        assert payload["threat_labels"] == ["bank_impersonation"]
+        assert payload["evidence"][0]["span"] == "OTP"
+
+
 @pytest.mark.parametrize(
     ("raw_output", "error_message"),
     [
@@ -178,6 +213,43 @@ def test_exact_grounding_rejects_evidence_not_found_in_normalized_text():
         build_analysis_result(payload, request, backend_name="gguf")
 
 
+def test_build_analysis_result_skips_ungrounded_evidence_when_grounded_items_remain():
+    request = AnalysisRequest(
+        text="Ngân hàng thông báo tài khoản của bạn bị khóa. Hãy bấm vào liên kết này để xác minh ngay.",
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "high-risk",
+        "threat_labels": ["bank_impersonation"],
+        "decision_summary": "Tin nhan gia mao ngan hang va dan nguoi dung toi lien ket khong chinh thuc.",
+        "evidence": [
+            {
+                "span": "Ngân hàng thông báo tài khoản của bạn bị khóa",
+                "reason": "Dung ngon ngu gay lo lang de kich thich hanh dong nhanh chong.",
+                "cue_type": "spoofed_brand",
+                "supports_labels": ["bank_impersonation"],
+                "severity": "high",
+            },
+            {
+                "span": "https://vpbank-safe.example.com/verify",
+                "reason": "Dia chi URL khong chinh thuc va co dau hieu bi gia mao.",
+                "cue_type": "url",
+                "supports_labels": ["bank_impersonation"],
+                "severity": "high",
+            },
+        ],
+        "recommendations": [
+            {"text": "Khong bam vao lien ket trong tin nhan.", "priority": "high", "offline_safe": True}
+        ],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert [cue.span for cue in result.top_cues] == ["Ngân hàng thông báo tài khoản của bạn bị khóa"]
+
+
 def test_safety_floor_blocks_harmful_benign_downgrade():
     request = AnalysisRequest(
         text=(
@@ -224,3 +296,16 @@ def test_recommendation_sanitizer_blocks_unsafe_actions():
         "Khong chia se OTP, mat khau, CCCD, hoac CVV.",
         "Xac minh qua ung dung, website, hoac tong dai chinh thuc.",
     ]
+
+
+def test_local_model_exposes_grounding_and_recommendation_safety_helpers():
+    assert cue_span_is_grounded(
+        "VPBank yeu cau nhap OTP de xac minh giao dich.",
+        "OTP",
+    )
+    assert not cue_span_is_grounded(
+        "VPBank yeu cau nhap OTP de xac minh giao dich.",
+        "CVV",
+    )
+    assert is_recommendation_safe("Khong bam vao lien ket trong tin nhan.")
+    assert not is_recommendation_safe("Hay bam vao lien ket de xac minh ngay.")

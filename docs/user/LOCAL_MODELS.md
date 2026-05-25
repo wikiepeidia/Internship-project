@@ -107,3 +107,40 @@ If the local environment is missing the training stack, install the optional ext
 ```bash
 python -m pip install -e .[dev,train]
 ```
+
+## Colab Generation
+
+If you want to avoid paid API generation for Phase 1 or Phase 7, you can run an OpenAI-compatible server from Google Colab and point the existing generator CLI at it.
+
+Recommended hardware:
+
+- `H100` first choice
+- `A100` second choice
+- `L4` only for smaller or quantized checkpoints
+- `T4` and `G4` are fallback-only and not a good fit for stable 32B generation
+
+Recommended serving pattern:
+
+1. In Colab, start a vLLM OpenAI-compatible server for an instruction model such as `Qwen/Qwen2.5-32B-Instruct-AWQ`.
+2. Expose the server URL securely.
+3. Set these local environment values in `.env/.env`:
+
+```text
+OPENAI_COMPATIBLE_BASE_URL=https://your-colab-endpoint.example/v1
+OPENAI_COMPATIBLE_API_KEY=optional-token
+OPENAI_COMPATIBLE_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ
+```
+
+4. Run the existing generator with the explicit provider:
+
+```bash
+python -m src.data_pipeline.cli \
+	--seed-input data/raw/seeds-2026-04-24.jsonl \
+	--target-count 3000 \
+	--version-tag proposal-closeout \
+	--bulk-provider openai-compatible \
+	--generate-only \
+	--resume
+```
+
+This route reuses the existing checkpoint and JSONL flow, but generation quality depends on the served checkpoint and prompt discipline. Use `generate-only` first, then judge or rebalance after the raw artifact looks healthy.

@@ -20,6 +20,7 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, 
 GGUF_SETUP_GUIDE = (
     "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and run the Phase 3 GGUF conversion flow to register the selected local artifact."
 )
+GGUF_COMPLETION_MAX_TOKENS = 512
 
 
 @dataclass
@@ -78,13 +79,13 @@ class GGUFAnalyzer:
         if hasattr(runtime, "create_completion"):
             response = runtime.create_completion(
                 prompt=prompt,
-                max_tokens=256,
+                max_tokens=GGUF_COMPLETION_MAX_TOKENS,
                 temperature=0.0,
             )
         else:
             response = runtime(
                 prompt,
-                max_tokens=256,
+                max_tokens=GGUF_COMPLETION_MAX_TOKENS,
                 temperature=0.0,
                 echo=False,
             )

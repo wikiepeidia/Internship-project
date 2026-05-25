@@ -1,0 +1,102 @@
+{
+  "run_id": "phase5-release-eval-20260525T093751Z",
+  "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+  "locked_label_order": [
+    "bank_impersonation",
+    "zalo_social_engineering",
+    "task_scam",
+    "benign"
+  ],
+  "audit": {
+    "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+    "evaluated_split_root": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0",
+    "locked_label_order": [
+      "bank_impersonation",
+      "zalo_social_engineering",
+      "task_scam",
+      "benign"
+    ],
+    "risky_labels": [
+      "bank_impersonation",
+      "zalo_social_engineering",
+      "task_scam"
+    ],
+    "risky_recall_floor": 0.9,
+    "support_by_label": {
+      "bank_impersonation": 0,
+      "zalo_social_engineering": 0,
+      "task_scam": 1,
+      "benign": 0
+    },
+    "blocker_reasons": [
+      "Missing support for risky label bank_impersonation in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+      "Missing support for risky label zalo_social_engineering in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl"
+    ],
+    "ready": false,
+    "verdict": "BLOCK"
+  },
+  "overall_metrics": {
+    "macro_f1": 0.25,
+    "weighted_f1": 1.0,
+    "evaluated_rows": 1
+  },
+  "per_label_metrics": [
+    {
+      "label": "bank_impersonation",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "recall_floor_applies": true
+    },
+    {
+      "label": "zalo_social_engineering",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "recall_floor_applies": true
+    },
+    {
+      "label": "task_scam",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1,
+      "recall_floor_applies": true
+    },
+    {
+      "label": "benign",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "recall_floor_applies": false
+    }
+  ],
+  "rows": [
+    {
+      "gold_label": "task_scam",
+      "predicted_labels": [
+        "task_scam"
+      ],
+      "risk_tier": "high-risk",
+      "summary": "Cong viec online luong cao la dau hieu task scam.",
+      "top_cues": [
+        {
+          "span": "luong cao",
+          "reason": "Hua hen thu nhap bat thuong",
+          "cue_type": null
+        }
+      ],
+      "recommendations": [
+        "Khong nop phi kich hoat hay chuyen tien truoc."
+      ],
+      "backend_name": "fake-runtime",
+      "channel": "unknown",
+      "split_provenance": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+      "normalized_text": "cong viec online luong cao, nop phi kich hoat ngay.",
+      "reviewable_source_text": "Cong viec online luong cao, nop phi kich hoat ngay."
+    }
+  ]
+}
