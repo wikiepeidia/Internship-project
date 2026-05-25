@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.config.settings import get_settings
-from src.model_adaptation.registry import build_model_checksum, load_model_registry, save_model_registry
+from src.model_adaptation.registry import build_model_checksum, find_latest_artifact, load_model_registry, save_model_registry
 from src.model_adaptation.schemas import ModelArtifactRecord, ModelRegistry, PilotSelection
 from src.model_adaptation.training import _load_download_manifest
 
@@ -267,13 +267,10 @@ def build_gguf_request(
     if candidate_id not in {resolved_selection.baseline_winner_id, resolved_selection.runner_up_id}:
         raise ValueError("GGUF conversion is limited to the pilot-selected baseline winner and runner-up")
 
-    adapter_record = next(
-        (
-            artifact
-            for artifact in registry.artifacts
-            if artifact.candidate_id == candidate_id and artifact.artifact_type == "adapter"
-        ),
-        None,
+    adapter_record = find_latest_artifact(
+        registry,
+        candidate_id=candidate_id,
+        artifact_type="adapter",
     )
     if adapter_record is None:
         raise ValueError(f"No registered adapter artifact found for candidate_id={candidate_id}")

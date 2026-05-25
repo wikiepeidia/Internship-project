@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.config.settings import get_settings
-from src.model_adaptation.registry import load_model_registry
+from src.model_adaptation.registry import find_latest_artifact, load_model_registry
 from src.runtime.analyzers.local_model import (
     build_analysis_result,
     build_structured_analysis_prompt,
@@ -41,13 +41,10 @@ class AcceleratedAnalyzer:
             raise RuntimeError("Pilot selection metadata is missing")
 
         target_candidate_id = registry.selection.runner_up_id
-        adapter_artifact = next(
-            (
-                artifact
-                for artifact in registry.artifacts
-                if artifact.candidate_id == target_candidate_id and artifact.artifact_type == "adapter"
-            ),
-            None,
+        adapter_artifact = find_latest_artifact(
+            registry,
+            candidate_id=target_candidate_id,
+            artifact_type="adapter",
         )
         if adapter_artifact is None or not adapter_artifact.local_path.exists():
             raise FileNotFoundError(
@@ -196,13 +193,10 @@ class AcceleratedAnalyzer:
             )
 
         target_candidate_id = registry.selection.runner_up_id
-        adapter_artifact = next(
-            (
-                artifact
-                for artifact in registry.artifacts
-                if artifact.candidate_id == target_candidate_id and artifact.artifact_type == "adapter"
-            ),
-            None,
+        adapter_artifact = find_latest_artifact(
+            registry,
+            candidate_id=target_candidate_id,
+            artifact_type="adapter",
         )
         artifact_ready = adapter_artifact is not None and adapter_artifact.local_path.exists()
         checks.append(

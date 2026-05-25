@@ -18,7 +18,7 @@ def _selection() -> PilotSelection:
     )
 
 
-def _stage_adapter(tmp_path: Path, candidate_id: str) -> Path:
+def _stage_adapter(tmp_path: Path, candidate_id: str, *, version_tag: str = "phase3-smoke") -> Path:
     registry_path = tmp_path / "manifests" / "model-registry.json"
     base_model_dir = tmp_path / "models" / "base" / candidate_id
     base_model_dir.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ def _stage_adapter(tmp_path: Path, candidate_id: str) -> Path:
         candidate_id=candidate_id,
         train_split_path=tmp_path / "splits" / "train.jsonl",
         val_split_path=tmp_path / "splits" / "val.jsonl",
-        version_tag="phase3-smoke",
+        version_tag=version_tag,
         output_root=tmp_path / "models",
         registry_path=registry_path,
         selection=_selection(),
@@ -53,6 +53,21 @@ def test_build_gguf_request_uses_adapter_artifact(tmp_path):
     assert request.base_model_path.exists()
     assert request.output_path.name == "gguf-laptop.gguf"
     assert request.quantization_profile == "q4_k_m"
+
+
+def test_build_gguf_request_uses_latest_adapter_artifact(tmp_path):
+    registry_path = _stage_adapter(tmp_path, "qwen3-4b-instruct-2507", version_tag="phase3-old")
+    _stage_adapter(tmp_path, "qwen3-4b-instruct-2507", version_tag="phase3-new")
+
+    request = build_gguf_request(
+        "qwen3-4b-instruct-2507",
+        "phase3-gguf-new",
+        registry_path=registry_path,
+        output_root=tmp_path / "models",
+        selection=_selection(),
+    )
+
+    assert request.adapter_path == tmp_path / "models" / "phase3-new" / "qwen3-4b-instruct-2507" / "adapter-placeholder.bin"
 
 
 def test_convert_to_gguf_dry_run_registers_metadata_for_baseline_winner_and_runner_up(tmp_path):

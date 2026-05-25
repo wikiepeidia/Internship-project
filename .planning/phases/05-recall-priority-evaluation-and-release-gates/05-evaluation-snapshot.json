@@ -1,6 +1,6 @@
 {
-  "run_id": "phase5-release-eval-20260525T093751Z",
-  "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+  "run_id": "phase5-release-eval-20260525T153242Z",
+  "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0\\test.jsonl",
   "locked_label_order": [
     "bank_impersonation",
     "zalo_social_engineering",
@@ -8,8 +8,8 @@
     "benign"
   ],
   "audit": {
-    "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
-    "evaluated_split_root": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0",
+    "evaluated_split_path": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0\\test.jsonl",
+    "evaluated_split_root": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0",
     "locked_label_order": [
       "bank_impersonation",
       "zalo_social_engineering",
@@ -29,8 +29,8 @@
       "benign": 0
     },
     "blocker_reasons": [
-      "Missing support for risky label bank_impersonation in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
-      "Missing support for risky label zalo_social_engineering in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl"
+      "Missing support for risky label bank_impersonation in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0\\test.jsonl",
+      "Missing support for risky label zalo_social_engineering in release-eval split C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0\\test.jsonl"
     ],
     "ready": false,
     "verdict": "BLOCK"
@@ -94,7 +94,7 @@
       ],
       "backend_name": "fake-runtime",
       "channel": "unknown",
-      "split_provenance": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-147\\test_release_evaluator_marks_c0\\test.jsonl",
+      "split_provenance": "C:\\Users\\wikiepeidia\\AppData\\Local\\Temp\\pytest-of-wikiepeidia\\pytest-157\\test_release_evaluator_marks_c0\\test.jsonl",
       "normalized_text": "cong viec online luong cao, nop phi kich hoat ngay.",
       "reviewable_source_text": "Cong viec online luong cao, nop phi kich hoat ngay."
     }

@@ -88,6 +88,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate records only and skip all LLM judging, validation outputs, and split building.",
     )
     parser.add_argument(
+        "--judge-existing",
+        action="store_true",
+        help="Judge and split an existing generated JSONL artifact without regenerating records.",
+    )
+    parser.add_argument(
+        "--generated-input",
+        type=Path,
+        default=None,
+        help="Existing generated JSONL artifact to judge. Defaults to data/synthetic/generated.jsonl.",
+    )
+    parser.add_argument(
         "--salvage-partial",
         action="store_true",
         help="Merge generated-partial.jsonl into generated.jsonl (de-duplicate by text), then exit. Does not delete generated-partial.jsonl.",
@@ -96,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--optimize-recovered",
         action="store_true",
         help="Merge recovered JSONL artifacts offline, de-duplicate, rebalance by class, and emit optimized outputs without API calls.",
+    )
+    parser.add_argument(
+        "--gap-fill-recovered",
+        action="store_true",
+        help="Compute missing per-label counts from recovered artifacts and generate only that remaining gap into dedicated gap-fill outputs.",
     )
     return parser
 
@@ -154,6 +170,60 @@ def _save_validated_records(
     os.replace(tmp_stats, stats_path)
 
     return validated_path, stats_path
+
+
+def _load_dataset_records(dataset_path: Path) -> list[dict[str, Any]]:
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"Generated input not found: {dataset_path}")
+
+    records: list[dict[str, Any]] = []
+    with dataset_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(DatasetRecord.model_validate_json(line).model_dump())
+    return records
+
+
+def judge_existing_records(
+    data_dir: Path,
+    input_path: Path,
+    version_tag: str = "phase1",
+) -> dict[str, Any]:
+    settings = get_settings()
+    generated_records = _load_dataset_records(input_path)
+    if not generated_records:
+        raise ValueError("No generated records found to judge")
+
+    anthropic_client = _build_anthropic_client(settings.anthropic_api_key)
+    judge = QualityJudge(settings=settings, anthropic_client=anthropic_client)
+    validated_records, quality_stats = judge.filter_passed(
+        generated_records,
+        progress_callback=_stderr_progress,
+    )
+    if not validated_records:
+        raise ValueError("Judge produced zero accepted records")
+
+    validated_path, quality_stats_path = _save_validated_records(
+        validated_records,
+        quality_stats,
+        data_dir,
+    )
+
+    builder = DatasetBuilder(version_tag=version_tag)
+    build_result = builder.build_splits(input_path=validated_path)
+
+    return {
+        "generated_count": len(generated_records),
+        "validated_count": len(validated_records),
+        "split_counts": build_result["splits"],
+        "generated_path": str(input_path),
+        "validated_path": str(validated_path),
+        "quality_stats_path": str(quality_stats_path),
+        "manifest_path": build_result["manifest_path"],
+        "judge_existing": True,
+    }
 
 
 def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
@@ -258,31 +328,33 @@ def _select_seed_diverse_records(records: list[dict[str, Any]], limit: int) -> l
 
 
 def _recoverable_record_paths(data_dir: Path) -> list[Path]:
-    synthetic_dir = data_dir / "synthetic"
-    processed_dir = data_dir / "processed"
-    splits_dir = data_dir / "splits"
-
     output_names = {
         "recovered-merged.jsonl",
         "recovered-balanced.jsonl",
     }
+    recoverable_split_names = {"train.jsonl", "val.jsonl", "test.jsonl"}
     paths: list[Path] = []
 
-    if processed_dir.exists():
-        for path in sorted(processed_dir.glob("validated*.jsonl")):
-            if path.name not in output_names:
-                paths.append(path)
+    for path in sorted(data_dir.rglob("*.jsonl")):
+        if path.name in output_names:
+            continue
 
-    if splits_dir.exists():
-        for path in sorted(splits_dir.glob("*.jsonl")):
-            if path.name not in output_names:
-                paths.append(path)
+        parts = set(path.parts)
+        if "raw" in parts:
+            continue
+        if "recovered-balanced" in parts:
+            continue
 
-    if synthetic_dir.exists():
-        for pattern in ("generated*.jsonl", "checkpoint-*.jsonl", ".checkpoint*.jsonl"):
-            for path in sorted(synthetic_dir.glob(pattern)):
-                if path.name not in output_names:
-                    paths.append(path)
+        name = path.name
+        is_recoverable = (
+            name in recoverable_split_names
+            or name.startswith("validated")
+            or name.startswith("generated")
+            or name.startswith("checkpoint-")
+            or name.startswith(".checkpoint")
+        )
+        if is_recoverable:
+            paths.append(path)
 
     deduped_paths: list[Path] = []
     seen_paths: set[Path] = set()
@@ -360,6 +432,10 @@ def optimize_recovered_records(
     lexical_counts = {label: len(records) for label, records in deduped_by_label.items()}
     feasible_per_class = min(lexical_counts.values()) if lexical_counts else 0
     requested_per_class = max(target_count // len(THREAT_CLASSES), 0)
+    missing_by_label = {
+        label: max(requested_per_class - lexical_counts.get(label, 0), 0)
+        for label in THREAT_CLASSES
+    }
     selected_per_class = feasible_per_class
     if requested_per_class:
         selected_per_class = min(selected_per_class, requested_per_class)
@@ -391,6 +467,9 @@ def optimize_recovered_records(
         "lexical_dedup_applied": lexical_dedup_applied,
         "lexical_unique_by_label": lexical_counts,
         "requested_target_count": target_count,
+        "requested_per_class": requested_per_class,
+        "missing_by_label_for_target": missing_by_label,
+        "generation_gap_total": sum(missing_by_label.values()),
         "feasible_balanced_per_class": feasible_per_class,
         "selected_per_class": selected_per_class,
         "balanced_total": len(balanced_records),
@@ -414,15 +493,55 @@ def run_phase1(
     max_parallel_batches: int = 1,
     checkpoint_dir: Path | None = None,
     generate_only: bool = False,
+    gap_fill_recovered: bool = False,
 ) -> dict[str, Any]:
     settings = get_settings()
+    recovered_summary: dict[str, Any] | None = None
+    class_targets_override: dict[str, int] | None = None
+
+    if gap_fill_recovered and not generate_only:
+        raise ValueError("--gap-fill-recovered currently requires --generate-only")
+
     checkpoint_base = checkpoint_dir or (settings.data_dir / "synthetic")
+
+    if gap_fill_recovered:
+        recovered_summary = optimize_recovered_records(settings.data_dir, target_count=target_count)
+        class_targets_override = recovered_summary["missing_by_label_for_target"]
+        target_count = recovered_summary["generation_gap_total"]
+        checkpoint_base = checkpoint_dir or (settings.data_dir / "backup" / "recovered-gap-fill" / "checkpoints")
+
     # checkpoint_path is now the directory containing numbered checkpoint-NNN.jsonl files
     checkpoint_path = checkpoint_base
-    generated_path = settings.data_dir / "synthetic" / "generated.jsonl"
+    generated_path = settings.data_dir / "synthetic" / (
+        "generated-gap-fill-recovered.jsonl" if gap_fill_recovered else "generated.jsonl"
+    )
     incremental_generated_path = generated_path if generate_only else (checkpoint_base / "generated-partial.jsonl")
 
-    if generate_only and resume and any(checkpoint_path.glob("checkpoint-*.jsonl")) and generated_path.exists():
+    if gap_fill_recovered and target_count <= 0:
+        return {
+            "seed_count": 0,
+            "generated_count": 0,
+            "validated_count": 0,
+            "split_counts": {},
+            "generated_path": str(recovered_summary["merged_output_path"]) if recovered_summary else None,
+            "validated_path": None,
+            "quality_stats_path": None,
+            "manifest_path": None,
+            "bulk_provider": bulk_provider,
+            "max_parallel_batches": max_parallel_batches,
+            "generate_only": True,
+            "gap_fill_recovered": True,
+            "gap_fill_missing_by_label": class_targets_override,
+            "recovered_summary": recovered_summary,
+        }
+
+    if (
+        generate_only
+        and resume
+        and any(checkpoint_path.glob("checkpoint-*.jsonl"))
+        and generated_path.exists()
+        and not gap_fill_recovered
+    ):
         generated_path.unlink()
 
     if seed_input is not None:
@@ -446,28 +565,34 @@ def run_phase1(
         anthropic_client=anthropic_client,
         bulk_provider=bulk_provider,
     )
-    generated_records = generator.generate_dataset(
-        seeds,
-        target_count=target_count,
-        max_parallel_batches=max_parallel_batches,
-        checkpoint_path=checkpoint_path,
-        partial_output_path=incremental_generated_path,
-        resume=resume,
-        progress_callback=_stderr_progress,
-    )
+    generation_kwargs: dict[str, Any] = {
+        "target_count": target_count,
+        "max_parallel_batches": max_parallel_batches,
+        "checkpoint_path": checkpoint_path,
+        "partial_output_path": incremental_generated_path,
+        "resume": resume,
+        "progress_callback": _stderr_progress,
+    }
+    if class_targets_override is not None:
+        generation_kwargs["class_targets"] = class_targets_override
+
+    generated_records = generator.generate_dataset(seeds, **generation_kwargs)
     generated_count = len(generated_records)
 
-    if 2000 <= target_count <= 3000 and not (2000 <= generated_count <= 3000):
+    if not gap_fill_recovered and 2000 <= target_count <= 3000 and not (2000 <= generated_count <= 3000):
         raise ValueError(
             f"Generated record count {generated_count} is outside the required 2000-3000 band"
         )
 
-    generated_path = generator.save_generated(generated_records, output_path=generated_path)
+    if gap_fill_recovered and generate_only and generated_path.exists():
+        generated_count = _count_nonempty_jsonl_lines(generated_path)
+    else:
+        generated_path = generator.save_generated(generated_records, output_path=generated_path)
 
     if generate_only:
         for cp_file in checkpoint_path.glob("checkpoint-*.jsonl"):
             cp_file.unlink(missing_ok=True)
-        return {
+        summary = {
             "seed_count": len(seeds),
             "generated_count": generated_count,
             "validated_count": 0,
@@ -480,6 +605,15 @@ def run_phase1(
             "max_parallel_batches": max_parallel_batches,
             "generate_only": True,
         }
+        if gap_fill_recovered:
+            summary.update(
+                {
+                    "gap_fill_recovered": True,
+                    "gap_fill_missing_by_label": class_targets_override,
+                    "recovered_summary": recovered_summary,
+                }
+            )
+        return summary
 
     judge = QualityJudge(settings=settings, anthropic_client=anthropic_client)
     validated_records, quality_stats = judge.filter_passed(
@@ -520,9 +654,9 @@ def run_phase1(
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    settings = get_settings()
 
     if args.optimize_recovered:
-        settings = get_settings()
         try:
             result = optimize_recovered_records(settings.data_dir, target_count=args.target_count)
         except Exception as error:
@@ -532,9 +666,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.salvage_partial:
-        settings = get_settings()
         try:
             result = salvage_partial_records(settings.data_dir)
+        except Exception as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.judge_existing:
+        generated_input = args.generated_input or (settings.data_dir / "synthetic" / "generated.jsonl")
+        try:
+            result = judge_existing_records(
+                data_dir=settings.data_dir,
+                input_path=generated_input,
+                version_tag=args.version_tag,
+            )
         except Exception as error:
             print(str(error), file=sys.stderr)
             return 1
@@ -554,6 +701,7 @@ def main(argv: list[str] | None = None) -> int:
             max_parallel_batches=args.max_parallel_batches,
             checkpoint_dir=args.checkpoint_dir,
             generate_only=args.generate_only,
+            gap_fill_recovered=args.gap_fill_recovered,
         )
     except KeyboardInterrupt:
         print(

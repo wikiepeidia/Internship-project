@@ -18,14 +18,14 @@ def _selection() -> PilotSelection:
     )
 
 
-def _stage_accelerated_registry(tmp_path: Path) -> Path:
+def _stage_accelerated_registry(tmp_path: Path, *, version_tag: str = "phase3-smoke") -> Path:
     registry_path = tmp_path / "manifests" / "model-registry.json"
     (tmp_path / "models" / "base" / "qwen3.5-4b").mkdir(parents=True, exist_ok=True)
     config = build_training_config(
         candidate_id="qwen3.5-4b",
         train_split_path=tmp_path / "splits" / "train.jsonl",
         val_split_path=tmp_path / "splits" / "val.jsonl",
-        version_tag="phase3-smoke",
+        version_tag=version_tag,
         output_root=tmp_path / "models",
         registry_path=registry_path,
         selection=_selection(),
@@ -120,3 +120,28 @@ def test_accelerated_doctor_fails_when_runner_up_resources_cannot_load(tmp_path,
         check.name == "accelerated-runtime-load" and check.passed is False
         for check in status.checks
     )
+
+
+def test_accelerated_resolves_latest_registered_adapter(tmp_path, monkeypatch):
+    registry_path = _stage_accelerated_registry(tmp_path, version_tag="phase3-old")
+    _stage_accelerated_registry(tmp_path, version_tag="phase3-new")
+    settings = type(
+        "FakeSettings",
+        (),
+        {
+            "runtime_profile_accelerated": "accelerated-local",
+            "runtime_profile": "accelerated-local",
+            "model_registry_path": registry_path,
+            "model_artifact_root": tmp_path / "models",
+        },
+    )()
+
+    monkeypatch.setattr(accelerated_module, "get_settings", lambda: settings)
+
+    backend = accelerated_module.AcceleratedAnalyzer(
+        registry_path=registry_path,
+        runtime_profile="accelerated-local",
+    )
+    _, adapter_path, _ = backend._resolve_runtime_paths()
+
+    assert adapter_path == tmp_path / "models" / "phase3-new" / "qwen3.5-4b" / "adapter-placeholder.bin"

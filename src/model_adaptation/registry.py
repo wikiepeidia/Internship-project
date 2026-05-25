@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from src.model_adaptation.schemas import ModelRegistry
+from src.model_adaptation.schemas import ArtifactType, ModelArtifactRecord, ModelRegistry
 
 
 def _update_digest_from_file(digest: "hashlib._Hash", file_path: Path) -> None:
@@ -48,3 +48,17 @@ def load_model_registry(input_path: Path) -> ModelRegistry:
     """Load previously saved registry metadata into typed models."""
 
     return ModelRegistry.model_validate_json(input_path.read_text(encoding="utf-8"))
+
+
+def find_latest_artifact(
+    registry: ModelRegistry,
+    *,
+    candidate_id: str,
+    artifact_type: ArtifactType,
+) -> ModelArtifactRecord | None:
+    """Return the most recently registered matching artifact for one candidate and type."""
+
+    for artifact in reversed(registry.artifacts):
+        if artifact.candidate_id == candidate_id and artifact.artifact_type == artifact_type:
+            return artifact
+    return None

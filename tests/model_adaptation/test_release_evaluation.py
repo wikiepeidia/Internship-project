@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import src.model_adaptation.release_evaluation as release_evaluation_module
 from src.model_adaptation.release_evaluation import compute_release_metrics, evaluate_release_split
 from src.model_adaptation.release_readiness import audit_release_eval_support
 from src.model_adaptation.schemas import LOCKED_RELEASE_LABELS, ReleaseEvaluationRow
@@ -132,6 +133,59 @@ def test_release_evaluator_marks_channel_unknown_when_dataset_lacks_channel(tmp_
 
     assert captured_channels == ["unknown"]
     assert snapshot.rows[0].channel == "unknown"
+
+
+def test_release_evaluator_writes_periodic_checkpoints_and_reports_progress(tmp_path: Path, monkeypatch):
+    split_path = tmp_path / "test.jsonl"
+    _write_split(
+        split_path,
+        [
+            _build_record("bank_impersonation", "seed-1", "VPBank can OTP de xac minh giao dich ngay."),
+            _build_record("benign", "seed-2", "Hen gap luc 3 gio chieu tai van phong nhe ban."),
+        ],
+    )
+    audit = audit_release_eval_support(split_path=split_path)
+    written_row_counts: list[int] = []
+    progress_events: list[tuple[int, int]] = []
+
+    def fake_write_snapshot(snapshot, snapshot_path):
+        written_row_counts.append(snapshot.overall_metrics.evaluated_rows)
+
+    def fake_analyze(text: str, channel: str = "unknown") -> AnalysisResult:
+        if "OTP" in text:
+            return AnalysisResult(
+                risk_tier="high-risk",
+                summary="Tin nhan gia danh ngan hang va yeu cau OTP.",
+                top_cues=[SuspiciousCue(span="OTP", reason="Yeu cau ma OTP nhay cam")],
+                threat_labels=["bank_impersonation"],
+                recommendations=["Khong cung cap OTP cho bat ky ai."],
+                backend_name="fake-runtime",
+                normalized_text=text.casefold(),
+            )
+        return AnalysisResult(
+            risk_tier="benign",
+            summary="Noi dung binh thuong.",
+            top_cues=[],
+            threat_labels=["benign"],
+            recommendations=["Khong co hanh dong nguy hiem duoc de xuat."],
+            backend_name="fake-runtime",
+            normalized_text=text.casefold(),
+        )
+
+    monkeypatch.setattr(release_evaluation_module, "_write_snapshot", fake_write_snapshot)
+
+    release_evaluation_module.evaluate_release_split(
+        split_path,
+        audit=audit,
+        analyze_text=fake_analyze,
+        snapshot_path=tmp_path / "05-evaluation-snapshot.json",
+        run_id="phase5-run-002",
+        progress_callback=lambda current, total: progress_events.append((current, total)),
+        checkpoint_interval=1,
+    )
+
+    assert progress_events == [(1, 2), (2, 2)]
+    assert written_row_counts == [1, 2]
 
 
 def test_release_metrics_keep_zero_support_labels_visible():

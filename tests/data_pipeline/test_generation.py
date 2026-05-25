@@ -325,6 +325,38 @@ def test_generate_complex_uses_openai_compatible_endpoint(sample_seed_record, tm
     assert records[0]["source"] == "synthetic_openai_compatible"
 
 
+def test_generate_complex_benign_coerces_provider_subtype_labels(sample_seed_record, tmp_path):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps([
+                            _make_record("benign", 1, source="synthetic_openai_compatible")
+                            | {"label": "transaction_confirmation", "risk_tier": "low_suspicion"}
+                        ])
+                    }
+                }
+            ]
+        },
+    )
+    settings = _settings(tmp_path, anthropic_key="")
+    settings.openai_compatible_base_url = "http://127.0.0.1:8000/v1"
+    settings.openai_compatible_model = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    generator = TieredGenerator(
+        settings=settings,
+        http_client=SimpleNamespace(post=lambda *args, **kwargs: response),
+        bulk_provider="openai-compatible",
+    )
+
+    records = generator.generate_complex(sample_seed_record, "benign", num_variants=1)
+
+    assert len(records) == 1
+    assert records[0]["label"] == "benign"
+    assert records[0]["risk_tier"] == "suspicious"
+
+
 def test_generate_bulk_uses_openai_compatible_endpoint(sample_seed_record, tmp_path):
     request_capture: dict[str, object] = {}
     response = SimpleNamespace(
@@ -365,6 +397,47 @@ def test_generate_bulk_uses_openai_compatible_endpoint(sample_seed_record, tmp_p
     assert request_capture["url"] == "http://127.0.0.1:8000/v1/chat/completions"
     assert request_capture["headers"]["Authorization"] == "Bearer colab-token"
     assert request_capture["json"]["model"] == "Qwen/Qwen2.5-32B-Instruct-AWQ"
+
+
+def test_generate_bulk_retries_openai_compatible_timeouts(sample_seed_record, tmp_path, monkeypatch):
+    attempts = {"count": 0}
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps([
+                            _make_record("task_scam", 1, source="synthetic_openai_compatible")
+                        ])
+                    }
+                }
+            ]
+        },
+    )
+
+    def fake_post(url, *args, **kwargs):
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise httpx.ReadTimeout("slow endpoint", request=httpx.Request("POST", url))
+        return response
+
+    monkeypatch.setattr("src.data_pipeline.generation.generator.time.sleep", lambda *_args, **_kwargs: None)
+
+    settings = _settings(tmp_path, anthropic_key="", gemini_key="", openrouter_key="", deepseek_key="")
+    settings.openai_compatible_base_url = "http://127.0.0.1:8000/v1/"
+    settings.openai_compatible_api_key = "colab-token"
+    settings.openai_compatible_model = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    generator = TieredGenerator(
+        settings=settings,
+        http_client=SimpleNamespace(post=fake_post),
+        bulk_provider="openai-compatible",
+    )
+
+    records = generator.generate_bulk(sample_seed_record, "task_scam", count=1)
+
+    assert len(records) == 1
+    assert attempts["count"] == 3
 
 
 def test_generate_bulk_falls_back_to_openrouter_when_gemini_request_fails(sample_seed_record, tmp_path):
@@ -520,6 +593,42 @@ def test_generate_dataset_spreads_seed_ids_when_multiple_seeds_available(tmp_pat
         seed_ids_by_label[record["label"]].add(record["seed_id"])
 
     assert all(len(seed_ids) > 1 for seed_ids in seed_ids_by_label.values())
+
+
+def test_generate_dataset_supports_explicit_class_targets(sample_seed_record, tmp_path):
+    generator = TieredGenerator(settings=_settings(tmp_path))
+
+    def fake_complex(seed, threat_class, num_variants=3):
+        return [_make_record(threat_class, index, source="synthetic_claude") for index in range(num_variants)]
+
+    def fake_bulk(seed, threat_class, count=10):
+        return [_make_record(threat_class, index, source="synthetic_gemini") for index in range(count)]
+
+    generator.generate_complex = fake_complex
+    generator.generate_bulk = fake_bulk
+
+    records = generator.generate_dataset(
+        [sample_seed_record],
+        target_count=3000,
+        class_targets={
+            "bank_impersonation": 0,
+            "zalo_social_engineering": 0,
+            "task_scam": 5,
+            "benign": 7,
+        },
+    )
+
+    counts = {label: 0 for label in THREAT_CLASSES}
+    for record in records:
+        counts[record["label"]] += 1
+
+    assert len(records) == 12
+    assert counts == {
+        "bank_impersonation": 0,
+        "zalo_social_engineering": 0,
+        "task_scam": 5,
+        "benign": 7,
+    }
 
 
 def test_generate_dataset_writes_checkpoint_and_partial_output(sample_seed_record, tmp_path):

@@ -34,6 +34,8 @@ def test_phase1_cli_help_shows_operator_flags(capsys):
     assert "--resume" in stdout
     assert "--max-parallel-batches" in stdout
     assert "--generate-only" in stdout
+    assert "--judge-existing" in stdout
+    assert "--generated-input" in stdout
 
 
 def test_phase1_cli_uses_seed_input_and_persists_outputs(tmp_path, monkeypatch, sample_seed_record, sample_dataset_record, capsys):
@@ -539,6 +541,117 @@ def test_phase1_cli_generate_only_resume_rebuilds_generated_output_from_checkpoi
     assert "stale" not in generated_path.read_text(encoding="utf-8")
 
 
+def test_phase1_cli_judge_existing_uses_existing_generated_artifact(
+    tmp_path,
+    monkeypatch,
+    sample_dataset_record,
+    capsys,
+):
+    settings = SimpleNamespace(
+        anthropic_api_key="",
+        gemini_api_key="",
+        openrouter_api_key="",
+        deepseek_api_key="",
+        openai_compatible_base_url="http://127.0.0.1:8000/v1",
+        openai_compatible_api_key="token",
+        openai_compatible_model="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8",
+        data_dir=tmp_path,
+    )
+    generated_path = tmp_path / "synthetic" / "generated-partial-phase7.jsonl"
+    generated_path.parent.mkdir(parents=True, exist_ok=True)
+    generated_path.write_text(sample_dataset_record.model_dump_json() + "\n", encoding="utf-8")
+
+    quality_stats = QualityStats(
+        total=1,
+        passed=1,
+        failed=0,
+        pass_rate=1.0,
+        avg_realism=4.0,
+        avg_label_correctness=5.0,
+        avg_code_switch_naturalness=4.0,
+    )
+
+    class ShouldNotRunGenerator:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("generator should not run in --judge-existing mode")
+
+    class FakeJudge:
+        def __init__(self, settings, anthropic_client=None):
+            self.settings = settings
+            assert anthropic_client is None
+
+        def filter_passed(self, records, progress_callback=None):
+            assert len(records) == 1
+            assert records[0]["text"] == sample_dataset_record.text
+            assert progress_callback is not None
+            return [sample_dataset_record.model_dump()], quality_stats
+
+    class FakeBuilder:
+        def __init__(self, version_tag="phase1"):
+            self.version_tag = version_tag
+
+        def build_splits(self, input_path=None, output_dir=None, similarity_threshold=None):
+            splits_dir = output_dir or (tmp_path / "splits")
+            splits_dir.mkdir(parents=True, exist_ok=True)
+            for split_name in ("train", "val", "test"):
+                (splits_dir / f"{split_name}.jsonl").write_text("{}\n", encoding="utf-8")
+            manifest_path = tmp_path / "manifests" / f"manifest-{self.version_tag}.json"
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text("{}", encoding="utf-8")
+            return {
+                "version": self.version_tag,
+                "splits": {"train": 1, "val": 0, "test": 0},
+                "manifest_path": str(manifest_path),
+                "total_records": 1,
+            }
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("src.data_pipeline.cli.TieredGenerator", ShouldNotRunGenerator)
+    monkeypatch.setattr("src.data_pipeline.cli.QualityJudge", FakeJudge)
+    monkeypatch.setattr("src.data_pipeline.cli.DatasetBuilder", FakeBuilder)
+    monkeypatch.setattr("src.data_pipeline.cli._build_anthropic_client", lambda api_key: None)
+
+    exit_code = main([
+        "--judge-existing",
+        "--generated-input",
+        str(generated_path),
+        "--version-tag",
+        "proposal-closeout-judge",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["judge_existing"] is True
+    assert summary["generated_count"] == 1
+    assert summary["validated_count"] == 1
+    assert summary["generated_path"] == str(generated_path)
+    assert summary["manifest_path"].endswith("manifest-proposal-closeout-judge.json")
+
+
+def test_phase1_cli_judge_existing_fails_when_generated_input_is_missing(tmp_path, monkeypatch, capsys):
+    settings = SimpleNamespace(
+        anthropic_api_key="",
+        gemini_api_key="",
+        openrouter_api_key="",
+        deepseek_api_key="",
+        openai_compatible_base_url="http://127.0.0.1:8000/v1",
+        openai_compatible_api_key="token",
+        openai_compatible_model="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8",
+        data_dir=tmp_path,
+    )
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+
+    exit_code = main([
+        "--judge-existing",
+        "--generated-input",
+        str(tmp_path / "synthetic" / "missing.jsonl"),
+    ])
+
+    assert exit_code == 1
+    assert "Generated input not found" in capsys.readouterr().err
+
+
 # ── NEW: Atomic write ────────────────────────────────────────────────────────
 
 
@@ -850,6 +963,13 @@ def test_optimize_recovered_records_merges_dedups_and_balances(tmp_path):
 
     assert result["invalid_items"] == 1
     assert result["balanced_total"] == 8
+    assert result["requested_per_class"] == 2
+    assert result["missing_by_label_for_target"] == {
+        "bank_impersonation": 0,
+        "zalo_social_engineering": 0,
+        "task_scam": 0,
+        "benign": 0,
+    }
     assert result["balanced_by_label"] == {
         "bank_impersonation": 2,
         "zalo_social_engineering": 2,
@@ -939,3 +1059,267 @@ def test_optimize_recovered_records_spreads_balanced_selection_across_seeds(tmp_
             selected_seed_ids[item["label"]].add(item["seed_id"])
 
     assert all(len(seed_ids) == 4 for seed_ids in selected_seed_ids.values())
+
+
+def test_optimize_recovered_records_includes_backup_artifacts_and_reports_missing_labels(tmp_path):
+    from src.data_pipeline.cli import optimize_recovered_records
+
+    synthetic_dir = tmp_path / "synthetic"
+    backup_checkpoint_dir = tmp_path / "backup" / "run-01" / "checkpoints"
+    synthetic_dir.mkdir(parents=True, exist_ok=True)
+    backup_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    def record(text, label, seed_id):
+        return {
+            "text": text,
+            "label": label,
+            "risk_tier": "benign" if label == "benign" else "high-risk",
+            "suspicious_spans": [] if label == "benign" else [text.split()[0]],
+            "xai_explanation": f"Giải thích hợp lệ cho {label} với nội dung đủ dài.",
+            "source": "synthetic_claude",
+            "seed_id": seed_id,
+        }
+
+    current_records = [
+        record("bank one urgent otp notice with fake login portal", "bank_impersonation", "b1"),
+        record("bank two urgent transfer warning with fake hotline", "bank_impersonation", "b2"),
+        record("zalo one refund confirmation asking to verify transfer", "zalo_social_engineering", "z1"),
+        record("zalo two shipping support message requesting payment hold", "zalo_social_engineering", "z2"),
+        record("task one remote payout message asking to finish bonus mission", "task_scam", "t1"),
+        record("task two salary reward chat asking to prepay verification fee", "task_scam", "t2"),
+    ]
+    (synthetic_dir / "generated.jsonl").write_text(
+        "\n".join(json.dumps(item, ensure_ascii=False) for item in current_records) + "\n",
+        encoding="utf-8",
+    )
+
+    checkpoint_entry = {
+        "batch_key": "benign:bulk:0",
+        "order": 0,
+        "threat_class": "benign",
+        "batch_type": "bulk",
+        "batch_index": 0,
+        "requested_count": 1,
+        "returned_count": 1,
+        "provider": "synthetic_claude",
+        "timestamp": "2026-05-05T00:00:00Z",
+        "records": [record("benign one normal account reminder with no action needed", "benign", "n1")],
+    }
+    (backup_checkpoint_dir / "checkpoint-001.jsonl").write_text(
+        json.dumps(checkpoint_entry, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    result = optimize_recovered_records(tmp_path, target_count=8)
+
+    assert any("backup" in path and "checkpoint-001.jsonl" in path for path in result["source_files"])
+    assert result["requested_per_class"] == 2
+    assert result["missing_by_label_for_target"] == {
+        "bank_impersonation": 0,
+        "zalo_social_engineering": 0,
+        "task_scam": 0,
+        "benign": 1,
+    }
+    assert result["generation_gap_total"] == 1
+
+
+def test_phase1_cli_gap_fill_recovered_generates_only_missing_labels(tmp_path, monkeypatch, sample_seed_record, capsys):
+    settings = SimpleNamespace(
+        anthropic_api_key="",
+        gemini_api_key="",
+        openrouter_api_key="",
+        data_dir=tmp_path,
+    )
+    seed_input = tmp_path / "raw" / "seeds.jsonl"
+    _write_seed_jsonl(seed_input, [sample_seed_record])
+
+    expected_missing = {
+        "bank_impersonation": 0,
+        "zalo_social_engineering": 0,
+        "task_scam": 171,
+        "benign": 520,
+    }
+
+    class FakeGenerator:
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
+            self.settings = settings
+            self.bulk_provider = bulk_provider
+
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+            class_targets=None,
+        ):
+            assert len(seeds) == 1
+            assert target_count == 691
+            assert class_targets == expected_missing
+            assert checkpoint_path == tmp_path / "backup" / "recovered-gap-fill" / "checkpoints"
+            assert partial_output_path == tmp_path / "synthetic" / "generated-gap-fill-recovered.jsonl"
+            assert resume is False
+            return [
+                {
+                    "text": "task missing fill one",
+                    "label": "task_scam",
+                    "risk_tier": "high-risk",
+                    "suspicious_spans": ["task"],
+                    "xai_explanation": "Giải thích hợp lệ cho task missing fill one.",
+                    "source": "synthetic_openai_compatible",
+                    "seed_id": "gap-task-1",
+                },
+                {
+                    "text": "benign missing fill one",
+                    "label": "benign",
+                    "risk_tier": "benign",
+                    "suspicious_spans": [],
+                    "xai_explanation": "Giải thích hợp lệ cho benign missing fill one.",
+                    "source": "synthetic_openai_compatible",
+                    "seed_id": "gap-benign-1",
+                },
+            ]
+
+        def save_generated(self, records, output_path=None):
+            destination = output_path or (self.settings.data_dir / "synthetic" / "generated-gap-fill-recovered.jsonl")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("w", encoding="utf-8") as handle:
+                for record in records:
+                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            return destination
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("src.data_pipeline.cli.TieredGenerator", FakeGenerator)
+    monkeypatch.setattr("src.data_pipeline.cli._build_anthropic_client", lambda api_key: None)
+    monkeypatch.setattr(
+        "src.data_pipeline.cli.optimize_recovered_records",
+        lambda data_dir, target_count: {
+            "merged_output_path": str(tmp_path / "synthetic" / "recovered-merged.jsonl"),
+            "missing_by_label_for_target": expected_missing,
+            "generation_gap_total": 691,
+        },
+    )
+
+    exit_code = main([
+        "--seed-input",
+        str(seed_input),
+        "--target-count",
+        "3000",
+        "--bulk-provider",
+        "openai-compatible",
+        "--generate-only",
+        "--gap-fill-recovered",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["generated_count"] == 2
+    assert summary["gap_fill_recovered"] is True
+    assert summary["gap_fill_missing_by_label"] == expected_missing
+    assert summary["generated_path"].endswith("generated-gap-fill-recovered.jsonl")
+
+
+def test_phase1_cli_gap_fill_recovered_resume_preserves_existing_output(tmp_path, monkeypatch, sample_seed_record, capsys):
+    settings = SimpleNamespace(
+        anthropic_api_key="",
+        gemini_api_key="",
+        openrouter_api_key="",
+        data_dir=tmp_path,
+    )
+    seed_input = tmp_path / "raw" / "seeds.jsonl"
+    _write_seed_jsonl(seed_input, [sample_seed_record])
+
+    generated_path = tmp_path / "synthetic" / "generated-gap-fill-recovered.jsonl"
+    generated_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_record = {
+        "text": "task gap already recovered",
+        "label": "task_scam",
+        "risk_tier": "high-risk",
+        "suspicious_spans": ["task"],
+        "xai_explanation": "Giải thích hợp lệ cho task gap already recovered.",
+        "source": "synthetic_openai_compatible",
+        "seed_id": "gap-task-1",
+    }
+    generated_path.write_text(json.dumps(existing_record, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    checkpoint_dir = tmp_path / "backup" / "recovered-gap-fill" / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    (checkpoint_dir / "checkpoint-001.jsonl").write_text('{"batch_key":"task_scam:bulk:0"}\n', encoding="utf-8")
+
+    new_record = {
+        "text": "benign gap newly recovered",
+        "label": "benign",
+        "risk_tier": "benign",
+        "suspicious_spans": [],
+        "xai_explanation": "Giải thích hợp lệ cho benign gap newly recovered.",
+        "source": "synthetic_openai_compatible",
+        "seed_id": "gap-benign-1",
+    }
+
+    class FakeGenerator:
+        def __init__(self, settings, anthropic_client=None, bulk_provider="auto"):
+            self.settings = settings
+
+        def generate_dataset(
+            self,
+            seeds,
+            target_count=2500,
+            max_parallel_batches=1,
+            checkpoint_path=None,
+            partial_output_path=None,
+            resume=False,
+            progress_callback=None,
+            class_targets=None,
+        ):
+            assert resume is True
+            assert checkpoint_path == checkpoint_dir
+            assert partial_output_path == generated_path
+            assert partial_output_path.exists()
+            with partial_output_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(new_record, ensure_ascii=False) + "\n")
+            return [new_record]
+
+        def save_generated(self, records, output_path=None):
+            raise AssertionError("save_generated should not overwrite cumulative gap-fill output on resume")
+
+    monkeypatch.setattr("src.data_pipeline.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("src.data_pipeline.cli.TieredGenerator", FakeGenerator)
+    monkeypatch.setattr("src.data_pipeline.cli._build_anthropic_client", lambda api_key: None)
+    monkeypatch.setattr(
+        "src.data_pipeline.cli.optimize_recovered_records",
+        lambda data_dir, target_count: {
+            "merged_output_path": str(tmp_path / "synthetic" / "recovered-merged.jsonl"),
+            "missing_by_label_for_target": {
+                "bank_impersonation": 0,
+                "zalo_social_engineering": 0,
+                "task_scam": 0,
+                "benign": 1,
+            },
+            "generation_gap_total": 1,
+        },
+    )
+
+    exit_code = main([
+        "--seed-input",
+        str(seed_input),
+        "--target-count",
+        "3000",
+        "--bulk-provider",
+        "openai-compatible",
+        "--generate-only",
+        "--gap-fill-recovered",
+        "--checkpoint-dir",
+        str(checkpoint_dir),
+        "--resume",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["generated_count"] == 2
+    written_lines = generated_path.read_text(encoding="utf-8").splitlines()
+    assert len(written_lines) == 2
+    labels = [json.loads(line)["label"] for line in written_lines]
+    assert labels == ["task_scam", "benign"]

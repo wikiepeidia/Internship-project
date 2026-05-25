@@ -8,6 +8,7 @@ import json
 import re
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,10 @@ COMPLEX_BATCH_SIZE = 3
 BULK_BATCH_SIZE = 5
 MAX_EMPTY_BATCHES = 2
 CHECKPOINT_KEEP_COUNT = 5
+OPENAI_COMPATIBLE_CONNECT_TIMEOUT_SECONDS = 30.0
+OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS = 300.0
+OPENAI_COMPATIBLE_TIMEOUT_RETRIES = 3
+OPENAI_COMPATIBLE_RETRY_BACKOFF_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
@@ -93,6 +98,26 @@ def _normalize_risk_tier(value: Any) -> str:
         "critical": "high-risk",
     }
     return aliases.get(normalized, "suspicious")
+
+
+def _normalize_dataset_label(value: Any, default: str) -> str:
+    normalized = str(value or default).strip().casefold().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "bank_impersonation": "bank_impersonation",
+        "zalo_social_engineering": "zalo_social_engineering",
+        "task_scam": "task_scam",
+        "benign": "benign",
+        "transaction_confirmation": "benign",
+        "service_update": "benign",
+        "otp_confirmation": "benign",
+        "marketing_offer": "benign",
+        "balance_alert": "benign",
+        "account_statement": "benign",
+        "bank_notification": "benign",
+        "payment_confirmation": "benign",
+        "transfer_confirmation": "benign",
+    }
+    return aliases.get(normalized, default)
 
 
 class TieredGenerator:
@@ -192,6 +217,7 @@ class TieredGenerator:
         partial_output_path: Path | None = None,
         resume: bool = False,
         progress_callback: Callable[[str], None] | None = None,
+        class_targets: dict[str, int] | None = None,
     ) -> list[dict[str, Any]]:
         """Generate a roughly balanced synthetic dataset across all threat classes."""
         if not seeds:
@@ -199,7 +225,24 @@ class TieredGenerator:
         if max_parallel_batches < 1:
             raise ValueError("max_parallel_batches must be at least 1")
 
-        class_targets = self._build_class_targets(target_count)
+        if class_targets is None:
+            class_targets = self._build_class_targets(target_count)
+        else:
+            unknown_labels = sorted(set(class_targets) - set(THREAT_CLASSES))
+            if unknown_labels:
+                raise ValueError(f"Unsupported class target labels: {', '.join(unknown_labels)}")
+
+            normalized_targets: dict[str, int] = {}
+            for threat_class in THREAT_CLASSES:
+                requested = int(class_targets.get(threat_class, 0))
+                if requested < 0:
+                    raise ValueError("class_targets values must be zero or greater")
+                normalized_targets[threat_class] = requested
+            class_targets = normalized_targets
+            target_count = sum(class_targets.values())
+            if target_count == 0:
+                return []
+
         completed_batches, restored_records = self._prepare_resume_state(
             checkpoint_path=checkpoint_path,
             partial_output_path=partial_output_path,
@@ -408,23 +451,42 @@ class TieredGenerator:
         headers = {}
         if self.openai_compatible_api_key:
             headers["Authorization"] = f"Bearer {self.openai_compatible_api_key}"
-        response = self.http_client.post(
-            f"{self.openai_compatible_base_url}/chat/completions",
-            headers=headers,
-            json={
-                "model": self.openai_compatible_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": max_tokens,
-            },
+        request_timeout = httpx.Timeout(
+            timeout=OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS,
+            connect=OPENAI_COMPATIBLE_CONNECT_TIMEOUT_SECONDS,
+            read=OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS,
+            write=OPENAI_COMPATIBLE_CONNECT_TIMEOUT_SECONDS,
+            pool=OPENAI_COMPATIBLE_CONNECT_TIMEOUT_SECONDS,
         )
-        if hasattr(response, "raise_for_status"):
-            response.raise_for_status()
-        text = response.json()["choices"][0]["message"]["content"]
-        payload = _load_json_payload(text)
-        if not isinstance(payload, list):
-            raise ValueError("OpenAI-compatible response must be a JSON array")
-        return payload
+        request_url = f"{self.openai_compatible_base_url}/chat/completions"
+        request_payload = {
+            "model": self.openai_compatible_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.9,
+            "max_tokens": max_tokens,
+        }
+
+        for attempt in range(1, OPENAI_COMPATIBLE_TIMEOUT_RETRIES + 1):
+            try:
+                response = self.http_client.post(
+                    request_url,
+                    headers=headers,
+                    json=request_payload,
+                    timeout=request_timeout,
+                )
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+                text = response.json()["choices"][0]["message"]["content"]
+                payload = _load_json_payload(text)
+                if not isinstance(payload, list):
+                    raise ValueError("OpenAI-compatible response must be a JSON array")
+                return payload
+            except httpx.TimeoutException:
+                if attempt == OPENAI_COMPATIBLE_TIMEOUT_RETRIES:
+                    raise
+                time.sleep(OPENAI_COMPATIBLE_RETRY_BACKOFF_SECONDS * attempt)
+
+        raise RuntimeError("OpenAI-compatible generation failed without returning a response")
 
     def _finalize_records(
         self,
@@ -437,7 +499,7 @@ class TieredGenerator:
         finalized: list[dict[str, Any]] = []
         for record in records:
             payload = dict(record)
-            payload["label"] = payload.get("label", threat_class)
+            payload["label"] = _normalize_dataset_label(payload.get("label"), threat_class)
             payload["risk_tier"] = _normalize_risk_tier(payload.get("risk_tier", "suspicious"))
             payload["suspicious_spans"] = payload.get("suspicious_spans", [])
             payload["source"] = source

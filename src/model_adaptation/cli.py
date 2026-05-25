@@ -11,6 +11,7 @@ from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
 from src.model_adaptation.explanation_review import build_manual_review_pack
 from src.model_adaptation.pilot import run_pilot
+from src.model_adaptation.release_evaluation import evaluate_release_split
 from src.model_adaptation.release_gates import write_release_artifacts, synthesize_release_verdict
 from src.model_adaptation.registry import load_model_registry, save_model_registry
 from src.model_adaptation.schemas import (
@@ -40,6 +41,14 @@ def _default_registry_path() -> Path:
 
 def _default_phase_five_snapshot_path() -> Path:
     return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json")
+
+
+def _default_phase_five_split_path() -> Path:
+    settings = get_settings()
+    repaired_holdout = settings.data_dir / "splits" / "recovered-balanced" / "val.jsonl"
+    if repaired_holdout.exists():
+        return repaired_holdout
+    return _default_split_path("val")
 
 
 def _default_phase_five_review_pack_path() -> Path:
@@ -296,6 +305,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_parser.set_defaults(handler=handle_doctor)
 
+    evaluate_release_parser = subparsers.add_parser(
+        "evaluate-release-split",
+        help="Run the Phase 5 held-out evaluation and save the snapshot as it progresses",
+    )
+    evaluate_release_parser.add_argument(
+        "--split-path",
+        type=Path,
+        default=_default_phase_five_split_path(),
+        help="Held-out split JSONL path to evaluate",
+    )
+    evaluate_release_parser.add_argument(
+        "--snapshot-path",
+        type=Path,
+        default=_default_phase_five_snapshot_path(),
+        help="Output path for the saved evaluation snapshot",
+    )
+    evaluate_release_parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Optional stable run id recorded in the snapshot",
+    )
+    evaluate_release_parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=1,
+        help="Print progress every N evaluated rows; use 0 to disable progress output",
+    )
+    evaluate_release_parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=1,
+        help="Rewrite the snapshot every N evaluated rows; use 0 to disable intermediate checkpoints",
+    )
+    evaluate_release_parser.set_defaults(handler=handle_evaluate_release_split)
+
     review_parser = subparsers.add_parser(
         "prepare-explanation-review",
         help="Build the risky-only Phase 5 explanation review pack from a saved evaluation snapshot",
@@ -464,6 +508,32 @@ def handle_doctor(args: argparse.Namespace) -> int:
     )
     print(format_training_doctor_report(status))
     return 0 if status.ready else 1
+
+
+def handle_evaluate_release_split(args: argparse.Namespace) -> int:
+    """Evaluate one held-out split through the runtime and save a Phase 5 snapshot."""
+
+    progress_every = args.progress_every if args.progress_every > 0 else None
+    checkpoint_every = args.checkpoint_every if args.checkpoint_every > 0 else None
+
+    def _emit_progress(current: int, total: int) -> None:
+        if progress_every is None:
+            return
+        if current == 1 or current == total or current % progress_every == 0:
+            print(f"Phase 5 evaluation progress: {current}/{total}")
+
+    snapshot = evaluate_release_split(
+        args.split_path,
+        snapshot_path=args.snapshot_path,
+        run_id=args.run_id,
+        progress_callback=_emit_progress if progress_every is not None else None,
+        checkpoint_interval=checkpoint_every,
+    )
+    print(
+        f"Evaluation snapshot ready: rows={snapshot.overall_metrics.evaluated_rows} "
+        f"verdict={snapshot.audit.verdict} snapshot={args.snapshot_path}"
+    )
+    return 0
 
 
 def handle_prepare_explanation_review(args: argparse.Namespace) -> int:

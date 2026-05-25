@@ -29,6 +29,7 @@ DEFAULT_EVALUATION_SNAPSHOT_PATH = Path(
 )
 
 AnalyzeText = Callable[[str, ChannelName], AnalysisResult]
+ProgressCallback = Callable[[int, int], None]
 
 
 def _default_run_id() -> str:
@@ -61,6 +62,24 @@ def _normalize_predicted_labels(result: AnalysisResult) -> list[ThreatLabel]:
 def _write_snapshot(snapshot: ReleaseEvaluationSnapshot, snapshot_path: Path) -> None:
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
     snapshot_path.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
+
+
+def _build_snapshot(
+    *,
+    split_path: Path,
+    audit: HeldOutSupportAudit,
+    rows: Sequence[ReleaseEvaluationRow],
+    run_id: str,
+) -> ReleaseEvaluationSnapshot:
+    overall_metrics, per_label_metrics = compute_release_metrics(rows)
+    return ReleaseEvaluationSnapshot(
+        run_id=run_id,
+        evaluated_split_path=split_path,
+        audit=audit,
+        overall_metrics=overall_metrics,
+        per_label_metrics=per_label_metrics,
+        rows=list(rows),
+    )
 
 
 def compute_release_metrics(
@@ -113,6 +132,8 @@ def evaluate_release_split(
     analyze_text: AnalyzeText | None = None,
     snapshot_path: Path = DEFAULT_EVALUATION_SNAPSHOT_PATH,
     run_id: str | None = None,
+    progress_callback: ProgressCallback | None = None,
+    checkpoint_interval: int | None = None,
 ) -> ReleaseEvaluationSnapshot:
     """Evaluate one held-out split through the public runtime contract and save a snapshot."""
 
@@ -120,8 +141,10 @@ def evaluate_release_split(
     analyze = _resolve_analyze_callable(runtime_service, analyze_text)
     records: list[DatasetRecord] = load_split_records(split_path)
     rows: list[ReleaseEvaluationRow] = []
+    resolved_run_id = run_id or _default_run_id()
+    total_records = len(records)
 
-    for record in records:
+    for index, record in enumerate(records, start=1):
         result = analyze(record.text, channel="unknown")
         rows.append(
             ReleaseEvaluationRow(
@@ -139,14 +162,23 @@ def evaluate_release_split(
             )
         )
 
-    overall_metrics, per_label_metrics = compute_release_metrics(rows)
-    snapshot = ReleaseEvaluationSnapshot(
-        run_id=run_id or _default_run_id(),
-        evaluated_split_path=split_path,
+        if progress_callback is not None:
+            progress_callback(index, total_records)
+
+        if checkpoint_interval is not None and checkpoint_interval > 0 and index % checkpoint_interval == 0 and index < total_records:
+            checkpoint_snapshot = _build_snapshot(
+                split_path=split_path,
+                audit=resolved_audit,
+                rows=rows,
+                run_id=resolved_run_id,
+            )
+            _write_snapshot(checkpoint_snapshot, snapshot_path)
+
+    snapshot = _build_snapshot(
+        split_path=split_path,
         audit=resolved_audit,
-        overall_metrics=overall_metrics,
-        per_label_metrics=per_label_metrics,
         rows=rows,
+        run_id=resolved_run_id,
     )
     _write_snapshot(snapshot, snapshot_path)
     return snapshot

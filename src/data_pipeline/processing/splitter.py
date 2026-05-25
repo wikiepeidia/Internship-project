@@ -12,9 +12,24 @@ from src.data_pipeline.schemas import DatasetRecord
 SplitName = Literal["train", "val", "test"]
 
 
-def _seed_bucket(seed_id: str, salt: str) -> float:
-    digest = hashlib.sha256(f"{salt}:{seed_id}".encode("utf-8")).hexdigest()
+def _stable_bucket(value: str, salt: str) -> float:
+    digest = hashlib.sha256(f"{salt}:{value}".encode("utf-8")).hexdigest()
     return int(digest[:8], 16) / 0xFFFFFFFF
+
+
+def _seed_bucket(seed_id: str, salt: str) -> float:
+    return _stable_bucket(seed_id, salt)
+
+
+def _record_bucket(record: dict[str, Any], salt: str) -> float:
+    record_key = "|".join(
+        [
+            str(record.get("label", "")),
+            str(record.get("seed_id", "")),
+            str(record.get("text", "")),
+        ]
+    )
+    return _stable_bucket(record_key, salt)
 
 
 def _allocate_split_counts(
@@ -97,19 +112,56 @@ def split_dataset(
     split_ratios: tuple[float, float, float] | None = None,
     salt: str = "v1.0",
 ) -> dict[SplitName, list[dict[str, Any]]]:
-    """Split records while keeping every variant of a seed in the same partition."""
+    """Split records while preserving seed groups when feasible and label support when not."""
     settings = get_settings()
     ratios = split_ratios or settings.split_ratios
     splits: dict[SplitName, list[dict[str, Any]]] = {"train": [], "val": [], "test": []}
-    seed_groups: dict[str, list[dict[str, Any]]] = {}
+    active_split_count = sum(1 for ratio in ratios if ratio > 0)
+    label_seed_groups: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    retained_seed_groups: dict[str, list[dict[str, Any]]] = {}
+    underdiverse_label_records: dict[str, list[dict[str, Any]]] = {}
 
     for record in records:
         validated = DatasetRecord.model_validate(record).model_dump()
-        seed_groups.setdefault(validated["seed_id"], []).append(validated)
+        label_seed_groups.setdefault(validated["label"], {}).setdefault(validated["seed_id"], []).append(validated)
 
-    assignments = _assign_seed_group_splits(list(seed_groups), ratios, salt)
-    for seed_id, group_records in seed_groups.items():
-        splits[assignments[seed_id]].extend(group_records)
+    underdiverse_labels = {
+        label
+        for label, seed_groups in label_seed_groups.items()
+        if len(seed_groups) < active_split_count
+    }
+
+    for label_seed_group in label_seed_groups.values():
+        for seed_id, group_records in label_seed_group.items():
+            if any(group_record["label"] in underdiverse_labels for group_record in group_records):
+                for group_record in group_records:
+                    if group_record["label"] in underdiverse_labels:
+                        underdiverse_label_records.setdefault(group_record["label"], []).append(group_record)
+                    else:
+                        retained_seed_groups.setdefault(seed_id, []).append(group_record)
+                continue
+            retained_seed_groups.setdefault(seed_id, []).extend(group_records)
+
+    if retained_seed_groups:
+        assignments = _assign_seed_group_splits(list(retained_seed_groups), ratios, salt)
+        for seed_id, group_records in retained_seed_groups.items():
+            splits[assignments[seed_id]].extend(group_records)
+
+    for label, label_records in underdiverse_label_records.items():
+        ordered_records = sorted(
+            label_records,
+            key=lambda group_record: (
+                _record_bucket(group_record, f"{salt}:{label}"),
+                group_record["seed_id"],
+                group_record["text"],
+            ),
+        )
+        counts = _allocate_split_counts(len(ordered_records), ratios)
+        cursor = 0
+        for split_name in ("train", "val", "test"):
+            next_cursor = cursor + counts[split_name]
+            splits[split_name].extend(ordered_records[cursor:next_cursor])
+            cursor = next_cursor
 
     return splits
 

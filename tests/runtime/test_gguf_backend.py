@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import src.runtime.analyzers.gguf as gguf_module
@@ -95,3 +96,99 @@ def test_gguf_analyze_returns_phase_four_result_fields(tmp_path, monkeypatch):
     assert result.recommendations
     assert Path(captured["artifact_path"]).name == "gguf-laptop.gguf"
     assert len(result.top_cues) <= 3
+
+
+def test_gguf_load_runtime_uses_larger_context_window(tmp_path, monkeypatch):
+    registry_path = _stage_gguf_registry(tmp_path)
+    captured: dict[str, object] = {}
+
+    class FakeLlama:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    fake_module = type("FakeLlamaModule", (), {"Llama": FakeLlama})
+    monkeypatch.setattr(gguf_module.importlib, "import_module", lambda name: fake_module)
+
+    backend = gguf_module.GGUFAnalyzer(registry_path=registry_path, runtime_profile="gguf-laptop")
+    artifact_path = backend._resolve_artifact_path()
+    backend._load_runtime(artifact_path)
+
+    assert captured["model_path"] == str(artifact_path)
+    assert captured["n_ctx"] == gguf_module.GGUF_CONTEXT_WINDOW
+    assert captured["n_gpu_layers"] == 0
+    assert captured["verbose"] is False
+
+
+def test_gguf_infer_payload_prefers_chat_completion_json_mode(tmp_path):
+    registry_path = _stage_gguf_registry(tmp_path)
+    captured: dict[str, object] = {}
+
+    class FakeRuntime:
+        def create_chat_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "risk_tier": "high-risk",
+                                    "threat_labels": ["bank_impersonation"],
+                                    "decision_summary": "Tin nhan gia danh ngan hang va yeu cau OTP.",
+                                    "evidence": [
+                                        {
+                                            "span": "OTP",
+                                            "reason": "Yeu cau ma OTP nhay cam.",
+                                            "cue_type": "otp_request",
+                                            "supports_labels": ["bank_impersonation"],
+                                            "severity": "high",
+                                        }
+                                    ],
+                                    "recommendations": [
+                                        {
+                                            "text": "Khong chia se OTP cho bat ky ai.",
+                                            "priority": "high",
+                                            "offline_safe": True,
+                                        }
+                                    ],
+                                },
+                                ensure_ascii=False,
+                            )
+                        }
+                    }
+                ]
+            }
+
+    backend = gguf_module.GGUFAnalyzer(registry_path=registry_path, runtime_profile="gguf-laptop")
+    payload = backend._infer_payload(
+        FakeRuntime(),
+        "VPBank can OTP de xac minh giao dich ngay.",
+    )
+
+    assert payload["risk_tier"] == "high-risk"
+    assert captured["messages"][0]["role"] == "user"
+    assert "VPBank can OTP de xac minh giao dich ngay." in captured["messages"][0]["content"]
+    assert captured["max_tokens"] == gguf_module.GGUF_COMPLETION_MAX_TOKENS
+    assert captured["temperature"] == 0.0
+    assert captured["response_format"] == {"type": "json_object"}
+
+
+def test_gguf_resolves_latest_registered_artifact(tmp_path):
+    registry_path = _stage_gguf_registry(tmp_path)
+    request = build_gguf_request(
+        "qwen3-4b-instruct-2507",
+        "phase3-main",
+        registry_path=registry_path,
+        output_root=tmp_path / "models",
+        selection=_selection(),
+    )
+    convert_to_gguf(
+        request,
+        registry_path=registry_path,
+        selection=_selection(),
+        dry_run=True,
+    )
+
+    backend = gguf_module.GGUFAnalyzer(registry_path=registry_path, runtime_profile="gguf-laptop")
+
+    assert backend._resolve_artifact_path() == request.output_path

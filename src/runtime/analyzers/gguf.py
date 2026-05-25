@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.config.settings import get_settings
-from src.model_adaptation.registry import load_model_registry
+from src.model_adaptation.registry import find_latest_artifact, load_model_registry
 from src.runtime.analyzers.local_model import (
     build_analysis_result,
     build_structured_analysis_prompt,
@@ -20,6 +20,7 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, 
 GGUF_SETUP_GUIDE = (
     "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and run the Phase 3 GGUF conversion flow to register the selected local artifact."
 )
+GGUF_CONTEXT_WINDOW = 2048
 GGUF_COMPLETION_MAX_TOKENS = 512
 
 
@@ -47,13 +48,10 @@ class GGUFAnalyzer:
 
         candidate_field = self._allowed_profiles()[self.runtime_profile]
         target_candidate_id = getattr(registry.selection, candidate_field)
-        gguf_artifact = next(
-            (
-                artifact
-                for artifact in registry.artifacts
-                if artifact.candidate_id == target_candidate_id and artifact.artifact_type == "gguf"
-            ),
-            None,
+        gguf_artifact = find_latest_artifact(
+            registry,
+            candidate_id=target_candidate_id,
+            artifact_type="gguf",
         )
         if gguf_artifact is None or not gguf_artifact.local_path.exists():
             raise FileNotFoundError(f"Missing GGUF artifact for candidate_id={target_candidate_id}")
@@ -66,7 +64,7 @@ class GGUFAnalyzer:
         llama_cpp = importlib.import_module("llama_cpp")
         runtime = llama_cpp.Llama(
             model_path=str(artifact_path),
-            n_ctx=1024,
+            n_ctx=GGUF_CONTEXT_WINDOW,
             n_gpu_layers=0,
             verbose=False,
         )
@@ -76,6 +74,21 @@ class GGUFAnalyzer:
 
     def _infer_payload(self, runtime: Any, text: str) -> dict[str, Any]:
         prompt = build_structured_analysis_prompt(text)
+        if hasattr(runtime, "create_chat_completion"):
+            chat_kwargs = {
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": GGUF_COMPLETION_MAX_TOKENS,
+                "temperature": 0.0,
+            }
+            try:
+                response = runtime.create_chat_completion(
+                    **chat_kwargs,
+                    response_format={"type": "json_object"},
+                )
+            except TypeError:
+                response = runtime.create_chat_completion(**chat_kwargs)
+            generated_text = str(response["choices"][0]["message"]["content"])
+            return extract_structured_payload(generated_text)
         if hasattr(runtime, "create_completion"):
             response = runtime.create_completion(
                 prompt=prompt,
@@ -141,13 +154,10 @@ class GGUFAnalyzer:
 
         candidate_field = allowed_profiles[self.runtime_profile]
         target_candidate_id = getattr(registry.selection, candidate_field)
-        gguf_artifact = next(
-            (
-                artifact
-                for artifact in registry.artifacts
-                if artifact.candidate_id == target_candidate_id and artifact.artifact_type == "gguf"
-            ),
-            None,
+        gguf_artifact = find_latest_artifact(
+            registry,
+            candidate_id=target_candidate_id,
+            artifact_type="gguf",
         )
         artifact_ready = gguf_artifact is not None and gguf_artifact.local_path.exists()
         checks.append(

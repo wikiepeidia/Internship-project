@@ -113,6 +113,7 @@ def build_benign_prompt(num_variants: int = 10) -> str:
         Cover diverse benign scenarios such as bank notifications, transaction confirmations, service updates, marketing offers, OTP confirmations, account statements, and balance alerts.
 
         Requirements:
+        - label MUST be exactly "benign" for every item. Do not use subtype labels such as transaction_confirmation, service_update, otp_confirmation, or marketing_offer.
         - Use natural Vietnamese with realistic code-switching such as OTP, Internet Banking, Smart OTP, app, account, and login when appropriate.
         - Keep risk_tier appropriate to benign or at most low-suspicion edge cases only when the wording justifies it.
         - suspicious_spans should be empty unless the wording genuinely contains a confusing cue.

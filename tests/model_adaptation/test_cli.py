@@ -110,6 +110,7 @@ def test_cli_exposes_pilot_and_train_commands():
     assert sorted(subparsers_action.choices.keys()) == [
         "convert",
         "doctor",
+        "evaluate-release-split",
         "pilot",
         "prepare-explanation-review",
         "release-eval",
@@ -126,6 +127,17 @@ def test_cli_exposes_prepare_explanation_review_command():
     )
 
     assert "prepare-explanation-review" in subparsers_action.choices
+
+
+def test_cli_exposes_evaluate_release_split_command():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+
+    assert "evaluate-release-split" in subparsers_action.choices
 
 
 def test_default_split_path_prefers_retained_lineage_when_present(tmp_path, monkeypatch):
@@ -304,6 +316,56 @@ def test_prepare_explanation_review_command_prints_saved_pack_path(tmp_path, cap
 
     assert exit_code == 0
     assert str(output_path) in captured.out
+
+
+def test_evaluate_release_split_command_prints_progress_and_snapshot_path(tmp_path, monkeypatch, capsys):
+    cli_module = _load_cli_module()
+    split_path = tmp_path / "recovered-balanced-val.jsonl"
+    split_path.write_text("", encoding="utf-8")
+    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
+    _write_snapshot(snapshot_path)
+    snapshot = ReleaseEvaluationSnapshot.model_validate_json(snapshot_path.read_text(encoding="utf-8"))
+    captured: dict[str, object] = {}
+
+    def fake_evaluate_release_split(split_path_arg, **kwargs):
+        captured["split_path"] = split_path_arg
+        captured["snapshot_path"] = kwargs["snapshot_path"]
+        captured["run_id"] = kwargs["run_id"]
+        captured["checkpoint_interval"] = kwargs["checkpoint_interval"]
+        progress_callback = kwargs.get("progress_callback")
+        if progress_callback is not None:
+            progress_callback(1, 3)
+            progress_callback(3, 3)
+        return snapshot.model_copy(update={"evaluated_split_path": split_path_arg, "run_id": kwargs["run_id"]})
+
+    monkeypatch.setattr(cli_module, "evaluate_release_split", fake_evaluate_release_split)
+
+    exit_code = cli_module.main(
+        [
+            "evaluate-release-split",
+            "--split-path",
+            str(split_path),
+            "--snapshot-path",
+            str(snapshot_path),
+            "--run-id",
+            "phase5-run-123",
+            "--progress-every",
+            "1",
+            "--checkpoint-every",
+            "2",
+        ]
+    )
+    captured_output = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured["split_path"] == split_path
+    assert captured["snapshot_path"] == snapshot_path
+    assert captured["run_id"] == "phase5-run-123"
+    assert captured["checkpoint_interval"] == 2
+    assert "Phase 5 evaluation progress: 1/3" in captured_output.out
+    assert "Phase 5 evaluation progress: 3/3" in captured_output.out
+    assert "Evaluation snapshot ready:" in captured_output.out
+    assert str(snapshot_path) in captured_output.out
 
 
 def test_cli_exposes_release_eval_command():

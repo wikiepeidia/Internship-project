@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from src.data_pipeline.schemas import DatasetRecord
 from src.data_pipeline.processing.splitter import assign_seed_split, split_and_dedup, split_dataset
 
 
@@ -53,6 +54,29 @@ def test_split_dataset_uses_all_splits_when_seed_pool_allows(sample_validated_re
     assert len(splits["train"]) == 8
     assert len(splits["val"]) == 4
     assert len(splits["test"]) == 4
+
+
+def test_split_dataset_falls_back_to_record_level_distribution_for_underdiverse_labels():
+    records = [
+        DatasetRecord(
+            text=f"Biến thể Zalo {index}",
+            label="zalo_social_engineering",
+            risk_tier="suspicious",
+            suspicious_spans=[f"span-{index}"],
+            xai_explanation="Giải thích đủ dài để bản ghi hợp lệ trong kiểm thử phân chia dữ liệu.",
+            source="synthetic_gemini",
+            seed_id="seed-zalo-only",
+        ).model_dump()
+        for index in range(9)
+    ]
+
+    splits = split_dataset(records, salt="underdiverse-label")
+    per_split_counts = {
+        split_name: sum(record["label"] == "zalo_social_engineering" for record in split_records)
+        for split_name, split_records in splits.items()
+    }
+
+    assert per_split_counts == {"train": 7, "val": 1, "test": 1}
 
 
 def test_split_and_dedup(sample_validated_records, monkeypatch):
