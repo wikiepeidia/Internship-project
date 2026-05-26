@@ -33,6 +33,7 @@ class GGUFAnalyzer:
     backend_name: str = "gguf"
     _cached_runtime: Any | None = field(default=None, init=False, repr=False)
     _cached_artifact_path: Path | None = field(default=None, init=False, repr=False)
+    _cached_doctor_status: DoctorStatus | None = field(default=None, init=False, repr=False)
 
     def _allowed_profiles(self) -> dict[str, str]:
         settings = get_settings()
@@ -106,6 +107,9 @@ class GGUFAnalyzer:
         return extract_structured_payload(generated_text)
 
     def doctor(self) -> DoctorStatus:
+        if self._cached_doctor_status is not None:
+            return self._cached_doctor_status
+
         checks: list[DoctorCheck] = []
         allowed_profiles = self._allowed_profiles()
         checks.append(
@@ -197,12 +201,15 @@ class GGUFAnalyzer:
 
         ready = all(check.passed for check in checks)
         setup_steps = [] if ready else [GGUF_SETUP_GUIDE]
-        return DoctorStatus(
+        status = DoctorStatus(
             ready=ready,
             backend_name=self.backend_name,
             checks=checks,
             setup_steps=setup_steps,
         )
+        if status.ready:
+            self._cached_doctor_status = status
+        return status
 
     def analyze(self, request: AnalysisRequest) -> AnalysisResult:
         status = self.doctor()

@@ -250,6 +250,34 @@ def test_build_analysis_result_skips_ungrounded_evidence_when_grounded_items_rem
     assert [cue.span for cue in result.top_cues] == ["Ngân hàng thông báo tài khoản của bạn bị khóa"]
 
 
+def test_build_analysis_result_normalizes_unknown_model_evidence_cue_types():
+    request = AnalysisRequest(
+        text="Tai khoan cua ban can xac minh ngay de tranh bi tam khoa.",
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "suspicious",
+        "threat_labels": ["bank_impersonation"],
+        "decision_summary": "Tin nhan tao ap luc thoi gian de buoc nguoi dung hanh dong.",
+        "evidence": [
+            {
+                "span": "xac minh ngay",
+                "reason": "Ngon ngu gay ap luc.",
+                "cue_type": "suspicious_tone",
+                "supports_labels": ["bank_impersonation"],
+                "severity": "medium",
+            }
+        ],
+        "recommendations": [{"text": "Khong bam vao lien ket trong tin nhan."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "suspicious"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert [cue.cue_type for cue in result.top_cues] == ["urgency"]
+
+
 def test_safety_floor_blocks_harmful_benign_downgrade():
     request = AnalysisRequest(
         text=(
@@ -271,6 +299,25 @@ def test_safety_floor_blocks_harmful_benign_downgrade():
     assert result.risk_tier == "high-risk"
     assert result.threat_labels == ["bank_impersonation"]
     assert any(cue.cue_type in {"otp_request", "url", "spoofed_brand"} for cue in result.top_cues)
+
+
+def test_safety_floor_keeps_benign_when_helper_cues_are_too_generic_to_map_in_scope():
+    request = AnalysisRequest(
+        text="Chao ban, tai khoan Internet Banking cua ban da duoc kich hoat thanh cong. Ban co the dang nhap ngay de su dung dich vu.",
+        channel="unknown",
+    )
+    payload = {
+        "risk_tier": "benign",
+        "threat_labels": ["benign"],
+        "decision_summary": "Model du doan day la thong bao thong thuong.",
+        "suspicious_spans": [],
+        "recommendations": [{"text": "Khong can thao tac them neu ban da kich hoat thanh cong."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "benign"
+    assert result.threat_labels == ["benign"]
 
 
 def test_recommendation_sanitizer_blocks_unsafe_actions():

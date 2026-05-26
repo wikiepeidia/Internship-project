@@ -28,6 +28,7 @@ CueType = Literal[
 Priority = Literal["low", "medium", "high"]
 
 SUPPORTED_THREAT_LABELS = get_args(ThreatLabel)
+SUPPORTED_CUE_TYPES = set(get_args(CueType))
 DEFAULT_RISKY_RECOMMENDATIONS = (
     "Khong bam vao lien ket hoac cai ung dung tu tin nhan nay.",
     "Khong chia se OTP, mat khau, CCCD, hoac CVV.",
@@ -382,6 +383,7 @@ def _infer_threat_labels(
 ) -> list[ThreatLabel]:
     labels = normalize_threat_labels(raw_labels)
     inferred: list[ThreatLabel] = list(labels)
+    helper_cue_types = {cue.cue_type for cue in helper_cues}
 
     if not inferred and risk_tier == "benign":
         return ["benign"]
@@ -395,6 +397,13 @@ def _infer_threat_labels(
     if not inferred and any(marker in shadow_text for marker in TASK_SCAM_MARKERS):
         inferred.append("task_scam")
 
+    if not inferred and {"otp_request", "credential_request"} & helper_cue_types and {"url", "spoofed_brand"} & helper_cue_types:
+        inferred.append("bank_impersonation")
+    if not inferred and {"job_offer", "payment_request"} & helper_cue_types:
+        inferred.append("task_scam")
+    if not inferred and "contact_takeover" in helper_cue_types:
+        inferred.append("zalo_social_engineering")
+
     for cue in helper_cues:
         if cue.suggested_label is None or cue.suggested_label in inferred:
             continue
@@ -405,6 +414,26 @@ def _infer_threat_labels(
     if inferred:
         return inferred[:2]
     raise ValueError("Threat decision requires at least one in-scope label")
+
+
+def _normalize_evidence_cue_type(raw_cue_type: Any) -> CueType:
+    cue_type = str(raw_cue_type or "").strip().casefold()
+    alias_map: dict[str, CueType] = {
+        "suspicious_tone": "urgency",
+        "tone": "urgency",
+        "brand_impersonation": "spoofed_brand",
+        "brand_spoofing": "spoofed_brand",
+        "link": "url",
+        "login_link": "url",
+        "otp": "otp_request",
+        "credential": "credential_request",
+        "money_request": "payment_request",
+        "contact_switch": "contact_takeover",
+    }
+    normalized = alias_map.get(cue_type, cue_type or "generic")
+    if normalized not in SUPPORTED_CUE_TYPES:
+        return "generic"
+    return cast(CueType, normalized)
 
 
 def _coerce_payload_evidence(
@@ -448,6 +477,7 @@ def _coerce_payload_evidence(
         if not cue_span_is_grounded(normalized_text, span):
             continue
         evidence_item = dict(item)
+        evidence_item["cue_type"] = _normalize_evidence_cue_type(evidence_item.get("cue_type"))
         if not evidence_item.get("supports_labels"):
             evidence_item["supports_labels"] = fallback_labels
         evidence.append(evidence_item)
@@ -519,13 +549,16 @@ def _apply_safety_floor(decision: ThreatDecision, helper_cues: list[HelperCue], 
         return decision
 
     floored_tier = "high-risk" if has_escalation_support else "suspicious"
-    floored_labels = _infer_threat_labels(
-        [label for label in decision.threat_labels if label != "benign"],
-        text=request.text,
-        channel=request.channel,
-        helper_cues=helper_cues,
-        risk_tier=floored_tier,
-    )
+    try:
+        floored_labels = _infer_threat_labels(
+            [label for label in decision.threat_labels if label != "benign"],
+            text=request.text,
+            channel=request.channel,
+            helper_cues=helper_cues,
+            risk_tier=floored_tier,
+        )
+    except ValueError:
+        return decision
     helper_evidence = [
         EvidenceReason.model_validate(item) for item in _build_helper_evidence(helper_cues, labels=floored_labels)
     ]

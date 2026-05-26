@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: proposal-closeout
-status: phase7-planned
-last_updated: "2026-05-25T08:03:07Z"
+status: phase7-complete
+last_updated: "2026-05-26T05:33:08Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 27
-  completed_plans: 25
-  percent: 93
+  completed_plans: 27
+  percent: 100
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -26,14 +26,14 @@ progress:
 
 ## Current Position
 
-Phase: 07 (proposal-closeout-and-quantitative-validation) — PLANNED
-Plan: Start with dataset closeout and split freezing, then refresh the locked baseline winner and regenerate the held-out evaluation package.
+Phase: 07 (proposal-closeout-and-quantitative-validation) — COMPLETE
+Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, the repaired-holdout evaluation package is regenerated, and the final UAT plus security gates are closed.
 
-- Current phase: 7 - Proposal Closeout and Quantitative Validation (planned)
-- Next phase: Phase 7 begins with final validated dataset build and frozen split closure
-- Project status: The base six-phase v1 implementation milestone is complete. Phase 7 exists to finish the two remaining proposal-facing quantitative claims: a final validated 2,500-3,000 sample dataset artifact and a final held-out metric report for the locked baseline winner.
-- Overall progress: Six of seven phases are complete, with the closeout milestone still pending.
-- Progress bar: [===== ] 93%
+- Current phase: 7 - Proposal Closeout and Quantitative Validation (complete)
+- Next phase: none; next work should start as a new milestone
+- Project status: The proposal-closeout milestone now has one frozen recovered-balanced dataset lineage, one regenerated repaired-holdout evaluation package, a completed Phase 7 UAT file, and a verified Phase 7 security audit. The closeout evidence path is complete even though the final release verdict is honestly BLOCK on `task_scam` recall.
+- Overall progress: All seven phases in milestone v1.1 are complete.
+- Progress bar: [======] 100%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -56,6 +56,7 @@ Plan: Start with dataset closeout and split freezing, then refresh the locked ba
 - The baseline winner `qwen3-4b-instruct-2507` and runner-up `qwen3.5-4b` have now both completed full three-epoch retained-dataset QLoRA runs with saved adapter artifacts and periodic checkpoints under the off-repo model root.
 - Phase 4 closed with a shared local-model decision layer, exact evidence grounding, safe recommendation sanitization, and contract-stable GGUF plus accelerated outputs guarded by 51 passing runtime tests.
 - Phase 7 is reserved for proposal closeout only: finalize one validated dataset lineage and one honest held-out evaluation package before making stronger school-facing quantitative claims.
+- The active Phase 7 closeout dataset is `data/synthetic/recovered-balanced.jsonl`, and the repaired held-out evaluation path is `data/splits/recovered-balanced/val.jsonl`; the older `data/splits/val.jsonl` sample run remains historical only.
 
 ### Requirement Coverage Snapshot
 
@@ -72,11 +73,13 @@ Plan: Start with dataset closeout and split freezing, then refresh the locked ba
 - Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
 - The optional `gguf-runner-up` profile now has a registered artifact, but a direct `llama_cpp` load smoke still failed on that runner-up GGUF file; the validated shipped local paths remain `gguf-laptop` and `accelerated-local`.
 - The remaining Claude API budget is small, so it should be spent only on targeted missing-class generation or judging work that improves final validated yield.
+- The final repaired-holdout release verdict is `BLOCK` because `task_scam` recall is `0.44`, below the locked `0.90` floor, so any next milestone that targets deployment-grade quality should treat task-scam recovery as the main open model-quality risk.
+- The local runtime still trusts the operator-managed off-repo model registry path instead of enforcing a trusted-root allowlist; that residual risk is accepted and documented in `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md`.
 
 ## Session Continuity
 
 - Last session: 2026-05-25
-- Stopped at: Phase 6 execution is complete. The runtime now includes `src/runtime/demo.py`, separated browser assets under `src/runtime/demo_assets/`, and a `vnphish demo` launch path. The saved Phase 5 release artifact remains `BLOCK` because the held-out evaluation split still lacks bank and zalo support.
+- Stopped at: Phase 7 is complete. The repaired-holdout evaluation package, manual review checkpoint, final release verdict, UAT, and security audit are all written and verified.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -87,6 +90,17 @@ Plan: Start with dataset closeout and split freezing, then refresh the locked ba
 - The runner-up GGUF artifact now exists under `D:\PROJEct\AI MODELS\phase3-gguf-real-2026-05-17\qwen3.5-4b\gguf-runner-up.gguf` and is registered in the off-repo model registry, though only artifact creation was validated successfully; a direct `gguf-runner-up` loader smoke still failed and remains a non-blocking follow-up.
 - Phase 5 context, execution summaries, release report, and saved manifest artifacts now exist under `.planning/phases/05-recall-priority-evaluation-and-release-gates/` and `data/manifests/`.
 - Phase 6 runtime-backed demo artifacts now exist under `.planning/phases/06-local-demo-ui-for-non-technical-verification/`, and the user-facing launch path is `vnphish demo` or `python -m src.runtime.cli demo`.
-- Phase 7 should start under `.planning/phases/07-proposal-closeout-and-quantitative-validation/` with a dataset-closeout plan followed by a held-out evaluation-closeout plan.
+- The balanced closeout corpus now lives at `data/synthetic/recovered-balanced.jsonl` with 3,000 rows.
+- The repaired closeout split root now lives at `data/splits/recovered-balanced/`; `audit_release_eval_support` on `data/splits/recovered-balanced/val.jsonl` passed with support `{bank_impersonation: 56, zalo_social_engineering: 75, task_scam: 18, benign: 61}`.
+- A full refreshed baseline training run completed on 2026-05-26 with `train_examples=2018`, `val_examples=210`, device `cuda`, full-precision LoRA, final checkpoint `D:\PROJEct\AI MODELS\proposal-closeout-full-2026-05-26\qwen3-4b-instruct-2507\trainer\checkpoint-505`, and training summary `D:\PROJEct\AI MODELS\proposal-closeout-full-2026-05-26\qwen3-4b-instruct-2507\adapter\training-summary.json`.
+- A fresh baseline GGUF artifact was then converted successfully to `D:\PROJEct\AI MODELS\proposal-closeout-gguf-2026-05-26\qwen3-4b-instruct-2507\gguf-laptop.gguf` using the local Python 3.13 `convert_hf_to_gguf.py` script with direct `q8_0` output because no `llama-quantize` binary is available in this environment.
+- The split repair fixed underdiverse-label handling so seed grouping stays intact when possible while labels with too few unique seeds can still populate active splits.
+- The GGUF runtime closeout fix now uses a 2,048-token context window and chat JSON mode so held-out evaluation no longer silently truncates into malformed nested payloads.
+- The first repaired-holdout rerun on 2026-05-26 failed at row 9 because the Phase 4 safety floor escalated a benign GGUF output on generic `credential_request` helper cues, then crashed when no in-scope label could be inferred. The local-model helper logic was patched so ambiguous helper cues now preserve the original benign decision instead of forcing a label or crashing.
+- `src.model_adaptation.cli` now exposes `evaluate-release-split`, with progress printing and periodic checkpoint writes to the Phase 5 snapshot path.
+- Latest-artifact resolution now prefers the newest registered adapter and GGUF artifacts, preventing stale May 16 or 17 artifacts from being selected after future train or convert runs.
+- The repaired-holdout refresh completed end-to-end on 2026-05-26, regenerating `05-evaluation-snapshot.json`, `05-explanation-review-pack.json`, and the final release-eval markdown plus JSON artifacts.
+- Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
+- Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
 - Resume file: none (no `HANDOFF.json`, `.continue-here`, or interrupted-agent artifact detected)
-- Next command: start Phase 7 with the dataset-closeout plan, then move to the held-out evaluation-closeout plan.
+- Next command: start the next milestone workflow; the proposal-closeout milestone is fully closed out.

@@ -129,7 +129,12 @@ def test_release_evaluator_marks_channel_unknown_when_dataset_lacks_channel(tmp_
             normalized_text=text.casefold(),
         )
 
-    snapshot = evaluate_release_split(split_path, audit=audit, analyze_text=fake_analyze)
+    snapshot = evaluate_release_split(
+        split_path,
+        audit=audit,
+        analyze_text=fake_analyze,
+        snapshot_path=tmp_path / "05-evaluation-snapshot.json",
+    )
 
     assert captured_channels == ["unknown"]
     assert snapshot.rows[0].channel == "unknown"
@@ -186,6 +191,86 @@ def test_release_evaluator_writes_periodic_checkpoints_and_reports_progress(tmp_
 
     assert progress_events == [(1, 2), (2, 2)]
     assert written_row_counts == [1, 2]
+
+
+def test_release_evaluator_resumes_from_matching_snapshot(tmp_path: Path):
+    split_path = tmp_path / "test.jsonl"
+    records = [
+        _build_record("bank_impersonation", "seed-1", "VPBank can OTP de xac minh giao dich ngay."),
+        _build_record("benign", "seed-2", "Hen gap luc 3 gio chieu tai van phong nhe ban."),
+        _build_record("task_scam", "seed-3", "Cong viec online luong cao, nop phi kich hoat ngay."),
+    ]
+    _write_split(split_path, records)
+    audit = audit_release_eval_support(split_path=split_path)
+    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
+
+    first_pass_calls: list[str] = []
+
+    def flaky_analyze(text: str, channel: str = "unknown") -> AnalysisResult:
+        del channel
+        first_pass_calls.append(text)
+        if len(first_pass_calls) == 3:
+            raise RuntimeError("transient runtime failure")
+        if "OTP" in text:
+            return AnalysisResult(
+                risk_tier="high-risk",
+                summary="Tin nhan gia danh ngan hang va yeu cau OTP.",
+                top_cues=[SuspiciousCue(span="OTP", reason="Yeu cau ma OTP nhay cam")],
+                threat_labels=["bank_impersonation"],
+                recommendations=["Khong cung cap OTP cho bat ky ai."],
+                backend_name="fake-runtime",
+                normalized_text=text.casefold(),
+            )
+        return AnalysisResult(
+            risk_tier="benign" if "Hen gap" in text else "high-risk",
+            summary="Noi dung binh thuong." if "Hen gap" in text else "Cong viec online luong cao la dau hieu task scam.",
+            top_cues=[] if "Hen gap" in text else [SuspiciousCue(span="luong cao", reason="Hua hen thu nhap bat thuong")],
+            threat_labels=["benign"] if "Hen gap" in text else ["task_scam"],
+            recommendations=["Khong co hanh dong nguy hiem duoc de xuat."] if "Hen gap" in text else ["Khong nop phi kich hoat hay chuyen tien truoc."],
+            backend_name="fake-runtime",
+            normalized_text=text.casefold(),
+        )
+
+    with pytest.raises(RuntimeError, match="transient runtime failure"):
+        evaluate_release_split(
+            split_path,
+            audit=audit,
+            analyze_text=flaky_analyze,
+            snapshot_path=snapshot_path,
+            run_id="phase5-run-003",
+            checkpoint_interval=1,
+        )
+
+    partial_snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    assert len(partial_snapshot["rows"]) == 2
+
+    resumed_calls: list[str] = []
+
+    def steady_analyze(text: str, channel: str = "unknown") -> AnalysisResult:
+        del channel
+        resumed_calls.append(text)
+        return AnalysisResult(
+            risk_tier="high-risk",
+            summary="Cong viec online luong cao la dau hieu task scam.",
+            top_cues=[SuspiciousCue(span="luong cao", reason="Hua hen thu nhap bat thuong")],
+            threat_labels=["task_scam"],
+            recommendations=["Khong nop phi kich hoat hay chuyen tien truoc."],
+            backend_name="fake-runtime",
+            normalized_text=text.casefold(),
+        )
+
+    snapshot = evaluate_release_split(
+        split_path,
+        audit=audit,
+        analyze_text=steady_analyze,
+        snapshot_path=snapshot_path,
+        run_id="phase5-run-003",
+        checkpoint_interval=1,
+    )
+
+    assert resumed_calls == [records[2]["text"]]
+    assert snapshot.overall_metrics.evaluated_rows == 3
+    assert [row.gold_label for row in snapshot.rows] == ["bank_impersonation", "benign", "task_scam"]
 
 
 def test_release_metrics_keep_zero_support_labels_visible():

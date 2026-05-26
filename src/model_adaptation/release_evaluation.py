@@ -64,6 +64,30 @@ def _write_snapshot(snapshot: ReleaseEvaluationSnapshot, snapshot_path: Path) ->
     snapshot_path.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
 
 
+def _load_resumable_rows(
+    *,
+    split_path: Path,
+    records: Sequence[DatasetRecord],
+    snapshot_path: Path,
+    run_id: str,
+) -> list[ReleaseEvaluationRow]:
+    if not snapshot_path.exists():
+        return []
+
+    snapshot = ReleaseEvaluationSnapshot.model_validate_json(snapshot_path.read_text(encoding="utf-8"))
+    if snapshot.run_id != run_id or snapshot.evaluated_split_path != split_path:
+        return []
+
+    if len(snapshot.rows) > len(records):
+        return []
+
+    for saved_row, record in zip(snapshot.rows, records):
+        if saved_row.gold_label != record.label or saved_row.reviewable_source_text != record.text:
+            return []
+
+    return list(snapshot.rows)
+
+
 def _build_snapshot(
     *,
     split_path: Path,
@@ -140,11 +164,19 @@ def evaluate_release_split(
     resolved_audit = audit if audit is not None else audit_release_eval_support(split_path=split_path)
     analyze = _resolve_analyze_callable(runtime_service, analyze_text)
     records: list[DatasetRecord] = load_split_records(split_path)
-    rows: list[ReleaseEvaluationRow] = []
     resolved_run_id = run_id or _default_run_id()
+    rows = _load_resumable_rows(
+        split_path=split_path,
+        records=records,
+        snapshot_path=snapshot_path,
+        run_id=resolved_run_id,
+    )
     total_records = len(records)
 
-    for index, record in enumerate(records, start=1):
+    if progress_callback is not None and rows:
+        progress_callback(len(rows), total_records)
+
+    for index, record in enumerate(records[len(rows) :], start=len(rows) + 1):
         result = analyze(record.text, channel="unknown")
         rows.append(
             ReleaseEvaluationRow(

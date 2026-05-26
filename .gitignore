@@ -231,3 +231,7 @@ data/splits/*
 !data/splits/.gitkeep
 data/manifests/*
 !data/manifests/.gitkeep
+
+# Local planning JSON artifacts
+.planning/*.json
+.planning/**/*.json
