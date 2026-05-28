@@ -208,15 +208,17 @@ Plans:
 
 1. Existing 750 task_scam samples audited for scenario diversity and linguistic distinctiveness.
 2. Generation prompts strengthened with explicit task_scam scenario axes (social media task farms, review-bombing, crypto referral, etc.).
-3. New targeted task_scam rows generated and appended to `data/synthetic/recovered-balanced.jsonl`; splits rebuilt.
+3. New targeted task_scam rows generated to `data/synthetic/task-scam-recovery-2026-05-28.jsonl` (NOT appended directly to recovered-balanced.jsonl — see CONTEXT D-07); splits rebuilt via `--optimize-recovered`.
 4. Model retrained on Colab H100 with new data and adapter registered as `task-scam-recovery-2026-05-28`.
 5. Evaluation gate bug fixed: per-label recall floor enforced in `blocker_reasons` / `ready` logic.
 6. `evaluate-release-split` and `release-eval` re-run; final verdict is PASS with task_scam recall ≥0.80.
-**Plans**: 1 plan
+**Plans**: 3 plans
 
 Plans:
 
-- [ ] 07a-01-PLAN.md -- Data audit, prompt enrichment, targeted generation, Colab retrain, gate fix, and re-evaluation
+- [ ] 07a-01-PLAN.md -- Gate bug fix, per-label recall floor patch, and task_scam prompt enrichment (Wave 1)
+- [ ] 07a-02-PLAN.md -- Colab H100 notebook training section (Wave 1)
+- [ ] 07a-03-PLAN.md -- Operator workflow: generation, split rebuild, retrain, convert, evaluate, and PASS verdict (Wave 2)
 
 ### Phase 7b: App Response Optimization
 
@@ -299,7 +301,7 @@ Plans:
 | 5. Recall-Priority Evaluation and Release Gates | 4/4 | Complete | 2026-05-25 |
 | 6. Local Demo UI for Non-Technical Verification | 1/1 | Complete | 2026-05-25 |
 | 7. Proposal Closeout and Quantitative Validation | 2/2 | Complete | 2026-05-26 |
-| 7a. task_scam Recall Recovery | 0/1 | Planned | — |
+| 7a. task_scam Recall Recovery | 0/3 | Planned | — |
 | 7b. App Response Optimization | 0/1 | Planned | — |
 | 8. Thesis Structure and Evidence Map | 0/1 | Blocked on 7a+7b | — |
 | 9. Core Thesis Chapter Drafting | 0/1 | Planned | — |
