@@ -234,7 +234,7 @@ Plans:
 
 Plans:
 
-- [ ] 07b-01-PLAN.md -- Prompt stripping, GGUF constant reduction, demo warm-up, and smoke tests
+- [x] 07b-01-PLAN.md -- Prompt stripping, GGUF constant reduction, demo warm-up, and smoke tests
 - [ ] 07b-02-PLAN.md -- CUDA wheel installation and GPU offload attempt (with CPU fallback)
 
 ### Phase 8: Thesis Structure and Evidence Map
@@ -303,7 +303,7 @@ Plans:
 | 6. Local Demo UI for Non-Technical Verification | 1/1 | Complete | 2026-05-25 |
 | 7. Proposal Closeout and Quantitative Validation | 2/2 | Complete | 2026-05-26 |
 | 7a. task_scam Recall Recovery | 0/3 | Planned | — |
-| 7b. App Response Optimization | 0/2 | Planned | — |
+| 7b. App Response Optimization | 1/2 | In Progress | — |
 | 8. Thesis Structure and Evidence Map | 0/1 | Blocked on 7a+7b | — |
 | 9. Core Thesis Chapter Drafting | 0/1 | Planned | — |
 | 10. Final Thesis Review and Submission Polish | 0/1 | Planned | — |
