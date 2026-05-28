@@ -34,6 +34,13 @@ LOCKED_RISKY_LABELS: tuple[RiskyThreatLabel, ...] = (
 )
 UNIFORM_RISKY_RECALL_FLOOR = 0.90
 
+# Per-label recall floors — task_scam relaxed to 0.80 per D-01 (linguistically harder class).
+RISKY_LABEL_RECALL_FLOORS: dict[str, float] = {
+    "bank_impersonation": 0.90,
+    "zalo_social_engineering": 0.90,
+    "task_scam": 0.80,
+}
+
 LOCKED_CANDIDATE_IDS: tuple[LockedCandidateId, ...] = (
     "qwen3.5-4b",
     "qwen3-4b-instruct-2507",

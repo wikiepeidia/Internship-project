@@ -448,6 +448,40 @@ def test_gate_passes_when_all_risky_labels_meet_recall_floor(tmp_path: Path):
     assert snapshot.audit.blocker_reasons == [], "no blocker reasons should be added for passing recalls"
 
 
+def test_gate_passes_when_task_scam_recall_is_between_080_and_090(tmp_path: Path):
+    """task_scam floor is 0.80 (not 0.90). Recall of 0.82 must produce PASS, not BLOCK."""
+    from src.model_adaptation.release_evaluation import _apply_recall_floor_to_audit
+    from src.model_adaptation.schemas import PerLabelMetricRow
+
+    split_path = tmp_path / "val.jsonl"
+    split_path.parent.mkdir(parents=True, exist_ok=True)
+    records = [
+        _build_record("bank_impersonation", "s1", "VPBank yeu cau OTP xac minh tai khoan."),
+        _build_record("zalo_social_engineering", "s2", "Ban cua ban gui link Zalo nhan qua."),
+        _build_record("task_scam", "s3", "Cong viec like follow luong cao nop phi truoc."),
+        _build_record("benign", "s4", "Hen gap luc 3 gio chieu tai van phong."),
+    ]
+    split_path.write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records) + "\n",
+        encoding="utf-8",
+    )
+    audit = audit_release_eval_support(split_path=split_path)
+
+    per_label_metrics = [
+        PerLabelMetricRow(label="bank_impersonation", recall=0.95, precision=0.95, f1=0.95, support=10),
+        PerLabelMetricRow(label="zalo_social_engineering", recall=0.91, precision=0.91, f1=0.91, support=10),
+        PerLabelMetricRow(label="task_scam", recall=0.82, precision=0.82, f1=0.82, support=10),
+        PerLabelMetricRow(label="benign", recall=0.85, precision=0.85, f1=0.85, support=10),
+    ]
+    result = _apply_recall_floor_to_audit(audit, per_label_metrics)
+
+    assert result.ready is True, (
+        "task_scam recall=0.82 >= floor 0.80 — gate must PASS, not BLOCK at 0.90"
+    )
+    assert result.verdict == "PASS"
+    assert not any("task_scam" in r for r in result.blocker_reasons)
+
+
 def test_apply_recall_floor_to_audit_adds_blocker_for_failing_label(tmp_path: Path):
     """Unit test for the _apply_recall_floor_to_audit helper.
 

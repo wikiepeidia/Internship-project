@@ -14,6 +14,7 @@ from src.model_adaptation.data import load_split_records
 from src.model_adaptation.release_readiness import audit_release_eval_support
 from src.model_adaptation.schemas import (
     LOCKED_RELEASE_LABELS,
+    RISKY_LABEL_RECALL_FLOORS,
     HeldOutSupportAudit,
     OverallMetricSummary,
     PerLabelMetricRow,
@@ -42,10 +43,11 @@ def _apply_recall_floor_to_audit(
         if metric_row.support == 0:
             # Zero-support case is already handled by the support audit; skip.
             continue
-        if metric_row.recall < audit.risky_recall_floor:
+        floor = RISKY_LABEL_RECALL_FLOORS.get(metric_row.label, audit.risky_recall_floor)
+        if metric_row.recall < floor:
             extra_blockers.append(
                 f"Release blocker: {metric_row.label} recall {metric_row.recall:.2f} "
-                f"is below required floor {audit.risky_recall_floor:.2f}."
+                f"is below required floor {floor:.2f}."
             )
     if not extra_blockers:
         return audit
