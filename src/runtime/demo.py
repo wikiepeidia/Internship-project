@@ -125,6 +125,8 @@ def run_demo_server(*, host: str = "127.0.0.1", port: int = 8765, open_browser: 
 
     app = build_demo_app()
     url = f"http://{host}:{port}"
+    print("Warming up local model...")
+    app.service.backend.doctor()
     print(f"Local demo UI: {url}")
 
     if open_browser:
