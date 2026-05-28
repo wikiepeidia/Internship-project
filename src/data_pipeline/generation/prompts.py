@@ -6,9 +6,60 @@ from textwrap import dedent
 
 THREAT_CLASSES = ["bank_impersonation", "zalo_social_engineering", "task_scam", "benign"]
 
+# Explicit scenario diversity axes for task_scam (used in both complex and bulk prompts).
+# Each axis maps to a characteristic trust-then-disappear or advance-payment social-engineering
+# pattern observed in real Vietnamese task-scam recruitment messages.
+_TASK_SCAM_SCENARIO_AXES = dedent(
+    """
+    Scenario axes — cover as many distinct types as possible across the generated samples:
+    1. Like/follow/comment farms: recruiter asks victims to like, follow, or comment on social
+       media posts (TikTok, Facebook, YouTube) for per-task pay that never arrives.
+    2. Shopee/Lazada review-bombing: victim is told to buy a product, post a 5-star review,
+       then receive a full cashback refund plus commission — advance purchase is never refunded.
+    3. Crypto referral schemes: victim earns commissions by registering on a fake crypto platform
+       via the recruiter's link; withdrawals are always blocked until "verification fees" are paid.
+    4. Fake purchase seeding (order-boosting): victim places ghost orders on an online shop to
+       inflate sales rankings; the "commission" transfer is delayed indefinitely after payment.
+    5. Zalo/Telegram livestream engagement: victim joins a livestream group and places fake
+       engagement orders; after completing several small paid tasks the final larger task is
+       blocked until an "account upgrade fee" is sent.
+
+    Each message MUST follow one of these two social-engineering structures:
+    - Trust-then-disappear: recruiter pays small amounts first to build trust, then disappears
+      after the victim completes a larger task or sends a deposit.
+    - Advance-payment: victim is asked to pay an activation, registration, or upgrade fee
+      before receiving any payment; the fee is always lost.
+    """
+).strip()
+
+
+def _build_task_scam_diversity_block(count_label: str) -> str:
+    """Return the task_scam-specific diversity instructions block for prompt injection."""
+    return dedent(
+        f"""
+        IMPORTANT — this is a task_scam generation run targeting {count_label}.
+        task_scam messages are the hardest class to detect because they resemble legitimate
+        part-time job offers. To maximize recall for this class the generated messages MUST:
+        - Use distinctive scenario types, not generic "online job" phrasing.
+        - Name specific platforms (TikTok, Shopee, Lazada, Binance, Zalo, Telegram).
+        - Include concrete pay structures (per-task rate, daily cap, commission percentage).
+        - Show the trust-then-disappear or advance-payment manipulation pattern explicitly.
+        - Vary recruiter persona: Facebook group admin, Zalo contact, Telegram bot, SMS.
+        - Use natural Vietnamese code-switching: task, order, commission, app, link, group.
+        - Mix short SMS pitches and longer Zalo/Messenger conversation-style messages.
+
+        {_TASK_SCAM_SCENARIO_AXES}
+        """
+    ).strip()
+
 
 def build_complex_prompt(seed_text: str, threat_class: str, num_variants: int = 3) -> str:
     """Build the high-quality Claude prompt for complex synthetic examples."""
+    task_scam_block = (
+        "\n\n        " + _build_task_scam_diversity_block(f"{num_variants} variants")
+        if threat_class == "task_scam"
+        else ""
+    )
     return dedent(
         f"""
     You are generating realistic Vietnamese financial messaging examples for a phishing detection dataset.
@@ -28,7 +79,7 @@ def build_complex_prompt(seed_text: str, threat_class: str, num_variants: int = 
         - Do not copy the seed URL, sender, or phone number directly.
         - risk_tier is contextual and MUST be assigned from semantic severity, not derived from label.
         - suspicious_spans must contain up to 3 exact substrings from the generated text; use [] when none apply.
-        - xai_explanation must be one concise Vietnamese sentence, specific and actionable, with at least 20 characters.
+        - xai_explanation must be one concise Vietnamese sentence, specific and actionable, with at least 20 characters.{task_scam_block}
 
         Return ONLY a JSON array with text, label, risk_tier, suspicious_spans, and xai_explanation.
         """
@@ -37,6 +88,11 @@ def build_complex_prompt(seed_text: str, threat_class: str, num_variants: int = 
 
 def build_bulk_prompt(seed_text: str, threat_class: str, count: int = 10) -> str:
     """Build the higher-diversity prompt for Gemini or OpenRouter bulk generation."""
+    task_scam_block = (
+        "\n\n        " + _build_task_scam_diversity_block(f"{count} samples")
+        if threat_class == "task_scam"
+        else ""
+    )
     return dedent(
         f"""
         Generate {count} Vietnamese financial messaging examples as a JSON array.
@@ -52,7 +108,7 @@ def build_bulk_prompt(seed_text: str, threat_class: str, count: int = 10) -> str
         - Include natural teencode or shorthand such as k, ko, dc, nha, ak where appropriate.
         - Keep xai_explanation to one concise Vietnamese sentence that stays specific and actionable.
         - risk_tier is contextual and not a fixed mapping from label.
-        - suspicious_spans must contain up to 3 exact substrings from the text; use [] when none apply.
+        - suspicious_spans must contain up to 3 exact substrings from the text; use [] when none apply.{task_scam_block}
 
         Return ONLY a JSON array with text, label, risk_tier, suspicious_spans, and xai_explanation.
         """
