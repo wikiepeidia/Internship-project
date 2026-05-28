@@ -12,7 +12,12 @@
 - [x] **Phase 4: Threat Detection and Explainable Decisioning** - Deliver risk-tier classification, threat-type labeling, and evidence-bound recommendations. Closed 2026-05-25 after Phase 4 UAT passed and the security review verified `threats_open: 0`.
 - [x] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates. Closed 2026-05-25 after the release-gate engine and paired artifacts shipped; the saved sample run remains `BLOCK` because held-out bank and zalo support are absent.
 - [x] **Phase 6: Local Demo UI for Non-Technical Verification** - Wrap the approved local runtime path in a minimal text-only demo interface aligned with the internship proposal. Closed 2026-05-25 after a local demo server, browser UI, and `vnphish demo` launch path shipped.
-- [ ] **Phase 7: Proposal Closeout and Quantitative Validation** - Freeze final dataset and evaluation artifacts so the remaining school-facing quantitative claims can be proven honestly.
+- [x] **Phase 7: Proposal Closeout and Quantitative Validation** - Freeze final dataset and evaluation artifacts so the remaining school-facing quantitative claims can be proven honestly. Closed 2026-05-26 after the recovered-balanced lineage, repaired held-out evaluation package, UAT, and security audit were finalized.
+- [ ] **Phase 7a: task_scam Recall Recovery** - Audit existing task_scam data, strengthen generation prompts, generate targeted samples, retrain on Colab H100, fix evaluation gate bug, and re-run holdout evaluation until task_scam recall ≥0.80.
+- [ ] **Phase 7b: App Response Optimization** - Profile and fix local demo response latency by tuning llama.cpp threading, batch, and context-window parameters.
+- [ ] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
+- [ ] **Phase 9: Core Thesis Chapter Drafting** - Draft the main technical thesis chapters from the implemented system and final evidence base.
+- [ ] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish.
 
 ## Phase Details
 
@@ -191,8 +196,97 @@ Plans:
 
 Plans:
 
-- [ ] 07-01-PLAN.md -- Final validated dataset build, targeted Claude-assisted gap closure, and frozen split set
-- [ ] 07-02-PLAN.md -- Final baseline refresh, held-out evaluation package, and proposal-closeout evidence
+- [x] 07-01-PLAN.md -- Final validated dataset build, targeted Claude-assisted gap closure, and frozen split set
+- [x] 07-02-PLAN.md -- Final baseline refresh, held-out evaluation package, and proposal-closeout evidence
+
+### Phase 7a: task_scam Recall Recovery
+
+**Goal**: Push `task_scam` recall from 0.44 to ≥0.80 so the held-out evaluation clears the release gate and thesis writing can report an honest PASS verdict.
+**Depends on**: Phase 7
+**Requirements**: EVAL-02 (recall-priority gating)
+**Success Criteria** (what must be TRUE):
+
+1. Existing 750 task_scam samples audited for scenario diversity and linguistic distinctiveness.
+2. Generation prompts strengthened with explicit task_scam scenario axes (social media task farms, review-bombing, crypto referral, etc.).
+3. New targeted task_scam rows generated and appended to `data/synthetic/recovered-balanced.jsonl`; splits rebuilt.
+4. Model retrained on Colab H100 with new data and adapter registered as `task-scam-recovery-2026-05-28`.
+5. Evaluation gate bug fixed: per-label recall floor enforced in `blocker_reasons` / `ready` logic.
+6. `evaluate-release-split` and `release-eval` re-run; final verdict is PASS with task_scam recall ≥0.80.
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 07a-01-PLAN.md -- Data audit, prompt enrichment, targeted generation, Colab retrain, gate fix, and re-evaluation
+
+### Phase 7b: App Response Optimization
+
+**Goal**: Reduce local demo inference latency so the app is usable for live demonstration during thesis judging.
+**Depends on**: Phase 7
+**Requirements**: UI-02 (presentation-ready demo)
+**Success Criteria** (what must be TRUE):
+
+1. Per-inference latency profiled and bottleneck identified (cold load vs per-request vs context size).
+2. llama.cpp `n_threads`, `n_batch`, and `n_ctx` tuned for the target laptop hardware.
+3. Demo response feels interactive (target: first token or full response within acceptable time for live use).
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 07b-01-PLAN.md -- Latency profiling and llama.cpp threading/batch optimization
+
+### Phase 8: Thesis Structure and Evidence Map
+
+**Goal**: Lock the thesis structure, chapter claims, and evidence package so drafting can proceed without re-deciding scope.
+**Depends on**: Phase 7
+**Requirements**: REP-01
+
+**Success Criteria** (what must be TRUE):
+
+1. The thesis has a final chapter outline aligned to the graduation-report objective.
+2. Each main chapter has mapped repo evidence such as artifacts, metrics, commands, or documents that can support its claims.
+3. A writing guardrail note captures tone, terminology, and honesty constraints, including avoidance of AI-like wording and internal GSD jargon.
+4. The remaining writing schedule for the week is concrete enough to drive the drafting work.
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 08-01-PLAN.md -- Thesis outline lock, evidence map, and writing guardrails
+
+### Phase 9: Core Thesis Chapter Drafting
+
+**Goal**: Draft the main technical chapters and evidence-grounded discussion for the graduation thesis.
+**Depends on**: Phase 8
+**Requirements**: REP-02, REP-03
+
+**Success Criteria** (what must be TRUE):
+
+1. Main chapters for the data pipeline, local/offline runtime, and model adaptation are drafted.
+2. Thesis sections for risk and explanation design, evaluation approach, and final quantitative results are drafted with honest treatment of the Phase 7 outcome.
+3. Key technical claims in the draft are backed by evidence from repo artifacts or measured outcomes rather than planning notes.
+4. The draft reads like an undergraduate thesis chapter set rather than a changelog or internal workflow summary.
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 09-01-PLAN.md -- Core technical chapter drafting and evidence-grounded result writing
+
+### Phase 10: Final Thesis Review and Submission Polish
+
+**Goal**: Turn the draft into a judging-ready thesis with consistent references, formatting, and tone.
+**Depends on**: Phase 9
+**Requirements**: REP-04, REP-05
+
+**Success Criteria** (what must be TRUE):
+
+1. Limitations, conclusion, and future-work framing are complete and honest.
+2. References, figures or tables, and formatting are consistent and ready for submission.
+3. The thesis wording avoids AI-like phrasing, GSD jargon, and internal planning-file references.
+4. A final review confirms the thesis is ready to send for graduation judging.
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 10-01-PLAN.md -- Final thesis review, references, formatting, and submission package
 
 ## Progress Table
 
@@ -204,12 +298,17 @@ Plans:
 | 4. Threat Detection and Explainable Decisioning | 4/4 | Complete | 2026-05-25 |
 | 5. Recall-Priority Evaluation and Release Gates | 4/4 | Complete | 2026-05-25 |
 | 6. Local Demo UI for Non-Technical Verification | 1/1 | Complete | 2026-05-25 |
-| 7. Proposal Closeout and Quantitative Validation | 0/2 | Planned | — |
+| 7. Proposal Closeout and Quantitative Validation | 2/2 | Complete | 2026-05-26 |
+| 7a. task_scam Recall Recovery | 0/1 | Planned | — |
+| 7b. App Response Optimization | 0/1 | Planned | — |
+| 8. Thesis Structure and Evidence Map | 0/1 | Blocked on 7a+7b | — |
+| 9. Core Thesis Chapter Drafting | 0/1 | Planned | — |
+| 10. Final Thesis Review and Submission Polish | 0/1 | Planned | — |
 
 ## Coverage Validation
 
-- tracked requirements total: 21
-- tracked requirements mapped: 21
+- tracked requirements total: 26
+- tracked requirements mapped: 26
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -236,3 +335,8 @@ Coverage map:
 - CLS-01 -> Phase 7
 - CLS-02 -> Phase 7
 - CLS-03 -> Phase 7
+- REP-01 -> Phase 8
+- REP-02 -> Phase 9
+- REP-03 -> Phase 9
+- REP-04 -> Phase 10
+- REP-05 -> Phase 10

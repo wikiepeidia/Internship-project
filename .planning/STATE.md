@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: proposal-closeout
-status: phase7-complete
-last_updated: "2026-05-26T05:33:08Z"
+milestone: v1.2
+milestone_name: thesis-report-writing-and-evidence-packaging
+status: planning
+last_updated: "2026-05-28T00:00:00Z"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -17,23 +17,26 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Close the two remaining school-facing quantitative claims with one final validated dataset lineage and one final held-out evaluation package for the locked baseline winner.
+- Current milestone focus: Produce the graduation thesis report, map existing repo evidence into each chapter, and prepare a judging-ready submission.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
   - Recall-priority release policy for high-harm scam classes
   - No metric laundering: final proposal claims must be backed by frozen held-out artifacts, not blended counts or unsupported splits
+  - Thesis writing must use a natural undergraduate tone and avoid AI-like wording or internal GSD jargon
 
 ## Current Position
 
-Phase: 07 (proposal-closeout-and-quantitative-validation) — COMPLETE
-Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, the repaired-holdout evaluation package is regenerated, and the final UAT plus security gates are closed.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-26 — Milestone v1.2 started
 
-- Current phase: 7 - Proposal Closeout and Quantitative Validation (complete)
-- Next phase: none; next work should start as a new milestone
-- Project status: The proposal-closeout milestone now has one frozen recovered-balanced dataset lineage, one regenerated repaired-holdout evaluation package, a completed Phase 7 UAT file, and a verified Phase 7 security audit. The closeout evidence path is complete even though the final release verdict is honestly BLOCK on `task_scam` recall.
-- Overall progress: All seven phases in milestone v1.1 are complete.
-- Progress bar: [======] 100%
+- Current phase: 7a - task_scam Recall Recovery (context gathered, ready to plan)
+- Next phase: 7a → 7b → 8 (blocked order)
+- Project status: Two technical blockers found during report writing. Recovery phases 7a (task_scam recall) and 7b (app perf) inserted before thesis drafting. Phase 8 is blocked until both close.
+- Overall progress: 0 of 5 phases complete in milestone v1.2.
+- Progress bar: [......] 0%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -57,6 +60,8 @@ Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, th
 - Phase 4 closed with a shared local-model decision layer, exact evidence grounding, safe recommendation sanitization, and contract-stable GGUF plus accelerated outputs guarded by 51 passing runtime tests.
 - Phase 7 is reserved for proposal closeout only: finalize one validated dataset lineage and one honest held-out evaluation package before making stronger school-facing quantitative claims.
 - The active Phase 7 closeout dataset is `data/synthetic/recovered-balanced.jsonl`, and the repaired held-out evaluation path is `data/splits/recovered-balanced/val.jsonl`; the older `data/splits/val.jsonl` sample run remains historical only.
+- Milestone v1.2 is documentation-first: the scope is thesis writing plus evidence packaging, not a new product build.
+- The thesis should read like a natural undergraduate report and should not expose internal GSD workflow language or planning-file names.
 
 ### Requirement Coverage Snapshot
 
@@ -66,6 +71,11 @@ Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, th
 
 ### Active Risks and Watchpoints
 
+- Graduation risk if the thesis overstates blocked quality results or hides the final `task_scam` recall shortfall — blocked until Phase 7a closes with PASS.
+- Evaluation gate bug: `audit.ready=true` despite `task_scam` recall=0.44 — must be fixed in Phase 7a before any future eval result is trustworthy.
+- Colab H100 Colab session time limit may interrupt long training runs; checkpoint resume is supported in the training CLI.
+- The writing window is short, so the outline and evidence map must prevent chapter drift and last-minute scope changes.
+- Thesis tone can easily drift into AI-like or internal-process wording if the draft is assembled directly from planning artifacts.
 - Data leakage risk between training and evaluation splits.
 - Explanation hallucination risk without strict evidence-linking.
 - Quantization regressions that reduce recall on high-harm scam classes.
@@ -78,8 +88,8 @@ Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, th
 
 ## Session Continuity
 
-- Last session: 2026-05-25
-- Stopped at: Phase 7 is complete. The repaired-holdout evaluation package, manual review checkpoint, final release verdict, UAT, and security audit are all written and verified.
+- Last session: 2026-05-28
+- Stopped at: Phase 7a context gathered. Next work is `/gsd-plan-phase 7a` to plan the task_scam recovery execution.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -103,4 +113,4 @@ Plan: Phase 7 closeout is complete: the recovered-balanced lineage is frozen, th
 - Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
 - Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
 - Resume file: none (no `HANDOFF.json`, `.continue-here`, or interrupted-agent artifact detected)
-- Next command: start the next milestone workflow; the proposal-closeout milestone is fully closed out.
+- Next command: `/gsd-plan-phase 8` to create the execution plan for the thesis structure and evidence-map phase.
