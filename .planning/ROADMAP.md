@@ -235,7 +235,7 @@ Plans:
 Plans:
 
 - [x] 07b-01-PLAN.md -- Prompt stripping, GGUF constant reduction, demo warm-up, and smoke tests
-- [ ] 07b-02-PLAN.md -- CUDA wheel installation and GPU offload attempt (with CPU fallback)
+- [~] 07b-02-PLAN.md -- CUDA wheel installation and GPU offload attempt (with CPU fallback) — SKIPPED: out of proposal scope; CPU ~13s meets thesis target
 
 ### Phase 8: Thesis Structure and Evidence Map
 

@@ -6,10 +6,10 @@ status: planning
 last_updated: "2026-05-28T12:00:00Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 1
-  percent: 20
+  completed_plans: 2
+  percent: 40
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -32,11 +32,11 @@ Plan: 01 COMPLETE
 Status: In progress
 Last activity: 2026-05-28 — Phase 7b Plan 01 complete (prompt stripping + GGUF constant reduction + demo warm-up)
 
-- Current phase: Phase 7b in progress. Plan 07b-01 COMPLETE. Next: 07b-02 (CUDA GPU offload attempt).
-- Next phase: 07b-02 → 8 (blocked order); 07b-02 can be skipped if CPU-only latency (~13s) is acceptable for thesis demo
-- Project status: Phase 7a closed PASS. Phase 7b Plan 01 shipped: warm inference latency reduced from 30-44s to ~13s on CPU. Plan 07b-02 is the optional GPU acceleration attempt.
-- Overall progress: 1 of 5 phases complete in milestone v1.2 (7b in progress).
-- Progress bar: [#.....] 20%
+- Current phase: Phase 7b COMPLETE. Next: Phase 8 (thesis structure and evidence map).
+- Next phase: 8 (thesis writing) — both blockers 7a and 7b are now closed.
+- Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s, meets proposal scope). GPU path (07b-02) skipped — out of proposal scope.
+- Overall progress: 2 of 5 phases complete in milestone v1.2.
+- Progress bar: [##....] 40%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -91,7 +91,7 @@ Last activity: 2026-05-28 — Phase 7b Plan 01 complete (prompt stripping + GGUF
 ## Session Continuity
 
 - Last session: 2026-05-28
-- Stopped at: Phase 7b Plan 01 COMPLETE. Warm inference latency reduced from 30-44s to ~13s on CPU via prompt stripping (403 tokens removed), GGUF constant reduction (n_ctx=512, max_tokens=250), and demo server warm-up. 71 runtime tests pass. Next: 07b-02 (CUDA GPU offload attempt, optional) or proceed to Phase 8 (thesis writing) if CPU latency is acceptable.
+- Stopped at: Phase 7b COMPLETE. CPU latency ~13s (meets proposal "consumer-grade hardware" scope). GPU plan skipped — not in proposal. Next: Phase 8 — `/gsd-plan-phase 8` to create thesis structure and evidence-map plan.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
