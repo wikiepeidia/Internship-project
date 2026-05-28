@@ -24,6 +24,41 @@ from src.runtime.contracts import AnalysisResult, ChannelName, ThreatLabel
 from src.runtime.service import RuntimeService, build_default_runtime_service
 
 
+def _apply_recall_floor_to_audit(
+    audit: HeldOutSupportAudit,
+    per_label_metrics: list[PerLabelMetricRow],
+) -> HeldOutSupportAudit:
+    """Rebuild the audit with per-label recall floor violations appended as blockers.
+
+    The initial support audit runs before evaluation and cannot check recall.  After
+    metrics are computed this helper adds a blocker reason for every risky label whose
+    recall sits below the configured floor, then returns a rebuilt audit so that
+    ``audit.ready`` and ``audit.verdict`` correctly reflect the recall gate.
+    """
+    extra_blockers: list[str] = []
+    for metric_row in per_label_metrics:
+        if not metric_row.recall_floor_applies:
+            continue
+        if metric_row.support == 0:
+            # Zero-support case is already handled by the support audit; skip.
+            continue
+        if metric_row.recall < audit.risky_recall_floor:
+            extra_blockers.append(
+                f"Release blocker: {metric_row.label} recall {metric_row.recall:.2f} "
+                f"is below required floor {audit.risky_recall_floor:.2f}."
+            )
+    if not extra_blockers:
+        return audit
+    combined_blockers = list(audit.blocker_reasons) + extra_blockers
+    return HeldOutSupportAudit(
+        evaluated_split_path=audit.evaluated_split_path,
+        evaluated_split_root=audit.evaluated_split_root,
+        support_by_label=dict(audit.support_by_label),
+        blocker_reasons=combined_blockers,
+        risky_recall_floor=audit.risky_recall_floor,
+    )
+
+
 DEFAULT_EVALUATION_SNAPSHOT_PATH = Path(
     ".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json"
 )
@@ -96,10 +131,11 @@ def _build_snapshot(
     run_id: str,
 ) -> ReleaseEvaluationSnapshot:
     overall_metrics, per_label_metrics = compute_release_metrics(rows)
+    gated_audit = _apply_recall_floor_to_audit(audit, per_label_metrics)
     return ReleaseEvaluationSnapshot(
         run_id=run_id,
         evaluated_split_path=split_path,
-        audit=audit,
+        audit=gated_audit,
         overall_metrics=overall_metrics,
         per_label_metrics=per_label_metrics,
         rows=list(rows),
