@@ -20,8 +20,8 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, 
 GGUF_SETUP_GUIDE = (
     "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and run the Phase 3 GGUF conversion flow to register the selected local artifact."
 )
-GGUF_CONTEXT_WINDOW = 2048
-GGUF_COMPLETION_MAX_TOKENS = 512
+GGUF_CONTEXT_WINDOW = 512
+GGUF_COMPLETION_MAX_TOKENS = 250
 
 
 @dataclass

@@ -220,8 +220,6 @@ STRUCTURED_PAYLOAD_NESTED_KEYS = {
 
 
 def build_structured_analysis_prompt(text: str) -> str:
-    schema_text = json.dumps(STRUCTURED_ANALYSIS_SCHEMA, ensure_ascii=False)
-    example_text = json.dumps(STRUCTURED_ANALYSIS_EXAMPLE, ensure_ascii=False)
     return "\n".join(
         [
             "You are a local Vietnamese phishing detector.",
@@ -230,9 +228,6 @@ def build_structured_analysis_prompt(text: str) -> str:
             "Choose threat_labels only from: bank_impersonation, zalo_social_engineering, task_scam, benign.",
             "Use exact evidence spans from the message whenever possible.",
             "Recommendations must be safe next steps and must not tell the user to click, reply, share OTP, share CCCD/CVV, install an app, or transfer money.",
-            "Do not copy the instructions, schema text, or example values into the answer.",
-            f"Schema: {schema_text}",
-            f"Example output: {example_text}",
             f"Message text: {text}",
         ]
     )
