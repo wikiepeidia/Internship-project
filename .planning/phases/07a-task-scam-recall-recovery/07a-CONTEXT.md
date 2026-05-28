@@ -37,9 +37,10 @@ Fix the `task_scam` recall gap exposed by Phase 7 holdout evaluation. The curren
 
 ### Colab Training Workflow
 
-- **D-08:** Use Google Colab H100 for the retrain. Expected runtime: ~15 minutes (vs 8-9 hours on laptop GPU). The existing `src.model_adaptation.cli train` command works as-is on Colab — no script changes needed.
-- **D-09:** Workflow sequence: (1) generate new data locally → (2) rebuild splits → (3) upload `data/splits/recovered-balanced/train.jsonl` and `val.jsonl` + the `src/` package to Colab → (4) run `train` command → (5) download adapter directory → (6) register adapter in off-repo model registry → (7) run `convert` command locally → (8) run `evaluate-release-split` → (9) run `release-eval`.
+- **D-08:** Use H100 Colab for **both** data generation and training. Data generation uses the existing `notebooks/H100fixedv5.ipynb` (vLLM endpoint → local CLI drives generation). Training runs directly on H100 in a new notebook section after the vLLM server is stopped.
+- **D-09:** Full sequence on H100: (1) serve vLLM generation endpoint → (2) local CLI generates new task_scam data → (3) stop vLLM → (4) new notebook section: clone repo + install deps + upload augmented splits → (5) run `src.model_adaptation.cli train` on H100 with base model loaded from HuggingFace → (6) download adapter to local machine → (7) register adapter in off-repo model registry → (8) run `convert` locally → (9) run `evaluate-release-split` locally → (10) run `release-eval` locally.
 - **D-10:** Use version tag `task-scam-recovery-2026-05-28` for the new adapter and GGUF artifacts. This keeps them distinct from the Phase 7 closeout artifacts.
+- **D-11-workflow:** The training notebook section must: install `peft transformers accelerate bitsandbytes datasets`, clone or upload the repo `src/` tree to Colab, set `MODEL_ARTIFACT_ROOT` to a Colab path, load the base model from HF (`Qwen/Qwen2.5-... or the locked 4B checkpoint`), run training, then zip the adapter directory for download. The existing `src.model_adaptation.cli train` command is reused as-is — no training code changes needed.
 
 ### Gate Bug Fix Scope
 
@@ -70,6 +71,7 @@ Fix the `task_scam` recall gap exposed by Phase 7 holdout evaluation. The curren
 - `data/splits/recovered-balanced/` — Active split root. Rebuild after appending.
 - `src/data_pipeline/generation/prompts.py` — Contains `build_bulk_prompt` and `build_complex_prompt`. `task_scam` prompt guidance must be strengthened here.
 - `src/data_pipeline/cli.py` — Dataset generation CLI (`--bulk-provider openai-compatible` flag for Colab-served endpoint or local generation).
+- `notebooks/H100fixedv5.ipynb` — Existing H100 vLLM endpoint notebook for generation and judging. Generation role is the starting point. A new training section must be added after the vLLM server is stopped (new cells: install deps, clone/upload src, run train CLI, zip adapter for download).
 
 ### Model and Runtime
 
