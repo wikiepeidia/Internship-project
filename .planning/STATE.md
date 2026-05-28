@@ -32,7 +32,7 @@ Plan: —
 Status: Defining requirements
 Last activity: 2026-05-26 — Milestone v1.2 started
 
-- Current phase: 7a - task_scam Recall Recovery (context gathered, ready to plan)
+- Current phase: 7a - task_scam Recall Recovery (Wave 1 complete — gate fix + notebook ready. Wave 2 = human operator workflow: generate data on Colab, rebuild splits, retrain, evaluate)
 - Next phase: 7a → 7b → 8 (blocked order)
 - Project status: Two technical blockers found during report writing. Recovery phases 7a (task_scam recall) and 7b (app perf) inserted before thesis drafting. Phase 8 is blocked until both close.
 - Overall progress: 0 of 5 phases complete in milestone v1.2.
@@ -89,7 +89,7 @@ Last activity: 2026-05-26 — Milestone v1.2 started
 ## Session Continuity
 
 - Last session: 2026-05-28
-- Stopped at: Phase 7a context gathered. Next work is `/gsd-plan-phase 7a` to plan the task_scam recovery execution.
+- Stopped at: Phase 7a Wave 1 complete. Gate fix (RISKY_LABEL_RECALL_FLOORS with task_scam=0.80) and Colab notebook training+eval cells committed. Wave 2 (07a-03) is the human operator run: start Colab H100, generate task_scam data, rebuild splits, train, run eval cells F+G, download snapshot JSON, run local release-eval.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.

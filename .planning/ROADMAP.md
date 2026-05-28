@@ -216,8 +216,8 @@ Plans:
 
 Plans:
 
-- [ ] 07a-01-PLAN.md -- Gate bug fix, per-label recall floor patch, and task_scam prompt enrichment (Wave 1)
-- [ ] 07a-02-PLAN.md -- Colab H100 notebook training section (Wave 1)
+- [x] 07a-01-PLAN.md -- Gate bug fix, per-label recall floor patch, and task_scam prompt enrichment (Wave 1)
+- [x] 07a-02-PLAN.md -- Colab H100 notebook training section (Wave 1)
 - [ ] 07a-03-PLAN.md -- Operator workflow: generation, split rebuild, retrain, convert, evaluate, and PASS verdict (Wave 2)
 
 ### Phase 7b: App Response Optimization
