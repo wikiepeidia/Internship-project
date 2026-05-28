@@ -139,7 +139,6 @@ celerybeat.pid
 *.pid
 NUL
 *.ipynb
-!notebooks/*.ipynb
 # RabbitMQ
 mnesia/
 rabbitmq/
