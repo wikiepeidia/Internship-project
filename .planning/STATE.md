@@ -27,12 +27,12 @@ progress:
 
 ## Current Position
 
-Phase: 09-core-thesis-chapter-drafting
-Plan: 03 COMPLETE
-Status: Phase 9 COMPLETE — next phase is 10 (Final Thesis Review and Submission Polish)
-Last activity: 2026-05-29 — Phase 9 Plan 03 complete (citation pass in Ch1 and Ch2; bibliography enabled in main.tex; stale scope paragraph updated with 0.871 recall PASS verdict)
+Phase: 10-final-thesis-review-and-submission-polish
+Plan: 01 IN PROGRESS (paused at Task 4 checkpoint — awaiting human compile verification)
+Status: Phase 10 Plan 01 Tasks 1-3 complete — stopped at checkpoint:human-verify
+Last activity: 2026-05-29 — Phase 10 Plan 01 Tasks 1-3 complete: abstract corrected with Phase 7a numbers (254, 0.9553, 0.871, PASS), forbidden-term scan passed across all six chapters, Ch5 Limits expanded with text-only/Vietnamese-only limitations, Ch6 Limitations section added, figure placeholder caption updated. Awaiting human compile verification at Task 4.
 
-- Current phase: Phase 9 COMPLETE. Next: Phase 10 Plan 01 (final thesis review, references, formatting, and submission package).
+- Current phase: Phase 10 Plan 01 IN PROGRESS. Tasks 1-3 complete; paused at Task 4 checkpoint (human compile verification required before generating final checklist sign-off).
 - Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s). Phase 8 COMPLETE (manuscript structure locked). Phase 9 COMPLETE (all three plans: evaluation chapters, methodology/implementation prose, citation pass + bibliography).
 - Overall progress: 4 of 5 phases complete in milestone v1.2; 6 of 6 plans complete.
 - Progress bar: [######] 100%
@@ -64,6 +64,7 @@ Last activity: 2026-05-29 — Phase 9 Plan 03 complete (citation pass in Ch1 and
 - Phase 7b Plan 01 shipped: schema+example blocks removed from every inference prompt (403 tokens removed); GGUF_CONTEXT_WINDOW=512 and GGUF_COMPLETION_MAX_TOKENS=250; demo server warm-up pre-loads model before browser opens. Measured warm latency: ~13s on CPU (down from 30-44s).
 - Phase 9 Plan 02: 4B-vs-8B reconciliation in Chapter 3 framed as hardware-fit decision (5.6 GB vs 2.8 GB peak VRAM for 7B vs 4B winner) with reference to dated proposal execution update — not framed as scope reduction. Chapter 3 training numbers locked to final baseline refresh (2018/210, checkpoint-505, loss 0.4951), not the earlier Phase 3 smoke run (476/207).
 - Phase 9 Plan 03: Chapter 1 stale scope sentence updated to reflect Phase 7a PASS verdict (task-scam recall 0.871 on 62 held-out examples). groupib2022laser citation combined with ais2024biometricwarning in a single \cite{} command. nist2026privacyframework placed at the Local Inference privacy-control sentence in Ch2 (consistent with existing placement in Ch3 and Ch4). Bibliography block in main.tex uncommented; all six BibTeX keys confirmed present.
+- Phase 10 Plan 01 Tasks 1-3: Abstract macro F1 reported as 0.9553 (from evaluation_snapshot.tex source of truth). Chapter 5 Limits expanded with text-only input boundary and Vietnamese-only training data limitations. Chapter 6 new Limitations section added before Future Work. Figure placeholder caption updated to descriptive form.
 - Stripped prompt (~130-150 tokens) fits safely within n_ctx=512 because RuntimeService.analyze_text() enforces runtime_max_text_chars upstream for unusually long messages.
 - Phase 8 Plan 01 COMPLETE: the current six-chapter main.tex structure is the locked working thesis template. No parallel tree exists. Titlepage updated to GRADUATION THESIS. Chapter 5 stale Phase~7 reference removed. EVIDENCE_MAP.md and WRITING_GUARDRAILS.md created in documents/reports/latex/ (gitignored) and mirrored as 08-EVIDENCE_MAP.md and 08-WRITING_GUARDRAILS.md in .planning/phases/08-*. Six verified BibTeX entries seeded. Citation rendering and in-text insertion deferred to Phase 9.
 - Final verdict wording rule confirmed: thesis paragraphs use plain prose ("not release-ready under its own safety gate"); literal BLOCK label stays in tables, appendix notes, or guardrail files only.
@@ -95,7 +96,7 @@ Last activity: 2026-05-29 — Phase 9 Plan 03 complete (citation pass in Ch1 and
 ## Session Continuity
 
 - Last session: 2026-05-29
-- Stopped at: Phase 9 Plan 03 COMPLETE. Chapter 1: \cite{ais2024biometricwarning,groupib2022laser} inserted at threat-context sentence; stale "still falls short on task-scam recall" sentence replaced with PASS verdict (0.871 recall, all floors cleared, 62 examples). Chapter 2: \cite{rjoub2023surveyxai} and \cite{lim2025explicate} added to Explainability section; \cite{nist2026privacyframework} added to Local Inference section; 4B-vs-8B paragraph expanded to name the 7B candidate evaluated in pilot. main.tex bibliography block uncommented (\renewcommand{\bibname}{References} and \bibliography{references} now active). All 5 used citation keys confirmed in references.bib. Phase 9 fully complete. Next: Phase 10 Plan 01 (final thesis review and submission polish).
+- Stopped at: Phase 10 Plan 01 Task 4 checkpoint (human-verify gate). Tasks 1-3 complete: preface.tex abstract corrected (254 held-out messages, macro F1 0.9553, task-scam recall 0.871, PASS verdict; stale 0.44/0.8618/0.7431 removed). Ch1 Section 1.4 Report Organization updated (removed "not yet release-ready" clause). Forbidden-term scan passed across all six chapters and figure file (0 hits). Ch5 Limits expanded with text-only input boundary and Vietnamese-only training data sentences. Ch6 new \section{Limitations} paragraph added before Future Work. Figure placeholder caption updated to descriptive form. 10-01-CHECKLIST.md created with items 7-9, 11 pending compile verification. Resume signal: human compiles thesis and types "approved" to proceed to Task 4 final checklist generation.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
