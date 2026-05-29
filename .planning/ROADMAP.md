@@ -267,11 +267,13 @@ Plans:
 2. Thesis sections for risk and explanation design, evaluation approach, and final quantitative results are drafted with honest treatment of the Phase 7 outcome.
 3. Key technical claims in the draft are backed by evidence from repo artifacts or measured outcomes rather than planning notes.
 4. The draft reads like an undergraduate thesis chapter set rather than a changelog or internal workflow summary.
-**Plans**: 1 plan
+**Plans**: 3 plans
 
 Plans:
 
-- [ ] 09-01-PLAN.md -- Core technical chapter drafting and evidence-grounded result writing
+- [ ] 09-01-PLAN.md -- Fix stale eval tables and rewrite Chapter 5 and Chapter 6 with Phase 7a numbers
+- [ ] 09-02-PLAN.md -- Expand Chapter 3 methodology and Chapter 4 implementation with evidence-grounded prose
+- [ ] 09-03-PLAN.md -- Citation pass for Chapters 1 and 2 and enable bibliography in main.tex
 
 ### Phase 10: Final Thesis Review and Submission Polish
 
