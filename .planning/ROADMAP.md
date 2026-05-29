@@ -272,7 +272,7 @@ Plans:
 Plans:
 
 - [x] 09-01-PLAN.md -- Fix stale eval tables and rewrite Chapter 5 and Chapter 6 with Phase 7a numbers
-- [ ] 09-02-PLAN.md -- Expand Chapter 3 methodology and Chapter 4 implementation with evidence-grounded prose
+- [x] 09-02-PLAN.md -- Expand Chapter 3 methodology and Chapter 4 implementation with evidence-grounded prose
 - [ ] 09-03-PLAN.md -- Citation pass for Chapters 1 and 2 and enable bibliography in main.tex
 
 ### Phase 10: Final Thesis Review and Submission Polish
@@ -307,7 +307,7 @@ Plans:
 | 7a. task_scam Recall Recovery | 0/3 | Planned | — |
 | 7b. App Response Optimization | 1/2 | In Progress | — |
 | 8. Thesis Structure and Evidence Map | 1/1 | Complete | 2026-05-29 |
-| 9. Core Thesis Chapter Drafting | 0/1 | Planned | — |
+| 9. Core Thesis Chapter Drafting | 2/3 | In Progress | — |
 | 10. Final Thesis Review and Submission Polish | 0/1 | Planned | — |
 
 ## Coverage Validation
