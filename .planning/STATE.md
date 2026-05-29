@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: thesis-report-writing-and-evidence-packaging
 status: planning
-last_updated: "2026-05-29T01:12:00Z"
+last_updated: "2026-05-29T01:45:00Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 3
-  percent: 60
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -27,16 +27,15 @@ progress:
 
 ## Current Position
 
-Phase: 08-thesis-structure-and-evidence-map
+Phase: 09-core-thesis-chapter-drafting
 Plan: 01 COMPLETE
 Status: In progress
-Last activity: 2026-05-29 — Phase 8 Plan 01 complete (chapter lock, evidence map, writing guardrails, stale-language cleanup)
+Last activity: 2026-05-29 — Phase 9 Plan 01 complete (stale evaluation numbers replaced in all four thesis files; Ch5 and Ch6 rewritten with authoritative Phase 7a numbers)
 
-- Current phase: Phase 8 COMPLETE. Next: Phase 9 (core thesis chapter drafting).
-- Next phase: 9 (core chapter drafting) — six-chapter structure locked, evidence map seeded, guardrails in place.
-- Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s). Phase 8 COMPLETE (manuscript structure locked).
-- Overall progress: 3 of 5 phases complete in milestone v1.2.
-- Progress bar: [###...] 60%
+- Current phase: Phase 9 Plan 01 COMPLETE. Next: Phase 9 Plan 02 (remaining chapter drafting).
+- Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s). Phase 8 COMPLETE (manuscript structure locked). Phase 9 Plan 01 COMPLETE (evaluation chapters corrected).
+- Overall progress: 3 of 5 phases complete in milestone v1.2; 4 of 6 plans complete.
+- Progress bar: [####..] 67%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -94,7 +93,7 @@ Last activity: 2026-05-29 — Phase 8 Plan 01 complete (chapter lock, evidence m
 ## Session Continuity
 
 - Last session: 2026-05-29
-- Stopped at: Phase 8 Plan 01 COMPLETE. Six-chapter manuscript locked (GRADUATION THESIS label), evidence map created for all six chapters, writing guardrails with tone and honesty rules seeded, stale language cleaned from titlepage and Chapter 5, references.bib and TODO.md already seeded. Next: Phase 9 — `/gsd-execute-phase 9` to draft the core thesis chapters.
+- Stopped at: Phase 9 Plan 01 COMPLETE. All four thesis files updated with authoritative final evaluation numbers (254 rows, task_scam recall 0.871, macro F1 0.9553, PASS verdict). Chapter 5 Repaired-Holdout Results section fully rewritten. Chapter 6 "What the Final Evaluation Means" corrected. Both tables updated. Next: Phase 9 Plan 02 (remaining thesis chapter drafting).
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.

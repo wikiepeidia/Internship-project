@@ -271,7 +271,7 @@ Plans:
 
 Plans:
 
-- [ ] 09-01-PLAN.md -- Fix stale eval tables and rewrite Chapter 5 and Chapter 6 with Phase 7a numbers
+- [x] 09-01-PLAN.md -- Fix stale eval tables and rewrite Chapter 5 and Chapter 6 with Phase 7a numbers
 - [ ] 09-02-PLAN.md -- Expand Chapter 3 methodology and Chapter 4 implementation with evidence-grounded prose
 - [ ] 09-03-PLAN.md -- Citation pass for Chapters 1 and 2 and enable bibliography in main.tex
 
