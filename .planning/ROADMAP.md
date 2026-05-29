@@ -15,7 +15,7 @@
 - [x] **Phase 7: Proposal Closeout and Quantitative Validation** - Freeze final dataset and evaluation artifacts so the remaining school-facing quantitative claims can be proven honestly. Closed 2026-05-26 after the recovered-balanced lineage, repaired held-out evaluation package, UAT, and security audit were finalized.
 - [ ] **Phase 7a: task_scam Recall Recovery** - Audit existing task_scam data, strengthen generation prompts, generate targeted samples, retrain on Colab H100, fix evaluation gate bug, and re-run holdout evaluation until task_scam recall ≥0.80.
 - [ ] **Phase 7b: App Response Optimization** - Profile and fix local demo response latency by tuning llama.cpp threading, batch, and context-window parameters.
-- [ ] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
+- [x] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
 - [ ] **Phase 9: Core Thesis Chapter Drafting** - Draft the main technical thesis chapters from the implemented system and final evidence base.
 - [ ] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish.
 
@@ -253,7 +253,7 @@ Plans:
 
 Plans:
 
-- [ ] 08-01-PLAN.md -- Thesis outline lock, evidence map, and writing guardrails
+- [x] 08-01-PLAN.md -- Thesis outline lock, evidence map, and writing guardrails
 
 ### Phase 9: Core Thesis Chapter Drafting
 
@@ -304,7 +304,7 @@ Plans:
 | 7. Proposal Closeout and Quantitative Validation | 2/2 | Complete | 2026-05-26 |
 | 7a. task_scam Recall Recovery | 0/3 | Planned | — |
 | 7b. App Response Optimization | 1/2 | In Progress | — |
-| 8. Thesis Structure and Evidence Map | 0/1 | Blocked on 7a+7b | — |
+| 8. Thesis Structure and Evidence Map | 1/1 | Complete | 2026-05-29 |
 | 9. Core Thesis Chapter Drafting | 0/1 | Planned | — |
 | 10. Final Thesis Review and Submission Polish | 0/1 | Planned | — |
 

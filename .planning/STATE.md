@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: thesis-report-writing-and-evidence-packaging
 status: planning
-last_updated: "2026-05-28T12:00:00Z"
+last_updated: "2026-05-29T01:12:00Z"
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 60
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -27,16 +27,16 @@ progress:
 
 ## Current Position
 
-Phase: 07b-app-response-optimization
+Phase: 08-thesis-structure-and-evidence-map
 Plan: 01 COMPLETE
 Status: In progress
-Last activity: 2026-05-28 — Phase 7b Plan 01 complete (prompt stripping + GGUF constant reduction + demo warm-up)
+Last activity: 2026-05-29 — Phase 8 Plan 01 complete (chapter lock, evidence map, writing guardrails, stale-language cleanup)
 
-- Current phase: Phase 7b COMPLETE. Next: Phase 8 (thesis structure and evidence map).
-- Next phase: 8 (thesis writing) — both blockers 7a and 7b are now closed.
-- Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s, meets proposal scope). GPU path (07b-02) skipped — out of proposal scope.
-- Overall progress: 2 of 5 phases complete in milestone v1.2.
-- Progress bar: [##....] 40%
+- Current phase: Phase 8 COMPLETE. Next: Phase 9 (core thesis chapter drafting).
+- Next phase: 9 (core chapter drafting) — six-chapter structure locked, evidence map seeded, guardrails in place.
+- Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s). Phase 8 COMPLETE (manuscript structure locked).
+- Overall progress: 3 of 5 phases complete in milestone v1.2.
+- Progress bar: [###...] 60%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -64,6 +64,9 @@ Last activity: 2026-05-28 — Phase 7b Plan 01 complete (prompt stripping + GGUF
 - The thesis should read like a natural undergraduate report and should not expose internal GSD workflow language or planning-file names.
 - Phase 7b Plan 01 shipped: schema+example blocks removed from every inference prompt (403 tokens removed); GGUF_CONTEXT_WINDOW=512 and GGUF_COMPLETION_MAX_TOKENS=250; demo server warm-up pre-loads model before browser opens. Measured warm latency: ~13s on CPU (down from 30-44s).
 - Stripped prompt (~130-150 tokens) fits safely within n_ctx=512 because RuntimeService.analyze_text() enforces runtime_max_text_chars upstream for unusually long messages.
+- Phase 8 Plan 01 COMPLETE: the current six-chapter main.tex structure is the locked working thesis template. No parallel tree exists. Titlepage updated to GRADUATION THESIS. Chapter 5 stale Phase~7 reference removed. EVIDENCE_MAP.md and WRITING_GUARDRAILS.md created in documents/reports/latex/ (gitignored) and mirrored as 08-EVIDENCE_MAP.md and 08-WRITING_GUARDRAILS.md in .planning/phases/08-*. Six verified BibTeX entries seeded. Citation rendering and in-text insertion deferred to Phase 9.
+- Final verdict wording rule confirmed: thesis paragraphs use plain prose ("not release-ready under its own safety gate"); literal BLOCK label stays in tables, appendix notes, or guardrail files only.
+- Chapter 5 evidence-depth rule confirmed: evidence must come from tracked manifests and saved evaluation artifacts; off-repo training numbers are optional appendix-only support.
 
 ### Requirement Coverage Snapshot
 
@@ -90,8 +93,8 @@ Last activity: 2026-05-28 — Phase 7b Plan 01 complete (prompt stripping + GGUF
 
 ## Session Continuity
 
-- Last session: 2026-05-28
-- Stopped at: Phase 7b COMPLETE. CPU latency ~13s (meets proposal "consumer-grade hardware" scope). GPU plan skipped — not in proposal. Next: Phase 8 — `/gsd-plan-phase 8` to create thesis structure and evidence-map plan.
+- Last session: 2026-05-29
+- Stopped at: Phase 8 Plan 01 COMPLETE. Six-chapter manuscript locked (GRADUATION THESIS label), evidence map created for all six chapters, writing guardrails with tone and honesty rules seeded, stale language cleaned from titlepage and Chapter 5, references.bib and TODO.md already seeded. Next: Phase 9 — `/gsd-execute-phase 9` to draft the core thesis chapters.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
