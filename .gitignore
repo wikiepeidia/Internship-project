@@ -235,3 +235,5 @@ data/manifests/*
 # Local planning JSON artifacts
 .planning/*.json
 .planning/**/*.json
+.github/gsd-migration-journal/2026-05-29T01-01-38-020Z-b67bc5cb44b59fa7.json
+.github/gsd-install-state.json

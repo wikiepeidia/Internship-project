@@ -1,6 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
+**Updated:** 2026-06-03 (v1.3 Beamer presentation requirements added)
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -64,6 +65,41 @@ Requirements for the follow-up milestone that closes the two remaining quantitat
 ### Quantitative Closeout
 
 - [ ] **CLS-03**: System can generate a final held-out evaluation report for the locked baseline winner, including macro and weighted F1, per-class precision/recall/F1, and an explicit statement of whether the proposal target F1 >= 0.85 was achieved.
+
+## v1.3 Requirements — Beamer Presentation
+
+Requirements for the defense-ready slide deck milestone.
+
+### Presentation Structure
+
+- [ ] **PRES-01**: Beamer document compiles with XeLaTeX and produces a PDF slide deck covering all thesis chapters in logical order (motivation → system → results → conclusion).
+- [ ] **PRES-02**: Slide deck includes a USTH-branded title slide with student name, supervisors, and date.
+- [ ] **PRES-03**: Slide count is appropriate for a graduation thesis defense (target 15–20 content slides, excluding title and agenda).
+
+### Content Reuse
+
+- [ ] **PRES-04**: Architecture diagram from thesis (TikZ system overview) appears in a dedicated slide without modification.
+- [ ] **PRES-05**: Recall bar chart and confusion matrix from thesis appear in the evaluation slide.
+- [ ] **PRES-06**: Real CLI output example (vnphish analyze) appears in the demo/implementation slide.
+
+### Evaluation Narrative
+
+- [ ] **PRES-07**: Evaluation slide presents macro F1 (0.9553), per-class recall table, and the error analysis finding (bank-naming boundary) clearly for judges.
+
+### Handout Readiness
+
+- [ ] **PRES-08**: Slide deck is printable — no overlapping elements, readable at A4 grayscale, no reliance on animation-only content.
+
+### Layout and Theme
+
+- [ ] **PRES-09**: Slide aspect ratio is 16:9 (widescreen), not 4:3 — using Beamer `aspectratio=169` option.
+- [ ] **PRES-10**: Color scheme derives from the thesis CVBLUE (#1A5276) as a reference baseline; user may override with a different palette before finalizing — color tokens defined in one central location so a single change recolors the whole deck.
+- [ ] **PRES-11**: Font and table styling (booktabs, Times New Roman or fallback sans-serif) is consistent with the thesis where practical.
+
+### File Organization
+
+- [ ] **PRES-12**: Beamer project is split into multiple files mirroring thesis chapter structure — one `.tex` file per logical section (intro, system, data, model, evaluation, demo, conclusion) — `\input{}`-ed from a single `main-slides.tex` entry point.
+- [ ] **PRES-13**: Figures and tables reused from thesis are referenced from the same source paths (or copied with attribution) — no duplication of raw data.
 
 ## v2 Requirements
 

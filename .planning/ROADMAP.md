@@ -17,7 +17,8 @@
 - [ ] **Phase 7b: App Response Optimization** - Profile and fix local demo response latency by tuning llama.cpp threading, batch, and context-window parameters.
 - [x] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
 - [x] **Phase 9: Core Thesis Chapter Drafting** - Draft the main technical thesis chapters from the implemented system and final evidence base.
-- [ ] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish.
+- [x] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish. Closed 2026-06-03.
+- [ ] **Phase 11: Beamer Defense Presentation** - Build the defense-ready LaTeX Beamer slide deck reusing thesis figures and data, structured for a 15–20 slide graduation defense.
 
 ## Phase Details
 
@@ -345,3 +346,39 @@ Coverage map:
 - REP-03 -> Phase 9
 - REP-04 -> Phase 10
 - REP-05 -> Phase 10
+- PRES-01 -> Phase 11
+- PRES-02 -> Phase 11
+- PRES-03 -> Phase 11
+- PRES-04 -> Phase 11
+- PRES-05 -> Phase 11
+- PRES-06 -> Phase 11
+- PRES-07 -> Phase 11
+- PRES-08 -> Phase 11
+- PRES-09 -> Phase 11
+- PRES-10 -> Phase 11
+- PRES-11 -> Phase 11
+- PRES-12 -> Phase 11
+- PRES-13 -> Phase 11
+
+### Phase 11: Beamer Defense Presentation
+
+**Goal**: A defense-ready LaTeX Beamer slide deck exists that covers all thesis chapters, reuses existing TikZ figures and evaluation tables, and produces a clean printable PDF for the graduation thesis defense.
+**Depends on**: Phase 10
+**Requirements**: PRES-01 through PRES-13
+**Success Criteria** (what must be TRUE):
+
+1. Beamer project compiles with XeLaTeX to a 16:9 PDF with 15–20 content slides and no layout errors.
+2. Title slide shows USTH branding (logo, student name, supervisors, date).
+3. Slides cover: motivation → threat scope → system architecture → data pipeline → model adaptation → evaluation results → demo output → conclusion + future work.
+4. Architecture TikZ diagram, recall bar chart, and confusion matrix appear without modification.
+5. Real CLI output (vnphish analyze on bank-impersonation message) appears in implementation/demo slide.
+6. Color tokens defined centrally (CVBLUE baseline, user-swappable); 16:9 aspect ratio enforced.
+7. Project split into one `.tex` file per section, all `\input{}`-ed from `main-slides.tex`.
+8. Deck is printable at A4 grayscale with readable text and no overflow.
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 11-01-PLAN.md -- Beamer project skeleton: 16:9 layout, central color tokens, USTH title slide, multi-file structure, agenda slide
+- [ ] 11-02-PLAN.md -- Technical slides: motivation/scope, system architecture, data pipeline, model adaptation, evaluation results (reuse TikZ + tables)
+- [ ] 11-03-PLAN.md -- Demo slide (real CLI output), conclusion + future work, handout mode, final compile and polish
