@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: beamer-defense-presentation
+milestone: v1.5
+milestone_name: content-gap-closure-dataset-qlora
 status: planning
-last_updated: "2026-06-03T00:00:00Z"
+last_updated: "2026-06-05T00:00:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 3
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -27,12 +27,12 @@ progress:
 
 ## Current Position
 
-Phase: 11-beamer-defense-presentation
-Plan: 11-01 NOT STARTED
-Status: Milestone v1.3 initialized. Phase 10 closed 2026-06-03 (thesis 99% complete, all chapters polished, figures/tables added, references verified). Ready to begin Phase 11 Plan 01 — Beamer template setup.
-Last activity: 2026-06-03 — Milestone v1.3 (beamer-defense-presentation) created. ROADMAP Phase 11 added with 3 plans. REQUIREMENTS updated with PRES-01 through PRES-08. Phase 10 marked complete.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Milestone v1.5 started — filling content gaps in report (Chapter 3 dataset + QLoRA sections) and slides (05_data.tex visual flow, 07_model.tex 2-col layout).
+Last activity: 2026-06-05 — Milestone v1.5 (content-gap-closure-dataset-qlora) started. Phase 13 queued.
 
-- Current phase: Phase 10 Plan 01 IN PROGRESS. Tasks 1-3 complete; paused at Task 4 checkpoint (human compile verification required before generating final checklist sign-off).
+- Current phase: Phase 12 Plan 01 NOT STARTED.
 - Project status: Phase 7a PASS (task_scam recall=0.871). Phase 7b COMPLETE (CPU latency ~13s). Phase 8 COMPLETE (manuscript structure locked). Phase 9 COMPLETE (all three plans: evaluation chapters, methodology/implementation prose, citation pass + bibliography).
 - Overall progress: 4 of 5 phases complete in milestone v1.2; 6 of 6 plans complete.
 - Progress bar: [######] 100%

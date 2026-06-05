@@ -51,6 +51,18 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
+## Current Milestone: v1.5 Content Gap Closure — Dataset & QLoRA
+
+**Goal:** Fill the critical content gaps in both the thesis report and the defense slides: (1) dataset construction via tinnhiemmang.vn seed scraping and claude-3-5-haiku synthetic generation, and (2) QLoRA fine-tuning with verified hyperparameters and training metrics.
+
+**Target features:**
+
+- Slide 05 (Data Pipeline): visual TikZ block flow — tinnhiemmang.vn seeds → claude-3-5-haiku API → Pydantic Judge → JSONL Output — plus an inline JSONL snippet
+- Slide 07 (Model): 2-column layout showing QLoRA constraints (r=16, α=32, NF4, loss=0.4951, 1,733s) and hardware rationale (6 GB VRAM, GGUF Q8_0 for CPU)
+- Report Chapter 3: ≤1-paragraph dataset scraping section + claude-3-5-haiku generation prose + quality-judge stats
+- Report Chapter 3/4: QLoRA training config table (r=16, α=32, checkpoint-505, loss=0.4951, 1,733s) with adapter→GGUF rationale
+- All content written as intentional pipeline design — no 0.44 recall history, no "repaired" dataset language
+
 ## Current State
 
 - Phase 1 remains complete and closed on the retained recovered dataset lineage.

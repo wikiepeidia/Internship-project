@@ -18,7 +18,8 @@
 - [x] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
 - [x] **Phase 9: Core Thesis Chapter Drafting** - Draft the main technical thesis chapters from the implemented system and final evidence base.
 - [x] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish. Closed 2026-06-03.
-- [ ] **Phase 11: Beamer Defense Presentation** - Build the defense-ready LaTeX Beamer slide deck reusing thesis figures and data, structured for a 15–20 slide graduation defense.
+- [x] **Phase 11: Beamer Defense Presentation (Metropolis prototype)** - Built Metropolis-themed skeleton; superseded by Phase 12 revamp.
+- [ ] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides.
 
 ## Phase Details
 
@@ -294,6 +295,53 @@ Plans:
 
 - [~] 10-01-PLAN.md -- Final thesis review, references, formatting, and submission package (Tasks 1-3 complete; paused at Task 4 checkpoint awaiting human compile verification)
 
+### Phase 12: CambridgeUS Presentation Revamp
+
+**Goal**: A defense-ready Beamer slide deck with CambridgeUS/beaver theme, USTH branding, proper header/footer, and polished content slides that compile clean in XeLaTeX.
+**Depends on**: Phase 11 (content reference)
+**Requirements**: THME-01 through THME-11
+**Success Criteria** (what must be TRUE):
+
+1. Deck compiles with XeLaTeX — zero errors, all TikZ figures render, no overful hboxes.
+2. Every slide shows the USTH logo, a footer with author/title/frame-counter, and a section navigation header.
+3. Title slide shows Phạm Thế Minh, 23BI14279, both supervisors, USTH, and defense year via `\titlepage`.
+4. At least 4 slides use `\begin{block}` for visual emphasis of key findings.
+5. All 12 content sections from the Phase 11 reference are present with `\framesubtitle` subtitles.
+6. Deck prints cleanly at A4 grayscale — no color-dependent content, no layout overflow.
+
+**Plans**:
+
+- [ ] 12-01-PLAN.md — Preamble overhaul: CambridgeUS/beaver theme, CVBLUE color integration, logo, footer template, packages.tex cleanup
+- [ ] 12-02-PLAN.md — Content slide polish: title slide with `\titlepage`, framesubtitle additions, block environment insertions, agenda revamp with `\tableofcontents`
+- [ ] 12-03-PLAN.md — Compile verification: fix any remaining layout issues, handout mode check, final PDF review
+
+### Phase 13: Content Gap Closure — Dataset & QLoRA
+
+**Goal**: Document the dataset construction pipeline (tinnhiemmang.vn scraping + claude-3-5-haiku generation + Pydantic quality judge) and QLoRA fine-tuning configuration in both the thesis report chapters and the defense slide deck, written as one deliberate design with no reference to iterative recovery history.
+
+**Depends on**: Phase 12 (slides baseline exists)
+**Requirements**: GAP-01, GAP-02, GAP-03, GAP-04, GAP-05, GAP-06, GAP-07, GAP-08
+
+**Guardrails:**
+
+- G-01: No 0.44 recall history, no "repaired" dataset language anywhere
+- G-02: Seed source = tinnhiemmang.vn; report description ≤1 paragraph
+- G-03: Slides must be visual-first — TikZ flow for data, 2-col for QLoRA
+
+**Success Criteria** (what must be TRUE):
+
+1. Chapter 3 dataset section reads as a clean pipeline narrative: scrape seeds → generate with claude-3-5-haiku → judge quality → produce 3,000-sample JSONL corpus.
+2. Chapter 3/4 QLoRA section has a training config table with r=16, α=32, NF4, checkpoint-505, loss=0.4951, runtime=1,733s, and explains GGUF Q8_0 rationale.
+3. Slide 05 shows a TikZ block-flow diagram (not bullet list) with an inline JSONL snippet.
+4. Slide 07 shows a 2-column layout — constraints left, rationale right.
+5. XeLaTeX compiles clean — zero errors after slide changes.
+6. No mention of recovery iterations or prior recall failures in any new content.
+
+**Plans:**
+
+- [ ] 13-01-PLAN.md — Report: expand Chapter 3 dataset section (seed scraping + claude-3-5-haiku generation + quality-judge stats) and Chapter 3/4 QLoRA section (training config table + GGUF rationale)
+- [ ] 13-02-PLAN.md — Slides: rewrite 05\_data.tex (TikZ block flow + JSONL snippet) and 07\_model.tex (2-col QLoRA layout); compile verification
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -310,6 +358,9 @@ Plans:
 | 8. Thesis Structure and Evidence Map | 1/1 | Complete | 2026-05-29 |
 | 9. Core Thesis Chapter Drafting | 3/3 | Complete | 2026-05-29 |
 | 10. Final Thesis Review and Submission Polish | 0/1 | In Progress (checkpoint) | — |
+| 11. Beamer Defense Presentation (Metropolis prototype) | 3/3 | Superseded by Phase 12 | 2026-06-03 |
+| 12. CambridgeUS Presentation Revamp | 0/3 | Planned | — |
+| 13. Content Gap Closure — Dataset & QLoRA | 0/2 | Planned | — |
 
 ## Coverage Validation
 

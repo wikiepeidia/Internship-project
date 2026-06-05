@@ -101,6 +101,30 @@ Requirements for the defense-ready slide deck milestone.
 - [ ] **PRES-12**: Beamer project is split into multiple files mirroring thesis chapter structure — one `.tex` file per logical section (intro, system, data, model, evaluation, demo, conclusion) — `\input{}`-ed from a single `main-slides.tex` entry point.
 - [ ] **PRES-13**: Figures and tables reused from thesis are referenced from the same source paths (or copied with attribution) — no duplication of raw data.
 
+## v1.4 Requirements — CambridgeUS Presentation Revamp
+
+Requirements for rebuilding the defense slide deck with professional CambridgeUS/beaver theme. Supersedes the Metropolis skeleton from v1.3. Phase 11 Metropolis slides serve as content reference only.
+
+### Theme and Visual Identity
+
+- [ ] **THME-01**: Presentation uses `\usetheme{CambridgeUS}` with `\usecolortheme{beaver}` as the base theme engine.
+- [ ] **THME-02**: USTH navy (#1A5276) is blended into the CambridgeUS/beaver palette — block titles, header/footer bars, and frametitle derive from CVBLUE; a single color-token change recolors the whole deck.
+- [ ] **THME-03**: USTH logo (`usth.png`) appears on every slide via `\logo{}`.
+- [ ] **THME-04**: Custom footer shows: author short name (left) | presentation short title (center) | frame N/Total (right) on every content slide.
+- [ ] **THME-05**: Section navigation bar in header highlights the current section and lists all section names.
+
+### Slide Content
+
+- [ ] **THME-06**: Title slide uses `\titlepage` with: student name Phạm Thế Minh, student ID 23BI14279, supervisors Giang Anh Tuấn and Nguyễn Việt Anh, USTH, and defense year.
+- [ ] **THME-07**: Content slides use `\framesubtitle` for secondary context (e.g., "Problem & Motivation", "QLoRA on Qwen 4B", "Held-out Set (254 messages)").
+- [ ] **THME-08**: Key call-out content (problem statement, main findings) uses `\begin{block}` environments for visual emphasis.
+- [ ] **THME-09**: All sections from the Phase 11 reference deck are preserved: agenda, problem, architecture, data pipeline, why local, model adaptation, evaluation results, confusion matrix, live demo, contributions, limitations & future work, thank you.
+
+### Compilation and Handout
+
+- [ ] **THME-10**: Presentation compiles clean with XeLaTeX in Overleaf — zero errors, zero unresolved references, all TikZ figures render correctly using bare (no float wrapper) input files.
+- [ ] **THME-11**: Deck is printable at A4 grayscale — no overlapping elements, text readable without color, no animation-only content.
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -159,12 +183,54 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-01 | Phase 6 | Complete |
 | UI-02 | Phase 6 | Complete |
 
+| THME-01 | Phase 12 | Planned |
+| THME-02 | Phase 12 | Planned |
+| THME-03 | Phase 12 | Planned |
+| THME-04 | Phase 12 | Planned |
+| THME-05 | Phase 12 | Planned |
+| THME-06 | Phase 12 | Planned |
+| THME-07 | Phase 12 | Planned |
+| THME-08 | Phase 12 | Planned |
+| THME-09 | Phase 12 | Planned |
+| THME-10 | Phase 12 | Planned |
+| THME-11 | Phase 12 | Planned |
+
+## v1.5 Requirements — Content Gap Closure
+
+Requirements for filling the dataset and QLoRA documentation gaps in both the thesis report and the defense slides.
+
+### Dataset Documentation
+
+- [ ] **GAP-01**: Report Chapter 3 includes a ≤1-paragraph description of seed collection from tinnhiemmang.vn (Vietnamese cybercrime alert site) written as deliberate pipeline design — no iterative recovery history.
+- [ ] **GAP-02**: Report Chapter 3 documents the claude-3-5-haiku synthetic generation pipeline with quality-judge gating stats (49/50 batches passed ≥4/5 realism score).
+- [ ] **GAP-03**: Slide 05 (Data Pipeline) shows a visual TikZ block flow: tinnhiemmang.vn Seeds → claude-3-5-haiku API → Pydantic Judge → JSONL Output, replacing the current bullet-only layout.
+- [ ] **GAP-04**: Slide 05 includes an inline JSONL snippet showing the schema fields: `text`, `label`, `suspicious_spans`.
+
+### QLoRA Documentation
+
+- [ ] **GAP-05**: Report Chapter 3/4 QLoRA section documents training configuration in a table: base model Qwen3-4B-Instruct-2507, r=16, α=32, 4-bit NF4 + double quant, checkpoint-505, loss=0.4951, runtime=1,733s.
+- [ ] **GAP-06**: Report Chapter 3/4 explains the GGUF Q8_0 export rationale (CPU-only runtime on consumer laptop via llama.cpp).
+- [ ] **GAP-07**: Slide 07 (Model Adaptation) uses a 2-column layout: left = QLoRA constraints and training metrics; right = hardware rationale (fit 4B model in 6 GB VRAM, GGUF for CPU runtime).
+
+### Writing Guardrails
+
+- [ ] **GAP-08**: All new report and slide content presents dataset and training as a single intentional pipeline — no mention of 0.44 recall failure, "repaired" dataset, or recovery iterations anywhere in report or slides.
+
+| GAP-01 | Phase 13 | Planned |
+| GAP-02 | Phase 13 | Planned |
+| GAP-03 | Phase 13 | Planned |
+| GAP-04 | Phase 13 | Planned |
+| GAP-05 | Phase 13 | Planned |
+| GAP-06 | Phase 13 | Planned |
+| GAP-07 | Phase 13 | Planned |
+| GAP-08 | Phase 13 | Planned |
+
 **Coverage:**
 
-- tracked requirements: 21 total
-- mapped to phases: 21
+- tracked requirements: 40 total (32 prior + 8 v1.5)
+- mapped to phases: 40
 - Unmapped: 0 ✅
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-05-25 after queuing the Phase 7 proposal-closeout milestone*
+*Last updated: 2026-06-05 — v1.5 Content Gap Closure requirements added (GAP-01 through GAP-08)*
