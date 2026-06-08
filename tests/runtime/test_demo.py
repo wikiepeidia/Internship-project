@@ -1,4 +1,4 @@
-"""Phase 6 local demo UI expectations over the existing runtime contract."""
+"""Local demo UI expectations over the existing runtime contract."""
 
 from __future__ import annotations
 
@@ -45,12 +45,40 @@ def test_demo_index_serves_text_only_form():
 
     assert status.startswith("200")
     assert headers["Content-Type"].startswith("text/html")
-    assert 'textarea id="message-input"' in html
-    assert 'select id="channel-select"' in html
+    assert "Be+Vietnam+Pro" in html or "Be Vietnam Pro" in html
     assert "/static/demo.css" in html
     assert "/static/demo.js" in html
-    assert "Local demo" in html
+    assert 'id="analysis-form"' in html
+    assert 'id="message-input"' in html
+    assert 'id="channel-select"' in html
+    assert 'id="sample-button"' in html
+    assert 'id="analyze-button"' in html
+    assert 'id="result-panel"' in html
+    assert 'role="log"' in html
+    assert 'aria-live="polite"' in html
+    assert "Mình sẽ giúp bạn kiểm tra dấu hiệu lừa đảo tài chính." in html
     assert "Text-only" in html
+    assert 'id="user-message-template"' in html
+    assert 'id="result-template"' in html
+    assert 'id="typing-template"' in html
+    assert 'id="error-template"' in html
+    assert 'data-slot="risk-tier"' in html
+    assert 'data-slot="verdict"' in html
+    assert 'data-slot="labels"' in html
+    assert 'data-slot="grounded-cues"' in html
+    assert 'data-slot="recommendations"' in html
+    forbidden_template_ids = [
+        "result-summary",
+        "result-risk-tier",
+        "result-labels",
+        "result-backend",
+        "result-cues",
+        "result-recommendations",
+        "error-message",
+        "error-steps",
+    ]
+    for template_id in forbidden_template_ids:
+        assert f'id="{template_id}"' not in html
     assert "Phase 6" not in html
     assert "Text-only v1" not in html
 
@@ -118,4 +146,10 @@ def test_demo_static_assets_are_served():
 
     assert status.startswith("200")
     assert headers["Content-Type"].startswith("text/css")
-    assert "--page-background" in body.decode("utf-8")
+    css = body.decode("utf-8")
+    assert "Be Vietnam Pro" in css
+    assert "100dvh" in css
+    assert "min-height: 0" in css
+    assert "flex: 1 1 0" in css
+    assert "env(safe-area-inset-bottom)" in css
+    assert "prefers-reduced-motion" in css

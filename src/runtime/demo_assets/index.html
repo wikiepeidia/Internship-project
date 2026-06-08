@@ -1,41 +1,60 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>VN Phishing Detection Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/demo.css">
 </head>
 
 <body>
-  <main class="shell">
-    <section class="hero-panel">
-      <p class="eyebrow">Local demo</p>
-      <h1>Verify a suspicious message without terminal commands.</h1>
-      <p class="lede">
-        Paste one SMS, Zalo, Messenger, Telegram, or Facebook message and get a local threat analysis.
-        Text stays on this machine. OCR, screenshots, and voice input are not included in this demo.
-      </p>
-      <div class="trust-strip">
+  <main class="shell" aria-label="VN Phishing Detection Demo">
+    <header class="app-header">
+      <div class="app-header__copy">
+        <p class="eyebrow">VN Phishing Detection</p>
+        <h1>Kiểm tra tin nhắn đáng ngờ</h1>
+      </div>
+      <div class="status-strip" aria-label="Trạng thái an toàn">
         <span>Local-first</span>
         <span>Text-only</span>
-        <span>Grounded cues</span>
       </div>
-    </section>
+    </header>
 
-    <section class="workspace-panel">
-      <form id="analysis-form" class="composer-panel">
-        <label class="field-label" for="message-input">Suspicious message or short conversation</label>
-        <textarea id="message-input" name="text" rows="12"
-          placeholder="Paste the suspicious text here. Example: VPBank canh bao account cua ban se bi khoa trong 24h..."
+    <section class="chat-frame" aria-label="Cuộc trò chuyện kiểm tra lừa đảo">
+      <div id="result-panel" class="chat-thread result-panel result-panel--empty" role="log" aria-live="polite"
+        aria-relevant="additions text" aria-label="Kết quả phân tích">
+        <article class="message message--bot message--welcome">
+          <div class="message__avatar" aria-hidden="true">AI</div>
+          <div class="message__bubble">
+            <p class="message__meta">Trợ lý kiểm tra</p>
+            <p class="message__text">Mình sẽ giúp bạn kiểm tra dấu hiệu lừa đảo tài chính.</p>
+            <div class="hint-row" aria-label="Gợi ý phạm vi">
+              <span>SMS</span>
+              <span>Zalo</span>
+              <span>Messenger</span>
+              <span>Không gửi dữ liệu lên cloud</span>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <form id="analysis-form" class="composer-panel" aria-label="Gửi tin nhắn để phân tích">
+        <label class="field-label" for="message-input">Tin nhắn hoặc đoạn hội thoại đáng ngờ</label>
+        <textarea id="message-input" name="text" rows="4"
+          placeholder="Dán nội dung cần kiểm tra. Ví dụ: VPBank cảnh báo tài khoản của bạn sẽ bị khóa trong 24h..."
           required></textarea>
 
-        <div class="controls-row">
+        <div class="composer-actions">
           <label class="channel-field" for="channel-select">
-            <span>Channel</span>
+            <span>Kênh</span>
             <select id="channel-select" name="channel">
-              <option value="unknown">Unknown</option>
+              <option value="unknown">Không rõ</option>
               <option value="sms">SMS</option>
               <option value="zalo">Zalo</option>
               <option value="messenger">Messenger</option>
@@ -45,68 +64,89 @@
           </label>
 
           <div class="button-row">
-            <button type="button" id="sample-button" class="secondary-button">Try sample</button>
-            <button type="submit" id="analyze-button" class="primary-button">Analyze locally</button>
+            <button type="button" id="sample-button" class="secondary-button">Mẫu thử</button>
+            <button type="submit" id="analyze-button" class="primary-button">Phân tích tại máy</button>
           </div>
         </div>
       </form>
-
-      <section id="result-panel" class="result-panel result-panel--empty" aria-live="polite">
-        <div class="result-placeholder">
-          <h2>Analysis result</h2>
-          <p>Paste suspicious text and run a local analysis to see risk tier, labels, grounded cues, and safe next
-            steps.</p>
-        </div>
-      </section>
     </section>
   </main>
 
+  <template id="user-message-template">
+    <article class="message message--user">
+      <div class="message__bubble">
+        <p class="message__meta">Bạn gửi</p>
+        <p class="message__text" data-slot="text"></p>
+      </div>
+    </article>
+  </template>
+
   <template id="result-template">
-    <article class="result-card">
-      <header class="result-card__header">
-        <div>
-          <p class="result-card__kicker">Local analysis</p>
-          <h2 id="result-summary"></h2>
-        </div>
-        <span id="result-risk-tier" class="risk-pill"></span>
-      </header>
+    <article class="message message--bot message--result">
+      <div class="message__avatar" aria-hidden="true">AI</div>
+      <div class="message__bubble">
+        <header class="result-header">
+          <div>
+            <p class="message__meta">Phân tích cục bộ</p>
+            <h2 data-slot="verdict"></h2>
+          </div>
+          <span class="risk-pill" data-slot="risk-tier"></span>
+        </header>
 
-      <dl class="meta-grid">
-        <div>
-          <dt>Threat labels</dt>
-          <dd id="result-labels"></dd>
-        </div>
-        <div>
-          <dt>Backend</dt>
-          <dd id="result-backend"></dd>
-        </div>
-      </dl>
+        <dl class="meta-grid">
+          <div>
+            <dt>Nhãn rủi ro</dt>
+            <dd data-slot="labels"></dd>
+          </div>
+          <div>
+            <dt>Backend</dt>
+            <dd data-slot="backend"></dd>
+          </div>
+        </dl>
 
-      <section>
-        <h3>Grounded cues</h3>
-        <ul id="result-cues" class="detail-list"></ul>
-      </section>
+        <section class="detail-section">
+          <h3>Dấu hiệu trong tin nhắn</h3>
+          <ul class="detail-list" data-slot="grounded-cues"></ul>
+        </section>
 
-      <section>
-        <h3>Safe next steps</h3>
-        <ul id="result-recommendations" class="detail-list"></ul>
-      </section>
+        <section class="detail-section">
+          <h3>Bước an toàn tiếp theo</h3>
+          <ul class="detail-list" data-slot="recommendations"></ul>
+        </section>
+      </div>
+    </article>
+  </template>
+
+  <template id="typing-template">
+    <article class="message message--bot message--typing">
+      <div class="message__avatar" aria-hidden="true">AI</div>
+      <div class="message__bubble">
+        <p class="message__meta">Đang phân tích</p>
+        <div class="typing-dots" aria-label="Đang xử lý">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
     </article>
   </template>
 
   <template id="error-template">
-    <article class="result-card result-card--error">
-      <header class="result-card__header">
-        <div>
-          <p class="result-card__kicker">Local runtime response</p>
-          <h2 id="error-message"></h2>
-        </div>
-      </header>
+    <article class="message message--bot message--error">
+      <div class="message__avatar" aria-hidden="true">AI</div>
+      <div class="message__bubble">
+        <header class="result-header">
+          <div>
+            <p class="message__meta">Phản hồi runtime</p>
+            <h2 data-slot="message"></h2>
+          </div>
+        </header>
 
-      <section>
-        <h3>Next steps</h3>
-        <ul id="error-steps" class="detail-list"></ul>
-      </section>
+        <section class="detail-section">
+          <h3>Cách xử lý</h3>
+          <ul class="detail-list" data-slot="steps"></ul>
+        </section>
+      </div>
     </article>
   </template>
 
