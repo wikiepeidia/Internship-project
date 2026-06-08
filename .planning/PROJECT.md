@@ -18,7 +18,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Close the two remaining proposal-facing quantitative claims with one final validated 2,500-3,000 sample dataset artifact and one honest held-out evaluation report for the locked baseline winner.
+- [ ] Replace AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework).
 
 ### Out of Scope
 
@@ -50,6 +50,18 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Lock `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up for local training/deployment | Larger local pilot on 33 balanced validated samples kept the 4B baseline rule while favoring the best latency and memory fit under the 8GB-VRAM target | Accepted 2026-05-14 |
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
+
+## Current Milestone: v2.0 Chat UI Revamp
+
+**Goal:** Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface that feels like a real messenger app.
+
+**Target features:**
+
+- Chat thread layout: user text appears as right-aligned bubble, bot reply as left-aligned bubble
+- Bot reply: single structured bubble containing risk tier badge + Vietnamese verdict + grounded cues + safe next steps
+- Bilingual UI text — Vietnamese primary, English for technical terms (e.g., Risk tier)
+- Channel selector embedded in chat input bar (small pill or inline dropdown beside send button)
+- Vanilla HTML/CSS/JS — no framework, no build step; Python WSGI backend unchanged
 
 ## Completed Milestone: v1.5 Content Gap Closure — Dataset & QLoRA
 
