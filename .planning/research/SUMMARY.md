@@ -195,3 +195,73 @@ Roadmap derivation rules:
 ---
 *Research completed: 2026-03-18*
 *Ready for roadmap: yes*
+
+---
+
+## Milestone v2.0 Research Summary — Chat UI Revamp
+
+**Synthesized:** 2026-06-08
+**Sources:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md (all updated for this milestone)
+
+### v2.0 Overview
+
+Pure frontend redesign. Replace the single-card result panel with a persistent chat thread of user and bot bubbles. Backend (synchronous wsgiref + `POST /api/analyze`) is frozen — no changes to `demo.py` except one static route for `i18n.js`. Every feature implemented client-side in vanilla HTML/CSS/JS with no build step.
+
+Only external addition: **Be Vietnam Pro** from Google Fonts CDN — the existing Windows-only font stack degrades on macOS/Linux for Vietnamese stacked diacritics. No JS libraries added.
+
+## Stack Additions
+
+- **Be Vietnam Pro (Google Fonts CDN)** — `"Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif`. Line-height minimum `1.65` on all Vietnamese-content elements.
+- **marked.js / DOMPurify:** Do NOT add in v2.0. API returns plain text only.
+- Everything else (React, Vue, Tailwind, WebSocket, localStorage): excluded.
+
+## Feature Table
+
+| Feature | Category |
+| --- | --- |
+| Right-aligned user bubble | Table stakes |
+| Left-aligned bot bubble (risk badge + VN verdict + cues + steps) | Table stakes |
+| Typing indicator (animated dots — CPU inference takes 5–30 s) | Table stakes |
+| Scroll-to-bottom with rAF guard | Table stakes |
+| Single-line expandable input + embedded channel selector | Table stakes |
+| Enter to send / Shift+Enter for newline | Table stakes |
+| Error messages as left-aligned bubbles | Table stakes |
+| In-memory `history[]` array (tab-lifetime only) | Table stakes |
+| Collapsible cues/steps via `<details>` | Differentiator |
+| Timestamps, bubble entrance animation, clear button | Differentiator |
+| `localStorage` persistence | **Anti-feature** (privacy risk) |
+| Markdown rendering | **Anti-feature** (XSS surface, no need) |
+| WebSocket/SSE | **Anti-feature** (requires ASGI rewrite) |
+
+## Architecture — File Change Map
+
+| File | Status |
+| --- | --- |
+| `src/runtime/demo_assets/demo.css` | Full rewrite |
+| `src/runtime/demo_assets/index.html` | Full rewrite |
+| `src/runtime/demo_assets/i18n.js` | New — bilingual string table |
+| `src/runtime/demo_assets/demo.js` | Full rewrite |
+| `src/runtime/demo.py` | 1 line added (serve `GET /static/i18n.js`) |
+
+## Suggested Build Order (5 Phases)
+
+1. **CSS + HTML Scaffolding** — Rewrite `demo.css` and `index.html`. Be Vietnam Pro. `lang="vi"`. Pre-rendered ARIA live region. No-id templates. Verifiable before any JS.
+2. **i18n.js + demo.py route** — Bilingual string table (`const I18N = {...}`). One new Python static route.
+3. **demo.js core fetch lifecycle** — Full JS rewrite: user bubble → typing dots → bot bubble. AbortController, `history[]`, rAF scroll.
+4. **Polish + edge cases** — `<details>` collapsible, animations, timestamps, clear button, sample button.
+5. **Mobile + accessibility validation** — dvh/iOS keyboard, Vietnamese diacritics on macOS/Ubuntu, screen reader announcement.
+
+## Watch Out For
+
+| # | Pitfall | Fix |
+| --- | --- | --- |
+| C8 | Template ID collision (multi-bubble breaks DOM) | Remove all `id` from template content; use `querySelector('[data-slot="..."]')` |
+| C6 | Mobile height collapse (`100vh` vs soft keyboard) | `height: 100dvh`; `flex: 1 1 0; min-height: 0` on thread; `padding-bottom: env(safe-area-inset-bottom)` |
+| C4 | ARIA live region registered late | `<div id="chat-thread" role="log" aria-live="polite">` in HTML at page load, empty |
+| C2 | Re-entrant submit blocks wsgiref | `currentController?.abort()` before each `fetch`; catch `AbortError` silently |
+| C1 | Scroll anchor race | `requestAnimationFrame(() => container.scrollTop = container.scrollHeight)` |
+| C13 | Wrong `lang` attribute | `<html lang="vi">`; `lang="en"` on inline English spans |
+
+---
+*Research completed: 2026-06-08*
+*Ready for roadmap: yes*
