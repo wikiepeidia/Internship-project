@@ -1,7 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-03 (v1.3 Beamer presentation requirements added)
+**Updated:** 2026-06-08 (v2.0 Chat UI Revamp requirements added and mapped)
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -182,7 +182,6 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLS-03 | Phase 7 | Planned |
 | UI-01 | Phase 6 | Complete |
 | UI-02 | Phase 6 | Complete |
-
 | THME-01 | Phase 12 | Planned |
 | THME-02 | Phase 12 | Planned |
 | THME-03 | Phase 12 | Planned |
@@ -225,11 +224,11 @@ Requirements for filling the dataset and QLoRA documentation gaps in both the th
 | GAP-07 | Phase 13 | Planned |
 | GAP-08 | Phase 13 | Planned |
 
-**Coverage:**
+**Coverage (v1.5):**
 
 - tracked requirements: 40 total (32 prior + 8 v1.5)
 - mapped to phases: 40
-- Unmapped: 0 ✅
+- Unmapped: 0
 
 ## v2.0 Requirements — Chat UI Revamp
 
@@ -265,12 +264,34 @@ Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingu
 - [ ] **INFRA-01**: Demo page loads Be Vietnam Pro from Google Fonts CDN to ensure correct Vietnamese diacritic rendering on macOS and Linux
 - [ ] **INFRA-02**: `demo.py` serves `i18n.js` as a static file; all other backend routes and the `POST /api/analyze` contract remain unchanged
 
+| CHAT-01 | Phase 16 | Pending |
+| CHAT-02 | Phase 16 | Pending |
+| CHAT-03 | Phase 16 | Pending |
+| CHAT-04 | Phase 16 | Pending |
+| INPUT-01 | Phase 16 | Pending |
+| INPUT-02 | Phase 16 | Pending |
+| INPUT-03 | Phase 16 | Pending |
+| INPUT-04 | Phase 16 | Pending |
+| POLISH-01 | Phase 17 | Pending |
+| POLISH-02 | Phase 17 | Pending |
+| POLISH-03 | Phase 17 | Pending |
+| I18N-01 | Phase 15 | Pending |
+| I18N-02 | Phase 15 | Pending |
+| INFRA-01 | Phase 14 | Pending |
+| INFRA-02 | Phase 15 | Pending |
+
 **Coverage (v2.0):**
 
 - tracked requirements: 15
-- mapped to phases: TBD (filled by roadmapper)
-- Unmapped: 15 (pending roadmap)
+- mapped to phases: 15
+- Unmapped: 0
+
+**Coverage (all milestones):**
+
+- tracked requirements: 55 total (40 prior milestones + 15 v2.0)
+- mapped to phases: 55
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-08 — v2.0 Chat UI Revamp requirements added (CHAT-01 through INFRA-02)*
+*Last updated: 2026-06-08 — v2.0 Chat UI Revamp requirements mapped to Phases 14–17*

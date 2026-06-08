@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Chat UI Revamp
-status: planning
-last_updated: "2026-06-08T08:20:36.649Z"
+status: roadmap_ready
+last_updated: "2026-06-08"
 last_activity: 2026-06-08
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,27 +18,31 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Produce the graduation thesis report, map existing repo evidence into each chapter, and prepare a judging-ready submission.
+- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend is frozen — only one static route added to demo.py.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
-  - Recall-priority release policy for high-harm scam classes
-  - No metric laundering: final proposal claims must be backed by frozen held-out artifacts, not blended counts or unsupported splits
-  - Thesis writing must use a natural undergraduate tone and avoid AI-like wording or internal GSD jargon
+  - No JS frameworks, no build step — vanilla HTML/CSS/JS only
+  - No localStorage (privacy risk); in-memory history[] only
+  - No marked.js / DOMPurify / WebSocket / SSE — excluded per research
+  - Backend (synchronous wsgiref + POST /api/analyze) is frozen; no behavior changes
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 14 (not yet started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-08 — Milestone v2.0 started
+Status: Roadmap complete — ready for /gsd-plan-phase 14
+Last activity: 2026-06-08 — Milestone v2.0 roadmap created (Phases 14–18)
+
+Progress bar: [----------] 0% (0/5 phases complete)
 
 ## Performance Metrics (Baseline Targets)
 
-- Quality target: Offline F1 >= 0.85 with per-class reporting
-- Safety priority: Recall-first thresholds for high-harm classes before release
-- Explainability target: Rubric pass for correctness, relevance, and actionability
-- Runtime target: Local GGUF path on consumer laptop CPU/iGPU baseline; optional prosumer GPU acceleration path
+- Quality target: Offline F1 >= 0.85 with per-class reporting (prior milestone, locked)
+- Safety priority: Recall-first thresholds for high-harm classes (prior milestone, locked)
+- UI target: Chat bubble interface loads and responds on consumer laptop; no framework dependency
+- Accessibility target: Screen reader announces new messages; reduced-motion respected
+- Font target: Be Vietnam Pro renders Vietnamese diacritics without stacking on macOS and Linux
 
 ## Accumulated Context
 
@@ -65,17 +69,25 @@ Last activity: 2026-06-08 — Milestone v2.0 started
 - Phase 8 Plan 01 COMPLETE: the current six-chapter main.tex structure is the locked working thesis template. No parallel tree exists. Titlepage updated to GRADUATION THESIS. Chapter 5 stale Phase~7 reference removed. EVIDENCE_MAP.md and WRITING_GUARDRAILS.md created in documents/reports/latex/ (gitignored) and mirrored as 08-EVIDENCE_MAP.md and 08-WRITING_GUARDRAILS.md in .planning/phases/08-*. Six verified BibTeX entries seeded. Citation rendering and in-text insertion deferred to Phase 9.
 - Final verdict wording rule confirmed: thesis paragraphs use plain prose ("not release-ready under its own safety gate"); literal BLOCK label stays in tables, appendix notes, or guardrail files only.
 - Chapter 5 evidence-depth rule confirmed: evidence must come from tracked manifests and saved evaluation artifacts; off-repo training numbers are optional appendix-only support.
+- v2.0 Chat UI Revamp: backend is fully frozen. Only one line added to demo.py (GET /static/i18n.js static route). All UI work is client-side vanilla HTML/CSS/JS.
+- v2.0 font stack: "Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif. Line-height minimum 1.65 on Vietnamese-content elements.
+- v2.0 pitfall registry: template id collision (use data-slot instead of id on inner nodes), mobile height collapse (100dvh → 100dvh + flex:1 1 0 min-height:0 on thread), ARIA live region must be in HTML at page load (not JS-injected), re-entrant submit (use AbortController.abort() before each fetch), scroll anchor race (wrap in requestAnimationFrame).
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 21
-- mapped to phases: 21
+- tracked requirements: 55 (40 prior milestones + 15 v2.0)
+- mapped to phases: 55
 - Unmapped: 0
 
 ### Active Risks and Watchpoints
 
-- ~~Graduation risk if the thesis overstates blocked quality results or hides the final `task_scam` recall shortfall~~ — **RESOLVED**. Phase 7a closed PASS: task_scam recall=0.871 ≥ 0.80 floor.
-- ~~Evaluation gate bug: `audit.ready=true` despite `task_scam` recall=0.44~~ — **RESOLVED**. `RISKY_LABEL_RECALL_FLOORS` per-label dict now correctly gates task_scam at 0.80.
+- ~~Graduation risk if the thesis overstates blocked quality results or hides the final `task_scam` recall shortfall~~ — RESOLVED. Phase 7a closed PASS: task_scam recall=0.871 ≥ 0.80 floor.
+- ~~Evaluation gate bug: `audit.ready=true` despite `task_scam` recall=0.44~~ — RESOLVED. `RISKY_LABEL_RECALL_FLOORS` per-label dict now correctly gates task_scam at 0.80.
+- Template id collision: if any inner template node uses an id attribute, cloning the template for multiple bubbles will create duplicate ids and break DOM queries. Fix: use data-slot attributes only.
+- Mobile soft keyboard collapse: iOS Safari shrinks the viewport height when the soft keyboard appears, pushing the input bar off screen. Fix: use height: 100dvh on the root shell; flex: 1 1 0; min-height: 0 on the thread area; padding-bottom: env(safe-area-inset-bottom) on the input bar.
+- Re-entrant fetch with wsgiref: wsgiref handles one request at a time. A second submit while one is pending will queue and block. Fix: call currentController?.abort() before each new fetch; catch AbortError silently.
+- Scroll anchor race: appending a bubble and immediately setting scrollTop can execute before the browser has painted the new content height. Fix: wrap in requestAnimationFrame(() => container.scrollTop = container.scrollHeight).
+- ARIA live region late registration: if the div[role="log"] aria-live="polite"] element is injected by JS after page load, some screen readers will not observe it. Fix: include it in the static HTML, empty, at page load.
 - Colab H100 Colab session time limit may interrupt long training runs; checkpoint resume is supported in the training CLI.
 - The writing window is short, so the outline and evidence map must prevent chapter drift and last-minute scope changes.
 - Thesis tone can easily drift into AI-like or internal-process wording if the draft is assembled directly from planning artifacts.
@@ -86,13 +98,13 @@ Last activity: 2026-06-08 — Milestone v2.0 started
 - Primary live seed sources remain brittle in this environment (`canhbao.khonggianmang.vn` DNS failure, `scam.vn` HTTP 403); `tinnhiemmang.vn/canh-bao-lua-dao` is the current working fallback.
 - The optional `gguf-runner-up` profile now has a registered artifact, but a direct `llama_cpp` load smoke still failed on that runner-up GGUF file; the validated shipped local paths remain `gguf-laptop` and `accelerated-local`.
 - The remaining Claude API budget is small, so it should be spent only on targeted missing-class generation or judging work that improves final validated yield.
-- ~~The final repaired-holdout release verdict is `BLOCK` because `task_scam` recall is `0.44`~~ — **RESOLVED**. Phase 7a Colab eval (2026-05-28): task_scam recall=0.871, gate verdict PASS. Adapter `task-scam-recovery-2026-05-28` registered at `D:\PROJEct\AI MODELS\task-scam-recovery-2026-05-28\qwen3-4b-instruct-2507\adapter`. Snapshot at `.planning/phases/07a-task-scam-recall-recovery/eval-snapshot-task-scam-recovery.json`.
+- ~~The final repaired-holdout release verdict is `BLOCK` because `task_scam` recall is `0.44`~~ — RESOLVED. Phase 7a Colab eval (2026-05-28): task_scam recall=0.871, gate verdict PASS. Adapter `task-scam-recovery-2026-05-28` registered at `D:\PROJEct\AI MODELS\task-scam-recovery-2026-05-28\qwen3-4b-instruct-2507\adapter`. Snapshot at `.planning/phases/07a-task-scam-recall-recovery/eval-snapshot-task-scam-recovery.json`.
 - The local runtime still trusts the operator-managed off-repo model registry path instead of enforcing a trusted-root allowlist; that residual risk is accepted and documented in `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md`.
 
 ## Session Continuity
 
-- Last session: 2026-05-29
-- Stopped at: Phase 10 Plan 01 Task 4 checkpoint (human-verify gate). Tasks 1-3 complete: preface.tex abstract corrected (254 held-out messages, macro F1 0.9553, task-scam recall 0.871, PASS verdict; stale 0.44/0.8618/0.7431 removed). Ch1 Section 1.4 Report Organization updated (removed "not yet release-ready" clause). Forbidden-term scan passed across all six chapters and figure file (0 hits). Ch5 Limits expanded with text-only input boundary and Vietnamese-only training data sentences. Ch6 new \section{Limitations} paragraph added before Future Work. Figure placeholder caption updated to descriptive form. 10-01-CHECKLIST.md created with items 7-9, 11 pending compile verification. Resume signal: human compiles thesis and types "approved" to proceed to Task 4 final checklist generation.
+- Last session: 2026-06-08
+- Stopped at: Roadmap created for milestone v2.0 (Phases 14–18). No plans written yet.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -115,11 +127,11 @@ Last activity: 2026-06-08 — Milestone v2.0 started
 - The repaired-holdout refresh completed end-to-end on 2026-05-26, regenerating `05-evaluation-snapshot.json`, `05-explanation-review-pack.json`, and the final release-eval markdown plus JSON artifacts.
 - Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
 - Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
-- Resume file: none (no `HANDOFF.json`, `.continue-here`, or interrupted-agent artifact detected)
-- Next command: `/gsd-plan-phase 8` to create the execution plan for the thesis structure and evidence-map phase (Phase 7b can be deferred or skipped if app response speed is acceptable for thesis demo).
+- Resume signal: roadmap for v2.0 is complete. Next command: `/gsd-plan-phase 14`
 
 ## Quick Tasks Completed
 
 | Date | Quick Task | Outcome |
 | ---- | ---------- | ------- |
 | 2026-05-31 | `260531-nhp` scope-check TODO thesis tasks | Complete. No top-level TODO item is outside the current thesis-writing milestone, but Tasks 3-4 use stale pre-recovery metrics and Tasks 8, 11, and 12 must stay evidence-bound and documentation-only. |
+| 2026-06-08 | v2.0 roadmap creation | Complete. Phases 14–18 defined, 15/15 v2.0 requirements mapped, ROADMAP.md and REQUIREMENTS.md updated. |

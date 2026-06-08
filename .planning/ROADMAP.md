@@ -1,4 +1,4 @@
-﻿# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
+# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Created:** 2026-03-18
 **Granularity:** standard
@@ -21,6 +21,11 @@
 - [x] **Phase 11: Beamer Defense Presentation (Metropolis prototype)** - Built Metropolis-themed skeleton; superseded by Phase 12 revamp.
 - [x] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides. Closed 2026-06-05: zero XeLaTeX errors.
 - [x] **Phase 13: Content Gap Closure — Dataset & QLoRA** - Document dataset pipeline (tinnhiemmang.vn + claude-3-5-haiku + Pydantic judge) and QLoRA config in thesis report and defense slides. Closed 2026-06-08: all 8 GAP requirements met, zero compile errors.
+- [ ] **Phase 14: CSS + HTML Scaffolding** - Rewrite demo.css and index.html with chat-bubble layout, Be Vietnam Pro CDN, dvh viewport, pre-rendered ARIA live region, and no-id templates.
+- [ ] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it.
+- [ ] **Phase 16: demo.js Core Fetch Lifecycle** - Full JS rewrite delivering the end-to-end chat interaction: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history, and rAF scroll.
+- [ ] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit.
+- [ ] **Phase 18: Mobile + Accessibility Validation** - Verify dvh/iOS keyboard behavior, Vietnamese diacritic rendering on macOS and Linux, and screen reader announcement correctness across the completed UI.
 
 ## Phase Details
 
@@ -296,6 +301,29 @@ Plans:
 
 - [x] 10-01-PLAN.md -- Final thesis review, references, formatting, and submission package
 
+### Phase 11: Beamer Defense Presentation
+
+**Goal**: A defense-ready LaTeX Beamer slide deck exists that covers all thesis chapters, reuses existing TikZ figures and evaluation tables, and produces a clean printable PDF for the graduation thesis defense.
+**Depends on**: Phase 10
+**Requirements**: PRES-01 through PRES-13
+**Success Criteria** (what must be TRUE):
+
+1. Beamer project compiles with XeLaTeX to a 16:9 PDF with 15–20 content slides and no layout errors.
+2. Title slide shows USTH branding (logo, student name, supervisors, date).
+3. Slides cover: motivation → threat scope → system architecture → data pipeline → model adaptation → evaluation results → demo output → conclusion + future work.
+4. Architecture TikZ diagram, recall bar chart, and confusion matrix appear without modification.
+5. Real CLI output (vnphish analyze on bank-impersonation message) appears in implementation/demo slide.
+6. Color tokens defined centrally (CVBLUE baseline, user-swappable); 16:9 aspect ratio enforced.
+7. Project split into one `.tex` file per section, all `\input{}`-ed from `main-slides.tex`.
+8. Deck is printable at A4 grayscale with readable text and no overflow.
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 11-01-PLAN.md -- Beamer project skeleton: 16:9 layout, central color tokens, USTH title slide, multi-file structure, agenda slide
+- [ ] 11-02-PLAN.md -- Technical slides: motivation/scope, system architecture, data pipeline, model adaptation, evaluation results (reuse TikZ + tables)
+- [ ] 11-03-PLAN.md -- Demo slide (real CLI output), conclusion + future work, handout mode, final compile and polish
+
 ### Phase 12: CambridgeUS Presentation Revamp
 
 **Goal**: A defense-ready Beamer slide deck with CambridgeUS/beaver theme, USTH branding, proper header/footer, and polished content slides that compile clean in XeLaTeX.
@@ -343,6 +371,88 @@ Plans:
 - [x] 13-01-PLAN.md — Report: expand Chapter 3 dataset section (seed scraping + claude-3-5-haiku generation + quality-judge stats) and Chapter 3/4 QLoRA section (training config table + GGUF rationale)
 - [x] 13-02-PLAN.md — Slides: rewrite 05\_data.tex (TikZ block flow + JSONL snippet) and 07\_model.tex (2-col QLoRA layout); compile verification
 
+---
+
+## Milestone v2.0: Chat UI Revamp (Phases 14–18)
+
+**Milestone Goal:** Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface that feels like a real messenger app. Backend frozen — only `demo.py` static route added.
+
+### Phase 14: CSS + HTML Scaffolding
+
+**Goal**: The page loads with a structurally correct chat-bubble layout, Be Vietnam Pro font, dvh viewport, and an ARIA live region — verifiable before any JavaScript runs.
+**Depends on**: Phase 13
+**Requirements**: INFRA-01
+**Success Criteria** (what must be TRUE):
+
+1. Opening `index.html` in a browser shows a chat-shell layout (header, scrollable thread area, fixed input bar at the bottom) with no JS errors.
+2. Be Vietnam Pro loads from Google Fonts CDN and Vietnamese diacritics render without stacking artifacts on macOS and Linux.
+3. The page height fills the viewport using `100dvh` without a horizontal scrollbar; the thread area scrolls independently when content overflows.
+4. A `<div role="log" aria-live="polite">` chat thread element is present in the DOM at page load (not injected by JS) so screen readers can announce new messages.
+5. No template element uses an `id` attribute on its inner content nodes; all slots are identified by `data-slot` attributes.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 15: i18n.js + demo.py Static Route
+
+**Goal**: All UI strings are managed from a single bilingual JS module served by the backend, with no strings hardcoded in HTML.
+**Depends on**: Phase 14
+**Requirements**: I18N-01, I18N-02, INFRA-02
+**Success Criteria** (what must be TRUE):
+
+1. Fetching `GET /static/i18n.js` returns a valid JS file with an `I18N` constant containing keys for all UI labels, placeholders, bot reply text, and error messages.
+2. All visible UI text (input placeholder, send button label, channel selector options, error messages) is rendered from `I18N` keys — zero literal strings hardcoded in `index.html`.
+3. Labels use Vietnamese as the primary language; English technical terms appear in parentheses (for example, "Nguy hiểm cao (High risk)").
+4. `demo.py` serves `i18n.js` via the new static route without modifying any existing route or the `POST /api/analyze` contract.
+**Plans**: TBD
+
+### Phase 16: demo.js Core Fetch Lifecycle
+
+**Goal**: Users can submit a message and receive a structured bot reply through the complete JS fetch lifecycle, with all chat interaction behaviors working end-to-end.
+**Depends on**: Phase 15
+**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, INPUT-01, INPUT-02, INPUT-03, INPUT-04
+**Success Criteria** (what must be TRUE):
+
+1. User types a message and presses Enter; it appears as a right-aligned bubble in the thread and the textarea clears.
+2. Animated typing dots appear immediately after the user bubble while the local model processes the request (visible for the full 5–30 s inference window).
+3. A left-aligned bot bubble appears containing the risk tier badge, Vietnamese verdict, grounded cues, and safe next steps drawn from the API response.
+4. The thread scrolls to show the newest bubble after each append, without visible race or anchor jump.
+5. Pressing Shift+Enter inserts a newline in the textarea without triggering a send.
+6. The channel selector (SMS, Zalo, Messenger, Telegram, Facebook) is embedded in the input bar and its value is included in the API request payload.
+7. The send button is disabled and shows a visual in-flight state while a request is pending; a network or model error appends a left-aligned error bubble and re-enables the send button.
+8. An in-memory `history[]` array accumulates all sent messages for the tab lifetime; reloading the page clears history (no localStorage).
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17: Polish + Edge Cases
+
+**Goal**: The chat interface handles edge cases gracefully and delivers the differentiating UX behaviors described in the feature table.
+**Depends on**: Phase 16
+**Requirements**: POLISH-01, POLISH-02, POLISH-03
+**Success Criteria** (what must be TRUE):
+
+1. Each bot bubble's grounded cues section and safe next steps section are individually collapsible via `<details>` elements; both start expanded by default.
+2. Clicking the clear button removes all bubbles from the thread and aborts any in-flight fetch request in one action.
+3. Each new bubble animates in with a subtle entrance effect (for example, fade-slide); the animation does not play when the `prefers-reduced-motion` media query is active.
+4. Clicking the sample button loads a pre-written Vietnamese phishing message into the textarea and auto-submits it, producing a complete bot reply with no manual send step.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 18: Mobile + Accessibility Validation
+
+**Goal**: The completed chat UI works correctly on mobile viewports with iOS soft keyboard, renders Vietnamese diacritics on non-Windows systems, and meets screen reader expectations.
+**Depends on**: Phase 17
+**Requirements**: (integration verification — all v2.0 requirements are covered by Phases 14–17; this phase validates cross-cutting system behavior)
+**Success Criteria** (what must be TRUE):
+
+1. On a mobile viewport with a soft keyboard active, the input bar remains visible and the thread area shrinks to fill the remaining height without content being hidden behind the keyboard (dvh + safe-area-inset-bottom behavior confirmed).
+2. Vietnamese diacritics in bot replies and UI labels render without stacking or clipping artifacts when viewed in Chrome/Firefox on macOS and Ubuntu with Be Vietnam Pro loaded.
+3. A screen reader (VoiceOver or NVDA) announces each new message appended to the chat thread without requiring the user to navigate manually to the thread region.
+4. Submitting a long message (near the runtime text-length cap) returns a valid bot bubble without layout breakage or scroll anchor failure.
+5. Clicking "clear" while a request is in-flight cancels the fetch cleanly — no unhandled promise rejection, no orphaned typing indicator left in the DOM.
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -362,11 +472,16 @@ Plans:
 | 11. Beamer Defense Presentation (Metropolis prototype) | 3/3 | Superseded by Phase 12 | 2026-06-03 |
 | 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
 | 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
+| 14. CSS + HTML Scaffolding | 0/TBD | Not started | - |
+| 15. i18n.js + demo.py Static Route | 0/TBD | Not started | - |
+| 16. demo.js Core Fetch Lifecycle | 0/TBD | Not started | - |
+| 17. Polish + Edge Cases | 0/TBD | Not started | - |
+| 18. Mobile + Accessibility Validation | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 26
-- tracked requirements mapped: 26
+- tracked requirements total: 41 (26 prior milestones + 15 v2.0)
+- tracked requirements mapped: 41
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -411,26 +526,26 @@ Coverage map:
 - PRES-11 -> Phase 11
 - PRES-12 -> Phase 11
 - PRES-13 -> Phase 11
-
-### Phase 11: Beamer Defense Presentation
-
-**Goal**: A defense-ready LaTeX Beamer slide deck exists that covers all thesis chapters, reuses existing TikZ figures and evaluation tables, and produces a clean printable PDF for the graduation thesis defense.
-**Depends on**: Phase 10
-**Requirements**: PRES-01 through PRES-13
-**Success Criteria** (what must be TRUE):
-
-1. Beamer project compiles with XeLaTeX to a 16:9 PDF with 15–20 content slides and no layout errors.
-2. Title slide shows USTH branding (logo, student name, supervisors, date).
-3. Slides cover: motivation → threat scope → system architecture → data pipeline → model adaptation → evaluation results → demo output → conclusion + future work.
-4. Architecture TikZ diagram, recall bar chart, and confusion matrix appear without modification.
-5. Real CLI output (vnphish analyze on bank-impersonation message) appears in implementation/demo slide.
-6. Color tokens defined centrally (CVBLUE baseline, user-swappable); 16:9 aspect ratio enforced.
-7. Project split into one `.tex` file per section, all `\input{}`-ed from `main-slides.tex`.
-8. Deck is printable at A4 grayscale with readable text and no overflow.
-**Plans**: 3 plans
-
-Plans:
-
-- [ ] 11-01-PLAN.md -- Beamer project skeleton: 16:9 layout, central color tokens, USTH title slide, multi-file structure, agenda slide
-- [ ] 11-02-PLAN.md -- Technical slides: motivation/scope, system architecture, data pipeline, model adaptation, evaluation results (reuse TikZ + tables)
-- [ ] 11-03-PLAN.md -- Demo slide (real CLI output), conclusion + future work, handout mode, final compile and polish
+- GAP-01 -> Phase 13
+- GAP-02 -> Phase 13
+- GAP-03 -> Phase 13
+- GAP-04 -> Phase 13
+- GAP-05 -> Phase 13
+- GAP-06 -> Phase 13
+- GAP-07 -> Phase 13
+- GAP-08 -> Phase 13
+- INFRA-01 -> Phase 14
+- I18N-01 -> Phase 15
+- I18N-02 -> Phase 15
+- INFRA-02 -> Phase 15
+- CHAT-01 -> Phase 16
+- CHAT-02 -> Phase 16
+- CHAT-03 -> Phase 16
+- CHAT-04 -> Phase 16
+- INPUT-01 -> Phase 16
+- INPUT-02 -> Phase 16
+- INPUT-03 -> Phase 16
+- INPUT-04 -> Phase 16
+- POLISH-01 -> Phase 17
+- POLISH-02 -> Phase 17
+- POLISH-03 -> Phase 17
