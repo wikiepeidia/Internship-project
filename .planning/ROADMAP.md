@@ -389,7 +389,11 @@ Plans:
 3. The page height fills the viewport using `100dvh` without a horizontal scrollbar; the thread area scrolls independently when content overflows.
 4. A `<div role="log" aria-live="polite">` chat thread element is present in the DOM at page load (not injected by JS) so screen readers can announce new messages.
 5. No template element uses an `id` attribute on its inner content nodes; all slots are identified by `data-slot` attributes.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+
+- [ ] 14-01-PLAN.md -- Static chat shell scaffold
+
 **UI hint**: yes
 
 ### Phase 15: i18n.js + demo.py Static Route
@@ -472,7 +476,7 @@ Plans:
 | 11. Beamer Defense Presentation (Metropolis prototype) | 3/3 | Superseded by Phase 12 | 2026-06-03 |
 | 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
 | 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
-| 14. CSS + HTML Scaffolding | 0/TBD | Not started | - |
+| 14. CSS + HTML Scaffolding | 0/1 | Planned | - |
 | 15. i18n.js + demo.py Static Route | 0/TBD | Not started | - |
 | 16. demo.js Core Fetch Lifecycle | 0/TBD | Not started | - |
 | 17. Polish + Edge Cases | 0/TBD | Not started | - |
