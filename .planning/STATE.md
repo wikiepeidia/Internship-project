@@ -139,3 +139,4 @@ Progress bar: [##--------] 20% (1/5 phases complete)
 | 2026-05-31 | `260531-nhp` scope-check TODO thesis tasks | Complete. No top-level TODO item is outside the current thesis-writing milestone, but Tasks 3-4 use stale pre-recovery metrics and Tasks 8, 11, and 12 must stay evidence-bound and documentation-only. |
 | 2026-06-08 | v2.0 roadmap creation | Complete. Phases 14–18 defined, 15/15 v2.0 requirements mapped, ROADMAP.md and REQUIREMENTS.md updated. |
 | 2026-06-08 | Phase 14 static chat shell execution | Complete. `index.html`, `demo.css`, and focused demo tests now lock the Be Vietnam Pro, `100dvh`, ARIA live thread, pinned composer, and no-inner-ID template scaffold. |
+| 2026-06-08 | Prepare mock defense script for supervisor | Complete. Context gathered from planning and slides; script written to `documents/reports/supervisor/mock_defense_script.md`. |
