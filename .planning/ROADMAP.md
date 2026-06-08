@@ -13,13 +13,14 @@
 - [x] **Phase 5: Recall-Priority Evaluation and Release Gates** - Enforce measurable quality, recall safety thresholds, and explanation-quality acceptance gates. Closed 2026-05-25 after the release-gate engine and paired artifacts shipped; the saved sample run remains `BLOCK` because held-out bank and zalo support are absent.
 - [x] **Phase 6: Local Demo UI for Non-Technical Verification** - Wrap the approved local runtime path in a minimal text-only demo interface aligned with the internship proposal. Closed 2026-05-25 after a local demo server, browser UI, and `vnphish demo` launch path shipped.
 - [x] **Phase 7: Proposal Closeout and Quantitative Validation** - Freeze final dataset and evaluation artifacts so the remaining school-facing quantitative claims can be proven honestly. Closed 2026-05-26 after the recovered-balanced lineage, repaired held-out evaluation package, UAT, and security audit were finalized.
-- [ ] **Phase 7a: task_scam Recall Recovery** - Audit existing task_scam data, strengthen generation prompts, generate targeted samples, retrain on Colab H100, fix evaluation gate bug, and re-run holdout evaluation until task_scam recall ≥0.80.
-- [ ] **Phase 7b: App Response Optimization** - Profile and fix local demo response latency by tuning llama.cpp threading, batch, and context-window parameters.
+- [x] **Phase 7a: task_scam Recall Recovery** - Audit existing task_scam data, strengthen generation prompts, generate targeted samples, retrain on Colab H100, fix evaluation gate bug, and re-run holdout evaluation until task_scam recall ≥0.80. Closed 2026-05-28: task_scam recall=0.871, verdict PASS.
+- [x] **Phase 7b: App Response Optimization** - Profile and fix local demo response latency by tuning llama.cpp threading, batch, and context-window parameters. Closed 2026-05-29: CPU warm latency ~13s, within thesis demo target.
 - [x] **Phase 8: Thesis Structure and Evidence Map** - Lock the graduation-thesis outline, section claims, and supporting repo evidence.
 - [x] **Phase 9: Core Thesis Chapter Drafting** - Draft the main technical thesis chapters from the implemented system and final evidence base.
 - [x] **Phase 10: Final Thesis Review and Submission Polish** - Finish tone, references, formatting, and judging-ready submission polish. Closed 2026-06-03.
 - [x] **Phase 11: Beamer Defense Presentation (Metropolis prototype)** - Built Metropolis-themed skeleton; superseded by Phase 12 revamp.
-- [ ] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides.
+- [x] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides. Closed 2026-06-05: zero XeLaTeX errors.
+- [x] **Phase 13: Content Gap Closure — Dataset & QLoRA** - Document dataset pipeline (tinnhiemmang.vn + claude-3-5-haiku + Pydantic judge) and QLoRA config in thesis report and defense slides. Closed 2026-06-08: all 8 GAP requirements met, zero compile errors.
 
 ## Phase Details
 
@@ -220,7 +221,7 @@ Plans:
 
 - [x] 07a-01-PLAN.md -- Gate bug fix, per-label recall floor patch, and task_scam prompt enrichment (Wave 1)
 - [x] 07a-02-PLAN.md -- Colab H100 notebook training section (Wave 1)
-- [ ] 07a-03-PLAN.md -- Operator workflow: generation, split rebuild, retrain, convert, evaluate, and PASS verdict (Wave 2)
+- [x] 07a-03-PLAN.md -- Operator workflow: generation, split rebuild, retrain, convert, evaluate, and PASS verdict (Wave 2)
 
 ### Phase 7b: App Response Optimization
 
@@ -293,7 +294,7 @@ Plans:
 
 Plans:
 
-- [~] 10-01-PLAN.md -- Final thesis review, references, formatting, and submission package (Tasks 1-3 complete; paused at Task 4 checkpoint awaiting human compile verification)
+- [x] 10-01-PLAN.md -- Final thesis review, references, formatting, and submission package
 
 ### Phase 12: CambridgeUS Presentation Revamp
 
@@ -311,9 +312,9 @@ Plans:
 
 **Plans**:
 
-- [ ] 12-01-PLAN.md — Preamble overhaul: CambridgeUS/beaver theme, CVBLUE color integration, logo, footer template, packages.tex cleanup
-- [ ] 12-02-PLAN.md — Content slide polish: title slide with `\titlepage`, framesubtitle additions, block environment insertions, agenda revamp with `\tableofcontents`
-- [ ] 12-03-PLAN.md — Compile verification: fix any remaining layout issues, handout mode check, final PDF review
+- [x] 12-01-PLAN.md — Preamble overhaul: CambridgeUS/beaver theme, CVBLUE color integration, logo, footer template, packages.tex cleanup
+- [x] 12-02-PLAN.md — Content slide polish: title slide with `\titlepage`, framesubtitle additions, block environment insertions, agenda revamp with `\tableofcontents`
+- [x] 12-03-PLAN.md — Compile verification: fix any remaining layout issues, handout mode check, final PDF review
 
 ### Phase 13: Content Gap Closure — Dataset & QLoRA
 
@@ -339,8 +340,8 @@ Plans:
 
 **Plans:**
 
-- [ ] 13-01-PLAN.md — Report: expand Chapter 3 dataset section (seed scraping + claude-3-5-haiku generation + quality-judge stats) and Chapter 3/4 QLoRA section (training config table + GGUF rationale)
-- [ ] 13-02-PLAN.md — Slides: rewrite 05\_data.tex (TikZ block flow + JSONL snippet) and 07\_model.tex (2-col QLoRA layout); compile verification
+- [x] 13-01-PLAN.md — Report: expand Chapter 3 dataset section (seed scraping + claude-3-5-haiku generation + quality-judge stats) and Chapter 3/4 QLoRA section (training config table + GGUF rationale)
+- [x] 13-02-PLAN.md — Slides: rewrite 05\_data.tex (TikZ block flow + JSONL snippet) and 07\_model.tex (2-col QLoRA layout); compile verification
 
 ## Progress Table
 
@@ -353,14 +354,14 @@ Plans:
 | 5. Recall-Priority Evaluation and Release Gates | 4/4 | Complete | 2026-05-25 |
 | 6. Local Demo UI for Non-Technical Verification | 1/1 | Complete | 2026-05-25 |
 | 7. Proposal Closeout and Quantitative Validation | 2/2 | Complete | 2026-05-26 |
-| 7a. task_scam Recall Recovery | 0/3 | Planned | — |
-| 7b. App Response Optimization | 1/2 | In Progress | — |
+| 7a. task_scam Recall Recovery | 3/3 | Complete | 2026-05-28 |
+| 7b. App Response Optimization | 2/2 | Complete (07b-02 skipped) | 2026-05-29 |
 | 8. Thesis Structure and Evidence Map | 1/1 | Complete | 2026-05-29 |
 | 9. Core Thesis Chapter Drafting | 3/3 | Complete | 2026-05-29 |
-| 10. Final Thesis Review and Submission Polish | 0/1 | In Progress (checkpoint) | — |
+| 10. Final Thesis Review and Submission Polish | 1/1 | Complete | 2026-06-03 |
 | 11. Beamer Defense Presentation (Metropolis prototype) | 3/3 | Superseded by Phase 12 | 2026-06-03 |
-| 12. CambridgeUS Presentation Revamp | 0/3 | Planned | — |
-| 13. Content Gap Closure — Dataset & QLoRA | 0/2 | Planned | — |
+| 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
+| 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
 
 ## Coverage Validation
 

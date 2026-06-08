@@ -51,26 +51,24 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v1.5 Content Gap Closure — Dataset & QLoRA
+## Completed Milestone: v1.5 Content Gap Closure — Dataset & QLoRA
 
-**Goal:** Fill the critical content gaps in both the thesis report and the defense slides: (1) dataset construction via tinnhiemmang.vn seed scraping and claude-3-5-haiku synthetic generation, and (2) QLoRA fine-tuning with verified hyperparameters and training metrics.
+**Closed:** 2026-06-08
 
-**Target features:**
+**Delivered:**
 
-- Slide 05 (Data Pipeline): visual TikZ block flow — tinnhiemmang.vn seeds → claude-3-5-haiku API → Pydantic Judge → JSONL Output — plus an inline JSONL snippet
-- Slide 07 (Model): 2-column layout showing QLoRA constraints (r=16, α=32, NF4, loss=0.4951, 1,733s) and hardware rationale (6 GB VRAM, GGUF Q8_0 for CPU)
-- Report Chapter 3: ≤1-paragraph dataset scraping section + claude-3-5-haiku generation prose + quality-judge stats
-- Report Chapter 3/4: QLoRA training config table (r=16, α=32, checkpoint-505, loss=0.4951, 1,733s) with adapter→GGUF rationale
-- All content written as intentional pipeline design — no 0.44 recall history, no "repaired" dataset language
+- Slide 05 (Data Pipeline): TikZ 4-step block flow (tinnhiemmang.vn → claude-3-5-haiku → Pydantic Judge → JSONL Output) + inline JSONL schema snippet. Arrow labels removed to prevent overlap.
+- Slide 07 (Model): 2-column block layout — QLoRA config (r=16, α=32, NF4, step-505, loss=0.4951, 1,733s) left; hardware rationale (6 GB VRAM, GGUF Q8_0, ~13s CPU) right. All tabular labels shortened to prevent hbox overflow.
+- Slide 06 (Why Local): cloud_vs_local figure widened, full-width scalebox 0.85, bullets below.
+- Report Chapter 3: tinnhiemmang.vn + claude-3-5-haiku generation in data section; QLoRA forward pass equation h=W₀x+(α/r)BAx; training config table (tables/qlora_config.tex).
+- Thesis system overview figure: redesigned wider with CVBLUE/charcoal headers — fits A4 without resizebox.
+- All [?] citation issues resolved via bibtex pass. Both thesis and slides compile zero errors.
 
 ## Current State
 
-- Phase 1 remains complete and closed on the retained recovered dataset lineage.
-- Phase 2 is complete: the repo has a shipped local heuristic runtime with typed contracts, a doctor command, a stdin-first CLI, `vnphish` console script wiring, and user-facing docs for the Phase 2 privacy boundary.
-- Phase 3 is complete: the repo has a locked Qwen pilot catalog, real local PEFT and transformers training, completed retained-dataset adapter runs for `qwen3-4b-instruct-2507` and `qwen3.5-4b`, a real GGUF conversion path, a doctor-ready baseline GGUF runtime, and a real accelerated runner-up runtime.
-- The consumer-laptop CPU or iGPU target is already satisfied as an inference requirement through the GGUF path. Training remains a GPU-capable local workflow, not a CPU-only objective.
-- The base six-phase v1 milestone is complete, including the runtime-backed local demo UI and Phase 5/6 UAT closure.
-- Immediate focus is now Phase 7 proposal closeout: finalize one validated 2,500-3,000 row dataset artifact, freeze seed-disjoint train/val/test splits with held-out risky-label coverage, retrain the locked baseline winner if needed, and generate one final held-out evaluation package that states whether the proposal F1 target was met.
+- All 13 phases complete across milestones v1.0, v1.2, v1.5.
+- Thesis report and defense slides are content-complete and compile-clean.
+- Project is ready for graduation submission or the next milestone.
 
 ---
-Last updated: 2026-05-25 after the six-phase v1 implementation milestone closed and a new Phase 7 proposal-closeout milestone was queued
+Last updated: 2026-06-08 after milestone v1.5 (content gap closure) closed all phases complete
