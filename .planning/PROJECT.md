@@ -15,10 +15,11 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Phase 1 complete and closed (implementation 2026-04-20, retained artifact closure 2026-05-07): reproducible data foundation established with seed scraping, synthetic generation, recovered-artifact curation, quality judging, deterministic split governance, and SHA256 manifest verification.
 - Phase 4 complete and closed (implementation plus UAT/security closeout 2026-05-25): the local runtime now returns stable risk tiers, in-scope threat labels, grounded cues, and safe next steps through the shipped GGUF and accelerated paths, with fail-closed doctor-backed defaults.
 - Phase 6 complete and closed (implementation plus UAT closeout 2026-05-25): the repo now ships a defense-ready local demo UI over the existing runtime contract and keeps the interface text-only and local-first.
+- Phase 14 complete and closed (2026-06-08): the local demo now has a static chat-shell scaffold with Be Vietnam Pro, `100dvh`, a page-load ARIA live thread, a pinned safe-area composer, and clone-safe `data-slot` templates.
 
 ### Active
 
-- [ ] Replace AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework).
+- [ ] Continue the v2.0 chat UI revamp: move strings into `i18n.js`, rewrite the submit lifecycle, then validate polish, mobile, and accessibility behavior.
 
 ### Out of Scope
 
@@ -78,9 +79,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 ## Current State
 
-- All 13 phases complete across milestones v1.0, v1.2, v1.5.
+- All 14 completed phases are closed across milestones v1.0, v1.2, v1.5, and the first v2.0 chat UI scaffold phase.
 - Thesis report and defense slides are content-complete and compile-clean.
-- Project is ready for graduation submission or the next milestone.
+- v2.0 static HTML/CSS scaffold is complete; next work is Phase 15 (`i18n.js` plus static route).
 
 ---
-Last updated: 2026-06-08 after milestone v1.5 (content gap closure) closed all phases complete
+Last updated: 2026-06-08 after Phase 14 closed the static chat-shell scaffold

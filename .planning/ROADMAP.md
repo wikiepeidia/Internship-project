@@ -21,7 +21,7 @@
 - [x] **Phase 11: Beamer Defense Presentation (Metropolis prototype)** - Built Metropolis-themed skeleton; superseded by Phase 12 revamp.
 - [x] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides. Closed 2026-06-05: zero XeLaTeX errors.
 - [x] **Phase 13: Content Gap Closure — Dataset & QLoRA** - Document dataset pipeline (tinnhiemmang.vn + claude-3-5-haiku + Pydantic judge) and QLoRA config in thesis report and defense slides. Closed 2026-06-08: all 8 GAP requirements met, zero compile errors.
-- [ ] **Phase 14: CSS + HTML Scaffolding** - Rewrite demo.css and index.html with chat-bubble layout, Be Vietnam Pro CDN, dvh viewport, pre-rendered ARIA live region, and no-id templates.
+- [x] **Phase 14: CSS + HTML Scaffolding** - Rewrite demo.css and index.html with chat-bubble layout, Be Vietnam Pro CDN, dvh viewport, pre-rendered ARIA live region, and no-id templates. Closed 2026-06-08.
 - [ ] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it.
 - [ ] **Phase 16: demo.js Core Fetch Lifecycle** - Full JS rewrite delivering the end-to-end chat interaction: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history, and rAF scroll.
 - [ ] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit.
@@ -382,6 +382,9 @@ Plans:
 **Goal**: The page loads with a structurally correct chat-bubble layout, Be Vietnam Pro font, dvh viewport, and an ARIA live region — verifiable before any JavaScript runs.
 **Depends on**: Phase 13
 **Requirements**: INFRA-01
+
+**Follow-up note (2026-06-08)**: Phase 14 shipped the static vanilla chat shell with Be Vietnam Pro, `100dvh`, a page-load `role="log"` / `aria-live="polite"` thread, a pinned safe-area composer, and `data-slot` template internals. `demo.py` and the analysis API remain unchanged; Phase 16 owns the JavaScript submit-render migration from old inner-ID selectors to `data-slot`.
+
 **Success Criteria** (what must be TRUE):
 
 1. Opening `index.html` in a browser shows a chat-shell layout (header, scrollable thread area, fixed input bar at the bottom) with no JS errors.
@@ -392,7 +395,7 @@ Plans:
 **Plans**: 1 plan
 Plans:
 
-- [ ] 14-01-PLAN.md -- Static chat shell scaffold
+- [x] 14-01-PLAN.md -- Static chat shell scaffold
 
 **UI hint**: yes
 
@@ -476,7 +479,7 @@ Plans:
 | 11. Beamer Defense Presentation (Metropolis prototype) | 3/3 | Superseded by Phase 12 | 2026-06-03 |
 | 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
 | 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
-| 14. CSS + HTML Scaffolding | 0/1 | Planned | - |
+| 14. CSS + HTML Scaffolding | 1/1 | Complete | 2026-06-08 |
 | 15. i18n.js + demo.py Static Route | 0/TBD | Not started | - |
 | 16. demo.js Core Fetch Lifecycle | 0/TBD | Not started | - |
 | 17. Polish + Edge Cases | 0/TBD | Not started | - |

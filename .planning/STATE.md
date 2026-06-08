@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Chat UI Revamp
-status: Phase 14 planned — ready for /gsd-execute-phase 14
-last_updated: "2026-06-08T10:23:04.311Z"
-last_activity: 2026-06-08 — Phase 14 plan created
+status: Phase 14 complete — ready for /gsd-discuss-phase 15 or /gsd-plan-phase 15
+last_updated: "2026-06-08T10:33:00.313Z"
+last_activity: 2026-06-08 — Phase 14 executed and verified
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend is frozen — only one static route added to demo.py.
+- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend remains frozen except for the planned Phase 15 `i18n.js` static route.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -29,12 +29,12 @@ progress:
 
 ## Current Position
 
-Phase: Phase 14 (not yet started)
-Plan: 1 of 1
-Status: Phase 14 planned — ready for /gsd-execute-phase 14
-Last activity: 2026-06-08 — Phase 14 plan created
+Phase: Phase 15 (not yet planned)
+Plan: TBD
+Status: Phase 14 complete — ready for /gsd-discuss-phase 15 or /gsd-plan-phase 15
+Last activity: 2026-06-08 — Phase 14 executed and verified
 
-Progress bar: [----------] 0% (0/5 phases complete)
+Progress bar: [##--------] 20% (1/5 phases complete)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -69,9 +69,11 @@ Progress bar: [----------] 0% (0/5 phases complete)
 - Phase 8 Plan 01 COMPLETE: the current six-chapter main.tex structure is the locked working thesis template. No parallel tree exists. Titlepage updated to GRADUATION THESIS. Chapter 5 stale Phase~7 reference removed. EVIDENCE_MAP.md and WRITING_GUARDRAILS.md created in documents/reports/latex/ (gitignored) and mirrored as 08-EVIDENCE_MAP.md and 08-WRITING_GUARDRAILS.md in .planning/phases/08-*. Six verified BibTeX entries seeded. Citation rendering and in-text insertion deferred to Phase 9.
 - Final verdict wording rule confirmed: thesis paragraphs use plain prose ("not release-ready under its own safety gate"); literal BLOCK label stays in tables, appendix notes, or guardrail files only.
 - Chapter 5 evidence-depth rule confirmed: evidence must come from tracked manifests and saved evaluation artifacts; off-repo training numbers are optional appendix-only support.
-- v2.0 Chat UI Revamp: backend is fully frozen. Only one line added to demo.py (GET /static/i18n.js static route). All UI work is client-side vanilla HTML/CSS/JS.
+- v2.0 Chat UI Revamp: backend remains frozen except for the planned Phase 15 `GET /static/i18n.js` route. All UI work is client-side vanilla HTML/CSS/JS.
 - v2.0 font stack: "Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif. Line-height minimum 1.65 on Vietnamese-content elements.
 - v2.0 pitfall registry: template id collision (use data-slot instead of id on inner nodes), mobile height collapse (100dvh → 100dvh + flex:1 1 0 min-height:0 on thread), ARIA live region must be in HTML at page load (not JS-injected), re-entrant submit (use AbortController.abort() before each fetch), scroll anchor race (wrap in requestAnimationFrame).
+- Phase 14 static scaffold is now the baseline: `index.html` loads Be Vietnam Pro, starts with `lang="vi"`, renders a compact local-first/text-only header, has a page-load `role="log"` / `aria-live="polite"` chat thread, and keeps the composer pinned with safe-area padding.
+- Phase 14 template rule: outer compatibility IDs `result-template` and `error-template` remain, but all cloned template internals use `data-slot`. Phase 16 must update `demo.js` from old inner-ID queries to `data-slot` selectors.
 
 ### Requirement Coverage Snapshot
 
@@ -83,11 +85,11 @@ Progress bar: [----------] 0% (0/5 phases complete)
 
 - ~~Graduation risk if the thesis overstates blocked quality results or hides the final `task_scam` recall shortfall~~ — RESOLVED. Phase 7a closed PASS: task_scam recall=0.871 ≥ 0.80 floor.
 - ~~Evaluation gate bug: `audit.ready=true` despite `task_scam` recall=0.44~~ — RESOLVED. `RISKY_LABEL_RECALL_FLOORS` per-label dict now correctly gates task_scam at 0.80.
-- Template id collision: if any inner template node uses an id attribute, cloning the template for multiple bubbles will create duplicate ids and break DOM queries. Fix: use data-slot attributes only.
+- Template id collision: Phase 14 scaffold is clean; downstream phases must preserve `data-slot` internals and avoid adding IDs inside cloned template content.
 - Mobile soft keyboard collapse: iOS Safari shrinks the viewport height when the soft keyboard appears, pushing the input bar off screen. Fix: use height: 100dvh on the root shell; flex: 1 1 0; min-height: 0 on the thread area; padding-bottom: env(safe-area-inset-bottom) on the input bar.
 - Re-entrant fetch with wsgiref: wsgiref handles one request at a time. A second submit while one is pending will queue and block. Fix: call currentController?.abort() before each new fetch; catch AbortError silently.
 - Scroll anchor race: appending a bubble and immediately setting scrollTop can execute before the browser has painted the new content height. Fix: wrap in requestAnimationFrame(() => container.scrollTop = container.scrollHeight).
-- ARIA live region late registration: if the div[role="log"] aria-live="polite"] element is injected by JS after page load, some screen readers will not observe it. Fix: include it in the static HTML, empty, at page load.
+- ARIA live region late registration: Phase 14 fixed this in static HTML; downstream phases must keep `id="result-panel"` as a page-load `role="log"` / `aria-live="polite"` thread.
 - Colab H100 Colab session time limit may interrupt long training runs; checkpoint resume is supported in the training CLI.
 - The writing window is short, so the outline and evidence map must prevent chapter drift and last-minute scope changes.
 - Thesis tone can easily drift into AI-like or internal-process wording if the draft is assembled directly from planning artifacts.
@@ -104,8 +106,8 @@ Progress bar: [----------] 0% (0/5 phases complete)
 ## Session Continuity
 
 - Last session: 2026-06-08
-- Stopped at: Phase 14 planned. Ready to execute 14-01.
-- Resume file: `.planning/phases/14-css-html-scaffolding/14-01-PLAN.md`
+- Stopped at: Phase 14 complete and verified. Ready to discuss or plan Phase 15.
+- Resume file: `.planning/phases/14-css-html-scaffolding/14-01-SUMMARY.md`
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -128,7 +130,7 @@ Progress bar: [----------] 0% (0/5 phases complete)
 - The repaired-holdout refresh completed end-to-end on 2026-05-26, regenerating `05-evaluation-snapshot.json`, `05-explanation-review-pack.json`, and the final release-eval markdown plus JSON artifacts.
 - Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
 - Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
-- Resume signal: Phase 14 plan is complete. Next command: `/gsd-execute-phase 14`
+- Resume signal: Phase 14 is complete. Next command: `/gsd-discuss-phase 15` or `/gsd-plan-phase 15`
 
 ## Quick Tasks Completed
 
@@ -136,3 +138,4 @@ Progress bar: [----------] 0% (0/5 phases complete)
 | ---- | ---------- | ------- |
 | 2026-05-31 | `260531-nhp` scope-check TODO thesis tasks | Complete. No top-level TODO item is outside the current thesis-writing milestone, but Tasks 3-4 use stale pre-recovery metrics and Tasks 8, 11, and 12 must stay evidence-bound and documentation-only. |
 | 2026-06-08 | v2.0 roadmap creation | Complete. Phases 14–18 defined, 15/15 v2.0 requirements mapped, ROADMAP.md and REQUIREMENTS.md updated. |
+| 2026-06-08 | Phase 14 static chat shell execution | Complete. `index.html`, `demo.css`, and focused demo tests now lock the Be Vietnam Pro, `100dvh`, ARIA live thread, pinned composer, and no-inner-ID template scaffold. |

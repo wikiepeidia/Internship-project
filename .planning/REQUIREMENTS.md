@@ -1,7 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-08 (v2.0 Chat UI Revamp requirements added and mapped)
+**Updated:** 2026-06-08 (Phase 14 completed INFRA-01)
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -261,7 +261,7 @@ Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingu
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Demo page loads Be Vietnam Pro from Google Fonts CDN to ensure correct Vietnamese diacritic rendering on macOS and Linux
+- [x] **INFRA-01**: Demo page loads Be Vietnam Pro from Google Fonts CDN to ensure correct Vietnamese diacritic rendering on macOS and Linux
 - [ ] **INFRA-02**: `demo.py` serves `i18n.js` as a static file; all other backend routes and the `POST /api/analyze` contract remain unchanged
 
 | CHAT-01 | Phase 16 | Pending |
@@ -277,7 +277,7 @@ Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingu
 | POLISH-03 | Phase 17 | Pending |
 | I18N-01 | Phase 15 | Pending |
 | I18N-02 | Phase 15 | Pending |
-| INFRA-01 | Phase 14 | Pending |
+| INFRA-01 | Phase 14 | Complete |
 | INFRA-02 | Phase 15 | Pending |
 
 **Coverage (v2.0):**
@@ -294,4 +294,4 @@ Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingu
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-08 — v2.0 Chat UI Revamp requirements mapped to Phases 14–17*
+*Last updated: 2026-06-08 — Phase 14 completed INFRA-01; remaining v2.0 requirements stay mapped to Phases 15–17*
