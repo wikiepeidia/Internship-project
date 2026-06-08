@@ -231,6 +231,46 @@ Requirements for filling the dataset and QLoRA documentation gaps in both the th
 - mapped to phases: 40
 - Unmapped: 0 ✅
 
+## v2.0 Requirements — Chat UI Revamp
+
+Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface. Backend is frozen.
+
+### Chat Layout
+
+- [ ] **CHAT-01**: User can send a message and see it appear as a right-aligned bubble in the chat thread
+- [ ] **CHAT-02**: User sees the bot reply as a left-aligned bubble containing risk tier badge, Vietnamese verdict, grounded cues, and safe next steps
+- [ ] **CHAT-03**: User sees animated typing dots while the local model is analyzing (5–30 s inference window)
+- [ ] **CHAT-04**: Chat thread auto-scrolls to the latest message after each new bubble is appended
+
+### Input Bar
+
+- [ ] **INPUT-01**: User sends a message by pressing Enter; Shift+Enter inserts a newline without sending
+- [ ] **INPUT-02**: User selects the message channel (SMS, Zalo, Messenger, Telegram, Facebook) via an inline picker beside the send button
+- [ ] **INPUT-03**: Send button is disabled while an analysis is in-flight; textarea stays editable so user can prepare the next message
+- [ ] **INPUT-04**: User can click a sample button to load a pre-written phishing message and auto-submit it
+
+### Polish
+
+- [ ] **POLISH-01**: User can expand or collapse grounded cues and safe next steps sections via `<details>` elements
+- [ ] **POLISH-02**: User can clear the entire chat thread and abort any in-flight request with a single button
+- [ ] **POLISH-03**: Each new bubble animates in with a subtle entrance effect; animation is suppressed when `prefers-reduced-motion` is active
+
+### Bilingual
+
+- [ ] **I18N-01**: UI labels, input placeholders, bot reply text, and error messages are Vietnamese primary with English technical terms in parentheses (e.g., "Nguy hiểm cao (High risk)")
+- [ ] **I18N-02**: All bilingual strings are managed via a dedicated `i18n.js` file served by the demo server; strings are not hardcoded in HTML
+
+### Infrastructure
+
+- [ ] **INFRA-01**: Demo page loads Be Vietnam Pro from Google Fonts CDN to ensure correct Vietnamese diacritic rendering on macOS and Linux
+- [ ] **INFRA-02**: `demo.py` serves `i18n.js` as a static file; all other backend routes and the `POST /api/analyze` contract remain unchanged
+
+**Coverage (v2.0):**
+
+- tracked requirements: 15
+- mapped to phases: TBD (filled by roadmapper)
+- Unmapped: 15 (pending roadmap)
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-05 — v1.5 Content Gap Closure requirements added (GAP-01 through GAP-08)*
+*Last updated: 2026-06-08 — v2.0 Chat UI Revamp requirements added (CHAT-01 through INFRA-02)*
