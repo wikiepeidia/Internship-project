@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Chat UI Revamp
 status: executing
-last_updated: "2026-06-09T03:15:08.758Z"
-last_activity: 2026-06-09 -- Phase 15 planning complete
+last_updated: "2026-06-09T04:00:00.000Z"
+last_activity: 2026-06-09 -- Phase 15 complete (i18n.js + static route + data-i18n migration)
 progress:
   total_phases: 20
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 45
-  completed_plans: 41
-  percent: 55
+  completed_plans: 42
+  percent: 60
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend remains frozen except for the planned Phase 15 `i18n.js` static route.
+- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend frozen; Phase 15 `GET /static/i18n.js` route now shipped.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -29,12 +29,12 @@ progress:
 
 ## Current Position
 
-Phase: Phase 15 (not yet planned)
+Phase: Phase 16 (next)
 Plan: TBD
-Status: Ready to execute
-Last activity: 2026-06-09 -- Phase 15 planning complete
+Status: Phase 15 complete — ready to execute Phase 16
+Last activity: 2026-06-09 -- Phase 15 complete (i18n.js + static route + data-i18n migration)
 
-Progress bar: [##--------] 20% (1/5 phases complete)
+Progress bar: [####------] 40% (2/5 phases complete)
 
 ## Performance Metrics (Baseline Targets)
 

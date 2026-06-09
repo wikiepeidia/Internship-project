@@ -22,7 +22,7 @@
 - [x] **Phase 12: CambridgeUS Presentation Revamp** - Rebuild the defense deck with CambridgeUS/beaver theme, USTH logo, section header, footer, block environments, and polished content slides. Closed 2026-06-05: zero XeLaTeX errors.
 - [x] **Phase 13: Content Gap Closure — Dataset & QLoRA** - Document dataset pipeline (tinnhiemmang.vn + claude-3-5-haiku + Pydantic judge) and QLoRA config in thesis report and defense slides. Closed 2026-06-08: all 8 GAP requirements met, zero compile errors.
 - [x] **Phase 14: CSS + HTML Scaffolding** - Rewrite demo.css and index.html with chat-bubble layout, Be Vietnam Pro CDN, dvh viewport, pre-rendered ARIA live region, and no-id templates. Closed 2026-06-08.
-- [ ] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it.
+- [x] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it. Closed 2026-06-09.
 - [ ] **Phase 16: demo.js Core Fetch Lifecycle** - Full JS rewrite delivering the end-to-end chat interaction: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history, and rAF scroll.
 - [ ] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit.
 - [ ] **Phase 18: Mobile + Accessibility Validation** - Verify dvh/iOS keyboard behavior, Vietnamese diacritic rendering on macOS and Linux, and screen reader announcement correctness across the completed UI.
@@ -428,7 +428,7 @@ Plans:
 **Plans**: 1 plan
 Plans:
 
-- [ ] 15-01-PLAN.md -- i18n.js creation, demo.py static route, index.html data-i18n migration, and test updates
+- [x] 15-01-PLAN.md -- i18n.js creation, demo.py static route, index.html data-i18n migration, and test updates
 
 ### Phase 16: demo.js Core Fetch Lifecycle
 
@@ -501,7 +501,7 @@ Plans:
 | 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
 | 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
 | 14. CSS + HTML Scaffolding | 1/1 | Complete | 2026-06-08 |
-| 15. i18n.js + demo.py Static Route | 0/1 | Not started | - |
+| 15. i18n.js + demo.py Static Route | 1/1 | Complete | 2026-06-09 |
 | 16. demo.js Core Fetch Lifecycle | 0/TBD | Not started | - |
 | 17. Polish + Edge Cases | 0/TBD | Not started | - |
 | 18. Mobile + Accessibility Validation | 0/TBD | Not started | - |
