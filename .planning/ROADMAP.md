@@ -40,6 +40,7 @@
 2. Team can generate and review a curated synthetic dataset in the 2,000-3,000 JSONL target band.
 3. Every dataset build is versioned with reproducible lineage and split definitions that prevent train/eval leakage.
 4. Evaluators can reproduce the same train/validation/test splits from versioned artifacts on another machine.
+
 **Plans**: 6 plans
 
 Plans:
@@ -62,6 +63,7 @@ Plans:
 2. System correctly accepts Vietnamese and mixed Vietnamese-English content, including common code-switch phrasing.
 3. In default operation, message text is analyzed without cloud API submission and still returns a usable result offline.
 4. Product behavior and docs clearly state v1 is text-only; image/OCR and voice channels are not accepted.
+
 **Plans**: 3 plans
 
 Plans:
@@ -84,6 +86,7 @@ Plans:
 2. User can run a GGUF quantized model path on consumer laptop CPU/iGPU baseline hardware.
 3. User can optionally switch to an accelerated path on prosumer GPU hardware with consistent output schema.
 4. Runtime selection is explicit and does not require switching to cloud-default inference.
+
 **Plans**: 7 plans
 
 Plans:
@@ -108,6 +111,7 @@ Plans:
 3. Explanations cite concrete suspicious cues or spans from the provided text rather than generic warnings.
 4. Output includes actionable user-safe recommendations (for example, do not click links and verify identity via trusted channels).
 5. Responses are provided in a structured format that is stable for downstream UI and testing.
+
 **Plans**: 4 plans
 
 Plans:
@@ -147,6 +151,7 @@ Plans:
 2. Go/no-go gating enforces recall-priority thresholds to minimize false negatives on high-harm classes.
 3. Explanation outputs pass a defined quality rubric for correctness, relevance, and actionability.
 4. A release candidate cannot be marked ready if recall or explanation-quality thresholds fail.
+
 **Plans**: 4 plans
 
 Plans:
@@ -180,6 +185,7 @@ Plans:
 2. The interface presents risk tier, threat labels, grounded cues, and safe recommendations from the shipped local runtime.
 3. The demo stays text-only and local-first rather than adding OCR, screenshots, or cloud-default processing.
 4. The interface is presentation-ready for internship demo use while preserving the Phase 5 release-gated output contract.
+
 **Plans**: 1 plan
 
 Plans:
@@ -200,6 +206,7 @@ Plans:
 2. The repo contains frozen train, validation, and test splits with seed-disjoint lineage and non-zero held-out support for `bank_impersonation`, `zalo_social_engineering`, `task_scam`, and `benign` in the final evaluation path.
 3. The locked baseline winner can be retrained or refreshed from the frozen split set and re-exported to the shipped local runtime path when needed.
 4. The repo contains one final held-out evaluation package that explicitly states whether the proposal target F1 >= 0.85 was achieved.
+
 **Plans**: 2 plans
 
 Plans:
@@ -220,6 +227,7 @@ Plans:
 4. Model retrained on Colab H100 with new data and adapter registered as `task-scam-recovery-2026-05-28`.
 5. Evaluation gate bug fixed: per-label recall floor enforced in `blocker_reasons` / `ready` logic.
 6. `evaluate-release-split` and `release-eval` re-run; final verdict is PASS with task_scam recall ≥0.80.
+
 **Plans**: 3 plans
 
 Plans:
@@ -238,6 +246,7 @@ Plans:
 1. Per-inference latency profiled and bottleneck identified (cold load vs per-request vs context size).
 2. llama.cpp `n_threads`, `n_batch`, and `n_ctx` tuned for the target laptop hardware.
 3. Demo response feels interactive (target: first token or full response within acceptable time for live use).
+
 **Plans**: 2 plans
 
 Plans:
@@ -257,6 +266,7 @@ Plans:
 2. Each main chapter has mapped repo evidence such as artifacts, metrics, commands, or documents that can support its claims.
 3. A writing guardrail note captures tone, terminology, and honesty constraints, including avoidance of AI-like wording and internal GSD jargon.
 4. The remaining writing schedule for the week is concrete enough to drive the drafting work.
+
 **Plans**: 1 plan
 
 Plans:
@@ -275,6 +285,7 @@ Plans:
 2. Thesis sections for risk and explanation design, evaluation approach, and final quantitative results are drafted with honest treatment of the Phase 7 outcome.
 3. Key technical claims in the draft are backed by evidence from repo artifacts or measured outcomes rather than planning notes.
 4. The draft reads like an undergraduate thesis chapter set rather than a changelog or internal workflow summary.
+
 **Plans**: 3 plans
 
 Plans:
@@ -295,6 +306,7 @@ Plans:
 2. References, figures or tables, and formatting are consistent and ready for submission.
 3. The thesis wording avoids AI-like phrasing, GSD jargon, and internal planning-file references.
 4. A final review confirms the thesis is ready to send for graduation judging.
+
 **Plans**: 1 plan
 
 Plans:
@@ -316,6 +328,7 @@ Plans:
 6. Color tokens defined centrally (CVBLUE baseline, user-swappable); 16:9 aspect ratio enforced.
 7. Project split into one `.tex` file per section, all `\input{}`-ed from `main-slides.tex`.
 8. Deck is printable at A4 grayscale with readable text and no overflow.
+
 **Plans**: 3 plans
 
 Plans:
@@ -392,6 +405,7 @@ Plans:
 3. The page height fills the viewport using `100dvh` without a horizontal scrollbar; the thread area scrolls independently when content overflows.
 4. A `<div role="log" aria-live="polite">` chat thread element is present in the DOM at page load (not injected by JS) so screen readers can announce new messages.
 5. No template element uses an `id` attribute on its inner content nodes; all slots are identified by `data-slot` attributes.
+
 **Plans**: 1 plan
 Plans:
 
@@ -410,8 +424,8 @@ Plans:
 2. All visible UI text (input placeholder, send button label, channel selector options, error messages) is rendered from `I18N` keys — zero literal strings hardcoded in `index.html`.
 3. Labels use Vietnamese as the primary language; English technical terms appear in parentheses (for example, "Nguy hiểm cao (High risk)").
 4. `demo.py` serves `i18n.js` via the new static route without modifying any existing route or the `POST /api/analyze` contract.
-**Plans**: 1 plan
 
+**Plans**: 1 plan
 Plans:
 
 - [ ] 15-01-PLAN.md -- i18n.js creation, demo.py static route, index.html data-i18n migration, and test updates
@@ -431,6 +445,7 @@ Plans:
 6. The channel selector (SMS, Zalo, Messenger, Telegram, Facebook) is embedded in the input bar and its value is included in the API request payload.
 7. The send button is disabled and shows a visual in-flight state while a request is pending; a network or model error appends a left-aligned error bubble and re-enables the send button.
 8. An in-memory `history[]` array accumulates all sent messages for the tab lifetime; reloading the page clears history (no localStorage).
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -445,6 +460,7 @@ Plans:
 2. Clicking the clear button removes all bubbles from the thread and aborts any in-flight fetch request in one action.
 3. Each new bubble animates in with a subtle entrance effect (for example, fade-slide); the animation does not play when the `prefers-reduced-motion` media query is active.
 4. Clicking the sample button loads a pre-written Vietnamese phishing message into the textarea and auto-submits it, producing a complete bot reply with no manual send step.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -460,6 +476,7 @@ Plans:
 3. A screen reader (VoiceOver or NVDA) announces each new message appended to the chat thread without requiring the user to navigate manually to the thread region.
 4. Submitting a long message (near the runtime text-length cap) returns a valid bot bubble without layout breakage or scroll anchor failure.
 5. Clicking "clear" while a request is in-flight cancels the fetch cleanly — no unhandled promise rejection, no orphaned typing indicator left in the DOM.
+
 **Plans**: TBD
 
 ---
