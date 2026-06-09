@@ -292,6 +292,54 @@ Requirements for milestone v2.0. Replaces the AI-demo card layout with a bilingu
 - mapped to phases: 55
 - Unmapped: 0
 
+## v2.1 Requirements — Defense Corrections
+
+Requirements for milestone v2.1. Addresses all supervisor feedback on slides, model evaluation, and report. Each maps to roadmap phases 19-21.
+
+### Slide Content Fixes (Phase 19)
+
+- [ ] **SLIDE-01**: Title slide revised — clarify scope as fine-tuning a model, not building a production app; "Localized" qualifier explained or replaced.
+- [ ] **SLIDE-02**: Slide 2 retitled "Table of Contents"; slide order corrected (Why Local moved to follow Motivation).
+- [ ] **SLIDE-03**: Slide 4 (pipeline) renamed away from "System Architecture"; synthetic data note added clarifying it is not used for val/test; "Versioned Splits" renamed to "Data Splits".
+- [ ] **SLIDE-04**: Slide 5 (data): brief Pydantic explanation added; T-test or quality metric for synthetic data quality mentioned.
+- [ ] **SLIDE-05**: Slide 6 (privacy/why local) replaces jailbreak content with researched evidence of ChatGPT/cloud API data leakage incidents.
+- [ ] **SLIDE-06**: Slide 8 (training): `1,733s` label clarified as seconds not "1 second"; quantization mismatch explained — QLoRA 4-bit for training efficiency vs GGUF Q8_0 for CPU inference.
+- [ ] **SLIDE-07**: Reference slide added at end of deck.
+
+### Binary Evaluation Re-run (Phase 20)
+
+- [ ] **EVAL-04**: Model evaluated as 2-class binary classification: scam vs non-scam.
+- [ ] **EVAL-05**: Slides 9 and 10 updated with binary evaluation results; bar charts replaced with tables.
+
+### Report Revisions (Phase 21)
+
+- [ ] **REPORT-01**: Report sections updated to match corrected slide content after Phase 19 fixes land.
+- [ ] **REPORT-02**: Privacy section updated with researched ChatGPT/cloud API data leakage evidence consistent with Slide 6 fix.
+
+| SLIDE-01 | Phase 19 | Pending |
+| SLIDE-02 | Phase 19 | Pending |
+| SLIDE-03 | Phase 19 | Pending |
+| SLIDE-04 | Phase 19 | Pending |
+| SLIDE-05 | Phase 19 | Pending |
+| SLIDE-06 | Phase 19 | Pending |
+| SLIDE-07 | Phase 19 | Pending |
+| EVAL-04 | Phase 20 | Pending |
+| EVAL-05 | Phase 20 | Pending |
+| REPORT-01 | Phase 21 | Pending |
+| REPORT-02 | Phase 21 | Pending |
+
+**Coverage (v2.1):**
+
+- tracked requirements: 11
+- mapped to phases: 11
+- Unmapped: 0
+
+**Coverage (all milestones):**
+
+- tracked requirements: 66 total (55 prior milestones + 11 v2.1)
+- mapped to phases: 66
+- Unmapped: 0
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-08 — Phase 14 completed INFRA-01; remaining v2.0 requirements stay mapped to Phases 15–17*
+*Last updated: 2026-06-09 — v2.1 Defense Corrections requirements added; phases 19-21 defined*

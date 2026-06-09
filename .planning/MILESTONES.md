@@ -13,3 +13,17 @@
 - Code fix: `src/runtime/demo_assets/demo.css`
 
 ---
+
+## v2.1 Defense Corrections (Started: 2026-06-09)
+
+**Status:** In progress — Phase 19 next
+
+**Phases planned:** 19 (Slide Content Fixes), 20 (Binary Eval Re-run), 21 (Report Revisions)
+
+**Goals:**
+
+- Fix all defense slides per supervisor feedback
+- Re-run model evaluation as binary (scam vs non-scam)
+- Update thesis report to match corrected slides
+
+---

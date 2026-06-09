@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Chat UI Revamp
-status: Awaiting next milestone
-last_updated: "2026-06-09T03:35:43.689Z"
-last_activity: 2026-06-09 — Milestone v2.0 completed and archived
+milestone: v2.1
+milestone_name: Defense Corrections
+status: Ready — Phase 19 next
+last_updated: "2026-06-09"
+last_activity: 2026-06-09 — Milestone v2.1 Defense Corrections started; phases 19-21 defined
 progress:
-  total_phases: 20
-  completed_phases: 13
-  total_plans: 46
-  completed_plans: 45
-  percent: 65
+  total_phases: 21
+  completed_phases: 18
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework). Backend frozen; Phase 15 `GET /static/i18n.js` route now shipped.
+- Current milestone focus: Fix all defense slides per supervisor feedback (title, pipeline naming, privacy/API leak, training time, quantization), re-run binary evaluation (scam vs non-scam), and update the thesis report accordingly.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -29,10 +29,10 @@ progress:
 
 ## Current Position
 
-Phase: Milestone v2.0 complete
+Phase: 19 — Slide Content Fixes (not started)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-09 — Milestone v2.0 completed and archived
+Status: Ready to plan Phase 19
+Last activity: 2026-06-09 — Milestone v2.1 Defense Corrections started; phases 19-21 defined
 
 ## Performance Metrics (Baseline Targets)
 
@@ -128,7 +128,7 @@ Last activity: 2026-06-09 — Milestone v2.0 completed and archived
 - The repaired-holdout refresh completed end-to-end on 2026-05-26, regenerating `05-evaluation-snapshot.json`, `05-explanation-review-pack.json`, and the final release-eval markdown plus JSON artifacts.
 - Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
 - Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
-- Resume signal: Phase 14 is complete. Next command: `/gsd-discuss-phase 15` or `/gsd-plan-phase 15`
+- Resume signal: Milestone v2.1 started. Next command: `/gsd-plan-phase 19` or `/gsd-autonomous`
 
 ## Quick Tasks Completed
 
@@ -141,4 +141,5 @@ Last activity: 2026-06-09 — Milestone v2.0 completed and archived
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Run `/gsd-plan-phase 19` to plan slide content fixes
+- Run `/gsd-autonomous` to execute all three phases autonomously

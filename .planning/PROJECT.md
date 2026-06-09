@@ -52,17 +52,33 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v2.0 Chat UI Revamp
+## Current Milestone: v2.1 Defense Corrections
 
-**Goal:** Replace the AI-demo card layout with a bilingual Vietnamese/English chat-bubble interface that feels like a real messenger app.
+**Goal:** Fix all slides, re-run model evaluation as binary scam/non-scam, and update the thesis report per supervisor feedback before the final defense.
 
 **Target features:**
 
-- Chat thread layout: user text appears as right-aligned bubble, bot reply as left-aligned bubble
-- Bot reply: single structured bubble containing risk tier badge + Vietnamese verdict + grounded cues + safe next steps
-- Bilingual UI text — Vietnamese primary, English for technical terms (e.g., Risk tier)
-- Channel selector embedded in chat input bar (small pill or inline dropdown beside send button)
-- Vanilla HTML/CSS/JS — no framework, no build step; Python WSGI backend unchanged
+- Slide 1: title clarified — scope is model fine-tuning, not production app
+- Slide 2: "Agenda" → "Table of Contents"; slide order fixed (Why Local after Motivation)
+- Slide 4: pipeline renamed (not "System Architecture"); synthetic data usage note; "Data Splits"
+- Slide 5: Pydantic explanation; T-test / quality metric for synthetic data
+- Slide 6: replace jailbreak content with researched ChatGPT/cloud API data leakage evidence
+- Slide 8: clarify training time unit (seconds); explain QLoRA 4-bit training vs GGUF Q8_0 inference
+- Slides 9-10: binary evaluation (scam vs non-scam); charts → tables
+- Reference slide added
+- Report updated to match slide corrections + privacy section updated with API leak research
+
+## Completed Milestone: v2.0 Chat UI Revamp
+
+**Closed:** 2026-06-09
+
+**Delivered:**
+
+- Bilingual Vietnamese/English chat-bubble interface (vanilla HTML/CSS/JS, no framework)
+- `i18n.js` bilingual string table served as a static asset
+- Full fetch lifecycle: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history
+- Collapsible `<details>` sections, bubble entrance animations, clear button, sample button auto-submit
+- `100dvh` + `flex: 1 1 0` + `env(safe-area-inset-bottom)` mobile viewport; screen reader ARIA live region
 
 ## Completed Milestone: v1.5 Content Gap Closure — Dataset & QLoRA
 
