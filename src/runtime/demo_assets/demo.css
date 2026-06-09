@@ -99,9 +99,33 @@ h1 {
   gap: 8px;
 }
 
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
 .status-strip {
   justify-content: flex-end;
   flex: 0 0 auto;
+}
+
+.ghost-button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgba(180, 35, 24, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--red);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ghost-button:hover {
+  background: var(--red-soft);
 }
 
 .status-strip span,
@@ -137,12 +161,25 @@ h1 {
   scroll-behavior: smooth;
 }
 
+@keyframes msg-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .message {
   display: flex;
   gap: 10px;
   align-items: flex-end;
   width: 100%;
   margin: 0 0 16px;
+  animation: msg-enter 0.2s ease-out both;
 }
 
 .message--bot {
@@ -222,12 +259,31 @@ h1 {
 .field-label,
 .channel-field span,
 .meta-grid dt,
-.detail-section h3 {
+.detail-section summary {
   display: block;
   margin: 0 0 7px;
   color: var(--navy);
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+.detail-section summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.detail-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-section summary::before {
+  content: "▸ ";
+  font-size: 0.72rem;
+  color: var(--teal);
+}
+
+details.detail-section[open] > summary::before {
+  content: "▾ ";
 }
 
 textarea,

@@ -50,5 +50,6 @@ window.I18N = {
   ERR_NETWORK_STEP: "Thử lại sau khi runtime cục bộ đã tải xong.",
   TYPING_META: "Đang phân tích",
   TYPING_ARIA: "Đang xử lý",
-  LIST_EMPTY: "Không có"
+  LIST_EMPTY: "Không có",
+  CLEAR_BTN: "Xóa"
 };

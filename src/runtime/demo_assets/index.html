@@ -21,9 +21,12 @@
         <p class="eyebrow" data-i18n="EYEBROW">VN Phishing Detection</p>
         <h1 data-i18n="H1">Kiểm tra tin nhắn đáng ngờ</h1>
       </div>
-      <div class="status-strip">
-        <span data-i18n="STATUS_LOCAL_FIRST">Local-first</span>
-        <span data-i18n="STATUS_TEXT_ONLY">Text-only</span>
+      <div class="app-header__actions">
+        <div class="status-strip">
+          <span data-i18n="STATUS_LOCAL_FIRST">Local-first</span>
+          <span data-i18n="STATUS_TEXT_ONLY">Text-only</span>
+        </div>
+        <button id="clear-button" type="button" class="ghost-button" data-i18n="CLEAR_BTN">Xóa</button>
       </div>
     </header>
 
@@ -105,15 +108,15 @@
           </div>
         </dl>
 
-        <section class="detail-section">
-          <h3 data-i18n="CUES_HEADING">Dấu hiệu trong tin nhắn</h3>
+        <details class="detail-section" open>
+          <summary data-i18n="CUES_HEADING">Dấu hiệu trong tin nhắn</summary>
           <ul class="detail-list" data-slot="grounded-cues"></ul>
-        </section>
+        </details>
 
-        <section class="detail-section">
-          <h3 data-i18n="STEPS_HEADING">Bước an toàn tiếp theo</h3>
+        <details class="detail-section" open>
+          <summary data-i18n="STEPS_HEADING">Bước an toàn tiếp theo</summary>
           <ul class="detail-list" data-slot="recommendations"></ul>
-        </section>
+        </details>
       </div>
     </article>
   </template>

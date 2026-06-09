@@ -53,6 +53,7 @@ def test_demo_index_serves_text_only_form():
     assert 'id="channel-select"' in html
     assert 'id="sample-button"' in html
     assert 'id="analyze-button"' in html
+    assert 'id="clear-button"' in html
     assert 'id="result-panel"' in html
     assert 'role="log"' in html
     assert 'aria-live="polite"' in html

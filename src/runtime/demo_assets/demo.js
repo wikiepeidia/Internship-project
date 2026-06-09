@@ -4,6 +4,7 @@ const messageInput = document.getElementById('message-input');
 const channelSelect = document.getElementById('channel-select');
 const analyzeButton = document.getElementById('analyze-button');
 const sampleButton = document.getElementById('sample-button');
+const clearButton = document.getElementById('clear-button');
 const resultPanel = document.getElementById('result-panel');
 const userMsgTpl = document.getElementById('user-message-template');
 const resultTpl = document.getElementById('result-template');
@@ -184,8 +185,15 @@ messageInput.addEventListener('keydown', (event) => {
   }
 });
 
+clearButton.addEventListener('click', () => {
+  if (currentController) { currentController.abort(); currentController = null; }
+  resultPanel.replaceChildren();
+  resultPanel.classList.add('result-panel--empty');
+  setBusyState(false);
+});
+
 sampleButton.addEventListener('click', () => {
   messageInput.value = sampleText;
   channelSelect.value = 'sms';
-  messageInput.focus();
+  form.requestSubmit();
 });
