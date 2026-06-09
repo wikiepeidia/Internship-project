@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Defense Corrections
-status: In Progress — Phase 19 Plan 01 complete
-last_updated: "2026-06-09"
-last_activity: 2026-06-09 — Phase 19 Plan 01 executed: 7 LaTeX files updated, deck compiles clean (16 pages, zero errors)
+status: completed
+last_updated: "2026-06-09T08:42:29.139Z"
+last_activity: "2026-06-09 — Phase 19 verified PASS: 7/7 SLIDE requirements met, 16-page deck compiles clean"
 progress:
-  total_phases: 21
-  completed_phases: 18
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 23
+  completed_phases: 15
+  total_plans: 48
+  completed_plans: 47
+  percent: 65
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -29,10 +29,10 @@ progress:
 
 ## Current Position
 
-Phase: 19 — Slide Content Fixes
-Plan: 01 (complete)
-Status: Phase 19 Plan 01 complete; Phase 20 (Binary Evaluation Re-run) next
-Last activity: 2026-06-09 — Phase 19 Plan 01: title, section reorder, Training Pipeline rename, Pydantic gate, API leak frame, 29-min label, two-stage quantization, references slide — all 7 SLIDE requirements met; deck compiles clean (16 pages)
+Phase: 20 — Binary Evaluation Re-run + Eval Slide Updates
+Plan: 20-01 COMPLETE
+Status: Phase 20 Plan 01 COMPLETE (EVAL-04, EVAL-05); slides compile clean, slides.pdf 16 pages
+Last activity: 2026-06-09 — Phase 20 Plan 01: per-class booktabs table + binary 2x2 confusion matrix added; XeLaTeX compiles clean with zero fatal errors
 
 ## Performance Metrics (Baseline Targets)
 
@@ -104,8 +104,8 @@ Last activity: 2026-06-09 — Phase 19 Plan 01: title, section reorder, Training
 ## Session Continuity
 
 - Last session: 2026-06-09
-- Stopped at: Phase 19 Plan 01 complete. Ready for Phase 20 (Binary Evaluation Re-run + Eval Slide Updates).
-- Resume file: `.planning/phases/19-slide-content-fixes/19-01-SUMMARY.md`
+- Stopped at: Phase 20 Plan 01 complete. EVAL-04 and EVAL-05 satisfied. Ready for Phase 21 (thesis report chapter 5 update to match slides).
+- Resume file: `.planning/phases/20-binary-eval-slides/20-01-SUMMARY.md`
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.

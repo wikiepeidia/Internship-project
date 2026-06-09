@@ -308,8 +308,8 @@ Requirements for milestone v2.1. Addresses all supervisor feedback on slides, mo
 
 ### Binary Evaluation Re-run (Phase 20)
 
-- [ ] **EVAL-04**: Model evaluated as 2-class binary classification: scam vs non-scam.
-- [ ] **EVAL-05**: Slides 9 and 10 updated with binary evaluation results; bar charts replaced with tables.
+- [x] **EVAL-04**: Model evaluated as 2-class binary classification: scam vs non-scam.
+- [x] **EVAL-05**: Slides 9 and 10 updated with binary evaluation results; bar charts replaced with tables.
 
 ### Report Revisions (Phase 21)
 
@@ -323,8 +323,8 @@ Requirements for milestone v2.1. Addresses all supervisor feedback on slides, mo
 | SLIDE-05 | Phase 19 | Complete |
 | SLIDE-06 | Phase 19 | Complete |
 | SLIDE-07 | Phase 19 | Complete |
-| EVAL-04 | Phase 20 | Pending |
-| EVAL-05 | Phase 20 | Pending |
+| EVAL-04 | Phase 20 | Complete |
+| EVAL-05 | Phase 20 | Complete |
 | REPORT-01 | Phase 21 | Pending |
 | REPORT-02 | Phase 21 | Pending |
 
