@@ -1,7 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-08 (Phase 14 completed INFRA-01)
+**Updated:** 2026-06-09 (Phase 19 Plan 01 completed SLIDE-01 through SLIDE-07)
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -298,13 +298,13 @@ Requirements for milestone v2.1. Addresses all supervisor feedback on slides, mo
 
 ### Slide Content Fixes (Phase 19)
 
-- [ ] **SLIDE-01**: Title slide revised — clarify scope as fine-tuning a model, not building a production app; "Localized" qualifier explained or replaced.
-- [ ] **SLIDE-02**: Slide 2 retitled "Table of Contents"; slide order corrected (Why Local moved to follow Motivation).
-- [ ] **SLIDE-03**: Slide 4 (pipeline) renamed away from "System Architecture"; synthetic data note added clarifying it is not used for val/test; "Versioned Splits" renamed to "Data Splits".
-- [ ] **SLIDE-04**: Slide 5 (data): brief Pydantic explanation added; T-test or quality metric for synthetic data quality mentioned.
-- [ ] **SLIDE-05**: Slide 6 (privacy/why local) replaces jailbreak content with researched evidence of ChatGPT/cloud API data leakage incidents.
-- [ ] **SLIDE-06**: Slide 8 (training): `1,733s` label clarified as seconds not "1 second"; quantization mismatch explained — QLoRA 4-bit for training efficiency vs GGUF Q8_0 for CPU inference.
-- [ ] **SLIDE-07**: Reference slide added at end of deck.
+- [x] **SLIDE-01**: Title slide revised — clarify scope as fine-tuning a model, not building a production app; "Localized" qualifier explained or replaced.
+- [x] **SLIDE-02**: Slide 2 retitled "Table of Contents"; slide order corrected (Why Local moved to follow Motivation).
+- [x] **SLIDE-03**: Slide 4 (pipeline) renamed away from "System Architecture"; synthetic data note added clarifying it is not used for val/test; "Versioned Splits" renamed to "Data Splits".
+- [x] **SLIDE-04**: Slide 5 (data): brief Pydantic explanation added; T-test or quality metric for synthetic data quality mentioned.
+- [x] **SLIDE-05**: Slide 6 (privacy/why local) replaces jailbreak content with researched evidence of ChatGPT/cloud API data leakage incidents.
+- [x] **SLIDE-06**: Slide 8 (training): `1,733s` label clarified as seconds not "1 second"; quantization mismatch explained — QLoRA 4-bit for training efficiency vs GGUF Q8_0 for CPU inference.
+- [x] **SLIDE-07**: Reference slide added at end of deck.
 
 ### Binary Evaluation Re-run (Phase 20)
 
@@ -316,13 +316,13 @@ Requirements for milestone v2.1. Addresses all supervisor feedback on slides, mo
 - [ ] **REPORT-01**: Report sections updated to match corrected slide content after Phase 19 fixes land.
 - [ ] **REPORT-02**: Privacy section updated with researched ChatGPT/cloud API data leakage evidence consistent with Slide 6 fix.
 
-| SLIDE-01 | Phase 19 | Pending |
-| SLIDE-02 | Phase 19 | Pending |
-| SLIDE-03 | Phase 19 | Pending |
-| SLIDE-04 | Phase 19 | Pending |
-| SLIDE-05 | Phase 19 | Pending |
-| SLIDE-06 | Phase 19 | Pending |
-| SLIDE-07 | Phase 19 | Pending |
+| SLIDE-01 | Phase 19 | Complete |
+| SLIDE-02 | Phase 19 | Complete |
+| SLIDE-03 | Phase 19 | Complete |
+| SLIDE-04 | Phase 19 | Complete |
+| SLIDE-05 | Phase 19 | Complete |
+| SLIDE-06 | Phase 19 | Complete |
+| SLIDE-07 | Phase 19 | Complete |
 | EVAL-04 | Phase 20 | Pending |
 | EVAL-05 | Phase 20 | Pending |
 | REPORT-01 | Phase 21 | Pending |

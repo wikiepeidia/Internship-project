@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Defense Corrections
-status: Ready — Phase 19 next
+status: In Progress — Phase 19 Plan 01 complete
 last_updated: "2026-06-09"
-last_activity: 2026-06-09 — Milestone v2.1 Defense Corrections started; phases 19-21 defined
+last_activity: 2026-06-09 — Phase 19 Plan 01 executed: 7 LaTeX files updated, deck compiles clean (16 pages, zero errors)
 progress:
   total_phases: 21
   completed_phases: 18
@@ -29,10 +29,10 @@ progress:
 
 ## Current Position
 
-Phase: 19 — Slide Content Fixes (not started)
-Plan: —
-Status: Ready to plan Phase 19
-Last activity: 2026-06-09 — Milestone v2.1 Defense Corrections started; phases 19-21 defined
+Phase: 19 — Slide Content Fixes
+Plan: 01 (complete)
+Status: Phase 19 Plan 01 complete; Phase 20 (Binary Evaluation Re-run) next
+Last activity: 2026-06-09 — Phase 19 Plan 01: title, section reorder, Training Pipeline rename, Pydantic gate, API leak frame, 29-min label, two-stage quantization, references slide — all 7 SLIDE requirements met; deck compiles clean (16 pages)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -103,9 +103,9 @@ Last activity: 2026-06-09 — Milestone v2.1 Defense Corrections started; phases
 
 ## Session Continuity
 
-- Last session: 2026-06-08
-- Stopped at: Phase 14 complete and verified. Ready to discuss or plan Phase 15.
-- Resume file: `.planning/phases/14-css-html-scaffolding/14-01-SUMMARY.md`
+- Last session: 2026-06-09
+- Stopped at: Phase 19 Plan 01 complete. Ready for Phase 20 (Binary Evaluation Re-run + Eval Slide Updates).
+- Resume file: `.planning/phases/19-slide-content-fixes/19-01-SUMMARY.md`
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
