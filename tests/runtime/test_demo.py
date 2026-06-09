@@ -56,7 +56,7 @@ def test_demo_index_serves_text_only_form():
     assert 'id="result-panel"' in html
     assert 'role="log"' in html
     assert 'aria-live="polite"' in html
-    assert "Mình sẽ giúp bạn kiểm tra dấu hiệu lừa đảo tài chính." in html
+    assert 'data-i18n="WELCOME_TEXT"' in html
     assert "Text-only" in html
     assert 'id="user-message-template"' in html
     assert 'id="result-template"' in html
@@ -153,3 +153,18 @@ def test_demo_static_assets_are_served():
     assert "flex: 1 1 0" in css
     assert "env(safe-area-inset-bottom)" in css
     assert "prefers-reduced-motion" in css
+
+
+def test_demo_i18n_js_is_served():
+    demo_module = _load_demo_module()
+    app = demo_module.build_demo_app(service=object())
+
+    status, headers, body = _call_app(app, method="GET", path="/static/i18n.js")
+    js = body.decode("utf-8")
+
+    assert status.startswith("200")
+    assert headers["Content-Type"].startswith("application/javascript")
+    assert "window.I18N" in js
+    assert "PLACEHOLDER" in js
+    assert "ANALYZE_BTN" in js
+    assert "RISK_HIGH" in js

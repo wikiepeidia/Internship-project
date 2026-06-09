@@ -11,61 +11,62 @@
     href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="/static/demo.css">
+  <script src="/static/i18n.js"></script>
 </head>
 
 <body>
-  <main class="shell" aria-label="VN Phishing Detection Demo">
+  <main class="shell">
     <header class="app-header">
       <div class="app-header__copy">
-        <p class="eyebrow">VN Phishing Detection</p>
-        <h1>Kiểm tra tin nhắn đáng ngờ</h1>
+        <p class="eyebrow" data-i18n="EYEBROW">VN Phishing Detection</p>
+        <h1 data-i18n="H1">Kiểm tra tin nhắn đáng ngờ</h1>
       </div>
-      <div class="status-strip" aria-label="Trạng thái an toàn">
-        <span>Local-first</span>
-        <span>Text-only</span>
+      <div class="status-strip">
+        <span data-i18n="STATUS_LOCAL_FIRST">Local-first</span>
+        <span data-i18n="STATUS_TEXT_ONLY">Text-only</span>
       </div>
     </header>
 
-    <section class="chat-frame" aria-label="Cuộc trò chuyện kiểm tra lừa đảo">
+    <section class="chat-frame">
       <div id="result-panel" class="chat-thread result-panel result-panel--empty" role="log" aria-live="polite"
-        aria-relevant="additions text" aria-label="Kết quả phân tích">
+        aria-relevant="additions text">
         <article class="message message--bot message--welcome">
           <div class="message__avatar" aria-hidden="true">AI</div>
           <div class="message__bubble">
-            <p class="message__meta">Trợ lý kiểm tra</p>
-            <p class="message__text">Mình sẽ giúp bạn kiểm tra dấu hiệu lừa đảo tài chính.</p>
-            <div class="hint-row" aria-label="Gợi ý phạm vi">
-              <span>SMS</span>
-              <span>Zalo</span>
-              <span>Messenger</span>
-              <span>Không gửi dữ liệu lên cloud</span>
+            <p class="message__meta" data-i18n="WELCOME_ASSISTANT_NAME">Trợ lý kiểm tra</p>
+            <p class="message__text" data-i18n="WELCOME_TEXT">Mình sẽ giúp bạn kiểm tra dấu hiệu lừa đảo tài chính.</p>
+            <div class="hint-row">
+              <span data-i18n="HINT_SMS">SMS</span>
+              <span data-i18n="HINT_ZALO">Zalo</span>
+              <span data-i18n="HINT_MESSENGER">Messenger</span>
+              <span data-i18n="HINT_NO_CLOUD">Không gửi dữ liệu lên cloud</span>
             </div>
           </div>
         </article>
       </div>
 
-      <form id="analysis-form" class="composer-panel" aria-label="Gửi tin nhắn để phân tích">
-        <label class="field-label" for="message-input">Tin nhắn hoặc đoạn hội thoại đáng ngờ</label>
+      <form id="analysis-form" class="composer-panel">
+        <label class="field-label" for="message-input" data-i18n="INPUT_LABEL">Tin nhắn hoặc đoạn hội thoại đáng ngờ</label>
         <textarea id="message-input" name="text" rows="4"
           placeholder="Dán nội dung cần kiểm tra. Ví dụ: VPBank cảnh báo tài khoản của bạn sẽ bị khóa trong 24h..."
           required></textarea>
 
         <div class="composer-actions">
           <label class="channel-field" for="channel-select">
-            <span>Kênh</span>
+            <span data-i18n="CHANNEL_LABEL">Kênh</span>
             <select id="channel-select" name="channel">
-              <option value="unknown">Không rõ</option>
-              <option value="sms">SMS</option>
-              <option value="zalo">Zalo</option>
-              <option value="messenger">Messenger</option>
-              <option value="telegram">Telegram</option>
-              <option value="facebook">Facebook</option>
+              <option value="unknown" data-i18n="CHANNEL_UNKNOWN">Không rõ</option>
+              <option value="sms" data-i18n="CHANNEL_SMS">SMS</option>
+              <option value="zalo" data-i18n="CHANNEL_ZALO">Zalo</option>
+              <option value="messenger" data-i18n="CHANNEL_MESSENGER">Messenger</option>
+              <option value="telegram" data-i18n="CHANNEL_TELEGRAM">Telegram</option>
+              <option value="facebook" data-i18n="CHANNEL_FACEBOOK">Facebook</option>
             </select>
           </label>
 
           <div class="button-row">
-            <button type="button" id="sample-button" class="secondary-button">Mẫu thử</button>
-            <button type="submit" id="analyze-button" class="primary-button">Phân tích tại máy</button>
+            <button type="button" id="sample-button" class="secondary-button" data-i18n="SAMPLE_BTN">Mẫu thử</button>
+            <button type="submit" id="analyze-button" class="primary-button" data-i18n="ANALYZE_BTN">Phân tích tại máy</button>
           </div>
         </div>
       </form>
@@ -75,7 +76,7 @@
   <template id="user-message-template">
     <article class="message message--user">
       <div class="message__bubble">
-        <p class="message__meta">Bạn gửi</p>
+        <p class="message__meta" data-i18n="USER_META">Bạn gửi</p>
         <p class="message__text" data-slot="text"></p>
       </div>
     </article>
@@ -87,7 +88,7 @@
       <div class="message__bubble">
         <header class="result-header">
           <div>
-            <p class="message__meta">Phân tích cục bộ</p>
+            <p class="message__meta" data-i18n="RESULT_META">Phân tích cục bộ</p>
             <h2 data-slot="verdict"></h2>
           </div>
           <span class="risk-pill" data-slot="risk-tier"></span>
@@ -95,22 +96,22 @@
 
         <dl class="meta-grid">
           <div>
-            <dt>Nhãn rủi ro</dt>
+            <dt data-i18n="RESULT_DT_LABELS">Nhãn rủi ro</dt>
             <dd data-slot="labels"></dd>
           </div>
           <div>
-            <dt>Backend</dt>
+            <dt data-i18n="RESULT_DT_BACKEND">Backend</dt>
             <dd data-slot="backend"></dd>
           </div>
         </dl>
 
         <section class="detail-section">
-          <h3>Dấu hiệu trong tin nhắn</h3>
+          <h3 data-i18n="CUES_HEADING">Dấu hiệu trong tin nhắn</h3>
           <ul class="detail-list" data-slot="grounded-cues"></ul>
         </section>
 
         <section class="detail-section">
-          <h3>Bước an toàn tiếp theo</h3>
+          <h3 data-i18n="STEPS_HEADING">Bước an toàn tiếp theo</h3>
           <ul class="detail-list" data-slot="recommendations"></ul>
         </section>
       </div>
@@ -121,8 +122,8 @@
     <article class="message message--bot message--typing">
       <div class="message__avatar" aria-hidden="true">AI</div>
       <div class="message__bubble">
-        <p class="message__meta">Đang phân tích</p>
-        <div class="typing-dots" aria-label="Đang xử lý">
+        <p class="message__meta" data-i18n="TYPING_META">Đang phân tích</p>
+        <div class="typing-dots" aria-label="Đang xử lý" data-i18n-aria="TYPING_ARIA">
           <span></span>
           <span></span>
           <span></span>
@@ -137,19 +138,37 @@
       <div class="message__bubble">
         <header class="result-header">
           <div>
-            <p class="message__meta">Phản hồi runtime</p>
+            <p class="message__meta" data-i18n="ERROR_META">Phản hồi runtime</p>
             <h2 data-slot="message"></h2>
           </div>
         </header>
 
         <section class="detail-section">
-          <h3>Cách xử lý</h3>
+          <h3 data-i18n="ERROR_STEPS_HEADING">Cách xử lý</h3>
           <ul class="detail-list" data-slot="steps"></ul>
         </section>
       </div>
     </article>
   </template>
 
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.I18N) return;
+    document.title = window.I18N.PAGE_TITLE;
+    document.getElementById('message-input').setAttribute('placeholder', window.I18N.PLACEHOLDER);
+    var els = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < els.length; i++) {
+      var key = els[i].dataset.i18n;
+      if (window.I18N[key]) els[i].textContent = window.I18N[key];
+    }
+    document.querySelector('.shell').setAttribute('aria-label', window.I18N.MAIN_ARIA);
+    document.querySelector('.status-strip').setAttribute('aria-label', window.I18N.STATUS_STRIP_ARIA);
+    document.querySelector('.chat-frame').setAttribute('aria-label', window.I18N.CHAT_SECTION_ARIA);
+    document.getElementById('result-panel').setAttribute('aria-label', window.I18N.THREAD_ARIA);
+    document.getElementById('analysis-form').setAttribute('aria-label', window.I18N.FORM_ARIA);
+    document.querySelector('.hint-row').setAttribute('aria-label', window.I18N.HINT_ROW_ARIA);
+  });
+  </script>
   <script src="/static/demo.js" defer></script>
 </body>
 

@@ -63,6 +63,8 @@ class DemoApp:
             return _text_response(start_response, "200 OK", "text/css; charset=utf-8", _load_asset("demo.css"))
         if method == "GET" and path == "/static/demo.js":
             return _text_response(start_response, "200 OK", "application/javascript; charset=utf-8", _load_asset("demo.js"))
+        if method == "GET" and path == "/static/i18n.js":
+            return _text_response(start_response, "200 OK", "application/javascript; charset=utf-8", _load_asset("i18n.js"))
         if method == "POST" and path == "/api/analyze":
             return self._handle_analyze(environ, start_response)
 
