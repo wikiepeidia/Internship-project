@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Chat UI Revamp
 status: executing
-last_updated: "2026-06-09T04:00:00.000Z"
-last_activity: 2026-06-09 -- Phase 15 complete (i18n.js + static route + data-i18n migration)
+last_updated: "2026-06-09T04:30:00.000Z"
+last_activity: 2026-06-09 -- Phase 16 complete (demo.js core fetch lifecycle rewrite)
 progress:
   total_phases: 20
-  completed_phases: 12
-  total_plans: 45
-  completed_plans: 42
-  percent: 60
+  completed_phases: 13
+  total_plans: 46
+  completed_plans: 43
+  percent: 65
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -29,12 +29,12 @@ progress:
 
 ## Current Position
 
-Phase: Phase 16 (next)
+Phase: Phase 17 (next)
 Plan: TBD
-Status: Phase 15 complete — ready to execute Phase 16
-Last activity: 2026-06-09 -- Phase 15 complete (i18n.js + static route + data-i18n migration)
+Status: Phase 16 complete — ready to execute Phase 17
+Last activity: 2026-06-09 -- Phase 16 complete (demo.js core fetch lifecycle rewrite)
 
-Progress bar: [####------] 40% (2/5 phases complete)
+Progress bar: [######----] 60% (3/5 phases complete)
 
 ## Performance Metrics (Baseline Targets)
 
