@@ -259,6 +259,7 @@ h1 {
 .field-label,
 .channel-field span,
 .meta-grid dt,
+.detail-section h3,
 .detail-section summary {
   display: block;
   margin: 0 0 7px;

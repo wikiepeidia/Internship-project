@@ -25,7 +25,7 @@
 - [x] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it. Closed 2026-06-09.
 - [x] **Phase 16: demo.js Core Fetch Lifecycle** - Full JS rewrite delivering the end-to-end chat interaction: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history, and rAF scroll. Closed 2026-06-09.
 - [x] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit. Closed 2026-06-09.
-- [ ] **Phase 18: Mobile + Accessibility Validation** - Verify dvh/iOS keyboard behavior, Vietnamese diacritic rendering on macOS and Linux, and screen reader announcement correctness across the completed UI.
+- [x] **Phase 18: Mobile + Accessibility Validation** - Verify dvh/iOS keyboard behavior, Vietnamese diacritic rendering on macOS and Linux, and screen reader announcement correctness across the completed UI. Closed 2026-06-09.
 
 ## Phase Details
 
@@ -504,7 +504,7 @@ Plans:
 | 15. i18n.js + demo.py Static Route | 1/1 | Complete | 2026-06-09 |
 | 16. demo.js Core Fetch Lifecycle | 1/1 | Complete | 2026-06-09 |
 | 17. Polish + Edge Cases | 1/1 | Complete | 2026-06-09 |
-| 18. Mobile + Accessibility Validation | 0/TBD | Not started | - |
+| 18. Mobile + Accessibility Validation | 1/1 | Complete | 2026-06-09 |
 
 ## Coverage Validation
 
