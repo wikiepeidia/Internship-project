@@ -484,6 +484,57 @@ Plans:
 
 ---
 
+### Phase 19: Slide Content Fixes
+
+**Goal**: All defense slides are corrected per supervisor feedback — title clarity, agenda renamed, pipeline slide naming fixed, synthetic data note added, Pydantic explained, API leak research replaces jailbreak content, training time clarified, quantization mismatch explained, and a reference slide added.
+**Depends on**: Phase 18
+**Requirements**: SLIDE-01, SLIDE-02, SLIDE-03, SLIDE-04, SLIDE-05, SLIDE-06, SLIDE-07
+**Success Criteria** (what must be TRUE):
+
+1. Slide 1 title clearly communicates scope as model fine-tuning / training, not building a production app.
+2. Slide 2 heading reads "Table of Contents"; slide ordering has Why Local after Motivation.
+3. Slide 4 does not use "System Architecture" as the heading; synthetic data note states it is not used for val/test; section heading says "Data Splits".
+4. Slide 5 includes a brief explanation of Pydantic's role as the quality judge; T-test or quality metric is mentioned.
+5. Slide 6 privacy content references researched ChatGPT/cloud API data leakage incidents (no jailbreak content).
+6. Slide 8 (training) clarifies 1,733s = seconds; explains QLoRA 4-bit for training efficiency vs GGUF Q8_0 for CPU inference.
+7. A Reference slide exists at the end of the deck.
+8. Deck compiles clean with XeLaTeX — zero errors.
+
+**Plans**: TBD
+
+---
+
+### Phase 20: Binary Evaluation Re-run + Eval Slide Updates
+
+**Goal**: The model is evaluated as a 2-class binary classifier (scam vs non-scam); slides 9-10 are updated with the new binary results presented in table format instead of bar charts.
+**Depends on**: Phase 19
+**Requirements**: EVAL-04, EVAL-05
+**Success Criteria** (what must be TRUE):
+
+1. A binary evaluation run exists for scam vs non-scam (2-class) on the held-out split.
+2. Slides 9 and 10 present binary evaluation results in table format.
+3. Bar charts on slides 9-10 are replaced or converted to tables.
+4. Deck compiles clean with XeLaTeX — zero errors.
+
+**Plans**: TBD
+
+---
+
+### Phase 21: Thesis Report Revisions
+
+**Goal**: Thesis report sections are updated to match the corrected slide content from phases 19-20; the privacy section is updated with ChatGPT/cloud API data leakage evidence.
+**Depends on**: Phase 20
+**Requirements**: REPORT-01, REPORT-02
+**Success Criteria** (what must be TRUE):
+
+1. Report sections that overlap with corrected slide content (title framing, pipeline description, privacy/why-local, training/quantization) are updated to match.
+2. Privacy or "Why Local" section in the report includes evidence of ChatGPT/cloud API data leakage incidents.
+3. Thesis report compiles clean with XeLaTeX — zero errors.
+
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -508,6 +559,9 @@ Plans:
 | 16. demo.js Core Fetch Lifecycle | 1/1 | Complete | 2026-06-09 |
 | 17. Polish + Edge Cases | 1/1 | Complete | 2026-06-09 |
 | 18. Mobile + Accessibility Validation | 1/1 | Complete | 2026-06-09 |
+| 19. Slide Content Fixes | TBD | Pending | — |
+| 20. Binary Evaluation Re-run + Eval Slide Updates | TBD | Pending | — |
+| 21. Thesis Report Revisions | TBD | Pending | — |
 
 ## Coverage Validation
 
