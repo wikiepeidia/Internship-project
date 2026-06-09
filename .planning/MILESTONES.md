@@ -14,16 +14,16 @@
 
 ---
 
-## v2.1 Defense Corrections (Started: 2026-06-09)
+## v2.1 Defense Corrections (Shipped: 2026-06-09)
 
-**Status:** In progress — Phase 19 next
+**Status:** Complete
 
-**Phases planned:** 19 (Slide Content Fixes), 20 (Binary Eval Re-run), 21 (Report Revisions)
+**Phases completed:** 3 phases (19, 20, 21)
 
-**Goals:**
+**Key accomplishments:**
 
-- Fix all defense slides per supervisor feedback
-- Re-run model evaluation as binary (scam vs non-scam)
-- Update thesis report to match corrected slides
+- Phase 19: Slide title → "Fine-Tuning a Local LLM for Vietnamese Financial Phishing Detection"; section reorder (Why Local? after Motivation); Training Pipeline naming; Pydantic gate note; API leak privacy frame (OpenAI March 2023 + Samsung 2023); 29-min label; two-stage NF4/Q8_0 quantization explanation; References slide — 16-page deck, zero errors
+- Phase 20: Bar chart replaced with per-class metrics table; binary 2×2 confusion matrix added — binary F1 = 1.000 (perfect scam/benign separation)
+- Phase 21: Chapter 2 jailbreak examples replaced with ChatGPT/cloud API data leakage incidents; thesis compiles clean (23 pages)
 
 ---
