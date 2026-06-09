@@ -410,7 +410,11 @@ Plans:
 2. All visible UI text (input placeholder, send button label, channel selector options, error messages) is rendered from `I18N` keys — zero literal strings hardcoded in `index.html`.
 3. Labels use Vietnamese as the primary language; English technical terms appear in parentheses (for example, "Nguy hiểm cao (High risk)").
 4. `demo.py` serves `i18n.js` via the new static route without modifying any existing route or the `POST /api/analyze` contract.
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 15-01-PLAN.md -- i18n.js creation, demo.py static route, index.html data-i18n migration, and test updates
 
 ### Phase 16: demo.js Core Fetch Lifecycle
 
@@ -480,7 +484,7 @@ Plans:
 | 12. CambridgeUS Presentation Revamp | 3/3 | Complete | 2026-06-05 |
 | 13. Content Gap Closure — Dataset & QLoRA | 2/2 | Complete | 2026-06-08 |
 | 14. CSS + HTML Scaffolding | 1/1 | Complete | 2026-06-08 |
-| 15. i18n.js + demo.py Static Route | 0/TBD | Not started | - |
+| 15. i18n.js + demo.py Static Route | 0/1 | Not started | - |
 | 16. demo.js Core Fetch Lifecycle | 0/TBD | Not started | - |
 | 17. Polish + Edge Cases | 0/TBD | Not started | - |
 | 18. Mobile + Accessibility Validation | 0/TBD | Not started | - |
