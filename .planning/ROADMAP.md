@@ -24,7 +24,7 @@
 - [x] **Phase 14: CSS + HTML Scaffolding** - Rewrite demo.css and index.html with chat-bubble layout, Be Vietnam Pro CDN, dvh viewport, pre-rendered ARIA live region, and no-id templates. Closed 2026-06-08.
 - [x] **Phase 15: i18n.js + demo.py Static Route** - Ship the bilingual string table as a separate JS module and add one static route in demo.py to serve it. Closed 2026-06-09.
 - [x] **Phase 16: demo.js Core Fetch Lifecycle** - Full JS rewrite delivering the end-to-end chat interaction: user bubble, typing indicator, bot bubble, error bubble, AbortController, in-memory history, and rAF scroll. Closed 2026-06-09.
-- [ ] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit.
+- [x] **Phase 17: Polish + Edge Cases** - Add collapsible details sections, bubble entrance animations with reduced-motion support, clear button, and sample button auto-submit. Closed 2026-06-09.
 - [ ] **Phase 18: Mobile + Accessibility Validation** - Verify dvh/iOS keyboard behavior, Vietnamese diacritic rendering on macOS and Linux, and screen reader announcement correctness across the completed UI.
 
 ## Phase Details
@@ -503,7 +503,7 @@ Plans:
 | 14. CSS + HTML Scaffolding | 1/1 | Complete | 2026-06-08 |
 | 15. i18n.js + demo.py Static Route | 1/1 | Complete | 2026-06-09 |
 | 16. demo.js Core Fetch Lifecycle | 1/1 | Complete | 2026-06-09 |
-| 17. Polish + Edge Cases | 0/TBD | Not started | - |
+| 17. Polish + Edge Cases | 1/1 | Complete | 2026-06-09 |
 | 18. Mobile + Accessibility Validation | 0/TBD | Not started | - |
 
 ## Coverage Validation
