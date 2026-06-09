@@ -1,4 +1,4 @@
-# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
+﻿# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Created:** 2026-03-18
 **Granularity:** standard
@@ -500,7 +500,11 @@ Plans:
 7. A Reference slide exists at the end of the deck.
 8. Deck compiles clean with XeLaTeX — zero errors.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 19-01-PLAN.md -- All slide content fixes: title, section reorder, pipeline rename, synthetic data note, Pydantic note, API leak frame, training time, quantization explanation, reference slide
 
 ---
 
