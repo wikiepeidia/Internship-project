@@ -1,232 +1,375 @@
-# Technology Stack: Chat Bubble UI Revamp (v2.0)
+# Technology Stack: LaTeX Department Template Compliance (v2.2)
 
-**Project:** VN Phishing Detection Demo — bilingual chat-bubble UI
-**Milestone:** v2.0 Chat UI Revamp
-**Researched:** 2026-06-08
-**Scope:** Additions and changes ONLY for the new chat UI. Backend (Python wsgiref WSGI, POST /api/analyze) is unchanged.
-
----
-
-## Executive Recommendation
-
-Stay 100% vanilla HTML/CSS/JS with exactly two CDN additions:
-
-1. **Be Vietnam Pro** from Google Fonts — a font built specifically for Vietnamese diacritics.
-2. **marked.js + DOMPurify** — only if the bot bubble ever renders markdown; skip entirely if output stays plain-text strings.
-
-The existing API contract (`AnalysisResult`) returns plain-text strings (`summary`, `recommendations[]`, `top_cues[].reason`). As of the code audit on 2026-06-08, none of those fields contain markdown. **Recommendation: do not add marked.js in the initial revamp.** Add it only if a future backend change produces markdown-formatted text, and add DOMPurify alongside it when you do.
+**Project:** VN Phishing Detection Thesis — USTH ICT Bachelor Template Reformat
+**Milestone:** v2.2 Report Formatting
+**Researched:** 2026-06-15
+**Scope:** LaTeX packages and commands needed for the five formatting changes ONLY.
+  Existing packages (fontspec, titlesec, tocloft, geometry, fancyhdr, natbib, hyperref,
+  booktabs, longtable, array, setspace, tikz, enumitem) are treated as already available.
 
 ---
 
-## Stack Changes Table
+## Executive Summary
 
-| Layer | Current | Change | Justification | Confidence |
-| --- | --- | --- | --- | --- |
-| Font | Segoe UI Variable Display / Bahnschrift (Windows system stack) | Add Be Vietnam Pro via Google Fonts CDN | System fonts do not guarantee correct Vietnamese diacritic stacking on non-Windows hosts | HIGH |
-| CSS reset | `box-sizing: border-box` only | No change needed | Existing reset is sufficient; a full Normalize.css adds ~7 KB with no benefit here | HIGH |
-| JS dependency | None (vanilla) | None for initial revamp; marked.js + DOMPurify as opt-in later | API output is plain text; markdown rendering is not justified yet | HIGH |
-| Build step | None | None | Constraint is unchanged; all additions must be zero-build CDN links or inline code | HIGH |
-| Backend | Python wsgiref, POST /api/analyze | No change | API contract (`AnalysisResult`) is stable and already serves the needed structured fields | HIGH |
+All five formatting requirements can be implemented with ZERO new LaTeX packages.
+Every mechanism is either a plain LaTeX command or an already-loaded package feature
+(titlesec, tocloft, natbib). The key insight is that the `report` class chapter/section
+machinery can be fully replaced via `\renewcommand` and `\titleformat` without adding
+any dependency.
 
 ---
 
-## Font: Be Vietnam Pro
+## 1. Roman Numeral Section Headings (I/ Introduction, II/ Objectives, …)
 
-**Why this font, not a system font stack.**
+### Requirement
+Replace "Chapter 1 / Introduction" with "I/ Introduction" at the top level. Department
+format uses an uppercase Roman numeral followed by a forward slash, no "Chapter" word.
 
-The existing CSS declares `"Segoe UI Variable Display", "Bahnschrift", "Trebuchet MS", sans-serif`. All three are Windows-only fonts. On macOS/Linux the browser falls back to the generic `sans-serif`, which is typically Helvetica or Liberation Sans. Neither was designed with Vietnamese diacritics in mind and both can produce collisions between stacked tone marks (e.g., the circumflex-plus-grave stack in `ầ`) and the descenders or ascenders of adjacent lines at typical chat-bubble font sizes (14–16 px).
+### Package needed
+**None.** titlesec is already loaded.
 
-Vietnamese diacritics stack two combining marks on a single vowel (a base circumflex/horn, then a tone mark above). The Vietnamese Typography resource confirms that many Western typefaces neglect the specific vertical spacing requirements, causing stacked diacritics to collide with the line above at line-height values below ~1.65.
+### Approach
+Redefine the chapter counter representation and the chapter title format.
 
-Be Vietnam Pro is a Neo Grotesk typeface explicitly designed for Vietnamese letterforms, with diacritic-adaptive ascender metrics and optimized diacritical spacing. It ships 9 weights plus italics and supports the full Vietnamese Unicode subset. It is available on Google Fonts at no cost and loads via a single CDN `<link>` with no build step.
+```latex
+% In main.tex, AFTER \usepackage{titlesec}
 
-**Subset strategy.** Request only `vietnamese` and `latin` subsets, and only the weights used in the UI (400 regular, 600 semibold, 700 bold). Google Fonts serves the minimum WOFF2 bytes for the declared subsets.
+% Step 1: make the chapter counter print as Roman numerals (I, II, III …)
+\renewcommand{\thechapter}{\Roman{chapter}}
 
-**Google Fonts CDN embed (copy-paste ready):**
-
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+% Step 2: reformat the chapter heading display
+% Format: "I/ Introduction" — bold, centered, no "Chapter" label
+\titleformat{\chapter}[block]
+  {\normalfont\Large\bfseries\centering}  % font / alignment
+  {\thechapter/}                           % label: "I/"
+  {0.5em}                                  % sep between label and title
+  {}                                        % before-code (nothing)
+\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
 ```
 
-Note: the `subset=vietnamese` parameter is not needed in the URL — Google Fonts automatically serves Vietnamese glyphs when the text on the page requires them (unicode-range subsetting is handled server-side). The `display=swap` ensures text is visible during font load.
+This replaces the existing `\titleformat{\chapter}` line in main.tex (currently line 72).
 
-**CSS change in demo.css:**
+### TOC impact
+tocloft already uses `\thechapter` when building the TOC entry, so the TOC will
+automatically read "I Introduction …… 1" once `\thechapter` is changed to `\Roman`.
+No tocloft changes required beyond what is already set.
 
-Replace the body `font-family` declaration:
+### Cross-reference impact
+`\ref{chap:intro}` will now produce "I" instead of "1". The in-text prose in
+01_introduction.tex ("Chapter~2 summarizes …", "Chapter~5 reports …") must be updated
+to "Section~II", "Section~V", etc., or replaced with `\ref{}` calls. This is a content
+edit, not a package change.
 
-```css
-/* Before */
-font-family: "Segoe UI Variable Display", "Bahnschrift", "Trebuchet MS", sans-serif;
+### No-new-package path
+This IS the no-new-package path. titlesec covers it completely.
 
-/* After */
-font-family: "Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif;
+---
+
+## 2. List of Abbreviations (2-column glossary table)
+
+### Requirement
+A dedicated front-matter page listing abbreviations in a left-aligned abbreviation
+column and a right-aligned/left-aligned expansion column.
+
+### Package needed
+**None.** longtable + array are already loaded.
+
+### Approach — manual table (recommended for a short list)
+
+Create `chapters/frontmatter/abbreviations.tex`:
+
+```latex
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+
+\begin{longtable}{@{} p{3.2cm} @{\hspace{0.8cm}} p{10.5cm} @{}}
+  \toprule
+  \textbf{Abbreviation} & \textbf{Definition} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+
+  AI       & Artificial Intelligence \\
+  API      & Application Programming Interface \\
+  BERT     & Bidirectional Encoder Representations from Transformers \\
+  CPU      & Central Processing Unit \\
+  F1       & Harmonic mean of Precision and Recall \\
+  GGUF     & GPT-Generated Unified Format \\
+  GPU      & Graphics Processing Unit \\
+  ICT      & Information and Communication Technology \\
+  LLM      & Large Language Model \\
+  LoRA     & Low-Rank Adaptation \\
+  NLP      & Natural Language Processing \\
+  OTP      & One-Time Password \\
+  QLoRA    & Quantized Low-Rank Adaptation \\
+  SMS      & Short Message Service \\
+  USTH     & University of Science and Technology of Hanoi \\
+  XAI      & Explainable Artificial Intelligence \\
+\end{longtable}
 ```
 
-The legacy Windows fonts stay as fallbacks for the offline edge case where Google Fonts is unavailable (e.g., a machine with no internet but the demo running).
+The `@{}` suppresses default longtable left/right padding. `@{\hspace{0.8cm}}`
+creates the visual gap between columns without a visible rule. `booktabs` \toprule/
+\midrule/\bottomrule give the same ruled style already used in the thesis tables.
 
-**Line-height requirement for Vietnamese.** Chat bubbles displaying Vietnamese text MUST use `line-height: 1.65` or higher. The current CSS already sets `line-height: 1.65` on the `textarea` and `1.7` on the lede paragraph — carry that value into the new `.bubble` class. Do not drop below `1.6` for any Vietnamese-content element.
+### Alternative: `glossaries` package
+The `glossaries` package supports auto-sorted abbreviation lists and in-text `\gls{}`
+calls. It is significantly heavier (generates auxiliary files, requires `makeglossaries`
+or `bib2gls` pass). For a thesis with a static abbreviation list that will not be
+referenced inline, the longtable approach is strongly preferred. Do NOT add glossaries
+for this use case.
 
-**Sources:**
-
-- [Be Vietnam Pro — Google Fonts](https://fonts.google.com/specimen/Be+Vietnam+Pro)
-- [Vietnamese Typography — Design Challenges](https://vietnamesetypography.com/design-challenges/)
-- [Stacked diacritical marks and line spacing — TypeDrawers](https://typedrawers.com/discussion/2274/stacked-diacritical-marks-and-line-spacing)
-
----
-
-## CSS Reset: No Change Needed
-
-The existing `* { box-sizing: border-box; }` is the only reset in demo.css. This is correct for a small, self-contained UI. Adding Normalize.css (~7 KB minified) or a CSS Reset stylesheet would:
-
-- Add a network round-trip with no functional benefit (the existing CSS already overrides all relevant browser defaults).
-- Risk overriding the custom focus ring and border-radius patterns already in place.
-
-**Verdict: keep the single-property reset as-is.**
+### No-new-package path
+longtable + array + booktabs. All already loaded. No new packages.
 
 ---
 
-## JS Libraries: Conditional Decision Tree
+## 3. Supervisor Certification Letter Page
 
-### marked.js — Do Not Add for v2.0 Initial Revamp
+### Requirement
+A standalone page with: a "To Whom It May Concern" block-letter header, certification
+text, date/location line, and a signature block for the supervisor. No ornamental border
+needed (titlepage.tex has a TikZ border; the certification page is typically plain).
 
-The API contract (`AnalysisResult`) declares all output fields as plain Python `str` or `list[str]`. Code inspection of `contracts.py` confirms:
+### Package needed
+**None.** This is a pure layout page using existing geometry/fontspec.
 
-- `summary: str` — plain text
-- `recommendations: list[RecommendationText]` — plain text items
-- `top_cues: list[SuspiciousCue]` with `.span: str` and `.reason: str` — plain text
+### Approach
 
-There is no markdown in the output today. Rendering plain text through a markdown parser adds ~47 KB (minified UMD, v16.x), requires a separate DOMPurify pass (~20 KB), and introduces `innerHTML` writes to the DOM where `textContent` is currently safe.
+Create `chapters/frontmatter/certification.tex`:
 
-**Decision: skip marked.js in the initial revamp. Revisit if the backend starts returning markdown in any field.**
+```latex
+\newpage
+\thispagestyle{empty}   % no header/footer on this page
 
-### marked.js — How to Add It Safely If Needed Later
+\begin{center}
+  {\Large\bfseries SUPERVISOR CERTIFICATION}
+\end{center}
 
-When (and only when) a backend field is confirmed to return markdown:
+\vspace{1.5cm}
 
-```html
-<!-- Load both together; marked without DOMPurify is an XSS risk -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/16.3.0/lib/marked.umd.min.js"
-        integrity="sha512-..." crossorigin="anonymous" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.7/purify.min.js"
-        integrity="sha512-..." crossorigin="anonymous" defer></script>
+\noindent\textbf{To Whom It May Concern,}
+
+\vspace{0.8cm}
+
+\noindent I, \textbf{Giang Anh Tuan}, Internal Supervisor at the Department of
+Information and Communication Technology, University of Science and Technology of
+Hanoi (USTH), hereby certify that the Bachelor Thesis entitled:
+
+\vspace{0.6cm}
+
+\begin{center}
+  \textit{Localized Explainable AI Engine for Vietnamese Financial Phishing Detection}
+\end{center}
+
+\vspace{0.6cm}
+
+\noindent was prepared by student \textbf{Phạm Thế Minh} (Student ID: 23BI14279)
+under my supervision during the academic year 2025--2026 and fulfills the requirements
+for the Bachelor of Science degree in Information and Communication Technology.
+
+\vspace{1.2cm}
+
+\noindent Hanoi, \today
+
+\vspace{2.5cm}
+
+\noindent\begin{tabular}{@{}l@{\hspace{4cm}}l@{}}
+  \textbf{Student}      & \textbf{Internal Supervisor} \\[3.5cm]
+  Phạm Thế Minh         & Giang Anh Tuan \\
+\end{tabular}
 ```
 
-Usage pattern (never use `innerHTML` with raw marked output):
+### Placement in main.tex
+Input this immediately after `\input{chapters/frontmatter/titlepage}` and before
+the roman-numeral front matter begins.
 
-```js
-function safeMarkdown(mdString) {
-  const rawHtml = marked.parse(mdString);
-  return DOMPurify.sanitize(rawHtml);
+### XeLaTeX note
+fontspec is already active; `\today` in XeLaTeX with `babel[english]` produces
+"June 15, 2026" style — acceptable. If a Vietnamese date format is needed, add
+`\renewcommand{\today}{ngày ... tháng ... năm ...}` locally on the page.
+
+### No-new-package path
+This IS the no-new-package path.
+
+---
+
+## 4. Front Matter Reordering
+
+### Current order (preface.tex)
+Abstract → Acknowledgements → TOC → List of Figures → List of Tables
+
+### Required order (department template)
+TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
+
+### Package needed
+**None.** This is a structural edit to preface.tex (and main.tex input ordering).
+
+### New preface.tex structure
+
+```latex
+\pagenumbering{roman}
+
+% 1. Table of Contents
+{\singlespacing
+\tableofcontents
 }
+\clearpage
 
-// Then:
-bubbleElement.innerHTML = safeMarkdown(result.summary);
+% 2. Acknowledgements
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+The author gratefully acknowledges ...
+
+\clearpage
+
+% 3. List of Abbreviations (new file)
+\input{chapters/frontmatter/abbreviations}
+\clearpage
+
+% 4. List of Tables
+{\singlespacing
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+}
+\clearpage
+
+% 5. List of Figures
+{\singlespacing
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+}
+\clearpage
+
+% 6. Abstract
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+...abstract text...
+
+\cleardoublepage
+\pagenumbering{arabic}
 ```
 
-- marked.js v16.3.0 does not have a built-in `sanitize` option (removed in earlier v1 cycle). DOMPurify is mandatory alongside it.
-- Pin to explicit versions (`16.3.0`, `3.2.7`) rather than `@latest` to avoid silent breaking changes in a no-build environment.
-- Fetch SRI hashes from [cdnjs](https://cdnjs.com/libraries/marked) at pin time; the integrity attribute values shown above are placeholders.
+### tocloft note
+The `\addcontentsline{toc}{chapter}{...}` calls for List of Tables and List of
+Figures already exist in the current preface.tex. Moving them to a new position
+in the file is the entire change required — tocloft configuration in main.tex
+does not need editing.
 
-**Sources:**
-
-- [marked.js documentation](https://marked.js.org/)
-- [marked — cdnjs (v16.3.0)](https://cdnjs.com/libraries/marked)
-- [DOMPurify — cdnjs (v3.2.7)](https://cdnjs.com/libraries/dompurify)
-- [marked sanitize option discussion](https://github.com/markedjs/marked/discussions/1232)
-
----
-
-## Vietnamese Encoding: No Special Handling Required
-
-All modern browsers handle UTF-8 Vietnamese natively. The existing `<meta charset="utf-8">` in `index.html` is sufficient. There is no need for:
-
-- Any `Content-Type` header change (wsgiref already sends `text/html; charset=utf-8` by default for static files).
-- JavaScript encoding/decoding helpers.
-- Separate font files for diacritics (Unicode subsetting via the Google Fonts CDN handles this automatically).
-
-The one active risk is **clipboard paste of Vietnamese text** from SMS/Zalo apps that use precomposed vs decomposed NFC forms. The existing `normalize_text()` call in `service.py` handles normalization before analysis; the UI does not need additional JS normalization for display.
+### hyperref note
+hyperref's bookmark order mirrors the TOC order. Because TOC now appears first,
+the PDF bookmark tree will correctly list: TOC / Acknowledgements / List of
+Abbreviations / List of Tables / List of Figures / Abstract. No hyperref option
+changes needed.
 
 ---
 
-## CSS: Key Properties for Chat Bubble Layout
+## 5. Appendices Section (APPENDIX 1, APPENDIX 2 headings)
 
-These are not new dependencies — they are vanilla CSS patterns. Documenting them here as the integration points for the implementation phase:
+### Requirement
+Post-bibliography section with headings "APPENDIX 1", "APPENDIX 2" (not "Appendix A").
+Numbered with Arabic numerals, not letters.
 
-```css
-/* Chat thread container */
-.chat-thread {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-  padding: 16px;
-}
+### Package needed
+**None.** LaTeX's built-in `\appendix` command plus titlesec covers this.
 
-/* Bubble base */
-.bubble {
-  max-width: 75%;
-  padding: 12px 16px;
-  border-radius: 18px;
-  line-height: 1.65;          /* Required minimum for Vietnamese stacked diacritics */
-  overflow-wrap: break-word;  /* Handles long URLs and Vietnamese compounds */
-  word-break: break-word;     /* Fallback for older browsers */
-}
+### Approach
 
-/* User message — right-aligned */
-.bubble--user {
-  align-self: flex-end;
-  background: /* accent color */;
-  color: #fff;
-  border-bottom-right-radius: 4px;  /* Tail shape */
-}
+```latex
+% In main.tex, AFTER \bibliography{references}
 
-/* Bot message — left-aligned */
-.bubble--bot {
-  align-self: flex-start;
-  background: /* panel color */;
-  border-bottom-left-radius: 4px;   /* Tail shape */
-}
+\appendix
+
+% Reset chapter counter to arabic numbering for appendices
+\renewcommand{\thechapter}{\arabic{chapter}}
+
+% Reformat chapter heading for appendices: "APPENDIX 1" style
+\titleformat{\chapter}[block]
+  {\normalfont\Large\bfseries\centering}
+  {APPENDIX \thechapter}
+  {0.5em}
+  {}
+\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
+
+\input{chapters/appendix_01}
+\input{chapters/appendix_02}
 ```
 
-`overflow-wrap: break-word` is critical for chat bubbles: it prevents long unbroken strings (URLs, bank account numbers common in phishing messages) from breaking the bubble layout, while allowing Vietnamese words to wrap naturally at their soft-wrap boundaries.
+Then create `chapters/appendix_01.tex`:
+
+```latex
+\chapter{Source Code Repository}
+\label{app:code}
+
+The full source code is available at: \url{https://github.com/...}
+
+...
+```
+
+This produces the heading "APPENDIX 1" followed by the chapter title on the same
+or next line. If the department template requires "APPENDIX 1" as the SOLE heading
+(no subtitle), pass an empty title:
+
+```latex
+\chapter{}   % produces "APPENDIX 1" with no subtitle
+```
+
+### TOC appearance
+Appendix chapters will appear in the TOC as "APPENDIX 1 Source Code ……  X". If
+appendices should be excluded from the TOC entirely:
+
+```latex
+\addtocontents{toc}{\protect\setcounter{tocdepth}{-1}}
+\appendix
+...
+\addtocontents{toc}{\protect\setcounter{tocdepth}{1}}
+```
+
+### No-new-package path
+`\appendix` + `\renewcommand{\thechapter}` + titlesec `\titleformat`. All available.
 
 ---
 
-## What NOT to Add
+## Summary: Package Delta
 
-| Candidate | Verdict | Reason |
-| --- | --- | --- |
-| React / Vue / Svelte | No | Build step required; out of scope |
-| Tailwind CSS | No | Build step required; out of scope |
-| Normalize.css / CSS Reset | No | No functional benefit; existing reset is adequate |
-| Bootstrap / UIkit | No | Heavyweight; chat bubble is 40–60 lines of custom CSS |
-| Socket.IO / WebSockets | No | POST /api/analyze is request-response; no streaming needed |
-| DOMPurify (now) | No | Only needed if marked.js is added; currently unnecessary |
-| marked.js (now) | No | API returns plain text; no markdown in contract |
-| Bunny Fonts (privacy-first CDN) | Optional | If offline-first privacy matters more than convenience, self-host Be Vietnam Pro WOFF2. Not required for a local demo. |
-| `@import` in CSS for Google Fonts | No | Use `<link>` in HTML; CSS `@import` blocks rendering |
+| Requirement | New Package | Mechanism |
+|---|---|---|
+| Roman numeral headings | None | `\renewcommand{\thechapter}{\Roman{chapter}}` + titlesec `\titleformat` |
+| List of Abbreviations | None | longtable + array + booktabs (already loaded) |
+| Certification letter | None | Plain LaTeX layout, `tabular`, existing geometry |
+| Front matter reorder | None | Structural edit to preface.tex input order |
+| Appendices section | None | `\appendix` + `\renewcommand{\thechapter}{\arabic{chapter}}` + titlesec |
+
+**Total new packages required: 0**
 
 ---
 
-## Integration Points with Existing WSGI Server
+## XeLaTeX Compatibility Notes
 
-The existing `demo.py` serves static files from `demo_assets/` under `/static/`. No backend change is needed:
-
-- The new `<link>` tags for Google Fonts go in `index.html` `<head>`.
-- The `demo.css` font-family change is a one-line edit.
-- The chat UI JavaScript replaces the `form.addEventListener("submit", analyzeMessage)` call pattern but keeps `fetch("/api/analyze", { method: "POST", ... })` unchanged.
-- No new Python dependencies, no new routes, no WSGI middleware changes.
+- All commands above are XeLaTeX-compatible. `\Roman`, `\arabic`, `\appendix`,
+  longtable, titlesec, and tocloft are engine-agnostic.
+- fontspec's `\addfontfeatures{LetterSpace=...}` used in titlepage.tex does not
+  interact with any of the above changes.
+- The `\thispagestyle{empty}` on the certification page suppresses the fancyhdr
+  header/footer. This is the correct approach; do not call `\fancyhf{}` locally
+  as that would affect the global fancyhdr state.
+- When `\pagenumbering{roman}` is active, all front-matter pages get lowercase
+  roman page numbers. The certification letter should appear BEFORE
+  `\pagenumbering{roman}` (immediately after titlepage) if it must be unnumbered,
+  or be given `\thispagestyle{empty}` explicitly.
 
 ---
 
-## Summary of Additions
+## Integration Checklist for Phase 22
 
-| Asset | CDN URL | Size (approx) | When |
-| --- | --- | --- | --- |
-| Be Vietnam Pro (3 weights) | `fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap` | ~30–45 KB WOFF2 (Vietnamese+Latin subset) | Immediately in v2.0 |
-| marked.js v16.3.0 (UMD min) | `cdnjs.cloudflare.com/ajax/libs/marked/16.3.0/lib/marked.umd.min.js` | ~47 KB | Only if API returns markdown |
-| DOMPurify v3.2.7 (min) | `cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.7/purify.min.js` | ~20 KB | Always paired with marked.js |
-
-Total immediate addition: ~35–45 KB (font only). Total if markdown is added later: ~100 KB.
+1. main.tex — replace `\titleformat{\chapter}` block (line 72) with Roman version
+2. main.tex — add certification input after titlepage input
+3. main.tex — add `\appendix` + retitled format + appendix inputs after bibliography
+4. preface.tex — reorder sections per Section 4 above; extract abstract and
+   acknowledgements text for easier editing if desired
+5. NEW: `chapters/frontmatter/certification.tex`
+6. NEW: `chapters/frontmatter/abbreviations.tex`
+7. NEW: `chapters/appendix_01.tex`, `chapters/appendix_02.tex` (content TBD)
+8. Content edits: update all "Chapter X" cross-references in chapter files to
+   "Section~\ref{}" or explicit Roman numeral references

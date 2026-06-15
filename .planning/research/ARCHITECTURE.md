@@ -1,7 +1,422 @@
-# Architecture Patterns
+# Architecture: LaTeX File Layout — Department Template Compliance
 
-**Domain:** Localized explainable LLM for Vietnamese financial phishing/social engineering text detection  
-**Project:** Localized Explainable AI (XAI) Engine for Vietnamese phishing triage  
+**Scope:** Phase 22+ LaTeX restructure  
+**Researched:** 2026-06-15  
+**Compiler:** XeLaTeX  
+**Document class:** `report` (kept — `\chapter` infrastructure retained)
+
+---
+
+## Target File Tree
+
+```
+documents/reports/latex/
+├── main.tex                                        ← full rewrite (orchestrator)
+├── references.bib                                  ← unchanged
+├── chapters/
+│   ├── frontmatter/
+│   │   ├── titlepage.tex                           ← keep (minor text edits only)
+│   │   ├── certification.tex                       ← NEW: certification/declaration page
+│   │   ├── abbreviations.tex                       ← NEW: List of Abbreviations table
+│   │   └── abstract.tex                            ← NEW: extracted from preface.tex + 6 keywords
+│   ├── body/
+│   │   ├── I_introduction.tex                      ← MERGED: 01 (minus Objectives) + full 02
+│   │   ├── II_objectives.tex                       ← SPLIT OUT: Objectives section from 01
+│   │   ├── III_materials_and_methods.tex           ← MERGED: full 03 + full 04
+│   │   ├── IV_results_and_discussion.tex           ← COPY: 05 (heading change only)
+│   │   └── V_conclusion_and_perspective.tex        ← COPY: 06 (heading change only)
+│   └── appendices/
+│       └── appendices.tex                          ← NEW: appendix content
+├── figures/                                        ← unchanged
+└── tables/                                         ← unchanged
+```
+
+### New Files to Create (5)
+
+| File | Purpose |
+|------|---------|
+| `chapters/frontmatter/certification.tex` | Certification/declaration page with supervisor signature block — required by department |
+| `chapters/frontmatter/abbreviations.tex` | Acronym table: AI, NLP, LLM, LoRA, QLoRA, GGUF, OTP, SMS, F1, NF4, CUDA, CLI, API, SHA, OCR |
+| `chapters/frontmatter/abstract.tex` | Existing abstract paragraph moved from `preface.tex`, plus a `\textbf{Keywords:}` line with 6 terms |
+| `chapters/body/` (directory + 5 files) | Holds the five roman-numeral body sections under clean filenames |
+| `chapters/appendices/appendices.tex` | Appendix section (training config detail, sample annotated outputs, etc.) |
+
+### Source File Disposition
+
+| Old File | Action | Destination |
+|----------|--------|-------------|
+| `chapters/frontmatter/preface.tex` | Gutted — Abstract and Ack blocks extracted; TOC/LoF/LoT infrastructure absorbed into `main.tex` | Mark `%% DEPRECATED` at top; do not delete until compile verified |
+| `chapters/01_introduction.tex` | Split: drop "Report Organization", move "Objectives and Scope" to II/, merge remainder into I/ | Keep as dead file until Phase 22 compile passes |
+| `chapters/02_related_work_and_background.tex` | Merge entire file into I/ after the ch01 content | Keep as dead file |
+| `chapters/03_methodology_and_system_design.tex` | Merge entire file into III/ | Keep as dead file |
+| `chapters/04_implementation.tex` | Merge entire file into III/ after ch03 content | Keep as dead file |
+| `chapters/05_evaluation_and_discussion.tex` | Verbatim copy to IV/ (remove `\chapter{...}` line only) | Keep as dead file |
+| `chapters/06_conclusion_and_future_work.tex` | Verbatim copy to V/ (title changes to "Conclusion and Perspective") | Keep as dead file |
+
+**Rule:** Do NOT delete old `01`–`06` chapter files until the restructured `main.tex` compiles cleanly to PDF and has been visually spot-checked. Mark them `%% DEPRECATED — superseded Phase 22` and leave them in-place as a rollback safety net. Delete in a separate commit after confirmation.
+
+---
+
+## `main.tex` New `\input` Order
+
+Replace everything between `\begin{document}` and `\end{document}` with:
+
+```latex
+\begin{document}
+
+%% ── FRONT MATTER (roman page numbers) ───────────────────────────────────────
+\pagenumbering{roman}
+
+\input{chapters/frontmatter/titlepage}         % cover page — no printed number
+\clearpage
+
+\input{chapters/frontmatter/certification}     % certification/declaration page
+\clearpage
+
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\markboth{Acknowledgements}{Acknowledgements}
+[Acknowledgements text here, or \input a separate ack.tex]
+\clearpage
+
+{\singlespacing\tableofcontents}
+\clearpage
+
+\input{chapters/frontmatter/abbreviations}
+\clearpage
+
+{\singlespacing
+  \addcontentsline{toc}{chapter}{\listtablename}
+  \listoftables
+}
+\clearpage
+
+{\singlespacing
+  \addcontentsline{toc}{chapter}{\listfigurename}
+  \listoffigures
+}
+\clearpage
+
+\input{chapters/frontmatter/abstract}          % abstract + 6 keywords
+
+\cleardoublepage
+\pagenumbering{arabic}
+
+%% ── BODY (arabic page numbers, roman-numeral headings) ───────────────────────
+\input{chapters/body/I_introduction}
+\input{chapters/body/II_objectives}
+\input{chapters/body/III_materials_and_methods}
+\input{chapters/body/IV_results_and_discussion}
+\input{chapters/body/V_conclusion_and_perspective}
+
+%% ── BACK MATTER ──────────────────────────────────────────────────────────────
+\renewcommand{\bibname}{References}
+\bibliography{references}
+
+\appendix
+\input{chapters/appendices/appendices}
+
+\end{document}
+```
+
+**Notes on order:**
+- Acknowledgements appears before TOC per standard academic convention (USTH format matches this).
+- List of Abbreviations immediately after TOC, before LoT/LoF — mirrors the milestone target order.
+- LoT appears before LoF (as specified in the milestone context).
+- `\cleardoublepage` before `\pagenumbering{arabic}` ensures body always starts on a recto page.
+
+---
+
+## Roman Numeral Heading Approach
+
+### Decision: `\chapter*` with a `\thesissection` helper command
+
+**Do NOT redefine `\chapter` globally.** The `report` class chapter counter drives figure and table caption numbering (e.g., "Figure 3.2"). Replacing `\thechapter` with `\Roman{\thechapter}` would corrupt all auto-numbered captions to "Figure III.2" format and break the existing `fig:`, `tab:`, and `eq:` cross-references throughout the document.
+
+The correct approach is unnumbered chapters (`\chapter*`) with a one-time helper macro that:
+1. Emits the correct visual heading
+2. Adds a manual TOC entry at chapter indent level
+3. Sets `\leftmark` for the running page header (required — `\chapter*` does not update `\leftmark` automatically)
+
+**Add this block to `main.tex` preamble**, after the existing `\usepackage{titlesec}` and `\pagestyle{fancy}` setup:
+
+```latex
+%% ── Roman-numeral thesis section headings (Phase 22) ─────────────────────────
+%% Usage: \thesissection{I}{Introduction}
+%%   - emits unnumbered chapter heading "I/ Introduction"
+%%   - adds TOC entry at chapter level
+%%   - sets running header via \markboth
+\newcommand{\thesissection}[2]{%
+  \chapter*{#1/ #2}%
+  \addcontentsline{toc}{chapter}{#1/ #2}%
+  \markboth{#1/ #2}{#1/ #2}%
+}
+```
+
+**Usage inside each body file** — the body files contain NO `\chapter{}` or `\chapter*{}` calls; heading emission is the caller's responsibility via `main.tex`:
+
+```latex
+%% Option A: emit heading from within the body file (simpler, more self-contained)
+\thesissection{I}{Introduction}
+
+\section{Background and Motivation}
+...
+```
+
+```latex
+%% Option B: emit heading from main.tex immediately before \input (alternative)
+\thesissection{III}{Materials and Methods}
+\input{chapters/body/III_materials_and_methods}
+```
+
+Option A (heading inside the body file) is preferred: it keeps each file self-contained and makes the PDF reproducible even if the file is compiled in isolation during editing.
+
+**Why this approach wins over all alternatives:**
+
+| Approach | Problem |
+|----------|---------|
+| Redefine `\chapter` to prepend `\Roman{\thechapter}/` | Breaks figure/table caption numbering; "Fig 3.2" becomes "Fig III.2" |
+| Pure `\chapter*` with `\addcontentsline` repeated manually | Must remember 3-line boilerplate every time; `\markboth` gets forgotten, header shows stale text |
+| Switch to `book` class | Introduces `\part` above `\chapter`; needless structural change; page margins differ |
+| Use `titlesec` `\titleformat` with `\Roman` counter | Same counter-corruption problem as redefining `\chapter` |
+| Use `\section` at top level (demote everything) | Breaks LoF/LoT; figures become "Figure 0.1" without a chapter counter |
+
+**`titlesec` interaction:** The existing `\titleformat{\chapter}` definition applies to both `\chapter` and `\chapter*` in `titlesec`. The roman-numeral headings will inherit the same compact spacing (`-20pt` top, `10pt` bottom, `\LARGE` font) automatically. No additional `\titleformat` change is needed.
+
+**`tocloft` interaction:** The existing `\setcounter{tocdepth}{1}` already limits TOC to chapter+section depth. The `\addcontentsline{toc}{chapter}{...}` call inside `\thesissection` places the roman-numeral entry at chapter indent level, matching all other chapter entries. No `tocloft` parameter changes needed.
+
+---
+
+## Content Mapping: What Moves Where
+
+### I/ Introduction (`chapters/body/I_introduction.tex`)
+
+Sources:
+- `01_introduction.tex`: "Background and Motivation" and "Problem Statement" sections
+- `02_related_work_and_background.tex`: all 5 sections (Vietnamese Phishing Context, Local Inference as Privacy Control, Explainability and User-Facing Safety, Open-Weight Local Models, Evaluation Priorities)
+
+Exclusions:
+- "Objectives and Scope" from ch01 moves to II/
+- "Report Organization" from ch01 is deleted (see Cross-References below)
+
+### II/ Objectives (`chapters/body/II_objectives.tex`)
+
+Sources:
+- "Objectives and Scope" section from `01_introduction.tex` — copy verbatim
+
+### III/ Materials and Methods (`chapters/body/III_materials_and_methods.tex`)
+
+Sources (in order):
+1. All of `03_methodology_and_system_design.tex` (Development Structure, Data Construction, Offline Runtime, Local Model Selection, Explainability, Design Principles)
+2. All of `04_implementation.tex` (Codebase Organization, Data Pipeline Implementation, Runtime Implementation, Model Adaptation Implementation)
+
+The `\section{}` headings from both files coexist cleanly under one unnumbered chapter with no naming conflicts.
+
+### IV/ Results and Discussion (`chapters/body/IV_results_and_discussion.tex`)
+
+Source: verbatim copy of `05_evaluation_and_discussion.tex` body content. Remove only the `\chapter{Evaluation and Discussion}` line. All `\input{tables/...}` and `\input{figures/...}` calls are preserved unchanged.
+
+### V/ Conclusion and Perspective (`chapters/body/V_conclusion_and_perspective.tex`)
+
+Source: verbatim copy of `06_conclusion_and_future_work.tex` body content. Remove only the `\chapter{Conclusion and Future Work}` line. The roman-numeral heading "V/ Conclusion and Perspective" replaces it via `\thesissection` in the file header.
+
+---
+
+## Cross-Reference Handling
+
+### `\label` / `\ref` audit — zero breakage risk
+
+All `\label` definitions are in figure/table fragment files (`figures/*.tex`, `tables/*.tex`) or inline in content that stays co-located. Every label and the `\ref{}` that references it moves into the same merged body file. No cross-boundary ref exists.
+
+| Label | Defined in | Referenced in | After restructure |
+|-------|-----------|---------------|-------------------|
+| `tab:confusion-matrix` | `tables/confusion_matrix.tex` | ch05 | Both in IV/ — safe |
+| `tab:dataset-stats` | `tables/dataset_statistics.tex` | ch03 | Both in III/ — safe |
+| `fig:cloud-vs-local-flow` | `figures/cloud_vs_local_dataflow.tex` | ch02 | Both in I/ — safe |
+| `tab:evaluation-snapshot` | `tables/evaluation_snapshot.tex` | ch05 | Both in IV/ — safe |
+| `fig:system-overview` | `figures/system_overview_placeholder.tex` | ch03 | Both in III/ — safe |
+| `tab:milestone-summary` | `tables/milestone_summary.tex` | ch03 | Both in III/ — safe |
+| `eq:qlora-forward` | `03_methodology_and_system_design.tex` inline | same file | Stays in III/ — safe |
+| `tab:pilot-comparison` | `tables/pilot_comparison.tex` | ch03 | Both in III/ — safe |
+| `fig:runtime-flow` | `04_implementation.tex` inline | same file | Stays in III/ — safe |
+| `fig:recall-by-class` | `figures/recall_barchart.tex` | ch05 | Both in IV/ — safe |
+| `tab:qlora-config` | `tables/qlora_config.tex` | ch03 | Both in III/ — safe |
+
+### Prose "Chapter~N" references that will break
+
+These are hardcoded text strings, NOT `\ref{}` commands. LaTeX cannot auto-update them. Three must be manually fixed:
+
+| File | Text | Fix |
+|------|------|-----|
+| `01_introduction.tex` ("Report Organization" section) | "Chapter~2 summarizes… Chapter~3 presents… Chapter~4 maps… Chapter~5 reports… Chapter~6 closes…" | Delete the entire "Report Organization" section. It is meaningless after merges and adds no value in the new structure. |
+| `04_implementation.tex` (line ~126) | "…discussed in Chapter~5." | Add `\label{sec:iv-results}` at the top of IV/ section "Expanded-Holdout Results". Change prose to `"…discussed in Section~\ref{sec:iv-results}."` |
+| `06_conclusion_and_future_work.tex` | "error analysis in Chapter~5" | Change to `"error analysis in Section~\ref{sec:iv-results}."` using the same label. |
+
+**Standing rule for new text:** Replace all future "Chapter~N" prose with `\nameref{sec:...}` or descriptive section-name prose ("see Results and Discussion") to survive any future restructure without breakage.
+
+### Label naming convention for new sections
+
+Use `sec:` prefix to avoid namespace collisions with existing `fig:`, `tab:`, `eq:` labels:
+- `\label{sec:objectives-scope}` at the top of `II_objectives.tex`
+- `\label{sec:iv-results}` at the start of the "Expanded-Holdout Results" section in IV/
+
+---
+
+## New Frontmatter Files: Content Templates
+
+### `certification.tex`
+
+```latex
+% chapters/frontmatter/certification.tex
+\thispagestyle{empty}
+\begin{center}
+  {\Large\bfseries CERTIFICATION\par}
+\end{center}
+\vspace{1.5cm}
+
+I hereby certify that the work presented in this thesis entitled
+\textit{``Localized Explainable AI Engine for Vietnamese Financial Phishing Detection''}
+is my own original work carried out under the supervision of
+\textbf{Giang Anh Tuan} (internal supervisor) and
+\textbf{Nguyen Viet Anh} (external supervisor),
+and has not been submitted for any other degree or professional qualification.
+
+\vspace{3cm}
+\begin{flushright}
+  Hanoi, \today\\[2cm]
+  \underline{\hspace{5cm}}\\
+  Ph\d{a}m Th\d{e} Minh\\
+  Student ID: 23BI14279
+\end{flushright}
+\clearpage
+```
+
+Adjust wording to match any exact department-provided text if a Word template exists. The structure above is a reasonable draft; treat as LOW confidence until verified against the department's official template.
+
+### `abbreviations.tex`
+
+```latex
+% chapters/frontmatter/abbreviations.tex
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+\markboth{List of Abbreviations}{List of Abbreviations}
+\begin{tabular}{@{}lp{10cm}@{}}
+  AI    & Artificial Intelligence \\
+  NLP   & Natural Language Processing \\
+  LLM   & Large Language Model \\
+  LoRA  & Low-Rank Adaptation \\
+  QLoRA & Quantized Low-Rank Adaptation \\
+  GGUF  & GPT-Generated Unified Format (llama.cpp model format) \\
+  OTP   & One-Time Password \\
+  SMS   & Short Message Service \\
+  F1    & F1-Score (harmonic mean of precision and recall) \\
+  NF4   & Normal Float 4-bit quantization \\
+  CUDA  & Compute Unified Device Architecture \\
+  CLI   & Command-Line Interface \\
+  API   & Application Programming Interface \\
+  SHA   & Secure Hash Algorithm \\
+  OCR   & Optical Character Recognition \\
+\end{tabular}
+\clearpage
+```
+
+### `abstract.tex`
+
+```latex
+% chapters/frontmatter/abstract.tex
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\markboth{Abstract}{Abstract}
+
+[Paste existing abstract paragraph from preface.tex here verbatim]
+
+\medskip
+\noindent\textbf{Keywords:} Vietnamese financial phishing, explainable AI,
+local inference, LoRA fine-tuning, privacy-preserving NLP, phishing detection.
+\clearpage
+```
+
+---
+
+## Safe Restructure Sequence
+
+Execute in this order. Compile after every step. Do not proceed to the next step if the compile produces errors or unexpected warnings.
+
+**Step 1 — Preamble-only change (zero content risk)**
+
+Add `\newcommand{\thesissection}` to `main.tex` preamble. Compile existing `main.tex`. Verify clean compile. This is an additive-only change; nothing existing is touched.
+
+**Step 2 — Create new frontmatter files without wiring them in**
+
+Create `certification.tex`, `abbreviations.tex`, `abstract.tex` with their content. Do NOT yet reference them from `main.tex`. Compile unchanged `main.tex`. Verify it still compiles (unused files have no effect).
+
+**Step 3 — Create `chapters/body/` stub files and a shadow `main_new.tex`**
+
+Create stub body files with only their `\thesissection{X}{...}` call and a `% TODO: migrate content` comment. Create `main_new.tex` as a copy of `main.tex` that `\input`s the new body stubs instead of the old chapters. Compile `main_new.tex`. Verify the five roman-numeral headings appear in the PDF TOC with correct entries. Fix any `\thesissection` spacing issues before proceeding.
+
+**Step 4 — Migrate IV/ and V/ (pure copy, lowest risk)**
+
+`IV_results_and_discussion.tex` and `V_conclusion_and_perspective.tex` are almost verbatim copies. Copy content from `05` and `06`, remove the old `\chapter{...}` line, add `\thesissection{IV/V}{...}` at the top. Compile `main_new.tex`. Verify `\ref{fig:recall-by-class}`, `\ref{tab:confusion-matrix}`, `\ref{tab:evaluation-snapshot}` all resolve. Fix the two "Chapter~5" prose references in V/ using `\label{sec:iv-results}`.
+
+**Step 5 — Migrate III/ (merge of 03 + 04)**
+
+Copy full content of `03_methodology_and_system_design.tex` then `04_implementation.tex` into `III_materials_and_methods.tex`. Remove both old `\chapter{...}` lines. Add `\thesissection{III}{Materials and Methods}` at the top. Compile. Verify all table/figure/equation refs resolve: `\ref{tab:dataset-stats}`, `\ref{tab:pilot-comparison}`, `\ref{tab:qlora-config}`, `\ref{eq:qlora-forward}`, `\ref{fig:runtime-flow}`, `\ref{fig:system-overview}`, `\ref{tab:milestone-summary}`. Fix "Chapter~5" reference in former ch04 content (line ~126).
+
+**Step 6 — Migrate I/ and II/ (split + merge)**
+
+Extract "Objectives and Scope" from `01_introduction.tex` into `II_objectives.tex`. Delete "Report Organization" section from `01_introduction.tex`. Append full content of `02_related_work_and_background.tex` after the trimmed ch01 content into `I_introduction.tex`. Add `\thesissection{I}{Introduction}` at top of I/, `\thesissection{II}{Objectives}` at top of II/. Compile. Verify `\ref{fig:cloud-vs-local-flow}` resolves.
+
+**Step 7 — Wire new frontmatter into `main_new.tex`**
+
+Replace the `\input{chapters/frontmatter/preface}` line in `main_new.tex` with the full new frontmatter sequence (certification, Acknowledgements, TOC, abbreviations, LoT, LoF, abstract). Compile. Verify: roman page numbers on frontmatter, arabic from I/ onward, TOC shows all five roman-numeral body entries plus all frontmatter entries (Acknowledgements, List of Abbreviations, List of Tables, List of Figures, Abstract).
+
+**Step 8 — Promote `main_new.tex` to `main.tex`**
+
+Rename existing `main.tex` to `main_old.tex` (backup). Rename `main_new.tex` to `main.tex`. Compile two full passes (for `natbib` label resolution). Perform visual spot-check on the PDF: cover page, certification, TOC page numbers, first body section heading "I/ Introduction", References, page header content.
+
+**Step 9 — Add appendices**
+
+Write `chapters/appendices/appendices.tex` with `\chapter{Appendix A: ...}` content. Verify it appears in TOC and that the appendix chapter letter renders correctly (LaTeX `\appendix` resets `\thechapter` to letters).
+
+**Step 10 — Cleanup commit (deferred)**
+
+After the next milestone's compile is confirmed clean, delete the deprecated old chapter files (`01` through `06`, `preface.tex`) in a dedicated cleanup commit. Do not co-mingle cleanup with content changes.
+
+---
+
+## `fancyhdr` Running Header Behavior
+
+The current `main.tex` defines:
+```latex
+\fancyhead[L]{\small\leftmark}
+```
+
+For `\chapter*`, LaTeX does NOT auto-update `\leftmark`. Without the `\markboth` call inside `\thesissection`, the page header would display the previous section's name throughout the entire following body section.
+
+The `\markboth{#1/ #2}{#1/ #2}` call in `\thesissection` is therefore mandatory, not optional. This applies to ALL frontmatter `\chapter*` calls as well. The certification, abbreviations, and abstract files must each call `\markboth{...}{...}` or use `\thispagestyle{plain}` to suppress the header on those pages.
+
+---
+
+## Confidence Assessment
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| `\chapter*` + `\addcontentsline` approach | HIGH | Standard LaTeX idiom; safe with `titlesec` and `tocloft` |
+| `\titlesec` inheritance to `\chapter*` | HIGH | `titlesec` documents that `\titleformat{\chapter}` applies to starred form |
+| `\markboth` requirement for `fancyhdr` | HIGH | Documented `fancyhdr` behavior; verified by inspection of current `main.tex` |
+| Label/ref safety across all merges | HIGH | All 11 labels audited; no cross-boundary reference pairs exist |
+| Prose "Chapter~N" breakages | HIGH | Three instances found by grep; all fixable before Step 4 |
+| Restructure step ordering | MEDIUM | Based on dependency analysis; compile-test at each step is the primary safety net |
+| `certification.tex` exact wording | LOW | No official department `.tex` template available; draft is reasonable but must be verified against department's Word template before submission |
+
+---
+
+---
+
+# Software Pipeline Architecture (Phases 1–21)
+
+**Domain:** Localized explainable LLM for Vietnamese financial phishing/social engineering text detection
+**Project:** Localized Explainable AI (XAI) Engine for Vietnamese phishing triage
 **Researched:** 2026-03-18
 
 ## Recommended Architecture
@@ -177,20 +592,20 @@ Design principle: high recall on threat detection, deterministic evidence captur
 
 ### Pattern 1: Hybrid Detection (Rules + Retrieval + LLM)
 
-**What:** Combine deterministic rules with grounded LLM reasoning.  
-**When:** Safety-critical scam detection where recall is critical.  
+**What:** Combine deterministic rules with grounded LLM reasoning.
+**When:** Safety-critical scam detection where recall is critical.
 **Why:** Rules catch known high-risk patterns quickly; LLM handles nuanced language and social context.
 
 ### Pattern 2: Structured Output First
 
-**What:** Force model outputs into fixed JSON schema before user rendering.  
-**When:** Need stable downstream explanation/recommendation logic and evaluability.  
+**What:** Force model outputs into fixed JSON schema before user rendering.
+**When:** Need stable downstream explanation/recommendation logic and evaluability.
 **Why:** Prevent brittle parsing and enable robust regression testing.
 
 ### Pattern 3: Evidence-Bound Explanations
 
-**What:** Every explanation claim should map to explicit text spans/rule hits.  
-**When:** XAI requirements and trust-sensitive product context.  
+**What:** Every explanation claim should map to explicit text spans/rule hits.
+**When:** XAI requirements and trust-sensitive product context.
 **Why:** Improves user trust and reduces unsafe overclaiming.
 
 ## Anti-Patterns to Avoid
@@ -217,47 +632,13 @@ Design principle: high recall on threat detection, deterministic evidence captur
 
 Suggested build order for a greenfield milestone:
 
-1. Foundation and contracts first
-
-- Define canonical schemas (`AnalyzeRequest`, `ThreatAssessment`, `Explanation`, `Recommendation`, `EventLog`).
-- Establish artifact versioning (model/prompt/rules/retrieval snapshot IDs).
-
-1. Ingestion + preprocessing + logging skeleton
-
-- Build deterministic text normalization and extraction pipeline.
-- Wire end-to-end request tracing and event logging before advanced model work.
-
-1. Rule Engine v1 + baseline retrieval
-
-- Implement high-recall deterministic signals for known Vietnamese financial scam patterns.
-- Add minimal local knowledge base and retrieval API.
-
-1. Offline model runtime integration
-
-- Integrate quantized local model serving with structured output constraints.
-- Produce initial threat labels and confidence.
-
-1. Explanation and recommendation layers
-
-- Add evidence-to-rationale mapping and user action templates by scam type.
-- Harden for non-technical clarity and safe guidance wording.
-
-1. Evaluation harness and release gates
-
-- Build benchmark runner, metrics, and regression dashboard/reporting.
-- Enforce recall-priority gate and latency gate.
-
-1. Data flywheel and hardening
-
-- Use error clusters to update data, rules, prompts, and retrieval.
-- Add adversarial robustness tests (obfuscation, mixed-language manipulation).
-
-### Why this order
-
-- Early schema and logging avoid costly rewrites.
-- Rule-first detection provides immediate safety baseline before model maturity.
-- Evaluation harness before optimization prevents blind tuning.
-- Explanation/recommendation after stable detection avoids amplifying unstable predictions.
+1. Foundation and contracts first — define canonical schemas, establish artifact versioning.
+2. Ingestion + preprocessing + logging skeleton — wire end-to-end request tracing before model work.
+3. Rule Engine v1 + baseline retrieval — implement high-recall deterministic signals.
+4. Offline model runtime integration — structured output constraints, initial threat labels.
+5. Explanation and recommendation layers — evidence-to-rationale mapping, safe guidance wording.
+6. Evaluation harness and release gates — benchmark runner, metrics, regression dashboard.
+7. Data flywheel and hardening — use error clusters to update data, rules, prompts, retrieval.
 
 ## Architecture Risks to Track During Planning
 
@@ -266,17 +647,11 @@ Suggested build order for a greenfield milestone:
 - Quantization settings may impact calibration and confidence reliability.
 - Recommendation policy drift can produce unsafe or outdated advice.
 
-## Planning Notes for Next Milestone Draft
-
-- Treat evaluation harness as a first-class subsystem, not a post-hoc script.
-- Allocate explicit phase capacity for Vietnamese linguistic edge cases.
-- Include offline packaging and update strategy as part of core architecture, not deployment afterthought.
-
 ---
 
 ## Chat-Bubble UI Integration Architecture (Milestone v2.0)
 
-**Researched:** 2026-06-08  
+**Researched:** 2026-06-08
 **Scope:** Frontend redesign only — Python WSGI backend (`demo.py`) is unchanged.
 
 ### Integration Point Summary
@@ -349,280 +724,6 @@ User types text + selects channel
   -> scrollToBottom()
   -> clear textarea, re-enable send
 ```
-
-### Component Structure (HTML/CSS/JS breakdown)
-
-**HTML shell (index.html after rewrite):**
-
-```html
-<body>
-  <div class="chat-window">
-    <header class="chat-header"><!-- app name + trust strip --></header>
-    <div id="chat-thread" role="log" aria-live="polite">
-      <!-- bubbles injected here by JS -->
-    </div>
-    <form id="composer" class="composer-bar">
-      <div class="channel-pill">
-        <select id="channel-select"><!-- options --></select>
-      </div>
-      <textarea id="message-input"></textarea>
-      <div class="send-actions">
-        <button id="sample-button"><!-- "Thu mau" --></button>
-        <button type="submit" id="analyze-button"><!-- "Phan tich" --></button>
-      </div>
-    </form>
-  </div>
-</body>
-```
-
-**Bot bubble template (inside `<template id="bubble-bot">`):**
-
-```html
-<article class="bubble bubble--bot">
-  <span class="risk-badge" data-risk-tier=""></span>
-  <p class="bubble__verdict"></p>
-  <ul class="cue-list"></ul>
-  <ul class="rec-list"></ul>
-  <footer class="bubble__meta">
-    <span class="threat-tags"></span>
-    <span class="backend-name"></span>
-  </footer>
-</article>
-```
-
-**Typing indicator template (inside `<template id="bubble-typing">`):**
-
-```html
-<div class="bubble bubble--bot bubble--typing" id="typing-indicator">
-  <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-</div>
-```
-
-### Bilingual Text Management
-
-**Decision: hardcode in `i18n.js`, reference from `demo.js`. No HTML `data-*` attributes for strings, no separate JSON file fetched at runtime.**
-
-Rationale:
-
-- The page is fully local and static. A runtime `fetch('i18n.json')` adds an async dependency before the UI is usable and complicates the WSGI routing (needs another static route or inline into HTML).
-- HTML `data-*` attributes on elements would scatter string definitions across markup and make adding a second language non-trivial.
-- A plain JS object in `i18n.js` loaded via a second `<script src="/static/i18n.js">` tag is zero-infrastructure, consistent with the no-build constraint, and makes all strings findable in one place.
-
-`demo.py` needs one new static route: `GET /static/i18n.js` returning `i18n.js` as `application/javascript`. This is the only change to `demo.py` — one `if` branch mirroring the existing `demo.css` and `demo.js` patterns.
-
-**i18n.js shape:**
-
-```javascript
-const I18N = {
-  ui: {
-    appName: "Kiem tra tin nhan dang ngo",
-    inputPlaceholder: "Dan tin nhan dang ngo vao day...",
-    sendButton: "Phan tich",
-    sampleButton: "Thu mau",
-    channelLabel: "Kenh",
-    typingText: "Dang phan tich...",
-    errorTitle: "Loi ket noi runtime",
-  },
-  riskTier: {
-    "benign":     { vi: "Binh thuong",   en: "Benign" },
-    "suspicious": { vi: "Nghi ngo",      en: "Suspicious" },
-    "high-risk":  { vi: "Nguy hiem cao", en: "High risk" },
-  },
-  threatLabel: {
-    "bank_impersonation":      "Gia mao ngan hang",
-    "zalo_social_engineering": "Lua dao Zalo",
-    "task_scam":               "Lua dao viec lam",
-    "benign":                  "Binh thuong",
-  },
-  channels: {
-    "unknown":   "Khong ro",
-    "sms":       "SMS",
-    "zalo":      "Zalo",
-    "messenger": "Messenger",
-    "telegram":  "Telegram",
-    "facebook":  "Facebook",
-  },
-  sections: {
-    cues:    "Dau hieu dang ngo",
-    steps:   "Buoc an toan tiep theo",
-    backend: "Mo hinh",
-  },
-  errors: {
-    networkFail: "Khong the ket noi toi runtime cuc bo.",
-    networkStep: "Thu lai sau khi runtime khoi dong xong.",
-  },
-};
-```
-
-Note: Vietnamese diacritics are intentionally omitted in the JS snippet above to avoid encoding issues in the planning file. The actual `i18n.js` source file should use full UTF-8 Vietnamese with diacritics.
-
-**Note on technical terms:** Risk tier label displays as bilingual — e.g., "Nguy hiem cao (High risk)" — using the `riskTier` map's `vi` + `en` fields concatenated. Other UI text is Vietnamese-only.
-
-### Async Flow in demo.js (typing indicator lifecycle)
-
-```javascript
-async function sendMessage() {
-  const text = messageInput.value.trim();
-  if (!text) return;
-
-  appendUserBubble(text, channelSelect.value);  // 1. user bubble
-  messageInput.value = "";
-  setInputDisabled(true);
-
-  const typingEl = appendTypingIndicator();     // 2. typing dots appear
-  scrollToBottom();
-
-  try {
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, channel: channelSelect.value }),
-    });
-    const payload = await response.json();
-    typingEl.remove();                           // 3. remove dots
-
-    if (response.ok) {
-      appendBotBubble(payload);                  // 4a. bot bubble
-    } else {
-      appendErrorBubble(payload.error ?? { message: I18N.errors.networkFail, steps: [] });
-    }
-  } catch {
-    typingEl.remove();
-    appendErrorBubble({ message: I18N.errors.networkFail, steps: [I18N.errors.networkStep] });
-  } finally {
-    setInputDisabled(false);
-    scrollToBottom();
-    messageInput.focus();
-  }
-}
-```
-
-`appendTypingIndicator` clones `#bubble-typing` template, appends to `#chat-thread`, and returns the element reference so the caller can `.remove()` it precisely when the response arrives — no timeouts, no polling.
-
-### CSS Architecture for Bubbles
-
-The existing CSS variable palette (`--accent-deep`, `--accent-cool`, `--success-tint`, `--warning-tint`, `--danger-tint`, `--ink-strong`, `--ink-muted`) maps directly to the chat-bubble semantics and must be retained verbatim. The full `.workspace-panel` grid layout is replaced by a single-column flex column:
-
-```css
-.chat-window {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;            /* full viewport, no scroll on body */
-  max-width: 760px;
-  margin: 0 auto;
-}
-
-.chat-thread {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.composer-bar {
-  flex-shrink: 0;
-  /* sticky bottom — part of flex column, not position:fixed */
-}
-
-.bubble {
-  max-width: 72%;
-  border-radius: 18px;
-  padding: 14px 18px;
-  line-height: 1.6;
-}
-
-.bubble--user {
-  align-self: flex-end;
-  background: linear-gradient(135deg, var(--accent-deep), #b95f46);
-  color: #fff8f4;
-}
-
-.bubble--bot {
-  align-self: flex-start;
-  background: var(--panel-background);
-  border: 1px solid var(--panel-border);
-}
-
-.bubble--typing {
-  padding: 16px 22px;
-}
-
-/* Three-dot typing animation */
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink-muted);
-  animation: blink 1.2s infinite;
-}
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0.25; }
-  40% { opacity: 1; }
-}
-
-.risk-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.risk-badge[data-risk-tier="benign"]     { background: var(--success-tint); color: #22543d; }
-.risk-badge[data-risk-tier="suspicious"] { background: var(--warning-tint); color: #8a4b08; }
-.risk-badge[data-risk-tier="high-risk"]  { background: var(--danger-tint);  color: #8a2424; }
-```
-
-The `.channel-pill` inside the composer wraps the `<select>` element and renders as a small rounded badge-like selector flush with the textarea, matching the existing button border-radius convention.
-
-### demo.py Change: One Additional Static Route
-
-```python
-# Add alongside existing /static/demo.css and /static/demo.js handlers:
-if method == "GET" and path == "/static/i18n.js":
-    return _text_response(
-        start_response, "200 OK",
-        "application/javascript; charset=utf-8",
-        _load_asset("i18n.js"),
-    )
-```
-
-No other changes to `demo.py`. `DemoApp.__call__`, `_handle_analyze`, `build_demo_app`, and `run_demo_server` are untouched.
-
-### New vs Modified File List (Implementation Reference)
-
-Files that change in this milestone, in build order:
-
-- **src/runtime/demo_assets/demo.css** — Modified, full rewrite. Replaces panel and grid CSS with chat-window and bubble CSS. All existing CSS variables retained.
-- **src/runtime/demo_assets/index.html** — Modified, full rewrite. Replaces card layout with chat window shell and new bubble templates.
-- **src/runtime/demo_assets/i18n.js** — New file. Bilingual string table; must be loaded as a script tag before demo.js.
-- **src/runtime/demo.py** — Modified, minimal. Adds one if-branch to serve GET /static/i18n.js.
-- **src/runtime/demo_assets/demo.js** — Modified, full rewrite. Replaces render functions with bubble builders and typing lifecycle.
-
-### Build Order for Implementation Phases
-
-Dependencies flow in this direction: CSS defines visual tokens → HTML provides structure → JS wires behavior → i18n fills text. Build in this order to avoid blocking:
-
-**Phase 1 — CSS skeleton.**
-Write the full `demo.css` rewrite. Define `.chat-window`, `.chat-thread`, `.composer-bar`, `.bubble`, `.bubble--user`, `.bubble--bot`, `.bubble--typing`, `.risk-badge`, `.channel-pill`. Keep all existing CSS variables. No JS dependency. Can visually verify with static HTML.
-
-**Phase 2 — HTML shell.**
-Write the full `index.html` rewrite with the new chat-window structure, new `<template>` elements (`bubble-user`, `bubble-bot`, `bubble-error`, `bubble-typing`). Add `<script src="/static/i18n.js">` before `demo.js`. At this point the page renders (empty thread + composer) without any JS.
-
-**Phase 3 — i18n.js + demo.py route.**
-Write `i18n.js` with the full `I18N` object. Add the one static-route branch to `demo.py`. Verify `http://localhost:8765/static/i18n.js` returns the file. No JS behavior yet needed.
-
-**Phase 4 — demo.js rewrite.**
-Write the full `demo.js` rewrite. Wire `sendMessage`, `appendUserBubble`, `appendTypingIndicator`, `appendBotBubble`, `appendErrorBubble`, `scrollToBottom`. Reference `I18N` object (loaded before this script). Test end-to-end: paste text → user bubble → dots → bot bubble.
-
-**Phase 5 — polish and edge cases.**
-Handle empty input guard, long-text truncation in user bubble, `sampleButton` prefill (port from existing behavior), mobile viewport (ensure `100dvh` composer stays on-screen with soft keyboard), accessibility (`role="log"`, `aria-live="polite"` on thread, `aria-label` on buttons).
 
 ### Constraints Carried From Existing Architecture
 
