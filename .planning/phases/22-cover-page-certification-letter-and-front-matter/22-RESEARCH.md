@@ -382,17 +382,17 @@ This gives exactly six semicolon-separated English keyword phrases. [ASSUMED]
 | A2 | TOC, LoT, and LoF behavior requires multiple compile passes. | Pitfalls / Don't Hand-Roll | If the local build tool handles this automatically, extra passes are harmless but slower. |
 | A3 | The keyword line example contains exactly six acceptable English keyword phrases. | Code Examples | User or department may prefer different keyword phrases. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Supervisor names with Vietnamese diacritics**
+1. **Supervisor names with Vietnamese diacritics — RESOLVED**
    - What we know: Current titlepage uses `Giang Anh Tuan` and `Nguyen Viet Anh`; context says preserve supervisors. [VERIFIED: titlepage.tex + 22-CONTEXT.md]
    - What's unclear: Whether final department copy should use `Giang Anh Tuấn` and `Nguyễn Việt Anh`. [ASSUMED]
-   - Recommendation: Keep existing spelling unless the user supplies the exact department-approved form. [ASSUMED]
+   - Resolution: Keep existing spelling (`Giang Anh Tuan`, `Nguyen Viet Anh`) for Phase 22 to preserve the current thesis source and avoid inventing department-approved names. [RESOLVED: autonomous default]
 
-2. **Certification signature formatting**
+2. **Certification signature formatting — RESOLVED**
    - What we know: Context requires signature/date lines suitable for final manual completion. [VERIFIED: 22-CONTEXT.md]
    - What's unclear: Whether USTH ICT has a required signature block order beyond internal/external supervisor lines. [ASSUMED]
-   - Recommendation: Use a conservative two-column supervisor signature block and leave date blanks. [ASSUMED]
+   - Resolution: Use a conservative two-column supervisor signature block for internal and external supervisors, with date/signature blanks suitable for manual completion. [RESOLVED: autonomous default]
 
 ## Environment Availability
 
@@ -460,4 +460,3 @@ Security enforcement is not explicitly disabled in `.planning/config.json`, so t
 
 **Research date:** 2026-06-15
 **Valid until:** 2026-07-15 for this local LaTeX phase unless department template requirements change.
-

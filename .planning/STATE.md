@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Report Formatting — Department Template
-status: active
-last_updated: "2026-06-15"
-last_activity: 2026-06-15
+status: Not started — roadmap created, ready for /gsd-plan-phase 22
+last_updated: "2026-06-15T11:19:52.569Z"
+last_activity: 2026-06-15 — Milestone v2.2 roadmap created (Phases 22-24)
 progress:
   total_phases: 3
   completed_phases: 0
