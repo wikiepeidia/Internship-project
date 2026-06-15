@@ -1,0 +1,62 @@
+% Front matter consolidated here so main.tex only orchestrates inputs.
+\pagenumbering{roman}
+
+{\singlespacing
+\tableofcontents
+}
+
+\clearpage
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+The author gratefully acknowledges the guidance of Giang Anh Tuan (internal supervisor) and Nguyen Viet Anh (external supervisor), the support of the Department of Information and Communication Technology at USTH, and the feedback that helped improve both the system implementation and this thesis.
+
+\clearpage
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+
+\begin{longtable}{@{}p{0.22\textwidth}L{0.68\textwidth}@{}}
+\toprule
+\textbf{Abbreviation} & \textbf{Meaning} \\
+\midrule
+AI & Artificial Intelligence \\
+API & Application Programming Interface \\
+F1 & Harmonic mean of precision and recall \\
+GGUF & GPT-Generated Unified Format \\
+GPU & Graphics Processing Unit \\
+ICT & Information and Communication Technology \\
+JSONL & JSON Lines \\
+LLM & Large Language Model \\
+LoRA & Low-Rank Adaptation \\
+NCSC & National Cyber Security Center \\
+NF4 & NormalFloat 4-bit quantization \\
+OTP & One-Time Password \\
+PEFT & Parameter-Efficient Fine-Tuning \\
+QLoRA & Quantized Low-Rank Adaptation \\
+USTH & University of Science and Technology of Hanoi \\
+VRAM & Video Random Access Memory \\
+XAI & Explainable Artificial Intelligence \\
+\bottomrule
+\end{longtable}
+
+\clearpage
+{\singlespacing
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+}
+
+\clearpage
+{\singlespacing
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+}
+
+\clearpage
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+This thesis presents a local-first explainable AI system for Vietnamese financial phishing detection. The implemented pipeline combines reproducible dataset construction, an offline text runtime, parameter-efficient local model adaptation, and a decision layer that returns risk tiers, threat labels, grounded cues, and safe user recommendations. The final internal evaluation covers 254 seed-disjoint held-out messages, with macro F1 of 0.9553. All three risky classes met their per-class recall targets, with task-scam recall reaching 0.871 on 62 held-out examples. However, given the synthetic-derived holdout, small sample size, and two outstanding explanation quality cautions, deployment in safety-sensitive settings is not recommended without real-world validation. The thesis contributes a working local analysis pipeline together with a transparent record of what was built, evaluated, and found to be limited.
+
+\vspace{0.5em}
+\noindent\textbf{Keywords:} Vietnamese phishing detection; local large language models; explainable artificial intelligence; QLoRA adaptation; GGUF inference; financial fraud prevention.
+
+\cleardoublepage
+\pagenumbering{arabic}
