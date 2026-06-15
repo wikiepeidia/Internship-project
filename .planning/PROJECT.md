@@ -19,7 +19,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Continue the v2.0 chat UI revamp: move strings into `i18n.js`, rewrite the submit lifecycle, then validate polish, mobile, and accessibility behavior.
+- [ ] Reformat LaTeX thesis to USTH ICT Bachelor Thesis department template: cover page, certification letter, front matter structure, 5-section Roman numeral restructure, abbreviations, appendices, evaluation tables sync.
 
 ### Out of Scope
 
@@ -52,21 +52,33 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v2.1 Defense Corrections
+## Current Milestone: v2.2 Report Formatting — Department Template
 
-**Goal:** Fix all slides, re-run model evaluation as binary scam/non-scam, and update the thesis report per supervisor feedback before the final defense.
+**Goal:** Reformat the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template; sync slides and any missing evaluation tables.
 
 **Target features:**
 
-- Slide 1: title clarified — scope is model fine-tuning, not production app
-- Slide 2: "Agenda" → "Table of Contents"; slide order fixed (Why Local after Motivation)
-- Slide 4: pipeline renamed (not "System Architecture"); synthetic data usage note; "Data Splits"
-- Slide 5: Pydantic explanation; T-test / quality metric for synthetic data
-- Slide 6: replace jailbreak content with researched ChatGPT/cloud API data leakage evidence
-- Slide 8: clarify training time unit (seconds); explain QLoRA 4-bit training vs GGUF Q8_0 inference
-- Slides 9-10: binary evaluation (scam vs non-scam); charts → tables
-- Reference slide added
-- Report updated to match slide corrections + privacy section updated with API leak research
+- Cover page: "BACHELOR THESIS" label + "By / Title:" layout matching department template
+- Supervisor certification letter page (currently missing)
+- List of Abbreviations section (currently missing)
+- Abstract: 6 English keywords + ≤250 words
+- Front matter order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
+- Restructure 6 numbered chapters → 5 Roman numeral sections (I/ Introduction, II/ Objectives, III/ Materials & Methods, IV/ Results & Discussion, V/ Conclusion & Perspective)
+- Appendices section (currently missing)
+- Slides: scan + fix any "Chapter X" references
+- Results section: add/sync binary per-class metrics table and 2×2 confusion matrix to match slide content
+
+## Completed Milestone: v2.1 Defense Corrections
+
+**Closed:** 2026-06-09
+
+**Delivered:**
+
+- Slides fixed per supervisor feedback: title, TOC ordering, pipeline naming, Pydantic gate, QLoRA/GGUF explanation, training time unit
+- Privacy section reframed with OpenAI March 2023 + Samsung 2023 API leakage incidents
+- Binary evaluation: bar charts replaced with per-class metrics table; 2×2 confusion matrix added (binary F1 = 1.000)
+- Thesis Chapter 2: jailbreak examples replaced with cloud API data leakage incidents; 23 pages compile clean
+- All 11 v2.1 requirements (SLIDE-01–07, EVAL-04–05, REPORT-01–02) met
 
 ## Completed Milestone: v2.0 Chat UI Revamp
 
@@ -95,9 +107,28 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 ## Current State
 
-- All 14 completed phases are closed across milestones v1.0, v1.2, v1.5, and the first v2.0 chat UI scaffold phase.
-- Thesis report and defense slides are content-complete and compile-clean.
-- v2.0 static HTML/CSS scaffold is complete; next work is Phase 15 (`i18n.js` plus static route).
+- All 21 phases across milestones v1.0–v2.1 are complete and closed.
+- Thesis content and defense slides are complete and compile-clean (XeLaTeX, 23 pages).
+- v2.2 starts: reformatting the thesis report to match the USTH ICT Bachelor Thesis department template.
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-Last updated: 2026-06-08 after Phase 14 closed the static chat-shell scaffold
+Last updated: 2026-06-15 after v2.2 milestone started — department template formatting
