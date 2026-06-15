@@ -45,7 +45,7 @@ where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \
 
 \input{tables/qlora_config}
 
-After training, the adapter-merged model was exported to GGUF format \cite{gerganov2023llamacpp} with \texttt{q8\_0} quantization using the \texttt{convert\_hf\_to\_gguf.py} script. The exported artifact enables local CPU inference without requiring CUDA at runtime. After a prompt-size optimization pass that removed schema and example blocks from the inference prompt (reducing the prompt from over 400 tokens to approximately 130--150 tokens), the warm inference latency on the target laptop CPU was approximately 13~seconds. This is acceptable for a demonstration on laptop hardware.
+After training, the adapter-merged model was exported to GGUF format \cite{gerganov2023llamacpp} with \texttt{q8\_0} quantization using the \texttt{convert\_hf\_to\_gguf.py} script. The two quantization schemes serve different purposes: NF4 4-bit is used during QLoRA fine-tuning to reduce GPU memory consumption while training, whereas Q8\_0 8-bit is used for the GGUF inference artifact to preserve model quality during CPU-based deployment while still producing a file small enough to run without a GPU. The exported artifact enables local CPU inference without requiring CUDA at runtime. After a prompt-size optimization pass that removed schema and example blocks from the inference prompt (reducing the prompt from over 400 tokens to approximately 130--150 tokens), the warm inference latency on the target laptop CPU was approximately 13~seconds. This is acceptable for a demonstration on laptop hardware.
 
 \section{Explainable Threat Decisioning}
 
