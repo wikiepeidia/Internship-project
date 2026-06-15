@@ -42,6 +42,10 @@
 \setlength{\cftbeforesecskip}{0pt}
 \setlength{\cftbeforefigskip}{1pt}
 \setlength{\cftbeforetabskip}{1pt}
+\renewcommand{\cftchapfont}{\small\bfseries}
+\renewcommand{\cftchappagefont}{\small\bfseries}
+\renewcommand{\cftsecfont}{\small}
+\renewcommand{\cftsecpagefont}{\small}
 \renewcommand{\cftfigfont}{\small}
 \renewcommand{\cftfigpagefont}{\small}
 \renewcommand{\cfttabfont}{\small}
@@ -68,9 +72,14 @@
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{2pt}
 
-% Compact headings
-\titleformat{\chapter}[display]{\normalfont\Large\bfseries}{\chaptertitlename\ \thechapter}{8pt}{\LARGE}
-\titlespacing*{\chapter}{0pt}{-20pt}{10pt}
+% Department-style chapter headings: blue, uppercase, horizontal rule below
+\titleformat{\chapter}[block]
+  {\normalfont\Large\bfseries\color{CVBLUE}}
+  {}
+  {0pt}
+  {\MakeUppercase}
+  [{\color{CVBLUE}\titlerule[1pt]}]
+\titlespacing*{\chapter}{0pt}{-10pt}{14pt}
 \titlespacing*{\section}{0pt}{8pt}{4pt}
 \titlespacing*{\subsection}{0pt}{6pt}{3pt}
 
