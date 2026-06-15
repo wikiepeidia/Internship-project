@@ -1,6 +1,4 @@
-We bring together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that our pipeline works end to end and leaves a verifiable record. The final evaluation shows that we met the per-class recall target on all three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
-
-\input{tables/evaluation_snapshot}
+We bring together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that our pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that we met the per-class recall target on all three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
 
 \section{Data Quality and Candidate Selection}
 The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 49 passing samples out of 50, with an average realism score of 4.68 out of 5 and an average label-correctness score of 4.96 out of 5. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
