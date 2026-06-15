@@ -46,15 +46,17 @@ XAI & Explainable Artificial Intelligence \\
 \end{longtable}
 
 \clearpage
-{\singlespacing
+\chapter*{\listtablename}
 \addcontentsline{toc}{chapter}{\listtablename}
-\listoftables
+{\singlespacing
+\makeatletter\@starttoc{lot}\makeatother
 }
 
 \clearpage
-{\singlespacing
+\chapter*{\listfigurename}
 \addcontentsline{toc}{chapter}{\listfigurename}
-\listoffigures
+{\singlespacing
+\makeatletter\@starttoc{lof}\makeatother
 }
 
 \clearpage
