@@ -1,0 +1,65 @@
+\begin{tikzpicture}[
+  %% Offline-row boxes — light CVBLUE fill
+  obox/.style={
+    draw=CVBLUE!70!black, fill=CVBLUE!12, rectangle, rounded corners=3pt,
+    minimum width=2.1cm, minimum height=0.80cm,
+    align=center, font=\small, inner sep=4pt
+  },
+  %% Runtime-row boxes — light crimson fill
+  rbox/.style={
+    draw=red!55!black, fill=red!8, rectangle, rounded corners=3pt,
+    minimum width=2.1cm, minimum height=0.80cm,
+    align=center, font=\small, inner sep=4pt
+  },
+  %% Section header bars — solid CVBLUE / crimson
+  ohdr/.style={
+    draw=CVBLUE!80!black, fill=CVBLUE, rectangle, rounded corners=4pt,
+    minimum width=14.6cm, minimum height=0.52cm,
+    align=left, font=\small\bfseries, text=white, inner sep=6pt
+  },
+  rhdr/.style={
+    draw=red!70!black, fill=red!65!black, rectangle, rounded corners=4pt,
+    minimum width=14.6cm, minimum height=0.52cm,
+    align=left, font=\small\bfseries, text=white, inner sep=6pt
+  },
+  arr/.style={->, >=stealth, thick, CVBLUE!80!black},
+  darr/.style={->, >=stealth, thick, dashed, black!40}
+]
+
+%% ── Headers ──────────────────────────────────────────────────
+\node[ohdr] at (0,  0.00) {(1)\enspace Offline Preparation};
+\node[rhdr] at (0, -3.10) {(2)\enspace Runtime Analysis};
+
+%% ── Offline row  (3 cm spacing → 0.9 cm gap) ─────────────────
+\node[obox] (dc)  at (-6.0, -0.95) {Data\\Collection};
+\node[obox] (qrv) at (-3.0, -0.95) {Quality\\Review};
+\node[obox] (spl) at ( 0.0, -0.95) {Versioned\\Splits};
+\node[obox] (qlo) at ( 3.0, -0.95) {QLoRA\\Training};
+\node[obox] (gex) at ( 6.0, -0.95) {GGUF\\Export};
+
+\draw[arr] (dc)  -- (qrv);
+\draw[arr] (qrv) -- (spl);
+\draw[arr] (spl) -- (qlo);
+\draw[arr] (qlo) -- (gex);
+
+%% ── Handoff arrow ────────────────────────────────────────────
+\draw[darr]
+  (6.0, -1.35) -- (6.0, -2.26)
+  -- node[above, font=\scriptsize, text=black!40] {model artifacts}
+  (0.0, -2.26)
+  -- (0.0, -3.64);
+
+%% ── Runtime row ──────────────────────────────────────────────
+\node[rbox] (inp) at (-6.0, -4.00) {Text Input\\(local)};
+\node[rbox] (rif) at (-3.0, -4.00) {Runtime\\Interface};
+\node[rbox] (mod) at ( 0.0, -4.00) {Model\\Backend};
+\node[rbox] (dly) at ( 3.0, -4.00) {Decision\\Layer};
+\node[rbox, minimum width=2.25cm] (out) at ( 6.0, -4.00)
+  {Risk\,·\,Labels\\Cues\,·\,Guidance};
+
+\draw[arr] (inp) -- (rif);
+\draw[arr] (rif) -- (mod);
+\draw[arr] (mod) -- (dly);
+\draw[arr] (dly) -- (out);
+
+\end{tikzpicture}

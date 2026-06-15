@@ -1,0 +1,29 @@
+%% Slide 8: Evaluation Results
+\begin{frame}{Evaluation Results}
+  \framesubtitle{Seed-Disjoint Internal Holdout (254 Messages)}
+  \begin{center}
+    {\footnotesize
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{lcccc}
+      \toprule
+      \textbf{Class} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{n} \\
+      \midrule
+      Bank Impersonation  & 0.836 & 1.000 & 0.911 & 56  \\
+      Zalo Social Eng.    & 1.000 & 0.960 & 0.980 & 75  \\
+      Task Scam           & 1.000 & 0.871 & 0.931 & 62  \\
+      Benign              & 1.000 & 1.000 & 1.000 & 61  \\
+      \midrule
+      \textbf{Macro avg}  & \textbf{0.959} & \textbf{0.958} & \textbf{0.955} & \textbf{254} \\
+      \bottomrule
+    \end{tabular}}
+  \end{center}
+  \vspace{0.10cm}
+  \begin{itemize}
+    \item \textbf{Macro F1:} \textcolor{CVBLUE}{\textbf{0.9553}} ---
+          all 4 classes exceeded the 0.80 recall floor.
+    \item \textbf{Lowest recall:} Task Scam (0.871) ---
+          bank-name + OTP phrasing overlaps with Bank Impersonation class boundary.
+    \item \textbf{Scope:} internal synthetic-derived holdout; real-world validation remains future work.
+  \end{itemize}
+\end{frame}

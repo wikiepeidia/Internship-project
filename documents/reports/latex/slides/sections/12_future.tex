@@ -1,0 +1,14 @@
+%% Slide 12: Limitations + Future Work
+\begin{frame}{Limitations \& Future Work}
+  \framesubtitle{Limitations \& Future Work}
+  \textbf{Current limitations:}
+  \begin{itemize}
+    \item \textbf{Text-only:} image-based phishing (QR codes, forwarded screenshots) is not handled.
+    \item Vietnamese-only training data --- generalization to other languages is untested.
+    \item Held-out size (254 samples) sufficient for thesis gate but too small for production.
+  \end{itemize}
+  \begin{block}{Primary Future Direction}
+    Add OCR preprocessing for phishing screenshots --- extends coverage without changing the model.
+  \end{block}
+\end{frame}
+

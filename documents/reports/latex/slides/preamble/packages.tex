@@ -1,0 +1,17 @@
+%% Beamer-specific packages — only add what Beamer does NOT already load.
+%% Do NOT add: fontspec, hyperref, float, caption, enumitem — all conflict or duplicate.
+\usepackage{booktabs}        % table rules (\toprule, \midrule, \bottomrule)
+\usepackage{colortbl}        % \cellcolor in confusion matrix
+\usepackage{tikz}            % TikZ figures reused from thesis
+\usetikzlibrary{calc,positioning,arrows.meta}
+\usepackage{graphicx}        % \includegraphics
+\usepackage{listings}        % verbatim CLI output (demo slide)
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  frame=none,
+  aboveskip=0pt,
+  belowskip=0pt,
+  columns=fullflexible,
+  keepspaces=true,
+}

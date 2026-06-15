@@ -1,0 +1,24 @@
+%% Slide 9: Confusion Matrix + Error Analysis
+\begin{frame}{Confusion Matrix \& Error Analysis}
+  \framesubtitle{Seed-Disjoint Internal Holdout (254 Messages)}
+  \begin{center}
+    {\footnotesize
+    \setlength{\tabcolsep}{10pt}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{lcccc}
+      \toprule
+      \textbf{True \textbackslash\ Predicted} & \textbf{Bank Imp.} & \textbf{Zalo SE} & \textbf{Task Scam} & \textbf{Benign} \\
+      \midrule
+      Bank Impersonation & \cellcolor{CVBLUE!15}\textbf{56} & 0 & 0 & 0 \\
+      Zalo Social Eng.   & 3 & \cellcolor{CVBLUE!15}\textbf{72} & 0 & 0 \\
+      Task Scam          & 8 & 0 & \cellcolor{CVBLUE!15}\textbf{54} & 0 \\
+      Benign             & 0 & 0 & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
+      \bottomrule
+    \end{tabular}}
+  \end{center}
+  \vspace{0.25cm}
+  \begin{itemize}
+    \item \textbf{Key finding:} 8/62 Task Scam + 3/75 Zalo SE misclassified as Bank Impersonation.
+    \item \textbf{Cause:} bank name + OTP language triggered bank-naming boundary overlap.
+  \end{itemize}
+\end{frame}

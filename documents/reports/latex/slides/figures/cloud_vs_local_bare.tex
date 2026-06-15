@@ -1,0 +1,39 @@
+\begin{tikzpicture}[
+  danger/.style={draw=black!55, fill=black!7, rectangle, rounded corners=3pt,
+                 minimum width=3.0cm, minimum height=0.80cm,
+                 align=center, font=\small},
+  safe/.style={draw=CVBLUE!65, fill=CVBLUE!8, rectangle, rounded corners=3pt,
+               minimum width=3.0cm, minimum height=0.80cm,
+               align=center, font=\small},
+  plain/.style={draw=black!40, rectangle, rounded corners=3pt,
+                minimum width=3.0cm, minimum height=0.80cm,
+                align=center, font=\small},
+  hdr/.style={font=\small\bfseries},
+  arr/.style={->, >=stealth, semithick},
+  darr/.style={->, >=stealth, semithick, dashed}
+]
+
+%% ── Column headers ───────────────────────────────────────────
+\node[hdr, text=black!55] at (-3.8,  2.2) {(A) Cloud API path};
+\node[hdr, text=CVBLUE]   at ( 3.8,  2.2) {(B) Local inference path};
+
+%% ── PATH A: Cloud API ────────────────────────────────────────
+\node[plain]   (u1)   at (-3.8,  1.2) {User\\Message};
+\node[danger]  (api)  at (-3.8, -0.2) {Cloud API\\(3rd-party)};
+\node[danger]  (leak) at (-3.8, -1.6) {Data stored\\on remote servers};
+
+\draw[arr, black!45] (u1)  -- node[left, font=\scriptsize, text=black!45] {raw upload} (api);
+\draw[darr, black!45] (api) -- node[left, font=\scriptsize, text=black!45] {logs 30+ days} (leak);
+
+%% ── Divider ──────────────────────────────────────────────────
+\draw[black!18, dashed] (0, 2.5) -- (0, -2.2);
+
+%% ── PATH B: Local inference ──────────────────────────────────
+\node[plain]  (u2)   at ( 3.8,  1.2) {User\\Message};
+\node[safe]   (gguf) at ( 3.8, -0.2) {Local GGUF\\(on-device)};
+\node[safe]   (out2) at ( 3.8, -1.6) {Grounded\\Output};
+
+\draw[arr, CVBLUE!55] (u2)   -- node[right, font=\scriptsize, text=CVBLUE!70] {stays on device} (gguf);
+\draw[arr, CVBLUE!55] (gguf) -- node[right, font=\scriptsize, text=CVBLUE!70] {no upload} (out2);
+
+\end{tikzpicture}

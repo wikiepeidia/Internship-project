@@ -1,0 +1,31 @@
+%% Slide 5: Data Pipeline
+\begin{frame}{Data Pipeline}
+  \framesubtitle{Seeds \textrightarrow{} Generated Training Examples \textrightarrow{} Quality Checks}
+  \begin{center}
+    \scalebox{0.78}{\input{slides/figures/data_pipeline_bare.tex}}
+  \end{center}
+  \vspace{-0.05cm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      {\footnotesize\textbf{How generated data was used:}}
+      {\footnotesize
+      \begin{itemize}
+        \setlength{\itemsep}{0.15em}
+        \item Generated messages were used for model training.
+        \item Validation and holdout examples were kept out of training.
+        \item They are still project data, not real user traffic.
+      \end{itemize}}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      {\footnotesize\textbf{Split counts:}}
+      {\footnotesize
+      \begin{itemize}
+        \setlength{\itemsep}{0.15em}
+        \item \textbf{2,018} train examples
+        \item \textbf{210} validation examples
+        \item \textbf{254} holdout examples
+        \item \textbf{Pydantic:} required fields + realism score
+      \end{itemize}}
+    \end{column}
+  \end{columns}
+\end{frame}

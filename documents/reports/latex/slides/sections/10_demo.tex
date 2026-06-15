@@ -1,0 +1,39 @@
+%% Slide 10a: Analysis result (shown first — sets up what the demo produces)
+\begin{frame}[fragile]{Result}
+  \framesubtitle{Structured Analysis Output}
+  \begin{columns}[T]
+    \column{0.36\textwidth}
+      {\small\textbf{Input (SMS channel):}\\[5pt]
+      \textit{``Tài khoản Vietcombank của bạn đã bị
+      hạn chế. Vui lòng xác minh và mở khoá
+      bằng cách nhập mã OTP đã gửi đến
+      số điện thoại của bạn.''}\\[8pt]
+      {\footnotesize Channel: \texttt{sms}}}
+    \column{0.64\textwidth}
+      {\footnotesize\textbf{System output:}}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single,
+  framesep=3pt,breaklines=true,columns=fullflexible]
+Structured decision from sms local runtime.
+Risk tier: High risk
+Threat labels: Bank impersonation, Task scam
+Grounded cues:
+- "ma OTP" - Yeu cau ma xac thuc ...
+- "mo khoa" - Dan nguoi dung ...
+Next steps:
+- Khong gui OTP cho bat ky ai qua Zalo
+- Lien he Vietcombank: 1900 54 54 26
+- Kiem tra giao dich tren ung dung ngan hang
+\end{lstlisting}
+  \end{columns}
+\end{frame}
+
+%% Slide 10b: Live Demo transition — no [plain] so section 7. Demo stays in header/footer
+\begin{frame}{Live Demo}
+  \vfill
+  \begin{center}
+    {\Huge\bfseries\color{CVBLUE} Live Demo}\\[16pt]
+    {\large \texttt{vnphish analyze}}\\[8pt]
+    {\normalsize\color{black!60} Vietnamese phishing message \textrightarrow{} local inference \textrightarrow{} structured output}
+  \end{center}
+  \vfill
+\end{frame}

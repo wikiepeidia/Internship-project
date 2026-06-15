@@ -1,0 +1,22 @@
+%% Slide 4: Training Pipeline Overview
+\begin{frame}{Training Pipeline Overview}
+  \framesubtitle{Offline Training Pipeline \textrightarrow{} Local Inference}
+  \begin{center}
+    \scalebox{0.60}{\input{slides/figures/system_overview_bare.tex}}
+  \end{center}
+  \vspace{-0.25cm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      {\footnotesize\textbf{Offline training}}\\[-0.02cm]
+      {\footnotesize Data collection \textrightarrow{} QLoRA fine-tuning \textrightarrow{} GGUF export}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      {\footnotesize\textbf{Local demo runtime}}\\[-0.02cm]
+      {\footnotesize Text input \textrightarrow{} local model \textrightarrow{} decision output}
+    \end{column}
+  \end{columns}
+  \vspace{0.10cm}
+  \begin{beamercolorbox}[wd=.93\textwidth,sep=0.7ex,rounded=true]{block body}
+    {\footnotesize\textbf{Data note:} Generated messages trained the model; validation and holdout examples were separate from training, but still project data, not real user traffic.}
+  \end{beamercolorbox}
+\end{frame}

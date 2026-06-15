@@ -1,0 +1,36 @@
+%% Slide 7: Model Adaptation — QLoRA on Qwen 4B
+\begin{frame}{Model Adaptation --- QLoRA on Qwen 4B}
+  \framesubtitle{Parameter-Efficient Fine-Tuning for Consumer Hardware}
+
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.45\textwidth}
+      \begin{block}{QLoRA Training Run}
+        {\footnotesize
+        \renewcommand{\arraystretch}{1.05}
+        \begin{tabular}{ll}
+          \textbf{Base model} & Qwen 4B \\
+          \textbf{LoRA rank} ($r$) & 16 \\
+          \textbf{LoRA scale} ($\alpha$) & 32 \\
+          \textbf{Train quant.} & 4-bit \texttt{NF4} \\
+          \textbf{Dataset} & 2{,}018 train / 210 val \\
+          \textbf{Checkpoint} & step 505 \\
+          \textbf{Final loss} & 0.4951 \\
+          \textbf{Runtime} & 1{,}733\,s (${\approx}29$\,min) \\
+        \end{tabular}}
+      \end{block}
+    \end{column}
+
+    \begin{column}{0.52\textwidth}
+      \begin{block}{Why 4-bit QLoRA \textrightarrow{} Q8\_0 GGUF?}
+        {\footnotesize
+        \begin{enumerate}
+          \setlength{\itemsep}{0.2em}
+          \item \textbf{Train in 4-bit NF4:} keeps frozen base weights small enough for GPU fine-tuning.
+          \item \textbf{Merge adapter:} fold the learned LoRA adapter back into the model.
+          \item \textbf{Export as GGUF Q8\_0:} run locally on CPU with better quality than very low-bit export.
+        \end{enumerate}
+        }
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}

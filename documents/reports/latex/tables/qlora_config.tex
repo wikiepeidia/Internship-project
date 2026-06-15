@@ -1,0 +1,21 @@
+\begin{table}[h]
+\centering
+\caption{QLoRA fine-tuning configuration and training results.}
+\label{tab:qlora-config}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter / Metric} & \textbf{Value} \\
+\midrule
+Base model         & \texttt{qwen3-4b-instruct-2507} \\
+LoRA rank $r$      & 16 \\
+LoRA scale $\alpha$& 32 \\
+Quantization       & 4-bit NF4 with double quantization \\
+Training examples  & 2{,}018 \\
+Internal validation examples& 210 \\
+Final checkpoint   & step 505 \\
+Training loss      & 0.4951 \\
+Training runtime   & 1{,}733 seconds (CUDA device) \\
+Export format      & GGUF Q8\_0 (llama.cpp) \\
+\bottomrule
+\end{tabular}
+\end{table}

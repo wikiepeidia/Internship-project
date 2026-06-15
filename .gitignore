@@ -27,7 +27,33 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-documents/*
+# Internal/private document folders — not for public repo
+documents/reports/example/
+documents/reports/supervisor/
+documents/markdown/
+documents/deep-research-report.md
+documents/high paramenter on low vram.md
+documents/writing shcedule.md
+
+# documents/ source files are tracked; only ignore XeLaTeX build artifacts
+# LaTeX compiled outputs
+documents/reports/latex/*.pdf
+documents/reports/latex/**/*.pdf
+documents/presentation/latex/*.pdf
+documents/presentation/latex/**/*.pdf
+# LaTeX intermediate build files (globally safe to ignore — not used by Python)
+*.aux
+*.toc
+*.lof
+*.lot
+*.out
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
 # PyInstaller
 #   Usually these files are written by a python script from a template
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.

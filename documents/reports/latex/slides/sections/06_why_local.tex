@@ -1,0 +1,42 @@
+%% Slide: Privacy Risk: Cloud API Data Leakage
+\begin{frame}[t,shrink=5]{Privacy Risk: Cloud API Data Leakage}
+  \framesubtitle{Documented Incidents --- Sensitive Data Sent to Cloud APIs}
+  \vspace{-0.2cm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      {\footnotesize\textbf{Documented incidents:}}\\[-0.05cm]
+      {\footnotesize\begin{itemize}
+        \setlength{\itemsep}{0.25em}
+        \setlength{\parskip}{0pt}
+        \item \textbf{OpenAI ChatGPT (March 2023):} Redis bug exposed chat history and payment details of ${\sim}1.2\%$ of active users.
+        \item \textbf{Samsung Semiconductor (2023):} Engineers pasted confidential chip design code into ChatGPT, triggering an internal investigation.
+      \end{itemize}}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      {\footnotesize\textbf{Cloud API risk path:}}\\[-0.05cm]
+      {\footnotesize\begin{itemize}
+        \setlength{\itemsep}{0.2em}
+        \setlength{\parskip}{0pt}
+        \item Text leaves device $\rightarrow$ cloud server
+        \item Provider logs may retain prompts
+        \item Provider breach or ToS training exposure
+      \end{itemize}}
+    \end{column}
+  \end{columns}
+  \vspace{-0.05cm}
+  \begin{block}{Local solution}
+    {\footnotesize User messages stay on-device; local inference removes transit, retention, and provider-breach exposure.}
+  \end{block}
+\end{frame}
+
+%% Slide: Architectural Solution — dedicated diagram slide
+\begin{frame}{Architectural Solution: Local Data Boundary}
+  \framesubtitle{Cloud API vs.\ Local Inference --- Sensitive Data Never Leaves the Device}
+  \begin{center}
+    \scalebox{0.85}{\input{slides/figures/cloud_vs_local_bare.tex}}
+  \end{center}
+  \vspace{0.15cm}
+  \begin{center}
+    {\small Output schema is strictly constrained --- sensitive data never leaves the device.}
+  \end{center}
+\end{frame}
