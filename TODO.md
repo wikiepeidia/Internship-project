@@ -1,51 +1,12 @@
-Recommendation to add to slide and report
+FIx slide layouts
 
-- slide: add Reference slide
-- Report+slide: Research about Chatgpt/cloud api leaking user daata .
+Here is the Beamer LaTeX code for my confusion matrix slide. The math is perfectly correct, but I need you to fix the layout and phrasing for my academic defense.
 
-Urgent fix according to supervisor, require to rerun the model and evaluate the model again.
+Please make the following changes:
 
-# slides 1
+1. Remove the redundant "Key finding" labels. Combine the blue block box and the bullet points into one clean, unified "Error Analysis & Key Findings" section at the bottom.
+2. Change the phrase "Binary separation: F1 = 1.000" to "Internal Binary Separation: F1 = 1.000". I need the word "Internal" there to protect myself from judges thinking I am claiming real-world perfection.
+3. Keep the specific error analysis text exactly as it is ("8/62 Task Scam + 3/75 Zalo SE misclassified as Bank Impersonation" and the cause "bank name + OTP language triggered bank-naming boundary overlap"), but format it cleanly under the new unified section.
+4. Ensure the tables are using the `booktabs` package for a clean, professional look (no vertical lines, use \toprule, \midrule, \bottomrule).
 
-- Localized: not quite correxct, supervisor said "making clear: only training model not making app"-->fix the title
-- Explainable AI: he said not too clear due to project is only give like clue and stuffs
--
-
-# slide2
-
-- Agenda-->replace by table of content
-- Fix slide alignment : Why local -->after the motivation
-
-# slide 3 ok
-
-# slide 4
-
-- just pipleine model training not system so do not put name stystem architecture
-- synthethise data?where
-do you use it for val /test (model can be overfit)at least for val
-require to say no (no one use synthethise data to train test)
-- Versioned spilts--> change to data spilts
--
-
-# slide 5
-
-- pydantic need to explain a bit, gemini+ judje manually-->need to apply t test-->
-# slide 6:
-- content in this slide not good (jaikbreak cases cant have shit )
-- api leak recommended + privacy issue, require researching for chatgpt leaked data problem
-
-# slide 7 ok
-
-# slide 8: 
-- training result 1,733s is 1 second or 1733 second require fix
-- why Quantization 4 bit, but cpu deployed to GGUF 8? no sense. 
-
-# slide 9:
-- evaluation has to be fixed, we need eval on all stats, but dont need to eval 4 of these classes, instead quickly run on Scam+non scam messages 
-- terrible chart, can convert to table 
-
-# slide 10: 
-- the same as slidee 9 where you just need scam+non scam 
-
-# report:
-- after fixing slide, required to f
+Please output only the updated LaTeX code for this frame.
