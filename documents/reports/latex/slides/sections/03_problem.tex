@@ -1,0 +1,19 @@
+%% Slide 3: Problem & Motivation
+\begin{frame}{Problem: Vietnamese Phishing \& the Privacy Gap}
+  \framesubtitle{Problem \& Privacy Gap}
+  \begin{itemize}
+    \item Vietnamese users receive phishing messages via SMS and Zalo
+          impersonating major banks --- typically requesting OTP codes
+          or urgent account re-verification.
+    \item Cloud-based classifiers upload message content to remote
+          servers --- a \textbf{direct privacy risk} for financial conversations.
+  \end{itemize}
+  \vfill
+  \begin{block}{Problem Statement}
+    We deliver an offline-first, locally-running
+    threat detector --- risk tier, threat labels, and actionable guidance
+    without sending any text off-device.
+  \end{block}
+  \vspace{0.3em}
+  {\footnotesize \textit{``Localized''} = \textbf{(1)} on-device inference (no cloud) \textbf{+} \textbf{(2)} fine-tuned on Vietnamese financial threat patterns.}
+\end{frame}

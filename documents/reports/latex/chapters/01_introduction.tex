@@ -1,6 +1,8 @@
 Vietnamese financial phishing increasingly appears through SMS and chat platforms such as Zalo, Messenger, Telegram, and Facebook. In that setting, suspicious messages often contain sensitive banking details, phone numbers, one-time passwords, or account recovery prompts \cite{ais2024biometricwarning,groupib2022laser}. We study a local-first pipeline for fine-tuning a local LLM to detect such threats without sending raw content to cloud services by default.
 
 \section{Background and Motivation}
+The term \textit{Localized} in the project title carries two meanings. First, the model runs entirely on-device --- local inference on consumer laptop hardware with no cloud API calls during analysis, preserving the privacy of the user's financial messages. Second, the LLM is adapted specifically to Vietnamese financial threat patterns through domain fine-tuning on a Vietnamese-language corpus, localizing its knowledge to the cultural and linguistic context of Vietnamese phishing. Both dimensions are required: privacy-preserving deployment alone would not address Vietnamese-specific scam patterns, and domain adaptation alone would not protect user data.
+
 We follow three design constraints throughout: the pipeline is text-only, inference is offline or local by default, and detection prioritizes recall on high-harm scam classes. These choices narrow the scope compared to a full multimodal fraud assistant, but keep the system realistic for consumer hardware and well-suited for privacy-sensitive message analysis. They also address a practical safety question: how to reduce dangerous false negatives without relying on black-box predictions.
 
 \section{Problem Statement}
