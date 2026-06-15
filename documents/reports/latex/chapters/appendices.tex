@@ -1,0 +1,42 @@
+% Appendices — department template (v2.2 APPEND-01)
+
+\chapter{Source Code and Project Artifacts}
+\label{app:source-code}
+
+The complete source code, dataset manifests, training configurations, and
+evaluation artifacts produced in this project are maintained in the
+project repository. The codebase is organised into three packages:
+\texttt{src/data\_pipeline} for dataset construction, \texttt{src/runtime}
+for the user-facing local inference server, and
+\texttt{src/model\_adaptation} for the QLoRA fine-tuning and GGUF
+conversion workflow. All entry points are documented in the repository
+\texttt{README.md}.
+
+The final GGUF inference artifact (\texttt{gguf-laptop.gguf}) and the
+model registry pointing to the off-repository artifact root are not
+included in the repository to avoid large binary uploads, but their
+paths and SHA256 identifiers are recorded in
+\texttt{data/manifests/model-registry.json}.
+
+\chapter{Binary Evaluation Raw Results}
+\label{app:binary-eval}
+
+The binary evaluation collapses the three risky labels (bank
+impersonation, Zalo social engineering, and task scam) into a single
+Scam superclass, producing 193 positive and 61 negative examples from
+the 254-example internal holdout set.
+
+\begin{itemize}
+  \item True Positives (Scam correctly predicted as Scam): 193
+  \item True Negatives (Non-scam correctly predicted as Non-scam): 61
+  \item False Positives: 0
+  \item False Negatives: 0
+  \item Binary Precision: 1.000
+  \item Binary Recall: 1.000
+  \item Binary F1: 1.000
+\end{itemize}
+
+All 11 misclassifications present in the four-class evaluation
+(Section~IV) are intra-scam errors (task scam and Zalo social
+engineering predicted as bank impersonation) and therefore do not
+contribute false negatives under the binary view.
