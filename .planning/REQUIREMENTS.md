@@ -340,6 +340,68 @@ Requirements for milestone v2.1. Addresses all supervisor feedback on slides, mo
 - mapped to phases: 66
 - Unmapped: 0
 
+## v2.2 Requirements — Report Formatting — Department Template
+
+Requirements for milestone v2.2. Reformats the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template and syncs evaluation tables with Phase 20 slide content. Each maps to roadmap phases 22+.
+
+### Cover Page
+
+- [ ] **COVER-01**: Thesis title page uses "BACHELOR THESIS" label (not "GRADUATION THESIS") and "By \<student name\> / Title: \<title\>" layout matching department template
+
+### Certification
+
+- [ ] **CERT-01**: Supervisor certification letter page ("To whom it may concern…") added after titlepage, unnumbered, before roman front matter begins
+
+### Front Matter
+
+- [ ] **FRONT-01**: Front matter sections appear in department-required order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
+- [ ] **FRONT-02**: List of Abbreviations 2-column table added covering all acronyms used in the thesis (AI, LLM, XAI, GGUF, QLoRA, LoRA, NF4, etc.)
+- [ ] **FRONT-03**: Abstract updated with 6 English keywords; word count verified ≤250 words
+
+### Document Structure
+
+- [ ] **STRUCT-01**: `\thesissection` macro defined in main.tex preamble for Roman numeral headings (I/, II/, …, V/) without corrupting figure and table caption numbering
+- [ ] **STRUCT-02**: Thesis content merged and split into 5 Roman numeral sections: Ch1 narrative + Ch2 → I/ Introduction; Ch1 objectives rewritten as prose → II/ Objectives; Ch3+Ch4 → III/ Materials and Methods; Ch5 → IV/ Results and Discussion; Ch6 → V/ Conclusion and Perspective
+- [ ] **STRUCT-03**: All 3 hardcoded "Chapter~N" prose cross-references (ch01:22, ch04:~126, ch06:~20) updated to Roman numeral or `\ref{}` form
+
+### Evaluation Tables
+
+- [ ] **EVAL-06**: IV/ Results section includes binary per-class metrics table consistent with Phase 20 slide content
+- [ ] **EVAL-07**: IV/ Results section includes 2×2 confusion matrix consistent with Phase 20 slide content
+
+### Appendices
+
+- [ ] **APPEND-01**: Appendices section added at end of document with at least one appendix placeholder
+
+### Slides Sync
+
+- [ ] **SYNC-01**: Slides scanned for "Chapter X" text references; any found instances updated to match new section format
+
+| COVER-01 | Phase 22 | Pending |
+| CERT-01 | Phase 22 | Pending |
+| FRONT-01 | Phase 22 | Pending |
+| FRONT-02 | Phase 22 | Pending |
+| FRONT-03 | Phase 22 | Pending |
+| STRUCT-01 | Phase 23 | Pending |
+| STRUCT-02 | Phase 23 | Pending |
+| STRUCT-03 | Phase 23 | Pending |
+| EVAL-06 | Phase 23 | Pending |
+| EVAL-07 | Phase 23 | Pending |
+| APPEND-01 | Phase 24 | Pending |
+| SYNC-01 | Phase 24 | Pending |
+
+**Coverage (v2.2):**
+
+- tracked requirements: 12
+- mapped to phases: 12
+- Unmapped: 0
+
+**Coverage (all milestones):**
+
+- tracked requirements: 78 total (66 prior milestones + 12 v2.2)
+- mapped to phases: 78
+- Unmapped: 0
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-09 — v2.1 Defense Corrections requirements added; phases 19-21 defined*
+*Last updated: 2026-06-15 — v2.2 Report Formatting — Department Template requirements added; phases 22-24 estimated*
