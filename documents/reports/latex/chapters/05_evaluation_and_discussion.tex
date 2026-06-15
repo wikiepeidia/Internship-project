@@ -1,0 +1,60 @@
+This chapter brings together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that the system works end to end and leaves a verifiable record. The final evaluation shows that the system met the per-class recall target on all three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
+
+\input{tables/evaluation_snapshot}
+
+\section{Data Quality and Candidate Selection}
+The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 49 passing samples out of 50, with an average realism score of 4.68 out of 5 and an average label-correctness score of 4.96 out of 5. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
+
+Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3-4B-Instruct-2507 as the baseline winner and Qwen3.5-4B as the runner-up. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
+
+\section{End-to-End Verification}
+By the end of the project, the evaluation path was no longer limited to model selection notes. The final verification passed all five acceptance checks: the repaired data lineage was confirmed, the baseline runtime artifact was refreshed, the holdout evaluation was regenerated, the explanation review pack was rebuilt, and the final verdict was recorded. This verification step matters because it checks not only the model output, but also the integrity of the data path used to support the final result.
+
+\section{Expanded-Holdout Results}
+The primary quantitative evaluation was executed over the expanded internal holdout dataset, consisting of 254 fully annotated messages. Across this evaluation corpus, the system achieved an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not as independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
+
+Per-class performance metrics demonstrate robust detection capabilities across the target categories. Bank impersonation reached a recall of 1.000, precision of 0.836, and an F1-score of 0.911 over 56 held-out examples. Zalo social engineering achieved a recall of 0.960, precision of 1.000, and an F1-score of 0.980 on 75 examples, with 3 instances misclassified as bank impersonation. The task-scam class achieved a recall of 0.871, precision of 1.000, and an F1-score of 0.931 on 62 examples. The benign class reached a recall, precision, and F1-score of 1.000 on 61 examples.
+
+Under the project's per-class recall targets, a release candidate must clear a minimum threshold on each high-harm class. All three risky categories met their thresholds in this final evaluation run. Zalo social engineering missed three examples out of 75, and the task-scam class missed eight examples out of 62, with all errors consistently misclassified as bank impersonation.
+
+Figure~\ref{fig:recall-by-class} shows the per-class recall results visually, and Table~\ref{tab:confusion-matrix} shows the full confusion matrix.
+
+\input{figures/recall_barchart}
+\input{tables/confusion_matrix}
+
+\subsection*{Binary View: Scam vs.\ Non-scam}
+Collapsing the three risky classes (bank impersonation, Zalo social
+engineering, and task scam) into a single Scam superclass and treating
+benign as Non-scam produces a binary classification task with 193 positive
+and 61 negative examples. Under this view the model separates scam from
+non-scam with perfect precision and recall, yielding a binary F1 of 1.000.
+Table~\ref{tab:binary-metrics} shows the per-class binary metrics and
+Table~\ref{tab:binary-confusion-matrix} shows the corresponding confusion
+matrix. These results indicate that the model has reliably learned the
+coarse-grained scam boundary, even where fine-grained intra-scam label
+boundaries remain porous at the bank-naming edge.
+
+\input{tables/binary_metrics}
+\input{tables/binary_confusion_matrix}
+
+\section{Interpretation of the Final Result}
+The project delivered a local-first pipeline with reproducible data artifacts, a usable runtime, and structured explanations. Two of the three risky classes reached near-perfect recall on the expanded holdout. Task scam met its target, but the 62-sample holdout is still small for a definitive academic evaluation.
+
+Two explanation quality cautions identified in the review package remain valid design notes: label alignment was sometimes weakly supported by the captured cues, and some recommendations fell back to generic safe advice. These do not change the recall result, but they do limit confidence in explanation quality as a user-safety feature.
+
+The evaluation supports the contribution claim of a working local pipeline, while the explanation flags indicate areas for future improvement. Similar recall-first framing has been applied in related XAI phishing-detection work~\cite{lim2025explicate}.
+
+\section{Error Analysis}
+
+All 11 misclassified examples share the same predicted label: bank impersonation. Inspecting the actual message text reveals a consistent pattern.
+
+The eight task-scam examples that were predicted as bank impersonation each explicitly name a Vietnamese bank (ABC Bank, VietPay, MBBank, Techcombank, VPBank, BIDV) and use bank-specific credential language such as OTP, Smart OTP, or Internet Banking. For example, one message reads: \textit{``Chào bạn, đây là Ngân hàng ABC. Vui lòng đăng nhập vào [www.abc-bank-upgrade.com] để xác nhận. Nếu không, tài khoản của bạn sẽ bị khóa sau 24 giờ.''} This message creates artificial urgency through a time limit (a task-scam tactic), but the model classifies it as bank impersonation because of the explicit bank name and account-locking threat. A similar pattern appears in all eight task-scam errors.
+
+The three Zalo social-engineering errors follow the same logic. Each misclassified message names a bank (MBBANK or VPBank) and requests banking credentials such as OTP codes, card numbers, or account details via Zalo. The model sees the bank name and credential request and predicts bank impersonation, even though the primary delivery channel and social-engineering mechanism are Zalo-specific.
+
+The root cause is a label boundary issue: task-scam and Zalo social-engineering messages that simultaneously impersonate a bank share nearly identical linguistic features with genuine bank-impersonation messages. The current model learned a strong association between bank names, OTP language, and the bank-impersonation label, which generalises poorly at this boundary. Addressing this would likely require either finer sub-label annotation or additional training examples that demonstrate the distinction between the channel of attack (Zalo, task pressure) and the impersonated entity (bank).
+
+\section{Limits of the Current Evidence}
+The final holdout is a small internal academic evaluation, not a large-scale production study. Task-scam support grew from 18 to 62 after the targeted data recovery, but 62 examples is still a small basis for fine-grained error analysis. The misclassification pattern --- task scam predicted as bank impersonation --- suggests residual linguistic overlap between the two classes that a larger or more diverse training set could address. The current evidence is strongest for implementation traceability and local validation rather than broad comparison against external phishing benchmarks.
+
+Two further scope limits constrain what the current evidence can show. Version~1 is strictly text-only; OCR, image, audio, and other input channels were excluded from scope, so the evaluation does not cover scenarios where phishing content arrives embedded in screenshots, images, or voice messages. The training corpus was constructed from Vietnamese-language seed sources and synthetic generation prompts targeting Vietnamese phishing patterns; model performance on mixed-language or non-Vietnamese financial phishing is not evaluated here and may not transfer reliably to other language settings. A real-world, human-labeled validation and test set would be required before making stronger generalization claims.

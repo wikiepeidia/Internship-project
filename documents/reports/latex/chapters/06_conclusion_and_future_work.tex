@@ -1,0 +1,24 @@
+This thesis documents the development of a local-first explainable AI pipeline for Vietnamese financial phishing detection. The final system covers reproducible dataset construction, offline message analysis, local model deployment, and structured user-facing explanations. Together these components form one connected pipeline rather than a disconnected set of experiments.
+
+\section{Main Takeaways}
+The strongest contribution of the project is the integration of four ideas into one local workflow: reproducible Vietnamese phishing data construction, privacy-preserving text analysis, hardware-aware local deployment profiles, and structured explainability outputs. This combination matters because practical anti-phishing tools often sacrifice either local privacy or explanation quality. The implemented system shows that a smaller undergraduate project can still bring both together into one working, verifiable pipeline.
+
+\section{What the Final Evaluation Means}
+The final internal evaluation demonstrates that a locally adapted, parameter-efficient open model can meet established safety thresholds across distinct financial threat categories on consumer-grade hardware within a seed-disjoint project holdout. Achieving a task-scam recall of 0.871 on 62 held-out examples shows that targeted inclusion of culturally specific social-engineering patterns gives the model useful context for detecting high-harm variations.
+
+However, while these quantitative metrics support the core implementation claims of the pipeline, the deployment implications require caution. The evaluation holdout set ($N=254$) is an internal synthetic-derived holdout, not an external real-world test set, and remains too small for open deployment in production environments. Furthermore, the residual misclassifications highlighted in the error analysis indicate that the boundary between explicit bank impersonation and urgent task scams is still porous. This project establishes a working, verifiable local-first architecture, but the pipeline requires further expansion before it can function as an autonomous safety gate.
+
+\section{Limitations}
+Several structural constraints bound the evaluation claims of this version. First, the architecture is strictly text-only; it lacks OCR or multimodal processing, so it cannot detect phishing signals embedded in forwarded image notifications or screenshots. Second, the corpus relies on Vietnamese-language seed sources and synthetic generation, meaning generalization across real user traffic, mixed-language text, or non-Vietnamese financial phishing is unverified. Finally, while the per-class support within the 254 held-out messages is sufficient for an internal thesis gate, it is too compact to map a comprehensive taxonomy of edge-case error patterns or fully resolve the weak label-to-cue alignment noted in the explanation review.
+
+\section{Future Work}
+
+Three directions stand out as the most productive next steps.
+
+\textbf{Fixing the bank-naming boundary.} The error analysis in Section~IV shows that all 11 misclassified examples were predicted as bank impersonation because they combine a bank name with OTP or account language. The most direct fix is to add training examples that demonstrate bank-named task scams and Zalo messages as distinct from genuine bank-impersonation cases. Sub-label annotation or a dedicated disambiguation step at the boundary could also help. This is low-cost relative to the potential improvement.
+
+\textbf{Closing the explanation quality gap.} Two cautions remain from the evaluation: label-to-cue alignment is sometimes weak, and some predictions fall back to generic advice. Improving the explanation generation prompt and adding targeted training examples for edge-case cue extraction would address this without changing the detection architecture.
+
+\textbf{Image and screenshot support.} Vietnamese financial phishing often arrives as a screenshot forwarded through Zalo or Messenger rather than as readable text. Supporting this would require an OCR step before text analysis. A practical path is to add an optical character recognition stage as a preprocessing layer, feeding its text output to the existing detection pipeline. This keeps the detection model unchanged while extending the input coverage to image-based phishing messages, QR-code screenshots, and forwarded bank notification images. This is the highest-value extension because it matches how phishing actually circulates among Vietnamese users in practice.
+
+Pursuing these three directions in order would produce a measurably stronger and broader system without requiring a full architectural restart.

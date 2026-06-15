@@ -1,0 +1,60 @@
+The system is organized as a sequence of connected layers: data construction, offline runtime delivery, local model selection and deployment, explainable decisioning, and final evaluation. Each layer produces documented artifacts that can be verified against the project files.
+
+\input{tables/milestone_summary}
+\input{figures/system_overview_placeholder}
+
+\section{Development Structure}
+The implementation covers four main stages, followed by a final evaluation. The first stage produces the dataset and split lineage. The second provides a text-only local runtime with stable input and output contracts. The third selects and deploys a local model family under hardware limits. The fourth adds structured risk reasoning and explanation output. The final stage evaluates the full stack on the expanded holdout and records the project result.
+
+\section{Data Construction and Split Governance}
+
+The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn}, a public Vietnamese cybercrime alert portal, and expanded into a synthetic development corpus using the \texttt{claude-3-5-haiku} API through a structured generation pipeline with an automated quality-judge step. The final corpus contains 3{,}000 rows across four classes: bank impersonation, social-engineering messages, task scam, and benign. This corpus supports model development and internal validation; it is not presented as a substitute for a real-world, human-labeled benchmark. Each build is tied to versioned manifests with SHA-256 content hashes so that evaluation results can be traced to the exact dataset snapshot used.
+
+A quality-judge pass reviewed a random sample of 50 synthetic examples before they entered the training split. Forty-nine passed inspection. The average realism score was 4.68 out of 5 and the average label-correctness score was 4.96 out of 5. This step was included to catch low-quality or mislabeled synthetic rows at the generation boundary, reducing the risk that noisy labels would propagate into the training data.
+
+The split governance design uses seed-disjoint allocation: each unique seed record can appear in only one split so that training examples cannot contaminate the held-out evaluation. This reduces direct leakage, but it does not remove the synthetic-domain limitation: the validation and holdout partitions are internal, seed-disjoint checks, not independent real-world validation or test sets. Out of the initial 3{,}000 generated rows, 518 duplicate or low-confidence instances were removed during the filtration phase. The final validated split contained 2{,}018 training examples and 210 internal validation examples. The held-out support used for the internal evaluation included 56 bank-impersonation, 75 social-engineering, 62 task-scam, and 61 benign examples, totaling 254 messages (2{,}018 + 210 + 254 + 518\,=\,3{,}000). Table~\ref{tab:dataset-stats} summarizes the split sizes and per-class held-out support.
+
+\input{tables/dataset_statistics}
+
+\section{Offline Text Runtime Baseline}
+
+The runtime is built around a stable text-only analysis interface. Messages are submitted as text, normalized locally, and dispatched to the configured backend. This design means that changing the backend does not affect the command-line interface or the output format. The backend returns a structured result that the rendering layer converts into a readable terminal report.
+
+Privacy is treated as a first-class design requirement. By default, raw message text does not leave the local device. The version~1 boundary is strictly text-only; OCR, image, audio, and mobile input channels are explicitly out of scope \cite{nist2026privacyframework}.
+
+A readiness check verifies that the selected profile is loaded correctly before analysis begins. If the profile is not ready, the system stops with a diagnostic message instead of silently using an unintended configuration.
+
+\section{Local Model Selection and Deployment Paths}
+
+The selection pilot evaluated three open-weight candidates from the Qwen family \cite{qwen2025} on 33 fixed balanced examples under recall-first scoring: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The evaluation used a three-tier outcome structure covering benign, suspicious, and high-risk inputs. The pilot was run locally on the target laptop hardware so that hardware-fit was in scope from the start rather than treated as a secondary concern.
+
+The project's original proposal planned to adapt an 8B-parameter model. After the pilot evaluation, the 4B-primary path was locked as the baseline because both 4B candidates provided more reliable hardware fit and stronger performance on the most dangerous class. In the pre-adaptation screening, both 4B candidates correctly identified all 11 high-risk examples, while the 7B model missed all 11 high-risk examples despite performing well on the suspicious tier. The 7B model also required approximately 5.6~GB of peak memory compared to 2.8~GB for the selected 4B winner. The 7B model was retained as a comparison candidate and as an option for better-equipped hardware, but the 4B path became the primary delivery target. Table~\ref{tab:pilot-comparison} shows the full screening results.
+
+\input{tables/pilot_comparison}
+
+\texttt{qwen3-4b-instruct-2507} was selected as the baseline winner and \texttt{qwen3.5-4b} as the runner-up on the basis of recall performance and hardware fit. Both paths were taken through the full adaptation workflow. The selection notes from the pilot manifest record the basis explicitly: recall-first weighted scoring under the laptop constraint was the deciding criterion.
+
+The baseline model was adapted using QLoRA \cite{dettmers2023qlora} with rank $r{=}16$, scale $\alpha{=}32$, and 4-bit NF4 quantization with double quantization enabled. The final training run used 2{,}018 training examples and 210 internal validation examples on a CUDA-enabled device over three epochs, reaching a training loss of 0.4951 and saving its final checkpoint at step 505. Total training time was 1{,}733 seconds. The resulting adapter artifact was registered in the off-device model registry for runtime use. Table~\ref{tab:qlora-config} summarises the full configuration.
+
+The adapted forward pass combines the frozen pretrained weight matrix~$W_0$ with the low-rank product~$BA$, scaled by~$\alpha/r$:
+\begin{equation}
+  h = W_0\, x + \frac{\alpha}{r}\, B A\, x
+  \label{eq:qlora-forward}
+\end{equation}
+where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \ll \min(d, k)$.
+
+\input{tables/qlora_config}
+
+After training, the adapter-merged model was exported to GGUF format \cite{gerganov2023llamacpp} with \texttt{q8\_0} quantization using the \texttt{convert\_hf\_to\_gguf.py} script. The exported artifact enables local CPU inference without requiring CUDA at runtime. After a prompt-size optimization pass that removed schema and example blocks from the inference prompt (reducing the prompt from over 400 tokens to approximately 130--150 tokens), the warm inference latency on the target laptop CPU was approximately 13~seconds. This is acceptable for a demonstration on laptop hardware.
+
+\section{Explainable Threat Decisioning}
+
+The decision layer returns four elements for each message: a risk tier (benign, suspicious, or high-risk), one or more in-scope threat labels for risky inputs, grounded suspicious cues taken from spans of the analyzed text, and safe next-step recommendations. This structure follows the principle that explainability should be grounded in observable evidence rather than in opaque model confidence scores alone \cite{rjoub2023surveyxai}.
+
+The decision layer follows two design rules. Cues must be drawn from the message text itself rather than inferred from model confidence scores alone. Recommendations must stay within a safe, generic set and must not instruct users to take actions that could cause harm. Together these rules help keep the output useful and grounded rather than confidently wrong.
+
+A safety rule applies at the runtime boundary: if the configured profile is not ready, the system stops and reports the reason instead of silently switching to a fallback. This applies to both the laptop GGUF profile and the accelerated local profile.
+
+\section{Design Principles}
+
+Two design principles run through the whole system. First, later layers do not relax the local-first privacy posture established at the runtime boundary. Second, later layers reuse stable contracts and manifests created earlier in the stack, which makes the system easier to validate, reproduce, and explain.

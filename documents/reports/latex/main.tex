@@ -74,6 +74,16 @@
 \titlespacing*{\section}{0pt}{8pt}{4pt}
 \titlespacing*{\subsection}{0pt}{6pt}{3pt}
 
+% Department-template Roman section headings (v2.2 — STRUCT-01)
+% \refstepcounter{chapter} advances the counter so figure/table numbering
+% stays Arabic (e.g., Figure 1.1) without redefining \thechapter globally.
+\newcommand{\thesissection}[1]{%
+  \refstepcounter{chapter}%
+  \chapter*{\Roman{chapter}/ #1}%
+  \addcontentsline{toc}{chapter}{\Roman{chapter}/ #1}%
+  \markboth{\Roman{chapter}/ #1}{\Roman{chapter}/ #1}%
+}
+
 % Bibliography style kept aligned with the thesis manuscript
 \bibliographystyle{ieeetr}
 
@@ -81,7 +91,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\leftmark}
-\fancyhead[R]{\small Graduation Thesis}
+\fancyhead[R]{\small Bachelor Thesis}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -90,11 +100,22 @@
 \input{chapters/frontmatter/titlepage}
 \input{chapters/frontmatter/certification}
 \input{chapters/frontmatter/preface}
+% ── Thesis body — five department-template sections (v2.2 STRUCT-02) ─
+\thesissection{Introduction}
 \input{chapters/01_introduction}
 \input{chapters/02_related_work_and_background}
+
+\thesissection{Objectives}
+\input{chapters/02_objectives}
+
+\thesissection{Materials and Methods}
 \input{chapters/03_methodology_and_system_design}
 \input{chapters/04_implementation}
+
+\thesissection{Results and Discussion}
 \input{chapters/05_evaluation_and_discussion}
+
+\thesissection{Conclusion and Perspective}
 \input{chapters/06_conclusion_and_future_work}
 
 % Bibliography
