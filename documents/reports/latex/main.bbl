@@ -1,0 +1,83 @@
+\begin{thebibliography}{10}
+
+\bibitem{ais2024biometricwarning}
+{Cuc An toan thong tin}, ``Canh bao mao danh ngan hang, huong dan nguoi dung
+  xac thuc sinh trac hoc.''
+  \url{https://tinnhiemmang.vn/canh-bao-mao-danh-ngan-hang-huong-dan-nguoi-dung-xac-thuc-sinh-trac-hoc},
+  2024.
+\newblock Tin Nhiem Mang, published 2024-07-09, accessed 2026-05-26.
+
+\bibitem{groupib2022laser}
+{Group-IB}, ``Laser targeted: massive phishing campaign singles out clients of
+  major vietnamese banks.''
+  \url{https://www.group-ib.com/media-center/press-releases/massive-phishing-campaign-vietnam-banks/},
+  2022.
+\newblock Published 2022-06-09, accessed 2026-05-26.
+
+\bibitem{pham2016vietnamese}
+T.-H. Pham and P.~Le-Hong, ``Content-based approach for vietnamese spam {SMS}
+  filtering,'' in {\em International Conference on Asian Language Processing
+  ({IALP})}, pp.~273--276, IEEE, 2016.
+
+\bibitem{nist2026privacyframework}
+{National Institute of Standards and Technology}, ``Privacy framework.''
+  \url{https://www.nist.gov/privacy-framework}, 2026.
+\newblock Accessed 2026-05-26.
+
+\bibitem{openai2023breach}
+{OpenAI}, ``{March 20 ChatGPT Outage: Here's What Happened}.''
+  \url{https://openai.com/index/march-20-chatgpt-outage/}, 2023.
+\newblock OpenAI official incident report, published 2023-03-24, accessed
+  2026-06-09.
+
+\bibitem{bloomberg2023samsung}
+H.~Kim and M.~Gurman, ``{Samsung Bans Employee Use of {AI} Tools Like {ChatGPT}
+  After Sensitive Data Leak}.''
+  \url{https://www.bloomberg.com/news/articles/2023-05-02/samsung-bans-chatgpt-and-other-generative-ai-use-by-staff-after-data-leak},
+  2023.
+\newblock Bloomberg, published 2023-05-02, accessed 2026-06-09.
+
+\bibitem{rjoub2023surveyxai}
+G.~Rjoub, J.~Bentahar, O.~A. Wahab, R.~Mizouni, A.~Song, R.~Cohen, H.~Otrok,
+  and A.~Mourad, ``A survey on explainable artificial intelligence for
+  cybersecurity.'' \url{https://arxiv.org/abs/2303.12942}, 2023.
+\newblock Accessed 2026-05-26.
+
+\bibitem{lim2025explicate}
+B.~Lim, R.~Huerta, A.~Sotelo, A.~Quintela, and P.~Kumar, ``Explicate: Enhancing
+  phishing detection through explainable ai and llm-powered interpretability.''
+  \url{https://arxiv.org/abs/2503.20796}, 2025.
+\newblock Accessed 2026-05-26.
+
+\bibitem{qwen2025}
+A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
+  technical report,'' {\em arXiv preprint arXiv:2505.09388}, 2025.
+
+\bibitem{minaee2021text}
+S.~Minaee, N.~Kalchbrenner, E.~Cambria, N.~Nikzad, M.~Chenaghlu, and J.~Gao,
+  ``Deep learning--based text classification: A comprehensive review,'' {\em
+  ACM Computing Surveys}, vol.~54, no.~3, 2021.
+
+\bibitem{hu2022lora}
+E.~J. Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and
+  W.~Chen, ``{LoRA}: Low-rank adaptation of large language models,'' in {\em
+  International Conference on Learning Representations}, 2022.
+
+\bibitem{dettmers2023qlora}
+T.~Dettmers, A.~Pagnoni, A.~Holtzman, and L.~Zettlemoyer, ``{QLoRA}: Efficient
+  finetuning of quantized {LLM}s,'' in {\em Advances in Neural Information
+  Processing Systems}, vol.~36, 2023.
+
+\bibitem{cyberinsider2026geminanano}
+{CyberInsider}, ``Google chrome silently installs 4{GB} {Gemini Nano AI} model
+  on user devices.''
+  \url{https://cyberinsider.com/google-chrome-silently-installs-4gb-gemini-nano-ai-model-on-user-devices/},
+  2026.
+\newblock Accessed 2026-06-01.
+
+\bibitem{gerganov2023llamacpp}
+G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++},''
+  2023.
+\newblock Accessed 2026-05-26.
+
+\end{thebibliography}
