@@ -1,7 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-09 (Phase 19 Plan 01 completed SLIDE-01 through SLIDE-07)
+**Updated:** 2026-06-15 (Phase 22 Plan 01 completed COVER-01, CERT-01, FRONT-01, FRONT-02, FRONT-03)
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
@@ -346,17 +346,17 @@ Requirements for milestone v2.2. Reformats the LaTeX thesis to comply with the U
 
 ### Cover Page
 
-- [ ] **COVER-01**: Thesis title page uses "BACHELOR THESIS" label (not "GRADUATION THESIS") and "By \<student name\> / Title: \<title\>" layout matching department template
+- [x] **COVER-01**: Thesis title page uses "BACHELOR THESIS" label (not "GRADUATION THESIS") and "By \<student name\> / Title: \<title\>" layout matching department template
 
 ### Certification
 
-- [ ] **CERT-01**: Supervisor certification letter page ("To whom it may concern…") added after titlepage, unnumbered, before roman front matter begins
+- [x] **CERT-01**: Supervisor certification letter page ("To whom it may concern…") added after titlepage, unnumbered, before roman front matter begins
 
 ### Front Matter
 
-- [ ] **FRONT-01**: Front matter sections appear in department-required order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
-- [ ] **FRONT-02**: List of Abbreviations 2-column table added covering all acronyms used in the thesis (AI, LLM, XAI, GGUF, QLoRA, LoRA, NF4, etc.)
-- [ ] **FRONT-03**: Abstract updated with 6 English keywords; word count verified ≤250 words
+- [x] **FRONT-01**: Front matter sections appear in department-required order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
+- [x] **FRONT-02**: List of Abbreviations 2-column table added covering all acronyms used in the thesis (AI, LLM, XAI, GGUF, QLoRA, LoRA, NF4, etc.)
+- [x] **FRONT-03**: Abstract updated with 6 English keywords; word count verified ≤250 words
 
 ### Document Structure
 
@@ -377,11 +377,11 @@ Requirements for milestone v2.2. Reformats the LaTeX thesis to comply with the U
 
 - [ ] **SYNC-01**: Slides scanned for "Chapter X" text references; any found instances updated to match new section format
 
-| COVER-01 | Phase 22 | Pending |
-| CERT-01 | Phase 22 | Pending |
-| FRONT-01 | Phase 22 | Pending |
-| FRONT-02 | Phase 22 | Pending |
-| FRONT-03 | Phase 22 | Pending |
+| COVER-01 | Phase 22 | Complete |
+| CERT-01 | Phase 22 | Complete |
+| FRONT-01 | Phase 22 | Complete |
+| FRONT-02 | Phase 22 | Complete |
+| FRONT-03 | Phase 22 | Complete |
 | STRUCT-01 | Phase 23 | Pending |
 | STRUCT-02 | Phase 23 | Pending |
 | STRUCT-03 | Phase 23 | Pending |

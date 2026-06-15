@@ -29,7 +29,7 @@
 - [x] **Phase 19: Slide Content Fixes** - Fix all LaTeX slide content per supervisor feedback: title clarity, agenda → table of contents, pipeline naming, synthetic data note, Pydantic/T-test note, API leak privacy research, training time label, quantization explanation, and reference slide. Closed 2026-06-09: all 7 SLIDE requirements met, zero XeLaTeX errors, 16-page PDF.
 - [x] **Phase 20: Binary Evaluation Re-run + Eval Slide Updates** - Re-evaluate model as binary scam vs non-scam (2-class); update slides 9-10 with new results in table format. Closed 2026-06-09: per-class metrics table + binary 2×2 matrix added; EVAL-04 EVAL-05 met, zero XeLaTeX errors.
 - [x] **Phase 21: Thesis Report Revisions** - Update report sections to match corrected slide content; add ChatGPT/cloud API data leakage evidence to privacy section. Closed 2026-06-09: Chapter 2 jailbreak examples replaced with OpenAI March 2023 + Samsung 2023 data leakage incidents; REPORT-01 REPORT-02 met, thesis compiles clean (23 pages).
-- [ ] **Phase 22: Cover Page, Certification Letter, and Front Matter** - Reformat the titlepage to department template spec, insert the missing certification letter, and reorder/add front matter sections.
+- [x] **Phase 22: Cover Page, Certification Letter, and Front Matter** - Reformat the titlepage to department template spec, insert the missing certification letter, and reorder/add front matter sections. Closed 2026-06-15: cover page, certification, front matter order, abbreviations, and abstract keywords compile-verified.
 - [ ] **Phase 23: Document Restructure and Evaluation Tables** - Replace the 6-chapter numbered structure with 5 Roman numeral sections, fix all prose chapter cross-references, and sync binary evaluation tables from Phase 20 slides.
 - [ ] **Phase 24: Appendices, Slides Sync, and Final Compile** - Add appendices section, scan and fix any "Chapter X" references in slides, and verify the full document compiles clean with XeLaTeX.
 
@@ -559,7 +559,11 @@ Plans:
 4. A 2-column List of Abbreviations table is present covering all acronyms used in the thesis (AI, LLM, XAI, GGUF, QLoRA, LoRA, NF4, and others).
 5. The Abstract contains 6 English keywords and the body is verified ≤250 words.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [x] 22-01-PLAN.md -- Cover page, certification letter, front matter order, abbreviations, and abstract keywords
 
 ---
 
@@ -624,7 +628,7 @@ Plans:
 | 19. Slide Content Fixes | TBD | Complete | 2026-06-09 |
 | 20. Binary Evaluation Re-run + Eval Slide Updates | TBD | Complete | 2026-06-09 |
 | 21. Thesis Report Revisions | TBD | Complete | 2026-06-09 |
-| 22. Cover Page, Certification Letter, and Front Matter | TBD | Not started | — |
+| 22. Cover Page, Certification Letter, and Front Matter | 1/1 | Complete | 2026-06-15 |
 | 23. Document Restructure and Evaluation Tables | TBD | Not started | — |
 | 24. Appendices, Slides Sync, and Final Compile | TBD | Not started | — |
 
