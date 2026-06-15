@@ -6,7 +6,7 @@ The earliest quantitative evidence comes from the dataset-construction pipeline.
 Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3-4B-Instruct-2507 as the baseline winner and Qwen3.5-4B as the runner-up. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
 
 \section{End-to-End Verification}
-We ran a final verification pass that confirmed all five acceptance conditions: data lineage confirmed, runtime artifact refreshed, holdout evaluation regenerated, explanation review pack rebuilt, and final verdict recorded. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
+We ran a final verification pass covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
 
 \section{Expanded-Holdout Results}
 We evaluate on an expanded internal holdout dataset of 254 fully annotated messages. Our system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
@@ -23,7 +23,7 @@ Figure~\ref{fig:recall-by-class} shows the per-class recall results visually, an
 \section{Interpretation of the Final Result}
 The project delivered a local-first pipeline with reproducible data artifacts, a usable runtime, and structured explanations. Two of the three risky classes reached near-perfect recall on the expanded holdout. Task scam met its target, but the 62-sample holdout is still small for a definitive academic evaluation.
 
-Two explanation quality cautions identified in the review package remain valid design notes: label alignment was sometimes weakly supported by the captured cues, and some recommendations fell back to generic safe advice. These do not change the recall result, but they do limit confidence in explanation quality as a user-safety feature.
+Two explanation quality cautions remain valid design notes: label alignment was sometimes weakly supported by the captured cues, and some recommendations fell back to generic safe advice. These do not change the recall result, but they do limit confidence in explanation quality as a user-safety feature.
 
 The evaluation supports the contribution claim of a working local pipeline, while the explanation flags indicate areas for future improvement. Similar recall-first framing has been applied in related XAI phishing-detection work~\cite{lim2025explicate}.
 

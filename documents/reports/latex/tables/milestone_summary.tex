@@ -1,0 +1,18 @@
+\begin{table}[H]
+\centering
+\caption{Implemented pipeline components and evaluation outcomes.}
+\label{tab:milestone-summary}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{L{3.2cm}L{6.5cm}L{4.5cm}}
+\toprule
+\textbf{Component} & \textbf{Description} & \textbf{Outcome} \\
+\midrule
+Data construction    & Curated corpus, quality review, and seed-disjoint splits  & Quality sample 49/50 passed \\
+Local runtime        & Offline text analysis with privacy-preserving safe defaults & End-to-end inference verified \\
+Model pilot          & Recall-first candidate comparison for the 4B baseline     & qwen3-4b-instruct-2507 selected \\
+Local deployment     & Adapted model exported to GGUF; CPU inference verified     & GGUF artifact registered \\
+Decision layer       & Risk tiers, threat labels, cues, and safe guidance         & Explanation quality reviewed \\
+Final evaluation     & Held-out evaluation on 254 seed-disjoint examples         & All recall targets met; task-scam recall 0.871 \\
+\bottomrule
+\end{tabular}
+\end{table}

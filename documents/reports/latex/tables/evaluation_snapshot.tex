@@ -1,0 +1,24 @@
+\begin{table}[H]
+\centering
+\caption{Evaluation evidence summary linking reported metrics to source artifacts.}
+\label{tab:evaluation-snapshot}
+\begin{tabular}{p{4.2cm}p{2.7cm}p{6.0cm}}
+\toprule
+\textbf{Evidence item} & \textbf{Value} & \textbf{Source} \\
+\midrule
+Quality review sample              & 49/50 passed          & \texttt{quality-stats.json} \\
+Avg.\ realism / label correctness  & 4.68 / 4.96           & \texttt{quality-stats.json} \\
+Pilot model selection              & qwen3-4b winner; qwen3.5-4b runner-up & Pilot scoring record \\
+End-to-end verification            & 5/5 conditions met    & Verification report \\
+Internal holdout size              & 254 examples          & Evaluation results \\
+Per-class support                  & 56 bank, 75 zalo, 62 task, 61 benign & Evaluation results \\
+Bank impersonation                 & recall 1.000, precision 0.836, F1 0.911 & Evaluation results \\
+Zalo social engineering            & recall 0.960, precision 1.000, F1 0.980 & Evaluation results \\
+Task scam                          & recall 0.871, precision 1.000, F1 0.931 & Evaluation results \\
+Benign                             & recall 1.000, precision 1.000, F1 1.000 & Evaluation results \\
+Macro F1                           & 0.9553                & Computed from per-label F1 \\
+All risky-class recall targets met & Yes                   & Evaluation results \\
+Explanation quality review         & 156 risky predictions reviewed; two quality cautions noted & Evaluation notes \\
+\bottomrule
+\end{tabular}
+\end{table}

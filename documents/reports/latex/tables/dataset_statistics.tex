@@ -1,0 +1,31 @@
+\begin{table}[H]
+\centering
+\caption{Dataset composition, split sizes, and internal evaluation boundaries.}
+\label{tab:dataset-stats}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{L{4.5cm}rL{7.0cm}}
+\toprule
+\textbf{Data Split / Partition} & \textbf{Count} & \textbf{Methodological Focus} \\
+\midrule
+Training                  & 2{,}018 & QLoRA fine-tuning on quality-reviewed synthetic corpus \\
+Validation                & 210     & Internal seed-disjoint validation; not external real-world validation \\
+Held-out                  & 254     & Internal seed-disjoint holdout; not a production benchmark \\
+Filtered / Deduplicated   & 518     & Data cleaning and quality control exclusion \\
+\midrule
+\textbf{Total Tracked Corpus} & \textbf{3{,}000} & Versioned lineage; external real-world val/test remains future work \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.2em}
+
+\begin{tabular}{lrr}
+\toprule
+\textbf{Evaluation Class (Held-out)} & \textbf{Support ($N$)} & \textbf{Measured Recall} \\
+\midrule
+Bank Impersonation      & 56 & 1.000 \\
+Zalo Social Engineering & 75 & 0.960 \\
+Task Scam               & 62 & 0.871 \\
+Benign                  & 61 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
