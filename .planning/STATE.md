@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Report Formatting — Department Template
-status: planning
-last_updated: "2026-06-15T09:18:50.130Z"
+status: active
+last_updated: "2026-06-15"
 last_activity: 2026-06-15
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Fix all defense slides per supervisor feedback (title, pipeline naming, privacy/API leak, training time, quantization), re-run binary evaluation (scam vs non-scam), and update the thesis report accordingly.
+- Current milestone focus: Reformat the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template — cover page, certification letter, front matter order, 5 Roman numeral section restructure, evaluation tables sync, appendices, and slides scan.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -26,13 +26,17 @@ progress:
   - No localStorage (privacy risk); in-memory history[] only
   - No marked.js / DOMPurify / WebSocket / SSE — excluded per research
   - Backend (synchronous wsgiref + POST /api/analyze) is frozen; no behavior changes
+  - LaTeX: use `\thesissection` macro (not global `\thechapter` rename) to avoid corrupting figure/table numbering
+  - Safe compile sequence: delete aux files + 3 XeLaTeX passes + 1 BibTeX pass
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 22 (Cover Page, Certification Letter, and Front Matter)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-15 — Milestone v2.2 started
+Status: Not started — roadmap created, ready for /gsd-plan-phase 22
+Last activity: 2026-06-15 — Milestone v2.2 roadmap created (Phases 22-24)
+
+Progress bar: [----------] 0/3 phases complete
 
 ## Performance Metrics (Baseline Targets)
 
@@ -41,6 +45,7 @@ Last activity: 2026-06-15 — Milestone v2.2 started
 - UI target: Chat bubble interface loads and responds on consumer laptop; no framework dependency
 - Accessibility target: Screen reader announces new messages; reduced-motion respected
 - Font target: Be Vietnam Pro renders Vietnamese diacritics without stacking on macOS and Linux
+- LaTeX target: Thesis compiles clean (zero errors) with XeLaTeX after every phase; figure/table numbering intact
 
 ## Accumulated Context
 
@@ -72,17 +77,38 @@ Last activity: 2026-06-15 — Milestone v2.2 started
 - v2.0 pitfall registry: template id collision (use data-slot instead of id on inner nodes), mobile height collapse (100dvh → 100dvh + flex:1 1 0 min-height:0 on thread), ARIA live region must be in HTML at page load (not JS-injected), re-entrant submit (use AbortController.abort() before each fetch), scroll anchor race (wrap in requestAnimationFrame).
 - Phase 14 static scaffold is now the baseline: `index.html` loads Be Vietnam Pro, starts with `lang="vi"`, renders a compact local-first/text-only header, has a page-load `role="log"` / `aria-live="polite"` chat thread, and keeps the composer pinned with safe-area padding.
 - Phase 14 template rule: outer compatibility IDs `result-template` and `error-template` remain, but all cloned template internals use `data-slot`. Phase 16 must update `demo.js` from old inner-ID queries to `data-slot` selectors.
+- v2.2 LaTeX implementation rules (from research): zero new LaTeX packages needed; use `\thesissection` macro (not global `\thechapter` rename) to avoid corrupting figure/table numbering; 3 prose "Chapter~N" locations to fix: ch01 line ~22, ch04 line ~126, ch06 line ~20; safe compile sequence: delete aux files + 3 XeLaTeX passes + 1 BibTeX pass; LaTeX source: documents/reports/latex/main.tex.
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 55 (40 prior milestones + 15 v2.0)
-- mapped to phases: 55
+- tracked requirements: 78 (66 prior milestones + 12 v2.2)
+- mapped to phases: 78
 - Unmapped: 0
+
+### v2.2 Requirements at a Glance
+
+| Requirement | Phase | Description |
+| ----------- | ----- | ----------- |
+| COVER-01 | 22 | "BACHELOR THESIS" label + department template layout |
+| CERT-01 | 22 | Supervisor certification letter page |
+| FRONT-01 | 22 | Front matter order: TOC → Ack → Abbrev → Tables → Figures → Abstract |
+| FRONT-02 | 22 | 2-column List of Abbreviations table |
+| FRONT-03 | 22 | Abstract: 6 keywords + ≤250 words |
+| STRUCT-01 | 23 | `\thesissection` macro for Roman numeral headings |
+| STRUCT-02 | 23 | Merge 6 chapters into 5 Roman numeral sections |
+| STRUCT-03 | 23 | Fix 3 hardcoded "Chapter~N" prose cross-references |
+| EVAL-06 | 23 | Binary per-class metrics table in Results section |
+| EVAL-07 | 23 | 2×2 confusion matrix in Results section |
+| APPEND-01 | 24 | Appendices section with at least one placeholder |
+| SYNC-01 | 24 | Slides scanned and "Chapter X" references updated |
 
 ### Active Risks and Watchpoints
 
 - ~~Graduation risk if the thesis overstates blocked quality results or hides the final `task_scam` recall shortfall~~ — RESOLVED. Phase 7a closed PASS: task_scam recall=0.871 ≥ 0.80 floor.
 - ~~Evaluation gate bug: `audit.ready=true` despite `task_scam` recall=0.44~~ — RESOLVED. `RISKY_LABEL_RECALL_FLOORS` per-label dict now correctly gates task_scam at 0.80.
+- LaTeX restructure risk: using `\renewcommand{\thechapter}{\Roman{chapter}}` globally corrupts figure/table numbering (e.g., Figure I.1 instead of Figure 1.1). Mitigation: use `\thesissection` macro that wraps heading display only, leaving `\thechapter` counter intact.
+- Chapter content merge risk: splitting Ch1 into two sections (I/ Introduction and II/ Objectives) requires careful prose separation — objectives must be rewritten as independent prose, not just header-renamed.
+- Compile regression risk after restructure: every `\ref{}` cross-reference to old chapter labels must be resolved; run full 3-pass XeLaTeX after each change to surface any undefined references.
 - Template id collision: Phase 14 scaffold is clean; downstream phases must preserve `data-slot` internals and avoid adding IDs inside cloned template content.
 - Mobile soft keyboard collapse: iOS Safari shrinks the viewport height when the soft keyboard appears, pushing the input bar off screen. Fix: use height: 100dvh on the root shell; flex: 1 1 0; min-height: 0 on the thread area; padding-bottom: env(safe-area-inset-bottom) on the input bar.
 - Re-entrant fetch with wsgiref: wsgiref handles one request at a time. A second submit while one is pending will queue and block. Fix: call currentController?.abort() before each new fetch; catch AbortError silently.
@@ -103,9 +129,10 @@ Last activity: 2026-06-15 — Milestone v2.2 started
 
 ## Session Continuity
 
-- Last session: 2026-06-09
-- Stopped at: Phase 20 Plan 01 complete. EVAL-04 and EVAL-05 satisfied. Ready for Phase 21 (thesis report chapter 5 update to match slides).
-- Resume file: `.planning/phases/20-binary-eval-slides/20-01-SUMMARY.md`
+- Last session: 2026-06-15
+- Stopped at: v2.2 roadmap created. Phases 22-24 defined, 12/12 v2.2 requirements mapped.
+- Resume file: `.planning/ROADMAP.md` (Phase 22-24 detail sections)
+- Next step: `/gsd-plan-phase 22` to plan cover page, certification letter, and front matter work
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -128,7 +155,6 @@ Last activity: 2026-06-15 — Milestone v2.2 started
 - The repaired-holdout refresh completed end-to-end on 2026-05-26, regenerating `05-evaluation-snapshot.json`, `05-explanation-review-pack.json`, and the final release-eval markdown plus JSON artifacts.
 - Phase 7 UAT now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-UAT.md` with 5 of 5 checks passed.
 - Phase 7 security now exists at `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md` with `status: verified` and `threats_open: 0`.
-- Resume signal: Milestone v2.1 started. Next command: `/gsd-plan-phase 19` or `/gsd-autonomous`
 
 ## Quick Tasks Completed
 
@@ -138,8 +164,10 @@ Last activity: 2026-06-15 — Milestone v2.2 started
 | 2026-06-08 | v2.0 roadmap creation | Complete. Phases 14–18 defined, 15/15 v2.0 requirements mapped, ROADMAP.md and REQUIREMENTS.md updated. |
 | 2026-06-08 | Phase 14 static chat shell execution | Complete. `index.html`, `demo.css`, and focused demo tests now lock the Be Vietnam Pro, `100dvh`, ARIA live thread, pinned composer, and no-inner-ID template scaffold. |
 | 2026-06-08 | Prepare mock defense script for supervisor | Complete. Context gathered from planning and slides; script written to `documents/reports/supervisor/mock_defense_script.md`. |
+| 2026-06-15 | v2.2 roadmap creation | Complete. Phases 22-24 defined, 12/12 v2.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 
 ## Operator Next Steps
 
-- Run `/gsd-plan-phase 19` to plan slide content fixes
-- Run `/gsd-autonomous` to execute all three phases autonomously
+- Run `/gsd-plan-phase 22` to plan cover page, certification letter, and front matter work
+- Run `/gsd-plan-phase 23` after Phase 22 completes to plan document restructure and evaluation tables
+- Run `/gsd-plan-phase 24` after Phase 23 completes to plan appendices, slides sync, and final compile

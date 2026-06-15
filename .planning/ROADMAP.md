@@ -1,4 +1,4 @@
-﻿# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
+# Roadmap: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Created:** 2026-03-18
 **Granularity:** standard
@@ -29,6 +29,9 @@
 - [x] **Phase 19: Slide Content Fixes** - Fix all LaTeX slide content per supervisor feedback: title clarity, agenda → table of contents, pipeline naming, synthetic data note, Pydantic/T-test note, API leak privacy research, training time label, quantization explanation, and reference slide. Closed 2026-06-09: all 7 SLIDE requirements met, zero XeLaTeX errors, 16-page PDF.
 - [x] **Phase 20: Binary Evaluation Re-run + Eval Slide Updates** - Re-evaluate model as binary scam vs non-scam (2-class); update slides 9-10 with new results in table format. Closed 2026-06-09: per-class metrics table + binary 2×2 matrix added; EVAL-04 EVAL-05 met, zero XeLaTeX errors.
 - [x] **Phase 21: Thesis Report Revisions** - Update report sections to match corrected slide content; add ChatGPT/cloud API data leakage evidence to privacy section. Closed 2026-06-09: Chapter 2 jailbreak examples replaced with OpenAI March 2023 + Samsung 2023 data leakage incidents; REPORT-01 REPORT-02 met, thesis compiles clean (23 pages).
+- [ ] **Phase 22: Cover Page, Certification Letter, and Front Matter** - Reformat the titlepage to department template spec, insert the missing certification letter, and reorder/add front matter sections.
+- [ ] **Phase 23: Document Restructure and Evaluation Tables** - Replace the 6-chapter numbered structure with 5 Roman numeral sections, fix all prose chapter cross-references, and sync binary evaluation tables from Phase 20 slides.
+- [ ] **Phase 24: Appendices, Slides Sync, and Final Compile** - Add appendices section, scan and fix any "Chapter X" references in slides, and verify the full document compiles clean with XeLaTeX.
 
 ## Phase Details
 
@@ -539,6 +542,61 @@ Plans:
 
 ---
 
+## Milestone v2.2: Report Formatting — Department Template (Phases 22–24)
+
+**Milestone Goal:** Reformat the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template; sync evaluation tables and slides.
+
+### Phase 22: Cover Page, Certification Letter, and Front Matter
+
+**Goal**: The thesis titlepage, certification letter, and front matter sections all match the USTH ICT Bachelor Thesis department template, in the correct order and with required content.
+**Depends on**: Phase 21
+**Requirements**: COVER-01, CERT-01, FRONT-01, FRONT-02, FRONT-03
+**Success Criteria** (what must be TRUE):
+
+1. The titlepage renders "BACHELOR THESIS" (not "GRADUATION THESIS") and uses the "By \<student name\> / Title: \<title\>" layout matching the department template.
+2. A supervisor certification letter page ("To whom it may concern…") appears immediately after the titlepage, unnumbered, before roman numeral front matter begins.
+3. Front matter sections appear in the department-required order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract.
+4. A 2-column List of Abbreviations table is present covering all acronyms used in the thesis (AI, LLM, XAI, GGUF, QLoRA, LoRA, NF4, and others).
+5. The Abstract contains 6 English keywords and the body is verified ≤250 words.
+
+**Plans**: TBD
+
+---
+
+### Phase 23: Document Restructure and Evaluation Tables
+
+**Goal**: The thesis body is restructured from 6 numbered chapters into 5 Roman numeral sections matching the department template, with all prose cross-references updated and binary evaluation tables synced from Phase 20 slides.
+**Depends on**: Phase 22
+**Requirements**: STRUCT-01, STRUCT-02, STRUCT-03, EVAL-06, EVAL-07
+**Success Criteria** (what must be TRUE):
+
+1. A `\thesissection` macro is defined in the main.tex preamble that renders Roman numeral headings (I/, II/, …, V/) without affecting figure and table caption numbering.
+2. The 5 sections are present with correct content mapping: I/ Introduction (Ch1 narrative + Ch2), II/ Objectives (Ch1 objectives as prose), III/ Materials and Methods (Ch3 + Ch4), IV/ Results and Discussion (Ch5), V/ Conclusion and Perspective (Ch6).
+3. All 3 hardcoded "Chapter~N" prose cross-references (ch01 line ~22, ch04 line ~126, ch06 line ~20) are updated to Roman numeral or `\ref{}` form.
+4. Section IV/ Results and Discussion contains a binary per-class metrics table consistent with the Phase 20 slide content.
+5. Section IV/ Results and Discussion contains a 2×2 confusion matrix consistent with the Phase 20 slide content.
+6. The thesis compiles clean with XeLaTeX after restructure — zero errors, correct figure and table numbering throughout.
+
+**Plans**: TBD
+
+---
+
+### Phase 24: Appendices, Slides Sync, and Final Compile
+
+**Goal**: The thesis has a properly placed appendices section, the defense slides contain no stale "Chapter X" references, and the full document compiles clean end-to-end.
+**Depends on**: Phase 23
+**Requirements**: APPEND-01, SYNC-01
+**Success Criteria** (what must be TRUE):
+
+1. An Appendices section exists at the end of the thesis document with at least one labelled appendix placeholder.
+2. The defense slide source files contain no instances of "Chapter X" text that reference the old numbered chapter structure.
+3. The full thesis compiles clean with XeLaTeX using the safe sequence (delete aux files + 3 XeLaTeX passes + 1 BibTeX pass) — zero errors, zero unresolved references.
+4. The compiled PDF page count and section numbering are visually verified as correct.
+
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -563,14 +621,17 @@ Plans:
 | 16. demo.js Core Fetch Lifecycle | 1/1 | Complete | 2026-06-09 |
 | 17. Polish + Edge Cases | 1/1 | Complete | 2026-06-09 |
 | 18. Mobile + Accessibility Validation | 1/1 | Complete | 2026-06-09 |
-| 19. Slide Content Fixes | TBD | Pending | — |
-| 20. Binary Evaluation Re-run + Eval Slide Updates | TBD | Pending | — |
-| 21. Thesis Report Revisions | TBD | Pending | — |
+| 19. Slide Content Fixes | TBD | Complete | 2026-06-09 |
+| 20. Binary Evaluation Re-run + Eval Slide Updates | TBD | Complete | 2026-06-09 |
+| 21. Thesis Report Revisions | TBD | Complete | 2026-06-09 |
+| 22. Cover Page, Certification Letter, and Front Matter | TBD | Not started | — |
+| 23. Document Restructure and Evaluation Tables | TBD | Not started | — |
+| 24. Appendices, Slides Sync, and Final Compile | TBD | Not started | — |
 
 ## Coverage Validation
 
-- tracked requirements total: 41 (26 prior milestones + 15 v2.0)
-- tracked requirements mapped: 41
+- tracked requirements total: 78 (66 prior milestones + 12 v2.2)
+- tracked requirements mapped: 78
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -638,3 +699,26 @@ Coverage map:
 - POLISH-01 -> Phase 17
 - POLISH-02 -> Phase 17
 - POLISH-03 -> Phase 17
+- SLIDE-01 -> Phase 19
+- SLIDE-02 -> Phase 19
+- SLIDE-03 -> Phase 19
+- SLIDE-04 -> Phase 19
+- SLIDE-05 -> Phase 19
+- SLIDE-06 -> Phase 19
+- SLIDE-07 -> Phase 19
+- EVAL-04 -> Phase 20
+- EVAL-05 -> Phase 20
+- REPORT-01 -> Phase 21
+- REPORT-02 -> Phase 21
+- COVER-01 -> Phase 22
+- CERT-01 -> Phase 22
+- FRONT-01 -> Phase 22
+- FRONT-02 -> Phase 22
+- FRONT-03 -> Phase 22
+- STRUCT-01 -> Phase 23
+- STRUCT-02 -> Phase 23
+- STRUCT-03 -> Phase 23
+- EVAL-06 -> Phase 23
+- EVAL-07 -> Phase 23
+- APPEND-01 -> Phase 24
+- SYNC-01 -> Phase 24
