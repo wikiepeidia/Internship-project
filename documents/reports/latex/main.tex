@@ -1,0 +1,104 @@
+% main.tex -- Graduation thesis manuscript
+% Compiler: XeLaTeX
+% On Overleaf: Menu -> Compiler -> XeLaTeX
+\documentclass[11pt,a4paper]{report}
+
+% Fonts
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+
+% Language
+\usepackage[english]{babel}
+
+% Layout
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
+\usepackage{setspace}
+\setstretch{1.15}
+
+% Standard packages
+\usepackage{graphicx}
+\graphicspath{{figures/}{pics/}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath,amssymb}
+\usepackage[table]{xcolor}
+\definecolor{CVBLUE}{HTML}{1A5276}
+\PassOptionsToPackage{hyphens}{url}
+\usepackage{url}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{tocloft}
+\setcounter{tocdepth}{1}           %% chapters + sections only — no subsections in TOC
+\setlength{\cftbeforetoctitleskip}{0pt}
+\setlength{\cftaftertoctitleskip}{6pt}
+\setlength{\cftbeforechapskip}{4pt}   %% small visual gap before each chapter entry
+\setlength{\cftbeforesecskip}{0pt}
+\setlength{\cftbeforefigskip}{1pt}
+\setlength{\cftbeforetabskip}{1pt}
+\renewcommand{\cftfigfont}{\small}
+\renewcommand{\cftfigpagefont}{\small}
+\renewcommand{\cfttabfont}{\small}
+\renewcommand{\cfttabpagefont}{\small}
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+]{hyperref}
+
+% Allow URL line breaks at more characters (slashes, dots, hyphens, underscores)
+\makeatletter
+\g@addto@macro\UrlBreaks{\do\/\do\-\do\_\do\.\do\=\do\&\do\#}
+\makeatother
+
+\setlength{\parskip}{0.3em}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{2pt}
+
+% Compact headings
+\titleformat{\chapter}[display]{\normalfont\Large\bfseries}{\chaptertitlename\ \thechapter}{8pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{-20pt}{10pt}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt}{3pt}
+
+% Bibliography style kept aligned with the thesis manuscript
+\bibliographystyle{ieeetr}
+
+% Headers and footers
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\leftmark}
+\fancyhead[R]{\small Graduation Thesis}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+\input{chapters/frontmatter/titlepage}
+\input{chapters/frontmatter/certification}
+\input{chapters/frontmatter/preface}
+\input{chapters/01_introduction}
+\input{chapters/02_related_work_and_background}
+\input{chapters/03_methodology_and_system_design}
+\input{chapters/04_implementation}
+\input{chapters/05_evaluation_and_discussion}
+\input{chapters/06_conclusion_and_future_work}
+
+% Bibliography
+\renewcommand{\bibname}{References}
+\bibliography{references}
+
+\end{document}
