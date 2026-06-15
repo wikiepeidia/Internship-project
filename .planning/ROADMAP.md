@@ -30,8 +30,8 @@
 - [x] **Phase 20: Binary Evaluation Re-run + Eval Slide Updates** - Re-evaluate model as binary scam vs non-scam (2-class); update slides 9-10 with new results in table format. Closed 2026-06-09: per-class metrics table + binary 2×2 matrix added; EVAL-04 EVAL-05 met, zero XeLaTeX errors.
 - [x] **Phase 21: Thesis Report Revisions** - Update report sections to match corrected slide content; add ChatGPT/cloud API data leakage evidence to privacy section. Closed 2026-06-09: Chapter 2 jailbreak examples replaced with OpenAI March 2023 + Samsung 2023 data leakage incidents; REPORT-01 REPORT-02 met, thesis compiles clean (23 pages).
 - [x] **Phase 22: Cover Page, Certification Letter, and Front Matter** - Reformat the titlepage to department template spec, insert the missing certification letter, and reorder/add front matter sections. Closed 2026-06-15: cover page, certification, front matter order, abbreviations, and abstract keywords compile-verified.
-- [ ] **Phase 23: Document Restructure and Evaluation Tables** - Replace the 6-chapter numbered structure with 5 Roman numeral sections, fix all prose chapter cross-references, and sync binary evaluation tables from Phase 20 slides.
-- [ ] **Phase 24: Appendices, Slides Sync, and Final Compile** - Add appendices section, scan and fix any "Chapter X" references in slides, and verify the full document compiles clean with XeLaTeX.
+- [x] **Phase 23: Document Restructure and Evaluation Tables** - Replace the 6-chapter numbered structure with 5 Roman numeral sections, fix all prose chapter cross-references, and sync binary evaluation tables from Phase 20 slides. Closed 2026-06-15.
+- [x] **Phase 24: Appendices, Slides Sync, and Final Compile** - Add appendices section, scan and fix any "Chapter X" references in slides, and verify the full document compiles clean with XeLaTeX. Closed 2026-06-15.
 
 ## Phase Details
 
@@ -581,7 +581,11 @@ Plans:
 5. Section IV/ Results and Discussion contains a 2×2 confusion matrix consistent with the Phase 20 slide content.
 6. The thesis compiles clean with XeLaTeX after restructure — zero errors, correct figure and table numbering throughout.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [x] 23-01-PLAN.md -- Roman section macro, body restructure, binary eval tables, stale ref fixes
 
 ---
 
@@ -597,7 +601,11 @@ Plans:
 3. The full thesis compiles clean with XeLaTeX using the safe sequence (delete aux files + 3 XeLaTeX passes + 1 BibTeX pass) — zero errors, zero unresolved references.
 4. The compiled PDF page count and section numbering are visually verified as correct.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [x] 24-01-PLAN.md -- Appendices section, slides scan for Chapter references, final XeLaTeX compile verification
 
 ---
 
@@ -629,8 +637,8 @@ Plans:
 | 20. Binary Evaluation Re-run + Eval Slide Updates | TBD | Complete | 2026-06-09 |
 | 21. Thesis Report Revisions | TBD | Complete | 2026-06-09 |
 | 22. Cover Page, Certification Letter, and Front Matter | 1/1 | Complete | 2026-06-15 |
-| 23. Document Restructure and Evaluation Tables | TBD | Not started | — |
-| 24. Appendices, Slides Sync, and Final Compile | TBD | Not started | — |
+| 23. Document Restructure and Evaluation Tables | 1/1 | Complete | 2026-06-15 |
+| 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
 
 ## Coverage Validation
 
