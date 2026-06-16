@@ -1,24 +1,45 @@
-%% Slide 9: Confusion Matrix + Error Analysis
+%% Slide 9: Confusion Matrix + Binary view side by side
 \begin{frame}{Confusion Matrix \& Error Analysis}
   \framesubtitle{Seed-Disjoint Internal Holdout (254 Messages)}
-  \begin{center}
-    {\footnotesize
-    \setlength{\tabcolsep}{10pt}
-    \renewcommand{\arraystretch}{1.3}
-    \begin{tabular}{lcccc}
-      \toprule
-      \textbf{True \textbackslash\ Predicted} & \textbf{Bank Imp.} & \textbf{Zalo SE} & \textbf{Task Scam} & \textbf{Benign} \\
-      \midrule
-      Bank Impersonation & \cellcolor{CVBLUE!15}\textbf{56} & 0 & 0 & 0 \\
-      Zalo Social Eng.   & 3 & \cellcolor{CVBLUE!15}\textbf{72} & 0 & 0 \\
-      Task Scam          & 8 & 0 & \cellcolor{CVBLUE!15}\textbf{54} & 0 \\
-      Benign             & 0 & 0 & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
-      \bottomrule
-    \end{tabular}}
-  \end{center}
-  \vspace{0.25cm}
-  \begin{itemize}
-    \item \textbf{Key finding:} 8/62 Task Scam + 3/75 Zalo SE misclassified as Bank Impersonation.
-    \item \textbf{Cause:} bank name + OTP language triggered bank-naming boundary overlap.
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.58\textwidth}
+      {\footnotesize\textbf{4-class confusion matrix:}}\\[2pt]
+      {\footnotesize
+      \setlength{\tabcolsep}{4pt}
+      \renewcommand{\arraystretch}{1.2}
+      \begin{tabular}{lcccc}
+        \toprule
+        \textbf{True\,/\,Pred.} & \textbf{Bank} & \textbf{Zalo} & \textbf{Task} & \textbf{Ben.} \\
+        \midrule
+        Bank Impersonation & \cellcolor{CVBLUE!15}\textbf{56} & 0 & 0 & 0 \\
+        Zalo Social Eng.   & 3 & \cellcolor{CVBLUE!15}\textbf{72} & 0 & 0 \\
+        Task Scam          & 8 & 0 & \cellcolor{CVBLUE!15}\textbf{54} & 0 \\
+        Benign             & 0 & 0 & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
+        \bottomrule
+      \end{tabular}}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      {\footnotesize\textbf{Binary view (Scam vs.\ Non-scam):}}\\[2pt]
+      {\footnotesize
+      \setlength{\tabcolsep}{4pt}
+      \renewcommand{\arraystretch}{1.2}
+      \begin{tabular}{lcc}
+        \toprule
+        \textbf{True\,/\,Pred.} & \textbf{Scam} & \textbf{Non} \\
+        \midrule
+        Scam (193) & \cellcolor{CVBLUE!15}\textbf{193} & 0 \\
+        Non-scam (61) & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
+        \bottomrule
+      \end{tabular}}\\[4pt]
+      {\footnotesize Binary F1\,=\,\textbf{1.000}\\
+      All 11 errors are intra-scam\\
+      (Task/Zalo $\to$ Bank Imp.)\\
+      Not misclassified as benign.}
+    \end{column}
+  \end{columns}
+  \vspace{0.2cm}
+  \begin{itemize}\footnotesize
+    \item \textbf{11 errors} all intra-scam: bank name\,+\,OTP phrasing overlaps class boundary.
+    \item \textbf{Zero} scam messages misclassified as benign --- recall-first design holds.
   \end{itemize}
 \end{frame}

@@ -21,10 +21,17 @@
       {\footnotesize
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
-        \item \textbf{2,018} train examples
-        \item \textbf{210} validation examples
-        \item \textbf{254} holdout examples
-        \item \textbf{Pydantic:} required fields + realism score
+        \item \textbf{2,018} train / \textbf{210} val / \textbf{254} holdout
+        \item \textbf{Pydantic:} required fields + span verification
+      \end{itemize}}
+      \vspace{0.3em}
+      {\footnotesize\textbf{Quality verification (n\,=\,100 manual):}}
+      {\footnotesize
+      \begin{itemize}
+        \setlength{\itemsep}{0.10em}
+        \item Realism score: $\bar{x}=4.68$\,/\,5 \quad $t=13.6$, $p<0.0001$
+        \item Label accuracy: $\bar{x}=4.96$\,/\,5 \quad $t=48.0$, $p<0.0001$
+        \item H$_0$: $\mu \leq 4.0$ --- rejected at $\alpha=0.001$
       \end{itemize}}
     \end{column}
   \end{columns}
