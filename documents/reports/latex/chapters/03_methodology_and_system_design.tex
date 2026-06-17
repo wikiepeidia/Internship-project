@@ -8,7 +8,21 @@ The implementation covers four main stages, followed by a final evaluation. The 
 
 \section{Data Construction and Split Governance}
 
-The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn}, a public Vietnamese cybercrime alert portal, and expanded into a synthetic development corpus using the \texttt{claude-3-5-haiku} API through a structured generation pipeline with an automated quality-judge step. The final corpus contains 3{,}000 rows across four classes: bank impersonation, social-engineering messages, task scam, and benign. This corpus supports model development and internal validation; it is not presented as a substitute for a real-world, human-labeled benchmark. Each build is tied to versioned manifests with SHA-256 content hashes so that evaluation results can be traced to the exact dataset snapshot used.
+The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn}, a public Vietnamese cybercrime alert portal, and expanded into a synthetic development corpus using the \texttt{claude-3-5-haiku} API through a structured generation pipeline with an automated quality-judge step. The final corpus contains 3{,}000 rows across four classes: bank impersonation, social-engineering messages, task scam, and benign. Two representative examples are shown below.
+
+\smallskip
+\noindent\textbf{Bank impersonation (high-risk):}
+\begin{quote}\small\itshape
+``{[Vietcombank]} Tài khoản của bạn đã bị tạm khóa do phát hiện giao dịch bất thường. Vui lòng xác minh tại: \textup{\texttt{vcb-xacminh.vn}}''
+\end{quote}
+
+\noindent\textbf{Benign (no risk):}
+\begin{quote}\small\itshape
+``Techcombank: Giao dịch thành công! Tài khoản của bạn vừa nhận được 5,000,000 VND từ NGUYEN VAN AN lúc 14:32. Số dư hiện tại: 12,350,000 VND.''
+\end{quote}
+\smallskip
+
+\noindent This corpus supports model development and internal validation; it is not presented as a substitute for a real-world, human-labeled benchmark. Each build is tied to versioned manifests with SHA-256 content hashes so that evaluation results can be traced to the exact dataset snapshot used.
 
 A quality-judge pass reviewed a random sample of 100 synthetic examples before they entered the training split. Ninety-nine passed inspection. The average realism score was 4.68 out of 5 ($t = 13.6$, $p < 0.0001$, one-sample $t$-test against $H_0\colon \mu \leq 4.0$) and the average label-correctness score was 4.96 out of 5 ($t = 48.0$, $p < 0.0001$). Both scores reject the null hypothesis of merely average quality at $\alpha = 0.001$. This step was included to catch low-quality or mislabeled synthetic rows at the generation boundary, reducing the risk that noisy labels would propagate into the training data.
 
