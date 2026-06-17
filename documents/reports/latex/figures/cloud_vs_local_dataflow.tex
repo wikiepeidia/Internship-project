@@ -1,46 +1,21 @@
-\begin{figure}[H]
+\begin{table}[H]
 \centering
-\begin{tikzpicture}[
-  danger/.style={draw=black!55, fill=black!7, rectangle, rounded corners=3pt,
-                 minimum width=2.6cm, minimum height=0.75cm,
-                 align=center, font=\small},
-  safe/.style={draw=CVBLUE!65, fill=CVBLUE!8, rectangle, rounded corners=3pt,
-               minimum width=2.6cm, minimum height=0.75cm,
-               align=center, font=\small},
-  plain/.style={draw=black!40, rectangle, rounded corners=3pt,
-                minimum width=2.6cm, minimum height=0.75cm,
-                align=center, font=\small},
-  hdr/.style={font=\small\bfseries},
-  arr/.style={->, >=stealth, semithick},
-  darr/.style={->, >=stealth, semithick, dashed}
-]
-
-%% ── Column headers ───────────────────────────────────────────
-\node[hdr, text=black!55] at (-3.2,  2.2) {(A) Cloud API path};
-\node[hdr, text=CVBLUE]   at ( 3.2,  2.2) {(B) Local inference path};
-
-%% ── PATH A: Cloud API ────────────────────────────────────────
-\node[plain]   (u1)   at (-3.2,  1.2) {User\\Message};
-\node[danger]  (api)  at (-3.2, -0.2) {Cloud API\\(3rd-party)};
-\node[danger]  (leak) at (-3.2, -1.6) {Data stored\\on remote servers};
-
-%% Labels go LEFT (outside) so they don't cross the divider
-\draw[arr, black!45] (u1)  -- node[left, font=\scriptsize, text=black!45] {raw upload} (api);
-\draw[darr, black!45] (api) -- node[left, font=\scriptsize, text=black!45] {logs 30+ days} (leak);
-
-%% ── Divider ──────────────────────────────────────────────────
-\draw[black!18, dashed] (0, 2.5) -- (0, -2.2);
-
-%% ── PATH B: Local inference ──────────────────────────────────
-\node[plain]  (u2)   at ( 3.2,  1.2) {User\\Message};
-\node[safe]   (gguf) at ( 3.2, -0.2) {Local GGUF\\(on-device)};
-\node[safe]   (out)  at ( 3.2, -1.6) {Grounded\\Output};
-
-%% Labels go RIGHT (outside)
-\draw[arr, CVBLUE!55] (u2)   -- node[right, font=\scriptsize, text=CVBLUE!70] {stays on device} (gguf);
-\draw[arr, CVBLUE!55] (gguf) -- node[right, font=\scriptsize, text=CVBLUE!70] {no upload} (out);
-
-\end{tikzpicture}
-\caption{Data flow comparison: the cloud API path (A) uploads raw message content to a remote server where it may be logged, while the local inference path (B) keeps all text on-device and returns a structured output without external transmission.}
-\label{fig:cloud-vs-local-flow}
-\end{figure}
+\caption{Documented cloud API incidents involving sensitive user data. These cases illustrate the risk class that local inference is designed to eliminate: once text reaches a remote server, the user loses control of its retention and exposure.}
+\label{tab:cloud-api-incidents}
+\renewcommand{\arraystretch}{1.25}
+\footnotesize
+\begin{tabular}{p{3.2cm}p{1.2cm}p{4.8cm}p{4.2cm}}
+\toprule
+\textbf{Incident} & \textbf{Year} & \textbf{Data Exposed} & \textbf{Consequence} \\
+\midrule
+OpenAI ChatGPT Redis bug \cite{openai2023breach}
+  & 2023
+  & Chat history, payment card details, and account info of ${\sim}1.2\%$ of Plus subscribers
+  & 9-hour window; prompted GPDP (Italy) to temporarily ban ChatGPT \\
+Samsung Semiconductor \cite{bloomberg2023samsung}
+  & 2023
+  & Confidential chip design source code and internal meeting notes pasted into ChatGPT
+  & Samsung banned all generative-AI tools company-wide \\
+\bottomrule
+\end{tabular}
+\end{table}
