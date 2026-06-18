@@ -1,0 +1,17 @@
+\begin{table}[H]
+\centering
+\setlength{\tabcolsep}{10pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Support} \\
+\midrule
+Scam     & 1.000 & 1.000 & 1.000 & 193 \\
+Non-scam & 1.000 & 1.000 & 1.000 &  61 \\
+\midrule
+Macro avg & 1.000 & 1.000 & 1.000 & 254 \\
+\bottomrule
+\end{tabular}
+\caption{Binary classification results (Scam vs.\ Non-scam) on the internal holdout set (254 examples). Scam collapses bank impersonation, Zalo social engineering, and task scam into one superclass.}
+\label{tab:binary-metrics}
+\end{table}
