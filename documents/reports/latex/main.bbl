@@ -1,12 +1,5 @@
 \begin{thebibliography}{10}
 
-\bibitem{ais2024biometricwarning}
-{Cuc An toan thong tin}, ``Canh bao mao danh ngan hang, huong dan nguoi dung
-  xac thuc sinh trac hoc.''
-  \url{https://tinnhiemmang.vn/canh-bao-mao-danh-ngan-hang-huong-dan-nguoi-dung-xac-thuc-sinh-trac-hoc},
-  2024.
-\newblock Tin Nhiem Mang, published 2024-07-09, accessed 2026-05-26.
-
 \bibitem{groupib2022laser}
 {Group-IB}, ``Laser targeted: massive phishing campaign singles out clients of
   major vietnamese banks.''
@@ -14,10 +7,72 @@
   2022.
 \newblock Published 2022-06-09, accessed 2026-05-26.
 
+\bibitem{ais2024biometricwarning}
+{Cuc An toan thong tin}, ``Canh bao mao danh ngan hang, huong dan nguoi dung
+  xac thuc sinh trac hoc.''
+  \url{https://tinnhiemmang.vn/canh-bao-mao-danh-ngan-hang-huong-dan-nguoi-dung-xac-thuc-sinh-trac-hoc},
+  2024.
+\newblock Tin Nhiem Mang, published 2024-07-09, accessed 2026-05-26.
+
+\bibitem{interpol2024cyberthreat}
+{INTERPOL}, ``Asia and south pacific cyberthreat assessment report 2024.''
+  \url{https://www.interpol.int/News-and-Events/News/2024/INTERPOL-report-identifies-top-cyberthreats-in-Asia},
+  2024.
+\newblock Accessed 2026-06-18.
+
+\bibitem{nca2024cybersecurity}
+{National Cyber Security Association of Vietnam}, ``Vietnam cybersecurity
+  report 2024: Individual users.'' \url{https://nca.org.vn}, 2024.
+\newblock NCA Vietnam, accessed 2026-06-18.
+
+\bibitem{lehong2021diacritics}
+P.~Le-Hong, ``Diacritics generation and application in hate speech detection on
+  {Vietnamese} social networks,'' {\em Knowledge-Based Systems}, vol.~233,
+  p.~107504, 2021.
+
 \bibitem{pham2016vietnamese}
 T.-H. Pham and P.~Le-Hong, ``Content-based approach for vietnamese spam {SMS}
   filtering,'' in {\em International Conference on Asian Language Processing
   ({IALP})}, pp.~273--276, IEEE, 2016.
+
+\bibitem{nguyen2020phobert}
+D.~Q. Nguyen and A.~T. Nguyen, ``{PhoBERT}: Pre-trained language models for
+  {Vietnamese},'' in {\em Findings of EMNLP 2020}, 2020.
+
+\bibitem{nguyen2023visobert}
+T.~M. Nguyen, T.~D. Ngo, T.~H. Nguyen, and K.~V. Nguyen, ``{ViSoBERT}: A
+  pre-trained language model for {Vietnamese} social media text processing,''
+  in {\em Proceedings of EMNLP 2023}, 2023.
+
+\bibitem{patel2024evaluating}
+H.~Patel, U.~Rehman, and F.~Iqbal, ``Evaluating the efficacy of large language
+  models in identifying phishing attempts,'' in {\em 16th International
+  Conference on Human System Interaction (HSI)}, IEEE, 2024.
+
+\bibitem{koide2024chatspamdetector}
+T.~Koide, N.~Fukushi, H.~Nakano, and D.~Chiba, ``{ChatSpamDetector}: Leveraging
+  large language models for effective phishing email detection,'' in {\em
+  SecureComm 2024}, LNICST, Springer, 2024.
+
+\bibitem{trad2024prompt}
+F.~Trad and A.~Chehab, ``Prompt engineering or fine-tuning? {A} case study on
+  phishing detection with large language models,'' {\em Machine Learning and
+  Knowledge Extraction}, vol.~6, no.~1, pp.~367--384, 2024.
+
+\bibitem{goldenits2025small}
+G.~Goldenits, P.~Koenig, S.~Raubitzek, and A.~Ekelhart, ``Small language models
+  for phishing website detection: Cost, performance, and privacy trade-offs,''
+  {\em Journal of Cybersecurity and Privacy}, vol.~6, no.~2, p.~48, 2025.
+
+\bibitem{uddin2024explainable}
+M.~A. Uddin and I.~H. Sarker, ``An explainable transformer-based model for
+  phishing email detection: A large language model approach,'' {\em arXiv
+  preprint arXiv:2402.13871}, 2024.
+
+\bibitem{xue2025multiphishguard}
+Y.~Xue, E.~Spero, Y.~S. Koh, and G.~Russello, ``{MultiPhishGuard}: An
+  explainable and adaptive multi-agent {LLM} system for phishing email
+  detection,'' {\em arXiv preprint arXiv:2505.23803}, 2025.
 
 \bibitem{nist2026privacyframework}
 {National Institute of Standards and Technology}, ``Privacy framework.''
@@ -37,26 +92,31 @@ H.~Kim and M.~Gurman, ``{Samsung Bans Employee Use of {AI} Tools Like {ChatGPT}
   2023.
 \newblock Bloomberg, published 2023-05-02, accessed 2026-06-09.
 
-\bibitem{rjoub2023surveyxai}
-G.~Rjoub, J.~Bentahar, O.~A. Wahab, R.~Mizouni, A.~Song, R.~Cohen, H.~Otrok,
-  and A.~Mourad, ``A survey on explainable artificial intelligence for
-  cybersecurity.'' \url{https://arxiv.org/abs/2303.12942}, 2023.
-\newblock Accessed 2026-05-26.
+\bibitem{cyberinsider2026geminanano}
+{CyberInsider}, ``Google chrome silently installs 4{GB} {Gemini Nano AI} model
+  on user devices.''
+  \url{https://cyberinsider.com/google-chrome-silently-installs-4gb-gemini-nano-ai-model-on-user-devices/},
+  2026.
+\newblock Accessed 2026-06-01.
 
-\bibitem{lim2025explicate}
-B.~Lim, R.~Huerta, A.~Sotelo, A.~Quintela, and P.~Kumar, ``Explicate: Enhancing
-  phishing detection through explainable ai and llm-powered interpretability.''
-  \url{https://arxiv.org/abs/2503.20796}, 2025.
-\newblock Accessed 2026-05-26.
+\bibitem{kristiani2026deploying}
+E.~Kristiani, V.~K. Verma, and C.-T. Yang, ``Deploying {LLM} transformer on
+  edge computing devices: A survey of strategies, challenges, and future
+  directions,'' {\em AI (MDPI)}, vol.~7, no.~1, p.~15, 2026.
 
-\bibitem{qwen2025}
-A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
-  technical report,'' {\em arXiv preprint arXiv:2505.09388}, 2025.
+\bibitem{maiya2025onprem}
+A.~S. Maiya, ``{OnPrem.LLM}: A privacy-conscious document intelligence
+  toolkit,'' {\em arXiv preprint arXiv:2505.07672}, 2025.
 
-\bibitem{minaee2021text}
-S.~Minaee, N.~Kalchbrenner, E.~Cambria, N.~Nikzad, M.~Chenaghlu, and J.~Gao,
-  ``Deep learning--based text classification: A comprehensive review,'' {\em
-  ACM Computing Surveys}, vol.~54, no.~3, 2021.
+\bibitem{kurt2026quantization}
+U.~Kurt, ``Which quantization should {I} use? {A} unified evaluation of
+  {llama.cpp} quantization on {Llama-3.1-8B-Instruct},'' {\em arXiv preprint
+  arXiv:2601.14277}, 2026.
+
+\bibitem{houlsby2019parameter}
+N.~Houlsby, A.~Giurgiu, S.~Jastrzebski, B.~Morrone, Q.~de~Laroussilhe,
+  A.~Gesmundo, M.~Attariyan, and S.~Gelly, ``Parameter-efficient transfer
+  learning for {NLP},'' in {\em Proceedings of ICML 2019}, 2019.
 
 \bibitem{hu2022lora}
 E.~J. Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and
@@ -68,12 +128,56 @@ T.~Dettmers, A.~Pagnoni, A.~Holtzman, and L.~Zettlemoyer, ``{QLoRA}: Efficient
   finetuning of quantized {LLM}s,'' in {\em Advances in Neural Information
   Processing Systems}, vol.~36, 2023.
 
-\bibitem{cyberinsider2026geminanano}
-{CyberInsider}, ``Google chrome silently installs 4{GB} {Gemini Nano AI} model
-  on user devices.''
-  \url{https://cyberinsider.com/google-chrome-silently-installs-4gb-gemini-nano-ai-model-on-user-devices/},
-  2026.
-\newblock Accessed 2026-06-01.
+\bibitem{han2024peft}
+Z.~Han, C.~Gao, J.~Liu, J.~Zhang, and S.~Q. Zhang, ``Parameter-efficient
+  fine-tuning for large models: A comprehensive survey,'' {\em arXiv preprint
+  arXiv:2403.14608}, 2024.
+
+\bibitem{nwaiwu2025peft}
+S.~Nwaiwu, ``Parameter-efficient fine-tuning for low-resource text
+  classification: A comparative study of {LoRA}, {IA3}, and {ReFT},'' {\em
+  Frontiers in Big Data}, 2025.
+
+\bibitem{kaddour2023synthetic}
+J.~Kaddour and Q.~Liu, ``Synthetic data generation in low-resource settings via
+  fine-tuning of large language models,'' {\em arXiv preprint
+  arXiv:2310.01119}, 2023.
+
+\bibitem{long2024synthetic}
+L.~Long, R.~Wang, R.~Xiao, J.~Zhao, X.~Ding, G.~Chen, and H.~Wang, ``On
+  {LLMs}-driven synthetic data generation, curation, and evaluation: A
+  survey,'' in {\em Findings of ACL 2024}, 2024.
+
+\bibitem{li2024datageneration}
+Y.~Li, R.~Bonatti, S.~Abdali, J.~Wagle, and K.~Koishida, ``Data generation
+  using large language models for text classification: An empirical case
+  study,'' {\em arXiv preprint arXiv:2407.12813}, 2024.
+
+\bibitem{anikina2025rigorous}
+T.~Anikina, J.~Cegin, J.~Simko, and S.~Ostermann, ``A rigorous evaluation of
+  {LLM} data generation strategies for low-resource languages,'' in {\em
+  Proceedings of EMNLP 2025}, 2025.
+
+\bibitem{rjoub2023surveyxai}
+G.~Rjoub, J.~Bentahar, O.~A. Wahab, R.~Mizouni, A.~Song, R.~Cohen, H.~Otrok,
+  and A.~Mourad, ``A survey on explainable artificial intelligence for
+  cybersecurity.'' \url{https://arxiv.org/abs/2303.12942}, 2023.
+\newblock Accessed 2026-05-26.
+
+\bibitem{sharma2025comprehensive}
+A.~Sharma, S.~Rani, and M.~Shabaz, ``A comprehensive review of explainable {AI}
+  in cybersecurity: Decoding the black box,'' {\em ICT Express}, vol.~11,
+  no.~6, pp.~1200--1219, 2025.
+
+\bibitem{lim2025explicate}
+B.~Lim, R.~Huerta, A.~Sotelo, A.~Quintela, and P.~Kumar, ``Explicate: Enhancing
+  phishing detection through explainable ai and llm-powered interpretability.''
+  \url{https://arxiv.org/abs/2503.20796}, 2025.
+\newblock Accessed 2026-05-26.
+
+\bibitem{qwen2025}
+A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
+  technical report,'' {\em arXiv preprint arXiv:2505.09388}, 2025.
 
 \bibitem{gerganov2023llamacpp}
 G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++},''
