@@ -24,7 +24,7 @@ Suspicious financial messages contain names, phone numbers, OTP codes, and accou
 
 The viability of on-device LLM inference is now established in industry practice. Google deployed a 4~GB Gemini Nano model to Chrome browsers for local summarization and scam detection without sending content to remote servers \cite{cyberinsider2026geminanano}. Kristiani et al.~\cite{kristiani2026deploying} surveyed model compression, pruning, and quantization strategies for deploying LLMs on edge devices, identifying GGUF-based quantization as a leading approach for CPU-only deployment. Maiya~\cite{maiya2025onprem} released OnPrem.LLM, a privacy-focused toolkit for applying LLMs to sensitive documents in offline environments, supporting llama.cpp as a backend --- the same runtime we use.
 
-The choice of quantization level affects both quality and deployment feasibility. Kurt~\cite{kurt2026quantization} empirically evaluated all llama.cpp GGUF quantization formats on downstream tasks and found that Q8\_0 preserves nearly full model quality while reducing file size enough for consumer hardware. We adopt Q8\_0 for our inference artifact based on this evidence.
+The choice of quantization level affects both quality and deployment feasibility. Kurt~\cite{kurt2026quantization} empirically evaluated all llama.cpp GGUF quantization formats on downstream tasks and found that Q8\_0 preserves model quality with minimal measured degradation on downstream benchmarks while reducing file size enough for consumer hardware. We adopt Q8\_0 for our inference artifact based on this evidence.
 
 \section{Parameter-Efficient Fine-Tuning}
 
@@ -34,7 +34,7 @@ Han et al.~\cite{han2024peft} surveyed PEFT methods including adapters, prompt t
 
 \section{Synthetic Data Generation for NLP}
 
-Our training corpus is 100\% synthetic, generated from real phishing seeds using the \texttt{claude-3-5-haiku} API. This approach is driven by necessity: no public Vietnamese financial phishing dataset with threat-type labels and grounded evidence annotations exists. Recent work validates synthetic data generation as a practical strategy for low-resource NLP settings.
+Because no public Vietnamese financial phishing dataset with threat-type labels and grounded evidence annotations currently exists, our training corpus is built entirely through controlled generation: real phishing seeds from NCSC are expanded into full messages using the \texttt{claude-3-5-haiku} API, with automated schema validation and manual quality checks at the generation boundary. Recent work validates synthetic data generation as a practical strategy for low-resource NLP settings.
 
 Kaddour and Liu~\cite{kaddour2023synthetic} showed that synthetic data generated via fine-tuned teacher LLMs produces strong performance gains on text classification in low-resource settings. Long et al.~\cite{long2024synthetic} surveyed LLM-driven synthetic data generation and found that few-shot generation with real examples outperforms zero-shot approaches for classification tasks --- consistent with our seed-based generation design. Li et al.~\cite{li2024datageneration} analyzed how prompt design and data diversity affect synthetic data quality, providing practical recommendations directly applicable to phishing corpus construction. Anikina et al.~\cite{anikina2025rigorous} evaluated LLM data generation across 11 typologically diverse languages and showed that target-language demonstrations narrow the gap with real data to within 5\%, supporting the use of Vietnamese seed examples in our generation pipeline.
 
