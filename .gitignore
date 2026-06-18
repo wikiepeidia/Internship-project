@@ -13,6 +13,7 @@ __pycache__/
 build/
 develop-eggs/
 documents/Research
+documents/presentation
 dist/
 downloads/
 eggs/

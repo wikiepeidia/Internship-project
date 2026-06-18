@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: Report Formatting — Department Template
-status: Complete — All phases done
-last_updated: "2026-06-15"
-last_activity: 2026-06-15 — Phase 24 complete: appendices added, slides verified clean, 28-page PDF compiles zero errors; all 12 v2.2 requirements met
+milestone: v3.0
+milestone_name: Supervisor Comments & Literature Review
+status: In Progress
+last_updated: "2026-06-18"
+last_activity: 2026-06-18 — v3.0 milestone created; 4 supervisor comments + department page requirement scoped into 3 phases (25-27), 8 requirements
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 33
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Reformat the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template — cover page, certification letter, front matter order, 5 Roman numeral section restructure, evaluation tables sync, appendices, and slides scan.
+- Current milestone focus: Address supervisor comments — add proper literature review (20-30 citations), run baseline model evaluation, clarify synthetic dataset %, and meet 28-35 page target.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: 24 (complete)
-Plan: 24-01
-Status: Complete — v2.2 milestone done
-Last activity: 2026-06-15 — Phase 24 complete: appendices added, slides verified clean, 28-page PDF compiles zero errors; all 12 v2.2 requirements met
+Phase: 25 (complete)
+Plan: 25-01
+Status: Phase 25 done — literature review shipped
+Last activity: 2026-06-18 — ch02 rewritten as 7-section literature review with 22 new citations (36 total); 31-page PDF compiles clean; LIT-01 LIT-02 LIT-03 met
 
 ## Performance Metrics (Baseline Targets)
 
@@ -168,5 +168,7 @@ Last activity: 2026-06-15 — Phase 24 complete: appendices added, slides verifi
 
 ## Operator Next Steps
 
-- v2.2 milestone complete — all 12 requirements met, 28-page PDF clean
-- Next milestone: none planned; thesis ready for submission
+- v3.0 milestone active — 4 supervisor comments to address
+- Next: `/gsd-plan-phase 25` to plan the literature review research & writing
+- Phase 26 requires running base Qwen3.5-4B on holdout (code task, needs GPU/Colab)
+- Target: 28-35 pages after literature review added

@@ -1,7 +1,20 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-15 (Phase 22 Plan 01 completed COVER-01, CERT-01, FRONT-01, FRONT-02, FRONT-03)
+**Updated:** 2026-06-18 (v3.0 — Supervisor Comments + Literature Review)
+
+## v3.0 Requirements — Supervisor Comments & Department Standards
+
+| Req | Phase | Description |
+| --- | ----- | ----------- |
+| LIT-01 | 25 | Literature review: 20-30 citations covering Vietnamese phishing detection, LLM-based fraud/threat detection, local/privacy-preserving NLP, QLoRA/PEFT for classification, synthetic data quality in NLP, and XAI for cybersecurity |
+| LIT-02 | 25 | Restructure ch02 into a proper literature review with comparison of existing approaches and clear research gap identification |
+| LIT-03 | 25 | All new citations added to references.bib with full metadata |
+| BASE-01 | 26 | Run base Qwen3.5-4B (no QLoRA adapter) on the 254 holdout and record per-class precision/recall/F1 |
+| BASE-02 | 26 | Add baseline vs fine-tuned comparison table to ch05 (and slides) showing performance improvement |
+| DATA-04 | 26 | State explicitly in ch03 that 100% of the corpus is synthetic, with clear rationale |
+| PAGE-01 | 27 | Main content 28-35 pages (not counting images or appendix) per department standard |
+| PAGE-02 | 27 | Final consistency sweep: slide-report sync, model names, numbers |
 **Core Value:** Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
 
 ## v1 Requirements
