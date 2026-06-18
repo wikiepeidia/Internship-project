@@ -8,7 +8,7 @@ The implementation covers four main stages, followed by a final evaluation. The 
 
 \section{Data Construction and Split Governance}
 
-The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn}, a public Vietnamese cybercrime alert portal, and expanded into a synthetic development corpus using the \texttt{claude-3-5-haiku} API through a structured generation pipeline with an automated quality-judge step. The final corpus contains 3{,}000 rows across four classes: bank impersonation, social-engineering messages, task scam, and benign. Two representative examples are shown below.
+The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn}, a public Vietnamese cybercrime alert portal, and expanded into a synthetic development corpus using the \texttt{claude-3-5-haiku} API through a structured generation pipeline with an automated quality-judge step. The final corpus contains 3{,}000 rows across four classes: bank impersonation, social-engineering messages, task scam, and benign. All rows (100\%) are synthetically generated from real seed examples; no human-authored messages are included in the training or evaluation splits. This design is driven by the absence of any publicly available Vietnamese financial phishing dataset with threat-type labels and grounded evidence annotations. Two representative examples are shown below.
 
 \smallskip
 \noindent\textbf{Bank impersonation (high-risk):}

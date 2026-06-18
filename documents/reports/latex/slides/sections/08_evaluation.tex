@@ -19,11 +19,10 @@
     \end{tabular}}
   \end{center}
   \vspace{0.10cm}
-  \begin{itemize}
-    \item \textbf{Macro F1:} \textcolor{CVBLUE}{\textbf{0.9553}} ---
-          all 4 classes exceeded the 0.80 recall threshold.
+  \begin{itemize}\footnotesize
+    \item \textbf{Baseline (zero-shot):} macro F1\,=\,0.648 \quad$\to$\quad \textbf{Fine-tuned:} macro F1\,=\,\textcolor{CVBLUE}{\textbf{0.955}} \quad(\textbf{+0.307})
     \item \textbf{Lowest recall:} Task Scam (0.871) ---
-          bank-name + OTP phrasing overlaps with Bank Impersonation class boundary.
-    \item \textbf{Scope:} internal synthetic-derived holdout; real-world validation remains future work.
+          bank-name + OTP phrasing overlaps class boundary.
+    \item \textbf{Key gain:} benign recall 0.361\,$\to$\,1.000; base model over-predicts threats.
   \end{itemize}
 \end{frame}

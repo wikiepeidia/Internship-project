@@ -8,6 +8,33 @@ Candidate selection also left a useful early record. A recall-first pilot over 3
 \section{End-to-End Verification}
 We ran a final verification pass covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
 
+\section{Baseline Comparison}
+To measure the effect of QLoRA fine-tuning, we first evaluated the base \texttt{Qwen3.5-4B} model on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{3}{c}{\textbf{Baseline (zero-shot)}} & \multicolumn{3}{c}{\textbf{Fine-tuned (QLoRA)}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Class} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
+\midrule
+Bank Impersonation  & 0.426 & 0.982 & 0.595 & 0.836 & 1.000 & 0.911 \\
+Zalo Social Eng.    & 0.978 & 0.587 & 0.733 & 1.000 & 0.960 & 0.980 \\
+Task Scam           & 0.786 & 0.710 & 0.746 & 1.000 & 0.871 & 0.931 \\
+Benign              & 0.917 & 0.361 & 0.518 & 1.000 & 1.000 & 1.000 \\
+\midrule
+\textbf{Macro avg}  & --- & --- & \textbf{0.648} & --- & --- & \textbf{0.955} \\
+\bottomrule
+\end{tabular}
+\caption{Baseline (zero-shot \texttt{Qwen3.5-4B}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.307.}
+\label{tab:baseline-comparison}
+\end{table}
+
+The base model achieves a macro F1 of only 0.648. It over-predicts bank impersonation (precision 0.426), misclassifying many benign and Zalo messages as bank-related. Benign recall is particularly low at 0.361 --- the model treats legitimate bank notifications as threats. After QLoRA adaptation, macro F1 rises to 0.955, with every class exceeding its recall target. The +0.307 improvement confirms that domain-specific fine-tuning is necessary; the base model's general knowledge of Vietnamese text is not sufficient for reliable threat classification.
+
 \section{Expanded-Holdout Results}
 We evaluate on an expanded internal holdout dataset of 254 fully annotated messages. Our system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
 
