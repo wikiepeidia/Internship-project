@@ -19,22 +19,15 @@
       \end{tabular}}
     \end{column}
     \begin{column}{0.38\textwidth}
-      {\footnotesize\textbf{Binary view (Scam vs.\ Non-scam):}}\\[2pt]
+      {\footnotesize\textbf{Error pattern:}}\\[6pt]
       {\footnotesize
-      \setlength{\tabcolsep}{4pt}
-      \renewcommand{\arraystretch}{1.2}
-      \begin{tabular}{lcc}
-        \toprule
-        \textbf{True\,/\,Pred.} & \textbf{Scam} & \textbf{Non} \\
-        \midrule
-        Scam (193) & \cellcolor{CVBLUE!15}\textbf{193} & 0 \\
-        Non-scam (61) & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
-        \bottomrule
-      \end{tabular}}\\[4pt]
-      {\footnotesize Binary F1\,=\,\textbf{1.000}\\
-      All 11 errors are intra-scam\\
-      (Task/Zalo $\to$ Bank Imp.)\\
-      Not misclassified as benign.}
+      \begin{itemize}
+        \setlength{\itemsep}{0.3em}
+        \item \textbf{11 total errors} out of 254
+        \item All 11 are \textbf{intra-scam}: Task Scam or Zalo SE predicted as Bank Impersonation
+        \item \textbf{Zero} scam messages misclassified as benign
+        \item Cause: bank name + OTP phrasing overlaps across scam subtypes
+      \end{itemize}}
     \end{column}
   \end{columns}
   \vspace{0.2cm}

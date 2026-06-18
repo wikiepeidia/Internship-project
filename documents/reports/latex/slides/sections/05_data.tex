@@ -25,14 +25,15 @@
         \item \textbf{Pydantic:} required fields + span verification
       \end{itemize}}
       \vspace{0.3em}
-      {\footnotesize\textbf{Quality verification (n\,=\,100 manual):}}
-      {\footnotesize
-      \begin{itemize}
-        \setlength{\itemsep}{0.10em}
-        \item Realism score: $\bar{x}=4.68$\,/\,5 \quad $t=13.6$, $p<0.0001$
-        \item Label accuracy: $\bar{x}=4.96$\,/\,5 \quad $t=48.0$, $p<0.0001$
-        \item H$_0$: $\mu \leq 4.0$ --- rejected at $\alpha=0.001$
-      \end{itemize}}
+      {\footnotesize\textbf{Quality check (n\,=\,100):}}\\[2pt]
+      {\scriptsize
+      \renewcommand{\arraystretch}{1.1}
+      \begin{tabular}{lcc}
+        & \textbf{Mean} & \textbf{$t$-stat} \\
+        Realism & 4.68\,/\,5 & $t{=}13.6$ \\
+        Label acc. & 4.96\,/\,5 & $t{=}48.0$ \\
+      \end{tabular}\\[2pt]
+      $p < 0.0001$; H$_0$: $\mu \leq 4.0$ rejected}
     \end{column}
   \end{columns}
 \end{frame}
