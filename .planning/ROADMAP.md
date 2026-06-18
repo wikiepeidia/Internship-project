@@ -36,8 +36,8 @@
 ### v3.0 — Supervisor Comments & Literature Review (2026-06-18)
 
 - [x] **Phase 25: Literature Review Research & Writing** - Research 20-30 papers, restructure ch02 into proper literature review with gap analysis. Covers Vietnamese phishing, LLM fraud detection, local NLP, QLoRA/PEFT, synthetic data, XAI for cybersecurity.
-- [ ] **Phase 26: Baseline Evaluation & Dataset Clarification** - Run base Qwen3.5-4B (no adapter) on 254 holdout, add comparison table to report+slides, state 100% synthetic explicitly.
-- [ ] **Phase 27: Page Count & Final Polish** - Verify 28-35 pages per department standard, final consistency sweep.
+- [x] **Phase 26: Baseline Evaluation & Dataset Clarification** - Run base Qwen3.5-4B (no adapter) on 254 holdout, add comparison table to report+slides, state 100% synthetic explicitly.
+- [x] **Phase 27: Page Count & Final Polish** - Verify 28-35 pages per department standard, final consistency sweep.
 
 ## Phase Details
 
