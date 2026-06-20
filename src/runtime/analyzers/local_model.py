@@ -207,6 +207,7 @@ STRUCTURED_PAYLOAD_PRIMARY_KEYS = {
     "summary",
     "xai_explanation",
     "evidence",
+    "evidence_spans",
     "suspicious_spans",
     "recommendations",
 }
@@ -440,7 +441,7 @@ def _coerce_payload_evidence(
 ) -> list[dict[str, Any]]:
     raw_evidence = payload.get("evidence")
     if raw_evidence is None:
-        raw_spans = payload.get("suspicious_spans") or []
+        raw_spans = payload.get("suspicious_spans") or payload.get("evidence_spans") or []
         if isinstance(raw_spans, str):
             raw_spans = [raw_spans]
         evidence: list[dict[str, Any]] = []
@@ -613,7 +614,7 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
         recommendation_payload = [
             item if isinstance(item, dict) else {"text": str(item), "priority": "high" if risk_tier != "benign" else "medium"}
             for item in raw_recommendations
-        ]
+        ][:3]
     elif isinstance(raw_recommendations, str):
         recommendation_payload = [{"text": raw_recommendations, "priority": "high" if risk_tier != "benign" else "medium"}]
     else:

@@ -95,7 +95,7 @@ The demo server is started with \texttt{vnphish demo} or \texttt{python -m src.r
 
 \subsection{Example Analysis Output}
 
-The following shows the actual output produced by running \texttt{vnphish analyze} on a bank-impersonation message via the SMS channel.
+The following examples show the output produced by running \texttt{vnphish analyze} through the same runtime contract used by the local demo. The first case is a common bank-impersonation message, while the second and third cases show a small qualitative smoke test on a noisy scam-style SMS and a benign OTP notification.
 
 \begin{quote}
 \small
@@ -122,3 +122,38 @@ The following shows the actual output produced by running \texttt{vnphish analyz
 \end{quote}
 
 The system returned two threat labels for this message --- bank impersonation and task scam --- reflecting the overlapping linguistic signals discussed in Section~IV. The grounded cues are drawn directly from spans of the input text, and the next-step recommendations reference the specific institution named in the message, showing that the output is contextualised rather than generic.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{L{0.30\textwidth} L{0.24\textwidth} L{0.36\textwidth}}
+\toprule
+\textbf{Input} & \textbf{Runtime output} & \textbf{Interpretation} \\
+\midrule
+\textit{``Truy cập qo-rg.com/BK, đăng nhập để nhận ngay 10 nghìn đồng thưởng và chơi xổ số, lô đề, game bài online.''}
+&
+\textbf{Risk tier:} Suspicious\par
+\textbf{Threat label:} Task scam\par
+\textbf{Grounded cues:} \textit{``qo-rg.com/BK''}; \textit{``nhận ngay 10 nghìn đồng thưởng''}; \textit{``chơi xổ số, lô đề, game bài online''}.\par
+\textbf{Recommendation:} Không truy cập trang web không rõ nguồn gốc như \texttt{qo-rg.com/BK}; không cung cấp thông tin cá nhân hoặc OTP cho trang đó.
+&
+This real-world-style scam case is outside the clean bank-impersonation template. The model still identifies the unknown URL, reward promise, and gambling/task-scam wording as suspicious.
+\\
+\midrule
+\textit{``235060 là mã xác thực OTP trên MyVNPT của Quý Khách, hiệu lực trong 2 phút. Để đảm bảo an toàn, vui lòng không chia sẻ mã này với bất kỳ ai.''}
+&
+\textbf{Risk tier:} Benign\par
+\textbf{Threat label:} Benign\par
+\textbf{Grounded cue:} \textit{``OTP''}.\par
+\textbf{Recommendation:} Không chia sẻ mã OTP với bất kỳ ai; nếu không yêu cầu mã này, hãy liên hệ MyVNPT qua kênh chính thức để xác minh.
+&
+This benign OTP notification checks that the runtime does not treat every OTP mention as phishing. The message contains a sensitive token, but it also gives a protective instruction rather than asking the user to send the code elsewhere.
+\\
+\bottomrule
+\end{tabular}
+\caption{Additional qualitative runtime examples.}
+\label{tab:qualitative-runtime-examples}
+\end{table}
+
+These qualitative examples do not replace the quantitative holdout evaluation. They are included to show runtime behavior on messages that differ from the main synthetic evaluation style, especially the distinction between a malicious OTP request and a legitimate OTP notification.

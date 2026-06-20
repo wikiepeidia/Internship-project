@@ -41,6 +41,64 @@ def test_build_analysis_result_preserves_phase_four_fields():
     assert result.normalized_text == request.text
 
 
+def test_build_analysis_result_caps_overlong_model_recommendations():
+    request = AnalysisRequest(
+        text="VPBank yeu cau khach hang xac minh OTP de mo khoa tai khoan.",
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "high-risk",
+        "threat_labels": ["bank_impersonation"],
+        "suspicious_spans": ["OTP", "VPBank"],
+        "xai_explanation": "Tin nhan gia danh ngan hang va yeu cau thong tin nhay cam.",
+        "recommendations": [
+            "Khong chia se OTP cho nguoi gui tin nhan.",
+            "Khong bam vao lien ket trong tin nhan.",
+            "Xac minh qua ung dung hoac tong dai chinh thuc.",
+            "Luu lai tin nhan de bao cao neu can.",
+        ],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.recommendations == [
+        "Khong chia se OTP cho nguoi gui tin nhan.",
+        "Khong bam vao lien ket trong tin nhan.",
+        "Xac minh qua ung dung hoac tong dai chinh thuc.",
+    ]
+
+
+def test_build_analysis_result_accepts_evidence_spans_alias_from_gguf_payload():
+    request = AnalysisRequest(
+        text='! Db]qo-rg.com/BK+Zmoz.M G 8D\'A\'Y U.u"Da\'j~C\'OD',
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "high-risk",
+        "threat_labels": ["task_scam", "bank_impersonation"],
+        "evidence_spans": [
+            "! Db]qo-rg.com/BK+Zmoz.M",
+            "8D'A'Y U.u\"Da'j~C'OD",
+        ],
+        "recommendations": [
+            "Khong truy cap bat ky lien ket nao trong tin nhan nay.",
+            "Khong cung cap thong tin ca nhan hoac OTP cho bat ky ai.",
+            "Goi truc tiep den ngan hang neu nghi ngo.",
+            "Xac minh lai thong tin qua kenh chinh thuc.",
+        ],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["task_scam", "bank_impersonation"]
+    assert [cue.span for cue in result.top_cues] == [
+        "! Db]qo-rg.com/BK+Zmoz.M",
+        "8D'A'Y U.u\"Da'j~C'OD",
+    ]
+    assert len(result.recommendations) == 3
+
+
 def test_local_model_rejects_out_of_scope_labels():
     request = AnalysisRequest(text="Nhan thuong qua app moi hom nay.", channel="sms")
     payload = {

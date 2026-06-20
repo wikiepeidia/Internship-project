@@ -267,3 +267,4 @@ data/manifests/*
 .github/gsd-install-state.json
 notebooks/H100_baseline_eval.ipynb
 data/eval/baseline-eval-results.json
+REAL_LIFE_SCAM_TEST_DEMO.md
