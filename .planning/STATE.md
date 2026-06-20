@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Supervisor Comments & Literature Review
-status: Complete
+milestone: v4.0
+milestone_name: Content Expansion — 20-page Target
+status: Complete — Print Ready
 last_updated: "2026-06-18"
 last_activity: 2026-06-18 — v3.0 milestone created; 4 supervisor comments + department page requirement scoped into 3 phases (25-27), 8 requirements
 progress:
@@ -34,7 +34,7 @@ progress:
 Phase: 27 (complete)
 Plan: 27-01
 Status: v3.0 milestone COMPLETE — all 8 requirements met
-Last activity: 2026-06-18 — v3.0 complete; jury-proofing pass done; binary F1 table removed from slides; t-test reformatted; 31 pages, 36 citations, zero compile errors
+Last activity: 2026-06-20 — v4.0 COMPLETE; pre-print review passed (20 findings fixed); 33 pages, 36 citations, 24 abbreviations, zero compile errors, print-ready
 
 ## Performance Metrics (Baseline Targets)
 
