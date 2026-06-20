@@ -41,13 +41,15 @@ A readiness check verifies that the selected profile is loaded correctly before 
 
 \section{Local Model Selection and Deployment Paths}
 
+The original internship proposal targeted an 8-billion-parameter model. During the hardware pilot, however, both 4B candidates achieved perfect high-risk recall while the 7B model missed all high-risk examples and required twice the memory (5.6\,GB vs 2.8\,GB). The 4B path was therefore adopted as the more reliable fit for the target laptop hardware.
+
 The selection pilot evaluated three open-weight candidates from the Qwen family \cite{qwen2025} on 33 fixed balanced examples under recall-first scoring: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The evaluation used a three-tier outcome structure covering benign, suspicious, and high-risk inputs. The pilot was run locally on the target laptop hardware so that hardware-fit was in scope from the start rather than treated as a secondary concern.
 
-We screened three Qwen family candidates — including a 7B model — under recall-first criteria on the target laptop hardware. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning, while the 7B model missed all 11 despite performing adequately on the suspicious tier. The 7B model also required approximately 5.6~GB of peak memory compared to 2.8~GB for the selected 4B winner. Hardware fit and recall performance together made the 4B path the delivery target. Table~\ref{tab:pilot-comparison} shows the full screening results.
+We screened three Qwen family candidates — including a 7B model — under recall-first criteria on the target laptop hardware. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning, while the 7B model missed all 11 despite performing adequately on the suspicious tier. The 7B model also required approximately 5.6~GB of peak memory compared to 2.8~GB for the selected 4B candidate. Hardware fit and recall performance together made the 4B path the delivery target. Table~\ref{tab:pilot-comparison} shows the full screening results.
 
 \input{tables/pilot_comparison}
 
-\texttt{qwen3.5-4b} was selected as the deployed model and \texttt{qwen3-4b-instruct-2507} as the runner-up on the basis of recall performance and hardware fit. Both paths were taken through the full adaptation workflow. The selection notes from the pilot manifest record the basis explicitly: recall-first weighted scoring under the laptop constraint was the deciding criterion.
+\texttt{qwen3.5-4b} was selected as the deployed model and \texttt{qwen3-4b-instruct-2507} as the alternative candidate on the basis of recall performance and hardware fit. Both paths were taken through the full adaptation workflow. The selection notes from the pilot manifest record the basis explicitly: recall-first weighted scoring under the laptop constraint was the deciding criterion.
 
 The selected model (\texttt{Qwen3.5-4B}, BF16 base weights) was adapted using QLoRA \cite{dettmers2023qlora} with rank $r{=}16$ and scale $\alpha{=}32$ (a common configuration for text classification where the original LoRA ablation found diminishing returns above $r{=}8$ for similar-scale tasks \cite{hu2022lora}), and 4-bit NF4 quantization with double quantization enabled. The final training run used 2{,}018 training examples and 210 internal validation examples on a CUDA-enabled device over three epochs, reaching a training loss of 0.4951 and saving its final checkpoint at step 505. Total training time was 1{,}733 seconds. The resulting adapter artifact was registered in the off-device model registry for runtime use. Table~\ref{tab:qlora-config} summarises the full configuration.
 
@@ -66,7 +68,7 @@ After training, the QLoRA adapter was merged back into the base weights and the 
 
 The decision layer returns four elements for each message: a risk tier (benign, suspicious, or high-risk), one or more in-scope threat labels for risky inputs, grounded suspicious cues taken from spans of the analyzed text, and safe next-step recommendations. This structure follows the principle that explainability should be grounded in observable evidence rather than in opaque model confidence scores alone \cite{rjoub2023surveyxai}.
 
-The decision layer follows two design rules. Cues must be drawn from the message text itself rather than inferred from model confidence scores alone. Recommendations must stay within a safe, generic set and must not instruct users to take actions that could cause harm. Together these rules help keep the output useful and grounded rather than confidently wrong.
+The decision layer follows two design rules. Cues must be drawn from the message text itself rather than inferred from model confidence scores alone. Recommendations must stay within a safe, generic set and must not instruct users to take actions that could cause harm. Together these rules help keep the output useful and grounded rather than misleading.
 
 A safety rule applies at the runtime boundary: if the configured profile is not ready, the system stops and reports the reason instead of silently switching to a fallback. This applies to both the laptop GGUF profile and the accelerated local profile.
 

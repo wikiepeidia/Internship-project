@@ -3,7 +3,7 @@ We bring together four kinds of evidence: data quality checks, model-selection r
 \section{Data Quality and Candidate Selection}
 The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 99 passing samples out of 100, with an average realism score of 4.68 out of 5 ($t = 13.6$, $p < 0.0001$) and an average label-correctness score of 4.96 out of 5 ($t = 48.0$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
 
-Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3.5-4B as the deployed model and Qwen3-4B-Instruct-2507 as the runner-up. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
+Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3.5-4B as the deployed model and Qwen3-4B-Instruct-2507 as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
 
 \section{End-to-End Verification}
 We ran a final verification pass covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
