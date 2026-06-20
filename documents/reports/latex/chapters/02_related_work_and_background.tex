@@ -46,6 +46,30 @@ We treat explainability as a core design requirement rather than a post-hoc addi
 
 Lim et al.~\cite{lim2025explicate} proposed EXPLICATE, which grounds phishing explanations in text-level evidence and demonstrated improved user trust compared to confidence-score-only outputs. Their finding that evidence-grounded explanations increase user compliance with security recommendations supports our design choice of returning grounded cues alongside risk tiers.
 
+\section{Comparison with Existing Approaches}
+
+Table~\ref{tab:approach-comparison} compares our approach with the most relevant systems from the literature. Each addresses part of the problem space, but none covers all four requirements simultaneously.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{p{3.0cm}cccc}
+\toprule
+\textbf{System} & \textbf{Vietnamese} & \textbf{Local} & \textbf{XAI} & \textbf{Fine-tuned} \\
+\midrule
+Pham \& Le-Hong \cite{pham2016vietnamese} & Yes & N/A & No & No (BoW) \\
+PhoBERT \cite{nguyen2020phobert} & Yes & Possible & No & Yes \\
+ChatSpamDetector \cite{koide2024chatspamdetector} & No & No (GPT-4) & Yes & No \\
+Goldenits et al. \cite{goldenits2025small} & No & Yes & No & No \\
+Trad \& Chehab \cite{trad2024prompt} & No & No & No & Yes \\
+\textbf{This project} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\caption{Comparison of phishing detection approaches. Vietnamese = targets Vietnamese text; Local = runs on-device without cloud API; XAI = returns structured explanations; Fine-tuned = domain-adapted model.}
+\label{tab:approach-comparison}
+\end{table}
+
 \section{Research Gap}
 
-The literature shows progress on LLM-based phishing detection, parameter-efficient adaptation, and explainable AI for cybersecurity. No existing work combines all of the following: (1)~a Vietnamese-specific phishing corpus with threat-type labels, (2)~a locally deployed fine-tuned LLM that runs on consumer CPU hardware without cloud dependency, (3)~structured explanations grounded in the message text, and (4)~a recall-first evaluation strategy that prioritizes reducing dangerous false negatives over maximizing overall accuracy. This thesis addresses that gap with a prototype pipeline covering all four requirements.
+The comparison shows progress on LLM-based phishing detection, parameter-efficient adaptation, and explainable AI for cybersecurity. No existing work combines all of the following: (1)~a Vietnamese-specific phishing corpus with threat-type labels, (2)~a locally deployed fine-tuned LLM that runs on consumer CPU hardware without cloud dependency, (3)~structured explanations grounded in the message text, and (4)~a recall-first evaluation strategy that prioritizes reducing dangerous false negatives over maximizing overall accuracy. This thesis addresses that gap with a prototype pipeline covering all four requirements.

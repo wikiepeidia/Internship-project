@@ -8,3 +8,20 @@ We follow three design constraints throughout: the pipeline is text-only, infere
 \section{Problem Statement}
 Two practical problems motivate this work. First, cloud-based fraud checking workflows require users to upload suspicious financial messages to remote services, creating avoidable privacy exposure. Second, generic multilingual models do not reliably encode Vietnamese financial scam patterns, local social-engineering tactics, or mixed Vietnamese-English code-switching. We therefore target a local fine-tuning pipeline that classifies suspicious text on-device and returns clear, grounded guidance instead of vague alerts.
 
+\section{Research Questions}
+Based on the problem statement, this project addresses three questions:
+
+\begin{enumerate}
+\item \textbf{RQ1:} Can a 4-billion-parameter open-weight model, adapted with parameter-efficient fine-tuning (QLoRA) on a controlled-generation Vietnamese corpus, match or exceed the classification accuracy of the same base model used without adaptation on a four-class financial threat task?
+
+\item \textbf{RQ2:} Is it feasible to deploy a fine-tuned LLM for Vietnamese phishing detection entirely on consumer laptop hardware (CPU-only, no GPU, no cloud API) while keeping single-message inference latency under 30 seconds?
+
+\item \textbf{RQ3:} Can the detection pipeline return structured, evidence-grounded explanations --- risk tier, threat labels, suspicious cues drawn from the message text, and safe next-step recommendations --- rather than opaque confidence scores alone?
+\end{enumerate}
+
+\section{Scope and Limitations}
+The project is scoped as a text-only detection prototype for Vietnamese financial phishing. Image-based phishing (QR codes, forwarded screenshots), voice calls, deepfake audio, and malware analysis are out of scope. The training corpus is built through controlled generation from real NCSC seed cases; no real user messages are used. Evaluation is performed on a 254-example internal holdout, not on a production benchmark with real traffic. The system is designed for single-message analysis; multi-turn conversation tracking is left for future work.
+
+\section{Methodology Overview}
+The project follows a four-stage pipeline. First, we construct a labelled dataset by collecting real phishing seed cases from the Vietnamese NCSC portal (\textit{tinnhiemmang.vn}) and expanding them into a 3{,}000-row corpus using the \texttt{claude-3-5-haiku} API, with Pydantic schema validation and a manual quality-judge pass at the generation boundary. Second, we build a text-only local runtime that accepts a suspicious message and dispatches it to a configured model backend. Third, we adapt the open-weight \texttt{Qwen3.5-4B} model using QLoRA ($r{=}16$, $\alpha{=}32$, NF4 4-bit) and export the merged adapter as a GGUF Q8\_0 artifact for CPU inference via \texttt{llama.cpp}. Fourth, we wrap the model output in a structured decision layer that returns a risk tier, threat labels, grounded suspicious cues, and safe next-step recommendations. We evaluate the full pipeline on a 254-example seed-disjoint holdout, comparing the fine-tuned model against the base model without adaptation.
+
