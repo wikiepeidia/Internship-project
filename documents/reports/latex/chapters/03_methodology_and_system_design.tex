@@ -45,7 +45,7 @@ The original internship proposal targeted an 8-billion-parameter model. During t
 
 The selection pilot evaluated three open-weight candidates from the Qwen family \cite{qwen2025} on 33 fixed balanced examples under recall-first scoring: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The evaluation used a three-tier outcome structure covering benign, suspicious, and high-risk inputs. The pilot was run locally on the target laptop hardware so that hardware-fit was in scope from the start rather than treated as a secondary concern.
 
-We screened three Qwen family candidates — including a 7B model — under recall-first criteria on the target laptop hardware. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning, while the 7B model missed all 11 despite performing adequately on the suspicious tier. The 7B model also required approximately 5.6~GB of peak memory compared to 2.8~GB for the selected 4B candidate. Hardware fit and recall performance together made the 4B path the delivery target. Table~\ref{tab:pilot-comparison} shows the full screening results.
+Three Qwen family candidates were screened — including a 7B model — under recall-first criteria on the target laptop hardware. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning, while the 7B model missed all 11 despite performing adequately on the suspicious tier. The 7B model also required approximately 5.6~GB of peak memory compared to 2.8~GB for the selected 4B candidate. Hardware fit and recall performance together made the 4B path the delivery target. Table~\ref{tab:pilot-comparison} shows the full screening results.
 
 \input{tables/pilot_comparison}
 

@@ -1,4 +1,4 @@
-We bring together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that our pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that we met the per-class recall target on all three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
+This section brings together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that the pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that all per-class recall targets are met on the three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
 
 \section{Data Quality and Candidate Selection}
 The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 99 passing samples out of 100, with an average realism score of 4.68 out of 5 ($t = 13.6$, $p < 0.0001$) and an average label-correctness score of 4.96 out of 5 ($t = 48.0$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
@@ -6,10 +6,10 @@ The earliest quantitative evidence comes from the dataset-construction pipeline.
 Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3.5-4B as the deployed model and Qwen3-4B-Instruct-2507 as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
 
 \section{End-to-End Verification}
-We ran a final verification pass covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
+A final verification pass was run covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
 
 \section{Baseline Comparison}
-To measure the effect of QLoRA fine-tuning, we first evaluated the base \texttt{Qwen3.5-4B} model on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
+To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3.5-4B} model on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
 
 \begin{table}[H]
 \centering
@@ -36,11 +36,11 @@ Benign              & 0.917 & 0.361 & 0.518 & 1.000 & 1.000 & 1.000 \\
 The base model achieves a macro F1 of only 0.648. It over-predicts bank impersonation (precision 0.426), misclassifying many benign and Zalo messages as bank-related. Benign recall is particularly low at 0.361 --- the model treats legitimate bank notifications as threats. After QLoRA adaptation, macro F1 rises to 0.955, with every class exceeding its recall target. The +0.307 improvement confirms that domain-specific fine-tuning is necessary; the base model's general knowledge of Vietnamese text is not sufficient for reliable threat classification.
 
 \section{Expanded-Holdout Results}
-We evaluate on an expanded internal holdout dataset of 254 fully annotated messages. Our system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
+The expanded internal holdout dataset contains 254 fully annotated messages. The system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
 
 The per-class results are as follows. Bank impersonation reached a recall of 1.000, precision of 0.836, and an F1-score of 0.911 over 56 held-out examples. Zalo social engineering achieved a recall of 0.960, precision of 1.000, and an F1-score of 0.980 on 75 examples, with 3 instances misclassified as bank impersonation. The task-scam class achieved a recall of 0.871, precision of 1.000, and an F1-score of 0.931 on 62 examples. The benign class reached a recall, precision, and F1-score of 1.000 on 61 examples.
 
-We set per-class recall targets requiring each high-harm class to clear a minimum threshold. All three risky categories met their targets in this final run. Zalo social engineering missed three examples out of 75, and the task-scam class missed eight examples out of 62, with all errors consistently misclassified as bank impersonation.
+Per-class recall targets were set requiring each high-harm class to clear a minimum threshold. All three risky categories met their targets in this final run. Zalo social engineering missed three examples out of 75, and the task-scam class missed eight examples out of 62, with all errors consistently misclassified as bank impersonation.
 
 Figure~\ref{fig:recall-by-class} shows the per-class recall results visually, and Table~\ref{tab:confusion-matrix} shows the full confusion matrix.
 
