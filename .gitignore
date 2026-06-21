@@ -36,7 +36,7 @@ documents/markdown/
 documents/deep-research-report.md
 documents/high paramenter on low vram.md
 documents/writing shcedule.md
-
+data/
 # documents/ source files are tracked; only ignore XeLaTeX build artifacts
 # LaTeX compiled outputs
 documents/reports/latex/*.pdf
@@ -268,3 +268,4 @@ data/manifests/*
 notebooks/H100_baseline_eval.ipynb
 data/eval/baseline-eval-results.json
 REAL_LIFE_SCAM_TEST_DEMO.md
+data/eval/baseline-eval-qwen3-4b.json
