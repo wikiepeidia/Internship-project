@@ -4,11 +4,16 @@
 # Paste this entire script into the Vast.ai terminal
 # Total time: ~15-30 min on H200, ~45 min on A100
 # =============================================================
-set -e
+set -Eeuo pipefail
 
 echo "=== [1/8] Installing dependencies ==="
-pip install -q peft>=0.12.0 transformers>=4.46.0 accelerate>=1.0.0 \
-    bitsandbytes>=0.44.0 datasets>=3.0.0 huggingface_hub gguf 2>/dev/null
+python3 -m pip install -q \
+    "peft>=0.12.0" \
+    "transformers>=4.46.0,<5" \
+    "accelerate>=1.0.0" \
+    "bitsandbytes>=0.44.0" \
+    "datasets>=3.0.0" \
+    huggingface_hub pydantic-settings python-dotenv
 
 echo "=== [2/8] Cloning repo ==="
 REPO=/workspace/vnphish
@@ -212,42 +217,8 @@ del model; torch.cuda.empty_cache()
 EVAL_EOF
 
 echo "=== [8/8] GGUF Q8_0 export ==="
-python3 -m src.model_adaptation.cli convert \
-    --candidate baseline-winner \
-    --version-tag "$VERSION" \
-    --output-root "$MODEL_ROOT" \
-    --registry-path "$REGISTRY" \
-    2>/dev/null || {
-    echo "CLI convert failed, doing manual merge+convert..."
-    python3 << 'GGUF_EOF'
-import torch
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from pathlib import Path
-import subprocess, sys
-
-BASE = "/workspace/model-artifacts/base/qwen3-4b-instruct-2507"
-ADAPTER = "/workspace/model-artifacts/qlora-final-2026-06/qwen3-4b-instruct-2507/adapter"
-MERGE = "/workspace/model-artifacts/qlora-final-2026-06/merged"
-GGUF = "/workspace/gguf-laptop.gguf"
-
-print("Merging adapter into base...")
-base = AutoModelForCausalLM.from_pretrained(BASE, torch_dtype=torch.float16, device_map="cpu")
-merged = PeftModel.from_pretrained(base, ADAPTER).merge_and_unload()
-Path(MERGE).mkdir(parents=True, exist_ok=True)
-merged.save_pretrained(MERGE)
-AutoTokenizer.from_pretrained(BASE).save_pretrained(MERGE)
-del base, merged; torch.cuda.empty_cache()
-print("Merged. Converting to GGUF Q8_0...")
-subprocess.run([sys.executable, "-m", "gguf.scripts.convert", MERGE,
-    "--outfile", GGUF, "--outtype", "q8_0"], check=False)
-# Fallback to convert_hf_to_gguf if gguf.scripts.convert doesn't exist
-if not Path(GGUF).exists():
-    subprocess.run([sys.executable, "convert_hf_to_gguf.py", MERGE,
-        "--outfile", GGUF, "--outtype", "q8_0"], check=True)
-print(f"GGUF: {GGUF} ({Path(GGUF).stat().st_size // (1024*1024)} MB)")
-GGUF_EOF
-}
+MERGED="$MODEL_ROOT/$VERSION/qwen3-4b-instruct-2507/merged" \
+  bash "$REPO/scripts/vastai_gguf_export.sh"
 
 echo ""
 echo "============================================"

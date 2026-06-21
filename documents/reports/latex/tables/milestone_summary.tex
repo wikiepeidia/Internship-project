@@ -5,12 +5,12 @@
 \toprule
 \textbf{Component} & \textbf{Description} & \textbf{Outcome} \\
 \midrule
-Data construction    & Curated corpus, quality review, and seed-disjoint splits  & Quality sample 94/100 passed \\
+Data construction    & Synthetic corpus, schema checks, and LLM sample review & Quality sample 49/50 passed \\
 Local runtime        & Offline text analysis with privacy-preserving safe defaults & End-to-end inference verified \\
 Model pilot          & Recall-first candidate comparison for the 4B baseline     & qwen3-4b-instruct-2507 selected \\
 Local deployment     & Adapted model exported to GGUF; CPU inference verified     & GGUF artifact registered \\
-Decision layer       & Risk tiers, threat labels, cues, and safe guidance         & Explanation quality reviewed \\
-Final evaluation     & Held-out evaluation on 254 seed-disjoint examples         & All recall targets met; task-scam recall 0.871 \\
+Decision layer       & Risk tiers, threat labels, cues, and safe guidance         & Structured runtime output verified \\
+Final evaluation     & Internal validation on 254 examples & Macro F1 0.9625; leakage limitation disclosed \\
 \bottomrule
 \end{tabular}
 \caption{Implemented pipeline components and evaluation outcomes.}

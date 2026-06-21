@@ -1,0 +1,9 @@
+{
+  "total": 50,
+  "passed": 49,
+  "failed": 1,
+  "pass_rate": 0.98,
+  "avg_realism": 4.68,
+  "avg_label_correctness": 4.96,
+  "avg_code_switch_naturalness": 4.16
+}

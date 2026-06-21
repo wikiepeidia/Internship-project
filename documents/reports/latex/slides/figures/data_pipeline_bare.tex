@@ -12,7 +12,7 @@
 
 \node[sbox] (seed)  at ( 0.0, 0) {tinnhiemmang.vn\\Seeds};
 \node[gbox] (gen)   at ( 4.2, 0) {claude-3-5-haiku\\Generation};
-\node[jbox] (judge) at ( 8.4, 0) {Pydantic Judge\\Quality Gate};
+\node[jbox] (judge) at ( 8.4, 0) {Pydantic Schema\\+ LLM Judge};
 \node[obox] (out)   at (12.6, 0) {JSONL Output\\3{,}000 rows};
 
 \draw[arr] (seed) -- (gen);
@@ -21,6 +21,6 @@
 
 \node[font=\scriptsize, text=black!45, below=0.12cm of seed]  {cybercrime alerts};
 \node[font=\scriptsize, text=black!45, below=0.12cm of gen]   {structured prompts};
-\node[font=\scriptsize, text=black!45, below=0.12cm of judge] {$\geq$4/5 realism score};
+\node[font=\scriptsize, text=black!45, below=0.12cm of judge] {structure + sampled semantics};
 \node[font=\scriptsize, text=black!45, below=0.12cm of out]   {4 threat classes};
 \end{tikzpicture}

@@ -1,0 +1,19 @@
+{
+  "candidate_id": "qwen3-4b-instruct-2507",
+  "base_model_path": "/workspace/model-artifacts/base/qwen3-4b-instruct-2507",
+  "device": "cuda",
+  "quantization_mode": "4bit-qlora",
+  "resume_from_checkpoint": null,
+  "checkpoint_path": "/workspace/model-artifacts/qlora-final-2026-06/qwen3-4b-instruct-2507/trainer/checkpoint-584",
+  "smoke_test": false,
+  "train_examples": 2333,
+  "val_examples": 254,
+  "metrics": {
+    "train_runtime": 1151.5112,
+    "train_samples_per_second": 2.026,
+    "train_steps_per_second": 0.507,
+    "total_flos": 1.570905021689856e+16,
+    "train_loss": 0.5072618367737287,
+    "epoch": 1.0
+  }
+}

@@ -14,17 +14,6 @@
   2024.
 \newblock Tin Nhiem Mang, published 2024-07-09, accessed 2026-05-26.
 
-\bibitem{interpol2024cyberthreat}
-{INTERPOL}, ``Asia and south pacific cyberthreat assessment report 2024.''
-  \url{https://www.interpol.int/News-and-Events/News/2024/INTERPOL-report-identifies-top-cyberthreats-in-Asia},
-  2024.
-\newblock Accessed 2026-06-18.
-
-\bibitem{nca2024cybersecurity}
-{National Cyber Security Association of Vietnam}, ``Vietnam cybersecurity
-  report 2024: Individual users.'' \url{https://nca.org.vn}, 2024.
-\newblock NCA Vietnam, accessed 2026-06-18.
-
 \bibitem{lehong2021diacritics}
 P.~Le-Hong, ``Diacritics generation and application in hate speech detection on
   {Vietnamese} social networks,'' {\em Knowledge-Based Systems}, vol.~233,
@@ -180,8 +169,8 @@ A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
   technical report,'' {\em arXiv preprint arXiv:2505.09388}, 2025.
 
 \bibitem{gerganov2023llamacpp}
-G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++},''
-  2023.
+G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++}.''
+  \url{https://github.com/ggerganov/llama.cpp}, 2023.
 \newblock Accessed 2026-05-26.
 
 \end{thebibliography}

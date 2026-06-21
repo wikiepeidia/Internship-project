@@ -12,7 +12,7 @@
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
         \item Generated messages were used for model training.
-        \item Validation and holdout examples were kept out of training.
+        \item Validation rows were not gradient-training rows, but were used for model evaluation and recovery decisions.
         \item They are still project data, not real user traffic.
       \end{itemize}}
     \end{column}
@@ -21,19 +21,19 @@
       {\footnotesize
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
-        \item \textbf{2,018} train / \textbf{210} val / \textbf{254} holdout
-        \item \textbf{Pydantic:} required fields + span verification
+        \item \textbf{2,333} train / \textbf{254} validation / \textbf{413} test
+        \item \textbf{Pydantic:} schema constraints; \textbf{LLM judge:} sampled semantics
       \end{itemize}}
       \vspace{0.3em}
-      {\footnotesize\textbf{Quality check (n\,=\,100):}}\\[2pt]
+      {\footnotesize\textbf{LLM quality check (n\,=\,50):}}\\[2pt]
       {\scriptsize
       \renewcommand{\arraystretch}{1.1}
-      \begin{tabular}{lcc}
-        & \textbf{Mean} & \textbf{$t$-stat} \\
-        Realism & 4.43\,/\,5 & $t{=}8.7$ \\
-        Label acc. & 4.92\,/\,5 & $t{=}53.2$ \\
-      \end{tabular}\\[2pt]
-      $p < 0.0001$; H$_0$: $\mu \leq 4.0$ rejected}
+      \begin{tabular}{lc}
+        & \textbf{Recorded result} \\
+        Passed & 49 / 50 \\
+        Realism & 4.68 / 5 \\
+        Label correctness & 4.96 / 5 \\
+      \end{tabular}}
     \end{column}
   \end{columns}
 \end{frame}

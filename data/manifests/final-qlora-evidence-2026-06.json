@@ -1,0 +1,40 @@
+{
+  "candidate_id": "qwen3-4b-instruct-2507",
+  "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "training": {
+    "summary_path": "data/models/qwen3-4b-instruct-2507/adapter/training-summary.json",
+    "summary_sha256": "b0cb6020eb9a02c6d74cd625fc70d07fbe44d77c026007dcca4ebd5533ad105a",
+    "quantization_mode": "4bit-qlora",
+    "train_examples": 2333,
+    "validation_examples": 254,
+    "epoch": 1.0,
+    "checkpoint": 584,
+    "train_loss": 0.5072618367737287,
+    "train_runtime_seconds": 1151.5112
+  },
+  "splits": {
+    "train": {"path": "data/splits/recovered-balanced/train.jsonl", "rows": 2333, "sha256": "8714fe483265aeec01379f17dbf49177009744cdc2bbdd11583d4a7898317cb5"},
+    "validation": {"path": "data/splits/recovered-balanced/val.jsonl", "rows": 254, "sha256": "4e3f10bd565cce005a219452ff68a3180ab0e1125108a2ba205090dc71f57d57"},
+    "test_not_evaluated": {"path": "data/splits/recovered-balanced/test.jsonl", "rows": 413, "sha256": "371ac104ab6910d5e37db994672c1b6fcd9879317cb260ced7f3332b0d24a94e"},
+    "known_limitation": "The reported validation split was used during training evaluation. seed_1a4f7d4d7c53 contributes 608 train, 75 validation, and 75 test records."
+  },
+  "evaluation": {
+    "baseline_path": "data/eval/baseline-eval-qwen3-4b.json",
+    "baseline_sha256": "d9f6b63c1b44312afc23f7dd15e5a68768a4229938fbeeff95a47e055dd18fef",
+    "baseline_macro_f1": 0.6702,
+    "qlora_path": "data/eval/eval-results-qlora.json",
+    "qlora_sha256": "8afc6daaf474b8a4037af01456024af10dfd9d3408d3d647fc9365c0804050ba",
+    "validation_rows": 254,
+    "accuracy": 0.9645669291,
+    "macro_f1": 0.9625
+  },
+  "deployment": {
+    "format": "GGUF Q8_0",
+    "profile": "gguf-laptop",
+    "local_path": "D:/PROJEct/AI MODELS/qlora-final-2026-06/qwen3-4b-instruct-2507/gguf-laptop.gguf",
+    "bytes": 4280403232,
+    "sha256": "1cc523ce7ec7e51ac838281ee15b46b307e7f1092ac6d42dc6e62273bbc0b4a0",
+    "runtime_doctor": "PASS",
+    "cli_demo": "PASS"
+  }
+}

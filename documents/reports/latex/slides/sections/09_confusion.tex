@@ -1,6 +1,6 @@
 %% Slide 9: Confusion Matrix + Binary view side by side
 \begin{frame}{Confusion Matrix \& Error Analysis}
-  \framesubtitle{Seed-Disjoint Internal Holdout (254 Messages)}
+  \framesubtitle{Internal Validation Split (254 Messages)}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.58\textwidth}
       {\footnotesize\textbf{4-class confusion matrix:}}\\[2pt]
@@ -12,7 +12,7 @@
         \textbf{True\,/\,Pred.} & \textbf{Bank} & \textbf{Zalo} & \textbf{Task} & \textbf{Ben.} \\
         \midrule
         Bank Impersonation & \cellcolor{CVBLUE!15}\textbf{56} & 0 & 0 & 0 \\
-        Zalo Social Eng.   & 3 & \cellcolor{CVBLUE!15}\textbf{72} & 0 & 0 \\
+        Zalo Social Eng.   & 1 & \cellcolor{CVBLUE!15}\textbf{74} & 0 & 0 \\
         Task Scam          & 8 & 0 & \cellcolor{CVBLUE!15}\textbf{54} & 0 \\
         Benign             & 0 & 0 & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
         \bottomrule
@@ -23,8 +23,8 @@
       {\footnotesize
       \begin{itemize}
         \setlength{\itemsep}{0.3em}
-        \item \textbf{11 total errors} out of 254
-        \item All 11 are \textbf{intra-scam}: Task Scam or Zalo SE predicted as Bank Impersonation
+        \item \textbf{9 total errors} out of 254
+        \item All 9 are \textbf{intra-scam}: Task Scam or Zalo SE predicted as Bank Impersonation
         \item \textbf{Zero} scam messages misclassified as benign
         \item Cause: bank name + OTP phrasing overlaps across scam subtypes
       \end{itemize}}
@@ -32,7 +32,7 @@
   \end{columns}
   \vspace{0.2cm}
   \begin{itemize}\footnotesize
-    \item \textbf{11 errors} all intra-scam: bank name\,+\,OTP phrasing overlaps class boundary.
+    \item \textbf{9 errors} all intra-scam; no scam message is predicted as benign.
     \item \textbf{Zero} scam messages misclassified as benign --- recall-first design holds.
   \end{itemize}
 \end{frame}

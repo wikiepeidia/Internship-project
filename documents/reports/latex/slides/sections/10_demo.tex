@@ -4,25 +4,26 @@
   \begin{columns}[T]
     \column{0.36\textwidth}
       {\small\textbf{Input (SMS channel):}\\[5pt]
-      \textit{``Tài khoản Vietcombank của bạn đã bị
-      hạn chế. Vui lòng xác minh và mở khoá
-      bằng cách nhập mã OTP đã gửi đến
-      số điện thoại của bạn.''}\\[8pt]
+      \textit{``KHONG GUI ma OTP cho bat ky ai ke ca
+      nhan vien NGAN HANG. Ma OTP: 048821 cho
+      giao dich truc tuyen cua the ...6735,
+      hieu luc trong 03 phut.''}\\[8pt]
       {\footnotesize Channel: \texttt{sms}}}
     \column{0.64\textwidth}
       {\footnotesize\textbf{System output:}}
 \begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single,
   framesep=3pt,breaklines=true,columns=fullflexible]
 Structured decision from sms local runtime.
-Risk tier: High risk
-Threat labels: Bank impersonation, Task scam
+Risk tier: Suspicious
+Threat labels: Bank impersonation
 Grounded cues:
-- "ma OTP" - Yeu cau ma xac thuc ...
-- "mo khoa" - Dan nguoi dung ...
+- "KHONG GUI ma OTP ... NGAN HANG"
+- "Ma OTP: 048821"
+- "hieu luc trong 03 phut"
 Next steps:
-- Khong gui OTP cho bat ky ai qua Zalo
-- Lien he Vietcombank: 1900 54 54 26
-- Kiem tra giao dich tren ung dung ngan hang
+- Khong chia se ma OTP voi bat ky ai
+- Kiem tra giao dich trong ung dung chinh thuc
+- Lien he ngan hang neu nghi ngo
 \end{lstlisting}
   \end{columns}
 \end{frame}

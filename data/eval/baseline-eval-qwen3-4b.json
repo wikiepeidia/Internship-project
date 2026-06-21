@@ -1,0 +1,1050 @@
+{
+  "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "holdout_size": 254,
+  "macro_f1": 0.6702,
+  "accuracy": 0.689,
+  "per_class": {
+    "bank_impersonation": {
+      "precision": 0.5045,
+      "recall": 1.0,
+      "f1": 0.6707,
+      "support": 56
+    },
+    "zalo_social_engineering": {
+      "precision": 0.8806,
+      "recall": 0.7867,
+      "f1": 0.831,
+      "support": 75
+    },
+    "task_scam": {
+      "precision": 0.7091,
+      "recall": 0.629,
+      "f1": 0.6667,
+      "support": 62
+    },
+    "benign": {
+      "precision": 1.0,
+      "recall": 0.3443,
+      "f1": 0.5122,
+      "support": 61
+    }
+  },
+  "predictions": [
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "bank_impersonation",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "task_scam"
+    },
+    {
+      "true": "task_scam",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "benign",
+      "pred": "task_scam"
+    },
+    {
+      "true": "benign",
+      "pred": "benign"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "bank_impersonation"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "task_scam"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    },
+    {
+      "true": "zalo_social_engineering",
+      "pred": "zalo_social_engineering"
+    }
+  ]
+}

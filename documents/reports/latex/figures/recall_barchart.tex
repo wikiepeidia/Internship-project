@@ -8,7 +8,7 @@
 %% Bars (scale: recall 1.0 = 6.0cm)
 \fill[CVBLUE!85] (0, 0.00) rectangle (6.000, 0.38);   %% benign 1.000
 \fill[CVBLUE!85] (0, 0.58) rectangle (5.226, 0.96);   %% task_scam 0.871
-\fill[CVBLUE!85] (0, 1.16) rectangle (5.760, 1.54);   %% zalo 0.960
+\fill[CVBLUE!85] (0, 1.16) rectangle (5.920, 1.54);   %% zalo 0.987
 \fill[CVBLUE!85] (0, 1.74) rectangle (6.000, 2.12);   %% bank_imp 1.000
 
 %% Class labels (left)
@@ -20,12 +20,14 @@
 %% Value labels (right of bar)
 \node[val] at (6.10, 0.19) {1.000};
 \node[val] at (5.33, 0.77) {0.871};
-\node[val] at (5.86, 1.35) {0.960};
+\node[val] at (6.02, 1.35) {0.987};
 \node[val] at (6.10, 1.93) {1.000};
 
-%% Recall floor dashed line at 0.80 (4.8cm)
+%% Class-specific development floors
 \draw[dashed, black!40, thick] (4.80, -0.15) -- (4.80, 2.35);
-\node[font=\scriptsize\bfseries, text=black!50, above] at (4.80, 2.35) {Threshold (0.80)};
+\node[font=\scriptsize\bfseries, text=black!50, above] at (4.80, 2.35) {Task 0.80};
+\draw[densely dashed, black!55, thick] (5.40, -0.15) -- (5.40, 2.35);
+\node[font=\scriptsize\bfseries, text=black!60, above] at (5.40, 2.62) {Bank/Zalo 0.90};
 
 %% X axis
 \draw[black!40, semithick] (0, -0.05) -- (6.8, -0.05);
@@ -36,6 +38,6 @@
 \node[font=\small\bfseries, black!70, below=0.45cm] at (3.0, -0.12) {Recall Score};
 
 \end{tikzpicture}
-\caption{Per-class recall on the internal holdout evaluation (254 examples). The dashed line marks the minimum recall threshold applied to risky classes. All four classes met or exceeded their targets.}
+\caption{Per-class recall on the internal validation set (254 examples). Development floors were 0.90 for bank and Zalo and 0.80 for task scam; all three observed recalls meet their respective floor.}
 \label{fig:recall-by-class}
 \end{figure}

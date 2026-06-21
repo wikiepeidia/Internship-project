@@ -51,3 +51,63 @@ Split numbers: Update to 2,333/254/413 or explain which split version the number
 GGUF export: Need to run the GGUF conversion on Colab for the final adapter, OR acknowledge in report that the eval was done via adapter inference
 Seed overlap + val-as-holdout: These are the hardest — fundamental design issues
 Which of these do you want to tackle? Some are quick text fixes, others need Colab runs.
+
+## GGUF Emergency Recovery
+
+The QLoRA model is already trained and the adapter has already been merged into
+`/workspace/merged-model`. Do not rerun training, evaluation, or merging.
+
+The GGUF converter can read and quantize the model tensors, but the Qwen tokenizer
+configuration stores `extra_special_tokens` as a list. Transformers 4.57 expects
+that list under `additional_special_tokens`. Run only the following commands on
+the Vast.ai instance:
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+p = Path("/workspace/merged-model/tokenizer_config.json")
+d = json.loads(p.read_text())
+extra = d.pop("extra_special_tokens", [])
+current = d.get("additional_special_tokens", [])
+d["additional_special_tokens"] = list(dict.fromkeys([*current, *extra]))
+p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+print("TOKENIZER CONFIG FIXED:", len(d["additional_special_tokens"]), "special tokens")
+PY
+
+python3 -c "from transformers import AutoTokenizer; t=AutoTokenizer.from_pretrained('/workspace/merged-model'); print('TOKENIZER LOAD OK', len(t))"
+cd /workspace/llama.cpp
+rm -f /workspace/gguf-laptop.gguf
+python3 convert_hf_to_gguf.py /workspace/merged-model --outfile /workspace/gguf-laptop.gguf --outtype q8_0
+ls -lh /workspace/gguf-laptop.gguf
+```
+
+Success means `TOKENIZER LOAD OK` is printed and `gguf-laptop.gguf` is roughly
+4--5 GB. Download `/workspace/gguf-laptop.gguf`, then destroy the paid instance.
+
+Place the downloaded file at:
+
+```text
+D:\PROJEct\AI MODELS\qlora-final-2026-06\qwen3-4b-instruct-2507\gguf-laptop.gguf
+```
+
+## Final Resolution Audit - 2026-06-21
+
+- [x] Model identity: report, tables, and slides use Qwen3-4B-Instruct-2507 for the final trained and evaluated model. Qwen3.5-4B appears only as the pilot alternative.
+- [x] Training evidence: updated to 4-bit NF4 QLoRA, 2,333 training rows, 254 validation rows, one epoch, checkpoint 584, loss 0.5073, and 1,151.5 seconds.
+- [x] Final deployment: the 4,280,403,232-byte Q8_0 GGUF is registered as `gguf-laptop`; SHA-256 is `1cc523ce7ec7e51ac838281ee15b46b307e7f1092ac6d42dc6e62273bbc0b4a0`.
+- [x] Evaluation boundary: all 254-row results are called internal validation, not holdout or test performance. The 413-row test split is explicitly marked unevaluated.
+- [x] Seed leakage: the false seed-disjoint claim is removed. The report discloses 608/75/75 records from `seed_1a4f7d4d7c53` in train/validation/test. The underlying experimental limitation remains; it is not presented as fixed data.
+- [x] Split totals: updated to 2,333 train, 254 validation, and 413 test, totaling 3,000.
+- [x] Quality review: updated to LLM-as-judge n=50, 49 passed, realism 4.68, and label correctness 4.96. Unsupported t-tests were removed because individual ratings were not retained.
+- [x] Pydantic scope: described only as structural/schema validation; semantic scores are attributed to the LLM judge.
+- [x] Explanation evidence: stale 156-prediction and 5/5 claims removed. The final run is explicitly stated not to include a repeated quantitative explanation review.
+- [x] Thresholds: graphs and prose now state bank/Zalo recall floor 0.90 and task-scam floor 0.80.
+- [x] Data-to-model bridge: instruction/JSON-response construction, 1,024-token truncation, whole-sequence causal loss, single-label metric decoding, and multi-label runtime presentation are documented.
+- [x] Reproducibility: final small evidence files are unignored; `final-qlora-evidence-2026-06.json` records source hashes, split hashes, metrics, and GGUF identity.
+- [x] Graphs: pipeline diagrams separate synthetic generation, Pydantic schema validation, LLM review, final splits, QLoRA, GGUF export, and runtime analysis. Confusion matrix is 56/74/54/61 with 1 Zalo and 8 task errors to bank.
+- [x] Tone and scope: internal workflow terms removed from thesis prose; title narrowed to Vietnamese financial phishing detection; novelty statements bounded to the reviewed literature.
+- [x] Citations and abbreviations: unsupported BibTeX type and uncited entries removed; CLI, RAM, URL, VND, LIME, SHAP, and IA3 added to the abbreviation list; NIST cited only for privacy principles.
+- [x] CLI demo: doctor passed and the requested OTP message completed through the final GGUF. Windows UTF-8 output handling was fixed after the first run exposed a `cp1252` rendering crash.
+- [x] Build verification: thesis PDF is 31 A4 pages and slides PDF is 15 pages; final logs contain no overfull boxes, undefined references/citations, missing characters, or fatal errors.

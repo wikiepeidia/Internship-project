@@ -5,10 +5,9 @@
   \begin{itemize}
     \item \textbf{Text-only:} image-based phishing (QR codes, forwarded screenshots) is not handled.
     \item Vietnamese-only training data --- generalization to other languages is untested.
-    \item Held-out size (254 samples) sufficient for thesis evaluation but too small for production.
+    \item The 254-row result reuses validation data and includes seed overlap; the 413-row test split is unevaluated.
   \end{itemize}
   \begin{block}{Primary Future Direction}
-    Add OCR preprocessing for phishing screenshots --- extends coverage without changing the model.
+    Rebuild seed-group-disjoint splits and evaluate once on an untouched, human-labelled test set.
   \end{block}
 \end{frame}
-

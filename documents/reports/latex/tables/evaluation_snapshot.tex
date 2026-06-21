@@ -4,19 +4,19 @@
 \toprule
 \textbf{Evidence item} & \textbf{Value} & \textbf{Source} \\
 \midrule
-Quality review sample              & 94/100 passed          & \texttt{quality-stats.json} \\
+Quality review sample              & 49/50 passed           & \texttt{quality-stats.json} \\
 Avg.\ realism / label correctness  & 4.68 / 4.96           & \texttt{quality-stats.json} \\
 Pilot model selection              & qwen3-4b-instruct-2507 selected; qwen3.5-4b alternative candidate & Pilot scoring record \\
-End-to-end verification            & 5/5 conditions met    & Verification report \\
-Internal holdout size              & 254 examples          & Evaluation results \\
-Per-class support                  & 56 bank, 75 zalo, 62 task, 61 benign & Evaluation results \\
-Bank impersonation                 & recall 1.000, precision 0.836, F1 0.911 & Evaluation results \\
-Zalo social engineering            & recall 0.960, precision 1.000, F1 0.980 & Evaluation results \\
-Task scam                          & recall 0.871, precision 1.000, F1 0.931 & Evaluation results \\
-Benign                             & recall 1.000, precision 1.000, F1 1.000 & Evaluation results \\
-Macro F1                           & 0.9553                & Computed from per-label F1 \\
-All risky-class recall targets met & Yes                   & Evaluation results \\
-Explanation quality review         & 156 risky predictions reviewed; two quality cautions noted & Evaluation notes \\
+Training evidence                  & NF4 QLoRA; 2,333 train; checkpoint 584 & \texttt{training-summary.json} \\
+Internal validation size           & 254 examples          & \texttt{eval-results-qlora.json} \\
+Per-class support                  & 56 bank, 75 Zalo, 62 task, 61 benign & \texttt{eval-results-qlora.json} \\
+Bank impersonation                 & recall 1.000, precision 0.862, F1 0.926 & \texttt{eval-results-qlora.json} \\
+Zalo social engineering            & recall 0.987, precision 1.000, F1 0.993 & \texttt{eval-results-qlora.json} \\
+Task scam                          & recall 0.871, precision 1.000, F1 0.931 & \texttt{eval-results-qlora.json} \\
+Benign                             & recall 1.000, precision 1.000, F1 1.000 & \texttt{eval-results-qlora.json} \\
+Accuracy / macro F1                & 0.9646 / 0.9625       & \texttt{eval-results-qlora.json} \\
+GGUF deployment                    & Q8\_0, 4,280,403,232 bytes; CLI verified & External registry + SHA-256 manifest \\
+Evidence limitation                & Validation reused during training; seed overlap present & Split audit \\
 \bottomrule
 \end{tabular}
 \caption{Evaluation evidence summary linking reported metrics to source artifacts.}

@@ -17,22 +17,22 @@ for the user-facing local inference server, and
 conversion workflow. All entry points are documented in the repository
 \texttt{README.md}.
 
-The final GGUF inference artifact (\texttt{gguf-laptop.gguf}) and the
-model registry pointing to the off-repository artifact root are not
-included in the repository to avoid large binary uploads, but their
-paths and SHA-256 identifiers are recorded in
-\texttt{data/manifests/model-registry.json}.
+The 4.28~GB GGUF inference artifact (\texttt{gguf-laptop.gguf}) and the
+external model registry are not included in the repository. The small
+final-evidence manifest records the artifact path, byte size, and SHA-256
+identifier so that the deployed file can be checked without committing it.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
 The labelled corpus contains 3,000 Vietnamese messages constructed from
 cybercrime alert seeds (tinnhiemmang.vn) combined with synthetic
-generation and Pydantic-based quality judging. The corpus is split into
-training, validation, and an internal holdout set. Table~\ref{tab:dataset-splits}
-summarises the split sizes and Table~\ref{tab:holdout-class-dist} shows
-the per-class distribution of the 254-example holdout used for all
-quantitative evaluation.
+generation. Pydantic validates record structure, while a separate LLM-based
+judge provides the recorded sample-quality scores. The corpus is split into
+training, validation, and test partitions. Table~\ref{tab:dataset-splits}
+summarises the final split sizes and Table~\ref{tab:validation-class-dist} shows
+the per-class distribution of the 254-example validation set used for the
+reported comparison.
 
 \begin{table}[H]
 \centering
@@ -44,19 +44,19 @@ quantitative evaluation.
 \toprule
 \textbf{Split} & \textbf{Examples} \\
 \midrule
-Training       & 2{,}018 \\
-Validation     &   210   \\
-Internal holdout &  254  \\
+Training       & 2{,}333 \\
+Validation     &   254   \\
+Test (not evaluated) & 413 \\
 \midrule
-\textbf{Total} & \textbf{2{,}482} \\
+\textbf{Total} & \textbf{3{,}000} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Per-class distribution of the 254-example internal holdout set.}
-\label{tab:holdout-class-dist}
+\caption{Per-class distribution of the 254-example internal validation set.}
+\label{tab:validation-class-dist}
 \setlength{\tabcolsep}{10pt}
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{lr}

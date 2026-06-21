@@ -2,11 +2,11 @@ This chapter reviews existing work across six areas that shape the system design
 
 \section{Vietnamese Financial Phishing}
 
-Vietnam faces a growing wave of financial phishing through SMS, Zalo, and social media platforms. INTERPOL's 2024 Asia-Pacific cyberthreat assessment reported that 5.5 per 1{,}000 individuals in the region clicked phishing links monthly --- twice the global average --- with Vietnam among the most affected countries \cite{interpol2024cyberthreat}. The National Cyber Security Association of Vietnam estimated VND~18.9 trillion (\$744M) in online fraud losses in 2024, with 66.24\% of surveyed users reporting unauthorized use of personal data \cite{nca2024cybersecurity}. Group-IB documented a targeted campaign that singled out clients of major Vietnamese banks using cloned login pages distributed via SMS \cite{groupib2022laser}, and the Vietnamese authority for information security warned about bank impersonation messages exploiting biometric authentication flows \cite{ais2024biometricwarning}.
+Vietnamese users encounter financial phishing through SMS, Zalo, and other social platforms. Group-IB documented a campaign targeting customers of Vietnamese banks through cloned login pages distributed by SMS \cite{groupib2022laser}, and the Vietnamese authority for information security warned about bank-impersonation messages exploiting biometric-authentication procedures \cite{ais2024biometricwarning}. These documented examples motivate the threat classes used in this project without requiring a broader national prevalence claim.
 
 Vietnamese phishing text poses specific NLP challenges. Diacritics carry meaning (e.g., \textit{ma} vs \textit{mã} vs \textit{mà}), and informal messages often drop or misplace them. Le-Hong~\cite{lehong2021diacritics} showed that restoring diacritics with deep learning improves downstream social-media classification accuracy. Early work by Pham and Le-Hong~\cite{pham2016vietnamese} applied content-based filtering to Vietnamese spam SMS, but their feature set was limited to bag-of-words and n-grams. PhoBERT~\cite{nguyen2020phobert}, the first large-scale monolingual Vietnamese language model, achieved strong results on multiple Vietnamese NLP tasks including text classification, establishing a pre-trained backbone for Vietnamese downstream work. ViSoBERT~\cite{nguyen2023visobert} extended this to social-media text, outperforming PhoBERT on informal Vietnamese tasks such as spam detection and hate speech classification --- directly relevant to the register of phishing messages.
 
-Despite these advances, to the best of current knowledge, no public benchmark dataset currently exists for Vietnamese financial phishing classification with grounded explanations. The closest resources are generic Vietnamese spam corpora, which do not distinguish threat types (bank impersonation, task scam, social engineering) or provide evidence-level annotation.
+Within the Vietnamese NLP and phishing resources reviewed for this thesis, no public benchmark was found for Vietnamese financial phishing classification with grounded explanations. The closest reviewed resources are generic Vietnamese spam corpora, which do not distinguish threat types (bank impersonation, task scam, social engineering) or provide evidence-level annotation. This is a bounded literature finding rather than proof that no such dataset exists.
 
 \section{LLM-based Phishing and Fraud Detection}
 
@@ -18,7 +18,7 @@ On the explainability side, Uddin and Sarker~\cite{uddin2024explainable} fine-tu
 
 \section{Local Inference as a Privacy Control}
 
-Suspicious financial messages contain names, phone numbers, OTP codes, and account details. Local inference treats this as a privacy control: sensitive text never leaves the device \cite{nist2026privacyframework}. The practical risk of cloud alternatives is not hypothetical. In March 2023, OpenAI disclosed a Redis caching bug that exposed the chat history and payment details of approximately 1.2\% of ChatGPT Plus subscribers \cite{openai2023breach}. In the same year, Samsung engineers pasted confidential chip design source code into ChatGPT, triggering a company-wide ban on generative AI tools \cite{bloomberg2023samsung}.
+Suspicious financial messages contain names, phone numbers, OTP codes, and account details. The NIST Privacy Framework motivates identifying and limiting privacy risks in data processing \cite{nist2026privacyframework}; this project implements that principle by keeping inference on the device. The practical risk of cloud alternatives is not hypothetical. In March 2023, OpenAI disclosed a Redis caching bug that exposed the chat history and payment details of approximately 1.2\% of ChatGPT Plus subscribers \cite{openai2023breach}. In the same year, Samsung engineers pasted confidential chip design source code into ChatGPT, triggering a company-wide ban on generative AI tools \cite{bloomberg2023samsung}.
 
 \input{figures/cloud_vs_local_dataflow}
 
@@ -34,11 +34,11 @@ Han et al.~\cite{han2024peft} surveyed PEFT methods including adapters, prompt t
 
 \section{Synthetic Data Generation for NLP}
 
-Because no public Vietnamese financial phishing dataset with threat-type labels and grounded evidence annotations currently exists, the training corpus for this project is built entirely through controlled generation: real phishing seeds from NCSC are expanded into full messages using the \texttt{claude-3-5-haiku} API, with automated schema validation and manual quality checks at the generation boundary. Recent work validates synthetic data generation as a practical strategy for low-resource NLP settings.
+Within the sources reviewed for this project, no public Vietnamese financial phishing dataset was found that combines threat-type labels with grounded evidence annotations. The training corpus is therefore built through controlled generation: real phishing seeds from NCSC are expanded into full messages using Claude 3.5 Haiku, with automated schema validation and an LLM-based sample review at the generation boundary. Recent work supports synthetic data generation as a practical strategy for low-resource NLP settings.
 
 Kaddour and Liu~\cite{kaddour2023synthetic} showed that synthetic data generated via fine-tuned teacher LLMs produces strong performance gains on text classification in low-resource settings. Long et al.~\cite{long2024synthetic} surveyed LLM-driven synthetic data generation and found that few-shot generation with real examples outperforms zero-shot approaches for classification tasks --- consistent with the seed-based generation design used here. Li et al.~\cite{li2024datageneration} analyzed how prompt design and data diversity affect synthetic data quality, providing practical recommendations directly applicable to phishing corpus construction. Anikina et al.~\cite{anikina2025rigorous} evaluated LLM data generation across 11 typologically diverse languages and showed that target-language demonstrations narrow the gap with real data to within 5\%, supporting the use of Vietnamese seed examples in the generation pipeline.
 
-The known risks of synthetic data are mitigated through three controls: Pydantic schema validation at generation time, a manual quality-judge pass on 100 random samples with statistical verification ($t$-test, $p < 0.0001$), and seed-disjoint split allocation to prevent train-test leakage within the synthetic domain.
+The known risks of synthetic data are addressed through Pydantic schema validation at generation time, an LLM-based quality review of 50 sampled records, and explicit provenance fields. These controls do not eliminate leakage risk: the final split contains overlapping seed groups, which is disclosed as a limitation of the internal validation result.
 
 \section{Explainable AI for Cybersecurity}
 
@@ -48,7 +48,7 @@ Lim et al.~\cite{lim2025explicate} proposed EXPLICATE, which grounds phishing ex
 
 \section{Comparison with Existing Approaches}
 
-Table~\ref{tab:approach-comparison} compares the proposed approach with the most relevant systems from the literature. Each addresses part of the problem space, but none covers all four requirements simultaneously.
+Table~\ref{tab:approach-comparison} compares the proposed approach with the most relevant systems identified in this review. Each addresses part of the problem space, but none of the compared systems covers all four requirements simultaneously.
 
 \begin{table}[H]
 \centering
@@ -72,4 +72,4 @@ Trad \& Chehab \cite{trad2024prompt} & No & No & No & Yes \\
 
 \section{Research Gap}
 
-The comparison shows progress on LLM-based phishing detection, parameter-efficient adaptation, and explainable AI for cybersecurity. No existing work combines all of the following: (1)~a Vietnamese-specific phishing corpus with threat-type labels, (2)~a locally deployed fine-tuned LLM that runs on consumer CPU hardware without cloud dependency, (3)~structured explanations grounded in the message text, and (4)~a recall-first evaluation strategy that prioritizes reducing dangerous false negatives over maximizing overall accuracy. This thesis addresses that gap with a prototype pipeline covering all four requirements.
+The comparison shows progress on LLM-based phishing detection, parameter-efficient adaptation, and explainable AI for cybersecurity. None of the systems reviewed here combines all of the following: (1)~a Vietnamese-specific phishing corpus with threat-type labels, (2)~a locally deployed fine-tuned LLM that runs on consumer CPU hardware without cloud dependency, (3)~structured explanations grounded in the message text, and (4)~a recall-first evaluation strategy that prioritizes reducing dangerous false negatives over maximizing overall accuracy. This thesis studies that combination through a prototype pipeline.

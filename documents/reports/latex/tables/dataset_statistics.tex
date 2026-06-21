@@ -5,10 +5,9 @@
 \toprule
 \textbf{Data Split / Partition} & \textbf{Count} & \textbf{Methodological Focus} \\
 \midrule
-Training                  & 2{,}018 & QLoRA fine-tuning on quality-reviewed synthetic corpus \\
-Validation                & 210     & Internal seed-disjoint validation; not external real-world validation \\
-Held-out                  & 254     & Internal seed-disjoint holdout; not a production benchmark \\
-Filtered / Deduplicated   & 518     & Data cleaning and quality control exclusion \\
+Training                  & 2{,}333 & QLoRA fine-tuning on the recovered synthetic corpus \\
+Validation                & 254     & Trainer evaluation and final reported comparison \\
+Test (not evaluated)      & 413     & Reserved split; no final-run metric is claimed \\
 \midrule
 \textbf{Total Tracked Corpus} & \textbf{3{,}000} & Versioned lineage; external real-world val/test remains future work \\
 \bottomrule
@@ -18,10 +17,10 @@ Filtered / Deduplicated   & 518     & Data cleaning and quality control exclusio
 
 \begin{tabular}{lrr}
 \toprule
-\textbf{Evaluation Class (Held-out)} & \textbf{Support ($N$)} & \textbf{Measured Recall} \\
+\textbf{Evaluation Class (Validation)} & \textbf{Support ($N$)} & \textbf{Measured Recall} \\
 \midrule
 Bank Impersonation      & 56 & 1.000 \\
-Zalo Social Engineering & 75 & 0.960 \\
+Zalo Social Engineering & 75 & 0.987 \\
 Task Scam               & 62 & 0.871 \\
 Benign                  & 61 & 1.000 \\
 \bottomrule

@@ -1,15 +1,12 @@
-This section brings together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that the pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that all per-class recall targets are met on the three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
+This chapter reports the final training, deployment, and evaluation evidence. The quantitative comparison uses the 254-example validation split and must not be interpreted as an independent test result. Appendix~3 links each reported value to its source artifact.
 
-\section{Data Quality and Candidate Selection}
-The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 94 passing samples out of 100 (two batches of 50, scored by independent LLM judges), with an average realism score of 4.43 out of 5 ($t = 8.7$, $p < 0.0001$) and an average label-correctness score of 4.92 out of 5 ($t = 53.2$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
+\section{Data Quality and Model Selection}
+The saved quality summary records an LLM-as-judge review of 50 generated examples. Forty-nine passed, with mean realism and label-correctness scores of 4.68 and 4.96 out of 5. Pydantic separately enforces the judge-output schema and permitted score ranges; it does not determine semantic quality. Because only aggregate scores were retained, no inferential test is reported.
 
-Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3-4B-Instruct-2507 as the deployed model and Qwen3.5-4B as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
-
-\section{End-to-End Verification}
-A final verification pass was run covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
+A recall-first pilot over 33 fixed samples selected \texttt{Qwen3-4B-Instruct-2507}; \texttt{Qwen3.5-4B} was retained as the alternative candidate. The final run then adapted the selected model using 4-bit NF4 QLoRA on 2{,}333 training records, with 254 records supplied for validation. After one epoch, checkpoint 584 recorded a training loss of 0.5073 and a runtime of 1{,}151.5 seconds.
 
 \section{Baseline Comparison}
-To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3-4B-Instruct-2507} model was evaluated on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
+To estimate the effect of domain adaptation, the base \texttt{Qwen3-4B-Instruct-2507} model and its QLoRA-adapted version were evaluated on the same 254-message validation split. Both artifacts therefore share the same base model and evaluation rows.
 
 \begin{table}[H]
 \centering
@@ -21,50 +18,34 @@ To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3-4B-Instruct-2
 \cmidrule(lr){2-4} \cmidrule(lr){5-7}
 \textbf{Class} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
 \midrule
-Bank Impersonation  & 0.505 & 1.000 & 0.671 & 0.836 & 1.000 & 0.911 \\
-Zalo Social Eng.    & 0.881 & 0.787 & 0.831 & 1.000 & 0.960 & 0.980 \\
+Bank Impersonation  & 0.505 & 1.000 & 0.671 & 0.862 & 1.000 & 0.926 \\
+Zalo Social Eng.    & 0.881 & 0.787 & 0.831 & 1.000 & 0.987 & 0.993 \\
 Task Scam           & 0.709 & 0.629 & 0.667 & 1.000 & 0.871 & 0.931 \\
 Benign              & 1.000 & 0.344 & 0.512 & 1.000 & 1.000 & 1.000 \\
 \midrule
-\textbf{Macro avg}  & --- & --- & \textbf{0.670} & --- & --- & \textbf{0.955} \\
+\textbf{Macro avg}  & --- & --- & \textbf{0.6702} & --- & --- & \textbf{0.9625} \\
 \bottomrule
 \end{tabular}
-\caption{Baseline (zero-shot \texttt{Qwen3-4B-Instruct}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.285.}
+\caption{Base-model and QLoRA results on the same 254-message internal validation split. The observed macro-F1 difference is +0.2923.}
 \label{tab:baseline-comparison}
 \end{table}
 
-The base model achieves a macro F1 of only 0.670. It over-predicts bank impersonation (precision 0.505), misclassifying many benign and Zalo messages as bank-related. Benign recall is particularly low at 0.344 --- the model treats legitimate bank notifications as threats. After QLoRA adaptation, macro F1 rises to 0.955, with every class exceeding its recall target. The +0.285 improvement confirms that domain-specific fine-tuning is necessary; the base model's general knowledge of Vietnamese text is not sufficient for reliable threat classification.
+The baseline predicts bank impersonation for many messages from other classes and reaches only 0.344 recall on benign notifications. After adaptation, macro F1 increases from 0.6702 to 0.9625 and benign recall reaches 1.000. This is evidence that adaptation improved performance on these validation rows. It does not isolate generalization to independent seed groups because the split audit found seed overlap with training.
 
-\section{Expanded-Holdout Results}
-The expanded internal holdout dataset contains 254 fully annotated messages. The system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
+\section{Validation Results}
+The adapted model correctly classifies 245 of 254 validation messages, giving an accuracy of 0.9646. Bank impersonation reaches precision 0.862, recall 1.000, and F1 0.926 on 56 examples. Zalo social engineering reaches precision 1.000, recall 0.987, and F1 0.993 on 75 examples. Task scam reaches precision 1.000, recall 0.871, and F1 0.931 on 62 examples. Benign reaches 1.000 for all three metrics on 61 examples.
 
-The per-class results are as follows. Bank impersonation reached a recall of 1.000, precision of 0.836, and an F1-score of 0.911 over 56 held-out examples. Zalo social engineering achieved a recall of 0.960, precision of 1.000, and an F1-score of 0.980 on 75 examples, with 3 instances misclassified as bank impersonation. The task-scam class achieved a recall of 0.871, precision of 1.000, and an F1-score of 0.931 on 62 examples. The benign class reached a recall, precision, and F1-score of 1.000 on 61 examples.
-
-Per-class recall targets were set requiring each high-harm class to clear a minimum threshold. All three risky categories met their targets in this final run. Zalo social engineering missed three examples out of 75, and the task-scam class missed eight examples out of 62, with all errors consistently misclassified as bank impersonation.
-
-Figure~\ref{fig:recall-by-class} shows the per-class recall results visually, and Table~\ref{tab:confusion-matrix} shows the full confusion matrix.
+The predefined risky-class recall floors were 0.90 for bank impersonation, 0.90 for Zalo social engineering, and 0.80 for task scam. All three observed recalls meet their respective floors. These thresholds are development criteria rather than production safety guarantees.
 
 \input{figures/recall_barchart}
 \input{tables/confusion_matrix}
 
-\section{Interpretation of the Final Result}
-The project delivered a local-first pipeline with reproducible data artifacts, a usable runtime, and structured explanations. Two of the three risky classes reached near-perfect recall on the expanded holdout. Task scam met its target, but the 62-sample holdout is still small for a definitive academic evaluation.
+When the three scam labels are collapsed into one binary class, all 193 scam messages remain on the scam side of the boundary and all 61 benign messages remain benign. The nine errors are therefore subtype errors: eight task-scam examples and one Zalo example are predicted as bank impersonation.
 
-Two explanation quality cautions remain valid design notes: label alignment was sometimes weakly supported by the captured cues, and some recommendations fell back to generic safe advice. These do not change the recall result, but they do limit confidence in explanation quality as a user-safety feature.
+\section{Deployment Verification}
+The final adapter was merged with \texttt{Qwen3-4B-Instruct-2507} and exported as a Q8\_0 GGUF file. The artifact is 4{,}280{,}403{,}232 bytes; its SHA-256 begins \texttt{1cc523ce7ec7e51a} and is recorded in full in the evidence manifest. It is registered under the \texttt{gguf-laptop} profile. The runtime doctor check passed, and a CPU-only CLI analysis produced a structured risk tier, threat label, grounded cues, and safety recommendations. This verifies the deployment path independently of the adapter-based validation run.
 
-The evaluation supports the contribution claim of a working local pipeline, while the explanation flags indicate areas for future improvement. Similar recall-first framing has been applied in related XAI phishing-detection work~\cite{lim2025explicate}.
+\section{Limits of the Evidence}
+The 254 rows are the validation split used during training and later recovery decisions, not an untouched holdout. In addition, seed \texttt{seed\_1a4f7d4d7c53} occurs in training, validation, and test. The reported improvement can therefore be attributed to QLoRA only for the shared internal validation comparison; its magnitude may be optimistic for unseen seed groups. The reserved 413-example test split was not evaluated in the final run.
 
-\section{Error Analysis}
-
-All 11 misclassified examples share the same predicted label: bank impersonation. Inspecting the actual message text reveals a consistent pattern.
-
-The eight task-scam examples that were predicted as bank impersonation each explicitly name a Vietnamese bank (ABC Bank, VietPay, MBBank, Techcombank, VPBank, BIDV) and use bank-specific credential language such as OTP, Smart OTP, or Internet Banking. For example, one message reads: \textit{``Chào bạn, đây là Ngân hàng ABC. Vui lòng đăng nhập vào [www.abc-bank-upgrade.com] để xác nhận. Nếu không, tài khoản của bạn sẽ bị khóa sau 24 giờ.''} This message creates artificial urgency through a time limit (a task-scam tactic), but the model classifies it as bank impersonation because of the explicit bank name and account-locking threat. A similar pattern appears in all eight task-scam errors.
-
-The three Zalo social-engineering errors follow the same logic. Each misclassified message names a bank (MBBANK or VPBank) and requests banking credentials such as OTP codes, card numbers, or account details via Zalo. The model sees the bank name and credential request and predicts bank impersonation, even though the primary delivery channel and social-engineering mechanism are Zalo-specific.
-
-The root cause is a label boundary issue: task-scam and Zalo social-engineering messages that simultaneously impersonate a bank share nearly identical linguistic features with genuine bank-impersonation messages. The current model learned a strong association between bank names, OTP language, and the bank-impersonation label, which generalises poorly at this boundary. Addressing this would likely require either finer sub-label annotation or additional training examples that demonstrate the distinction between the channel of attack (Zalo, task pressure) and the impersonated entity (bank).
-
-\section{Limits of the Current Evidence}
-The final holdout is a small internal academic evaluation, not a large-scale production study. Task-scam support grew from 18 to 62 after the targeted data recovery, but 62 examples is still a small basis for fine-grained error analysis. The misclassification pattern --- task scam predicted as bank impersonation --- suggests residual linguistic overlap between the two classes that a larger or more diverse training set could address. The current evidence is strongest for implementation traceability and local validation rather than broad comparison against external phishing benchmarks.
-
-Two further scope limits constrain what the current evidence can show. Version~1 is strictly text-only; OCR, image, audio, and other input channels were excluded from scope, so the evaluation does not cover scenarios where phishing content arrives embedded in screenshots, images, or voice messages. The training corpus was constructed from Vietnamese-language seed sources and synthetic generation prompts targeting Vietnamese phishing patterns; model performance on mixed-language or non-Vietnamese financial phishing is not evaluated here and may not transfer reliably to other language settings. A real-world, human-labeled validation and test set would be required before making stronger generalization claims.
+The final run also did not repeat the earlier explanation-review exercise, so no quantitative explanation-quality claim is attached to these 254 predictions. The structured output contract is demonstrated at runtime, but the semantic quality of explanations requires a new human review. Version~1 remains text-only and synthetic-derived; real-world, human-labelled evaluation is required before operational use. Similar recall-first framing has been applied in related XAI phishing-detection work~\cite{lim2025explicate}.

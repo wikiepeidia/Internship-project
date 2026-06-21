@@ -269,3 +269,20 @@ notebooks/H100_baseline_eval.ipynb
 data/eval/baseline-eval-results.json
 REAL_LIFE_SCAM_TEST_DEMO.md
 data/eval/baseline-eval-qwen3-4b.json
+
+# Small final-run evidence required to reproduce thesis tables. Large model and
+# dataset artifacts remain ignored.
+!data/
+!data/eval/
+!data/eval/baseline-eval-qwen3-4b.json
+!data/eval/eval-results-qlora.json
+!data/models/
+!data/models/qwen3-4b-instruct-2507/
+!data/models/qwen3-4b-instruct-2507/adapter/
+data/models/qwen3-4b-instruct-2507/adapter/*
+!data/models/qwen3-4b-instruct-2507/adapter/training-summary.json
+!data/processed/
+!data/processed/quality-stats.json
+!data/manifests/
+!data/manifests/final-qlora-evidence-2026-06.json
+notebooks/T4_quality_judge_50.ipynb
