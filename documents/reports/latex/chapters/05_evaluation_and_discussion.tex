@@ -1,7 +1,7 @@
 This section brings together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that the pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that all per-class recall targets are met on the three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
 
 \section{Data Quality and Candidate Selection}
-The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 49 passing samples out of 50, with an average realism score of 4.68 out of 5 ($t = 9.6$, $p < 0.0001$) and an average label-correctness score of 4.96 out of 5 ($t = 34.0$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
+The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 94 passing samples out of 100 (two batches of 50, scored by independent LLM judges), with an average realism score of 4.43 out of 5 ($t = 8.7$, $p < 0.0001$) and an average label-correctness score of 4.92 out of 5 ($t = 53.2$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
 
 Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3-4B-Instruct-2507 as the deployed model and Qwen3.5-4B as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
 
@@ -21,19 +21,19 @@ To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3-4B-Instruct-2
 \cmidrule(lr){2-4} \cmidrule(lr){5-7}
 \textbf{Class} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
 \midrule
-Bank Impersonation  & 0.426 & 0.982 & 0.595 & 0.836 & 1.000 & 0.911 \\
-Zalo Social Eng.    & 0.978 & 0.587 & 0.733 & 1.000 & 0.960 & 0.980 \\
-Task Scam           & 0.786 & 0.710 & 0.746 & 1.000 & 0.871 & 0.931 \\
-Benign              & 0.917 & 0.361 & 0.518 & 1.000 & 1.000 & 1.000 \\
+Bank Impersonation  & 0.505 & 1.000 & 0.671 & 0.836 & 1.000 & 0.911 \\
+Zalo Social Eng.    & 0.881 & 0.787 & 0.831 & 1.000 & 0.960 & 0.980 \\
+Task Scam           & 0.709 & 0.629 & 0.667 & 1.000 & 0.871 & 0.931 \\
+Benign              & 1.000 & 0.344 & 0.512 & 1.000 & 1.000 & 1.000 \\
 \midrule
-\textbf{Macro avg}  & --- & --- & \textbf{0.648} & --- & --- & \textbf{0.955} \\
+\textbf{Macro avg}  & --- & --- & \textbf{0.670} & --- & --- & \textbf{0.955} \\
 \bottomrule
 \end{tabular}
-\caption{Baseline (zero-shot \texttt{Qwen3-4B-Instruct}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.307.}
+\caption{Baseline (zero-shot \texttt{Qwen3-4B-Instruct}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.285.}
 \label{tab:baseline-comparison}
 \end{table}
 
-The base model achieves a macro F1 of only 0.648. It over-predicts bank impersonation (precision 0.426), misclassifying many benign and Zalo messages as bank-related. Benign recall is particularly low at 0.361 --- the model treats legitimate bank notifications as threats. After QLoRA adaptation, macro F1 rises to 0.955, with every class exceeding its recall target. The +0.307 improvement confirms that domain-specific fine-tuning is necessary; the base model's general knowledge of Vietnamese text is not sufficient for reliable threat classification.
+The base model achieves a macro F1 of only 0.670. It over-predicts bank impersonation (precision 0.505), misclassifying many benign and Zalo messages as bank-related. Benign recall is particularly low at 0.344 --- the model treats legitimate bank notifications as threats. After QLoRA adaptation, macro F1 rises to 0.955, with every class exceeding its recall target. The +0.285 improvement confirms that domain-specific fine-tuning is necessary; the base model's general knowledge of Vietnamese text is not sufficient for reliable threat classification.
 
 \section{Expanded-Holdout Results}
 The expanded internal holdout dataset contains 254 fully annotated messages. The system achieves an overall accuracy of 0.957 (243 correct of 254) and a macro F1-score of 0.955. These scores should be read as seed-disjoint internal validation results, not independent real-world benchmark performance, because the holdout rows are still derived from the project corpus.
