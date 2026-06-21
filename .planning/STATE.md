@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Content Expansion — 20-page Target
-status: Complete — Print Ready
+milestone: v5.0
+milestone_name: Final Audit & Print Lock
+status: Complete — Report LOCKED
 last_updated: "2026-06-18"
 last_activity: 2026-06-18 — v3.0 milestone created; 4 supervisor comments + department page requirement scoped into 3 phases (25-27), 8 requirements
 progress:
