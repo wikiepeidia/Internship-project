@@ -1,15 +1,15 @@
 This section brings together four kinds of evidence: data quality checks, model-selection records, a final verification pass, and the expanded-holdout evaluation. Together, these results show that the pipeline works end to end and leaves a verifiable record. The full evidence traceability snapshot is provided in Appendix~3. The final evaluation shows that all per-class recall targets are met on the three risky classes, but the holdout set for task scam remains small and two explanation quality cautions stand.
 
 \section{Data Quality and Candidate Selection}
-The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 99 passing samples out of 100, with an average realism score of 4.68 out of 5 ($t = 13.6$, $p < 0.0001$) and an average label-correctness score of 4.96 out of 5 ($t = 48.0$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
+The earliest quantitative evidence comes from the dataset-construction pipeline. A recorded quality-judge summary shows 49 passing samples out of 50, with an average realism score of 4.68 out of 5 ($t = 9.6$, $p < 0.0001$) and an average label-correctness score of 4.96 out of 5 ($t = 34.0$, $p < 0.0001$), both tested against $H_0\colon \mu \leq 4.0$. These numbers do not prove downstream model quality on their own, but they show that the corpus was reviewed before use rather than assembled without any quality check.
 
-Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3.5-4B as the deployed model and Qwen3-4B-Instruct-2507 as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
+Candidate selection also left a useful early record. A recall-first pilot over 33 fixed samples selected Qwen3-4B-Instruct-2507 as the deployed model and Qwen3.5-4B as the alternative candidate. That result matters less as a benchmark claim than as evidence that the local deployment path was chosen deliberately under hardware and safety constraints.
 
 \section{End-to-End Verification}
 A final verification pass was run covering five conditions: data lineage, model artifact currency, holdout evaluation, explanation quality review, and overall verdict. This step matters because it covers not only model output quality but also the integrity of the data path behind the result.
 
 \section{Baseline Comparison}
-To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3.5-4B} model on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
+To measure the effect of QLoRA fine-tuning, the base \texttt{Qwen3-4B-Instruct-2507} model was evaluated on the same 254-message holdout without any adapter loaded (zero-shot prompting with the model's native chat template). Table~\ref{tab:baseline-comparison} compares the baseline against the fine-tuned model.
 
 \begin{table}[H]
 \centering
@@ -29,7 +29,7 @@ Benign              & 0.917 & 0.361 & 0.518 & 1.000 & 1.000 & 1.000 \\
 \textbf{Macro avg}  & --- & --- & \textbf{0.648} & --- & --- & \textbf{0.955} \\
 \bottomrule
 \end{tabular}
-\caption{Baseline (zero-shot \texttt{Qwen3.5-4B}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.307.}
+\caption{Baseline (zero-shot \texttt{Qwen3-4B-Instruct}) vs.\ fine-tuned (QLoRA) performance on the 254-message seed-disjoint holdout. Fine-tuning improves macro F1 by +0.307.}
 \label{tab:baseline-comparison}
 \end{table}
 

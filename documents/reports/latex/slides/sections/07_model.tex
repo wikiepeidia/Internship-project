@@ -1,5 +1,5 @@
-%% Slide 7: Model Adaptation — QLoRA on Qwen3.5-4B
-\begin{frame}{Model Adaptation --- QLoRA on Qwen3.5-4B}
+%% Slide 7: Model Adaptation — QLoRA on Qwen3-4B
+\begin{frame}{Model Adaptation --- QLoRA on Qwen3-4B}
   \framesubtitle{Parameter-Efficient Fine-Tuning for Consumer Hardware}
 
   \begin{columns}[T,onlytextwidth]
@@ -8,7 +8,7 @@
         {\footnotesize
         \renewcommand{\arraystretch}{1.05}
         \begin{tabular}{ll}
-          \textbf{Base model} & \texttt{Qwen3.5-4B} (BF16) \\
+          \textbf{Base model} & \texttt{Qwen3-4B} (BF16) \\
           \textbf{LoRA rank} ($r$) & 16 \\
           \textbf{LoRA scale} ($\alpha$) & 32 \\
           \textbf{Train quant.} & 4-bit \texttt{NF4} (QLoRA) \\
@@ -25,7 +25,7 @@
         {\footnotesize
         \begin{enumerate}
           \setlength{\itemsep}{0.2em}
-          \item \textbf{Train in 4-bit NF4:} frozen \texttt{Qwen3.5-4B} weights compressed; LoRA adapter trained in full precision.
+          \item \textbf{Train in 4-bit NF4:} frozen \texttt{Qwen3-4B} weights compressed; LoRA adapter trained in full precision.
           \item \textbf{Merge QLoRA adapter:} fold adapter $\Delta W = BA$ back into base weights.
           \item \textbf{Export merged model as GGUF Q8\_0:} CPU-runnable; 8-bit preserves quality vs.\ 4-bit GGUF.
         \end{enumerate}

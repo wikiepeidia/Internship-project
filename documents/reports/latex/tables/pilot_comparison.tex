@@ -6,15 +6,15 @@
 \toprule
 \textbf{Model Candidate} & \textbf{High-risk Recall} & \textbf{Peak Memory (GB)} & \textbf{Latency/Sample (s)} & \textbf{Selection Status} \\
 \midrule
-qwen3.5-4b              & 11/11 (100\%) & 3.28 & 0.94 & \textbf{Selected} \\
-qwen3-4b-instruct-2507  & 11/11 (100\%) & 2.77 & 0.35 & Alternative \\
+qwen3-4b-instruct-2507  & 11/11 (100\%) & 2.77 & 0.35 & \textbf{Selected} \\
+qwen3.5-4b              & 11/11 (100\%) & 3.28 & 0.94 & Alternative \\
 qwen2.5-7b-instruct     &  0/11 (\phantom{0}0\%) & 5.62 & 0.56 & Excluded \\
 \bottomrule
 \end{tabular}%
 }
 
 \smallskip
-{\footnotesize Note: All three models achieved identical overall risky-class recall (0.50) on the combined suspicious\,+\,high-risk tiers. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning; the 7B model missed all 11. \texttt{qwen3.5-4b} was selected as the deployed model based on BF16 base-weight availability for QLoRA adaptation.}
+{\footnotesize Note: All three models achieved identical overall risky-class recall (0.50) on the combined suspicious\,+\,high-risk tiers. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning; the 7B model missed all 11. \texttt{qwen3-4b-instruct-2507} was selected based on lower memory usage (2.77\,GB vs 3.28\,GB) and lower latency (0.35\,s vs 0.94\,s).}
 \caption{Pre-adaptation pilot screening on 33 fixed examples (11 per risk tier). Selection criterion: high-risk recall under hardware constraint. Scores reflect performance before any fine-tuning.}
 \label{tab:pilot-comparison}
 \end{table}

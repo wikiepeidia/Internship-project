@@ -75,7 +75,7 @@ The readiness check uses the same service boundary. Before analysis begins, it r
 
 \section{Backend Implementations}
 
-Two local model backends are available in the shipped codebase. The \texttt{gguf-laptop} profile targets CPU inference via \texttt{llama.cpp} using the \texttt{Qwen3.5-4B} GGUF Q8\_0 artifact. This is the default local profile and the path validated on the project laptop hardware. The \texttt{accelerated-local} profile targets stronger GPU hardware and reuses the same \texttt{AnalysisResult} contract, so the rendering layer does not need to branch on backend type.
+Two local model backends are available in the shipped codebase. The \texttt{gguf-laptop} profile targets CPU inference via \texttt{llama.cpp} using the \texttt{Qwen3-4B-Instruct-2507} GGUF Q8\_0 artifact. This is the default local profile and the path validated on the project laptop hardware. The \texttt{accelerated-local} profile targets stronger GPU hardware and reuses the same \texttt{AnalysisResult} contract, so the rendering layer does not need to branch on backend type.
 
 The heuristic backend provides the offline baseline when no model artifact is available. All three backends return the same \texttt{AnalysisResult} type, which means the command-line interface remains consistent across backend families. Profile selection is explicit: the user sets the profile in a settings file before startup rather than relying on auto-detection. A readiness check verifies the selected profile before any analysis begins. If the selected profile is not ready, the system reports the reason and stops rather than silently falling back to a different configuration.
 
