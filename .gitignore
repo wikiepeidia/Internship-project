@@ -286,3 +286,4 @@ data/models/qwen3-4b-instruct-2507/adapter/*
 !data/manifests/
 !data/manifests/final-qlora-evidence-2026-06.json
 notebooks/T4_quality_judge_50.ipynb
+H200NVL.md
