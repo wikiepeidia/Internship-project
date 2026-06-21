@@ -64,7 +64,7 @@ where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \
 
 \input{tables/qlora_config}
 
-After training, the QLoRA adapter was merged back into the base weights and the merged model was exported to GGUF format with \texttt{q8\_0} quantization using the \texttt{convert\_hf\_to\_gguf.py} script. Inference uses \texttt{llama.cpp} \cite{gerganov2023llamacpp} as the CPU runtime backend. The two quantization schemes serve different purposes: NF4 4-bit reduces memory use during QLoRA fine-tuning, whereas Q8\_0 8-bit is used for the GGUF inference artifact. The exported artifact enables local CPU inference without CUDA at runtime. In the final command-line smoke test on the target laptop (Intel Core i5, 16\,GB RAM, no discrete GPU), one message completed in approximately 24~seconds. This single observation meets the 30-second prototype target but is not a throughput benchmark.
+After training, the QLoRA adapter was merged back into the base weights and the merged model was exported to GGUF format with \texttt{q8\_0} quantization using the \texttt{convert\_hf\_to\_gguf.py} script. Inference uses \texttt{llama.cpp} \cite{gerganov2023llamacpp} as the CPU runtime backend. The two quantization schemes serve different purposes: NF4 4-bit reduces memory use during QLoRA fine-tuning, whereas Q8\_0 8-bit is used for the GGUF inference artifact. The exported artifact enables local CPU inference without CUDA at runtime. In a single-message verification on the target laptop (Intel Core i5, 16\,GB RAM, no discrete GPU), one message completed in approximately 24~seconds. This single observation meets the 30-second prototype target but is not a throughput benchmark.
 
 \section{Explainable Threat Decisioning}
 

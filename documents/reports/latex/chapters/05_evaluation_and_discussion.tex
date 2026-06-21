@@ -30,12 +30,12 @@ Benign              & 1.000 & 0.344 & 0.512 & 1.000 & 1.000 & 1.000 \\
 \label{tab:baseline-comparison}
 \end{table}
 
-The baseline predicts bank impersonation for many messages from other classes and reaches only 0.344 recall on benign notifications. After adaptation, macro F1 increases from 0.6702 to 0.9625 and benign recall reaches 1.000. This is evidence that adaptation improved performance on these validation rows. It does not isolate generalization to independent seed groups because split inspection found seed overlap with training.
+The baseline predicts bank impersonation for many messages from other classes and reaches only 0.344 recall on benign notifications. After adaptation, macro F1 increases from 0.6702 to 0.9625 and benign recall reaches 1.000. This is evidence that adaptation improved performance on these validation rows. It does not isolate generalization to independent seed groups because the validation split shares seed groups with the training split.
 
 \section{Validation Results}
 The adapted model correctly classifies 245 of 254 validation messages, giving an accuracy of 0.9646. Bank impersonation reaches precision 0.862, recall 1.000, and F1 0.926 on 56 examples. Zalo social engineering reaches precision 1.000, recall 0.987, and F1 0.993 on 75 examples. Task scam reaches precision 1.000, recall 0.871, and F1 0.931 on 62 examples. Benign reaches 1.000 for all three metrics on 61 examples.
 
-The predefined risky-class recall floors were 0.90 for bank impersonation, 0.90 for Zalo social engineering, and 0.80 for task scam. All three observed recalls meet their respective floors. These thresholds are development criteria rather than production safety guarantees.
+The predefined risky-class recall thresholds were 0.90 for bank impersonation, 0.90 for Zalo social engineering, and 0.80 for task scam. All three observed recalls meet their respective thresholds. These thresholds are development criteria rather than production safety guarantees.
 
 \input{figures/recall_barchart}
 \input{tables/confusion_matrix}
