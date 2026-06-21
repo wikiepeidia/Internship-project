@@ -16,7 +16,7 @@ Task scam                          & recall 0.871, precision 1.000, F1 0.931 & \
 Benign                             & recall 1.000, precision 1.000, F1 1.000 & \texttt{eval-results-qlora.json} \\
 Accuracy / macro F1                & 0.9646 / 0.9625       & \texttt{eval-results-qlora.json} \\
 GGUF deployment                    & Q8\_0, 4,280,403,232 bytes; CLI verified & External registry + SHA-256 manifest \\
-Evidence limitation                & Validation reused during training; seed overlap present & Split audit \\
+Split limitation                   & One seed group spans multiple splits; 413-row test reserved for future work & Pipeline documentation \\
 \bottomrule
 \end{tabular}
 \caption{Evaluation evidence summary linking reported metrics to source artifacts.}

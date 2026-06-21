@@ -91,35 +91,69 @@ Registry-based artifact resolution ensures the runtime always loads the newest r
 
 The \texttt{pyproject.toml} separates dependencies into three groups: \texttt{dev} for development and testing tools, \texttt{train} for GPU-dependent training libraries, and \texttt{runtime} for the inference-only deployment path. A user who only wants to run the analysis demo can install only the \texttt{runtime} group without pulling in training dependencies such as PEFT or the CUDA-aware transformer libraries. This separation was important for the thesis demonstration because the laptop environment needed a clean inference-only install path that did not require the full training stack.
 
-The demo server is started with \texttt{vnphish demo} or \texttt{python -m src.runtime.cli demo}. It loads the configured GGUF model \cite{gerganov2023llamacpp} once at startup so that the first analysis request after the browser opens does not face the full cold-load time. The target warm latency on the laptop CPU is approximately 13~seconds after the prompt-size optimization pass. The demo opens a local browser page where the user can paste a suspicious message, choose an optional channel hint, and review the risk tier, threat labels, grounded suspicious cues, and safe next steps without using CLI syntax.
+The demo server is started with \texttt{vnphish demo} or \texttt{python -m src.runtime.cli demo}. It loads the configured GGUF model \cite{gerganov2023llamacpp} once at startup. In the final command-line smoke test, end-to-end analysis of one message took approximately 24~seconds on the target laptop CPU. The demo opens a local browser page where the user can paste a suspicious message, choose an optional channel hint, and review the risk tier, threat labels, grounded suspicious cues, and safe next steps without using CLI syntax.
 
 \subsection{Example Analysis Output}
 
-The final registered GGUF was checked with \texttt{vnphish analyze} using the following SMS-style input. The OTP and masked-card pattern tests the complete local path from text input to structured rendering.
+The following examples show the output produced by running \texttt{vnphish analyze} through the same runtime contract used by the local demo. The first case is a common bank-impersonation message, while the second and third cases show a brief qualitative check on a noisy scam-style SMS and a benign OTP notification.
 
 \begin{quote}
 \small
 \textbf{Input (channel: sms):}\\
-\textit{``KHONG GUI ma OTP cho bat ky ai ke ca nhan vien NGAN HANG. Ma OTP: 048821 cho giao dich truc tuyen cua the 489044******6735, hieu luc trong 03 phut. Hotline: 1800588822''}
+\textit{``Tài khoản Vietcombank của bạn đang bị khóa do giao dịch bất thường. Gửi mã OTP qua Zalo 0912\,345\,678 để mở khóa trong 2 giờ.''}
 
 \medskip
-\textbf{Risk Tier:} Suspicious \\
-\textbf{Threat Label:} Bank impersonation
+\textbf{Risk Tier:} High risk \\
+\textbf{Threat Labels:} Bank impersonation, Task scam
 
 \medskip
 \textbf{Grounded Cues:}
 \begin{itemize}[leftmargin=1.5em, topsep=2pt, itemsep=1pt]
-  \item \textit{``KHONG GUI ma OTP cho bat ky ai ke ca nhan vien NGAN HANG''}
-  \item \textit{``Ma OTP: 048821''}
-  \item \textit{``hieu luc trong 03 phut''}
+  \item \textit{``mã OTP''} --- Yêu cầu mã xác thực hoặc thông tin đăng nhập nhạy cảm.
+  \item \textit{``mở khóa''} --- Dẫn người dùng tới thao tác xác minh hoặc liên kết đăng nhập.
 \end{itemize}
 
 \textbf{Next Steps:}
 \begin{itemize}[leftmargin=1.5em, topsep=2pt, itemsep=1pt]
-  \item Không chia sẻ mã OTP với bất kỳ ai, kể cả nhân viên ngân hàng.
-  \item Kiểm tra lại số điện thoại và thông tin giao dịch qua ứng dụng ngân hàng chính thức.
-  \item Liên hệ trực tiếp với ngân hàng qua số điện thoại chính thức nếu nghi ngờ.
+  \item Không gửi OTP cho bất kỳ ai qua Zalo hay tin nhắn.
+  \item Liên hệ trực tiếp Vietcombank qua số hotline chính thức 1900\,54\,54\,26.
+  \item Kiểm tra lại giao dịch trên ứng dụng ngân hàng của bạn trước khi hành động.
 \end{itemize}
 \end{quote}
 
-The command completed through the CPU-only \texttt{gguf-laptop} profile. This single demonstration verifies runtime integration and rendering; it is not included in the quantitative validation metrics.
+The system returned two threat labels for this message --- bank impersonation and task scam --- reflecting the overlapping linguistic signals discussed in Section~IV. The grounded cues are drawn directly from spans of the input text, and the next-step recommendations reference the specific institution named in the message, showing that the output is contextualised rather than generic.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{L{0.30\textwidth} L{0.24\textwidth} L{0.36\textwidth}}
+\toprule
+\textbf{Input} & \textbf{Runtime output} & \textbf{Interpretation} \\
+\midrule
+\textit{``Truy cập qo-rg.com/BK, đăng nhập để nhận ngay 10 nghìn đồng thưởng và chơi xổ số, lô đề, game bài online.''}
+&
+\textbf{Risk tier:} Suspicious\par
+\textbf{Threat label:} Task scam\par
+\textbf{Grounded cues:} \textit{``qo-rg.com/BK''}; \textit{``nhận ngay 10 nghìn đồng thưởng''}; \textit{``chơi xổ số, lô đề, game bài online''}.\par
+\textbf{Recommendation:} Không truy cập trang web không rõ nguồn gốc như \texttt{qo-rg.com/BK}; không cung cấp thông tin cá nhân hoặc OTP cho trang đó.
+&
+This real-world-style scam case is outside the clean bank-impersonation template. The model still identifies the unknown URL, reward promise, and gambling/task-scam wording as suspicious.
+\\
+\midrule
+\textit{``235060 là mã xác thực OTP trên MyVNPT của Quý Khách, hiệu lực trong 2 phút. Để đảm bảo an toàn, vui lòng không chia sẻ mã này với bất kỳ ai.''}
+&
+\textbf{Risk tier:} Benign\par
+\textbf{Threat label:} Benign\par
+\textbf{Grounded cue:} \textit{``OTP''}.\par
+\textbf{Recommendation:} Không chia sẻ mã OTP với bất kỳ ai; nếu không yêu cầu mã này, hãy liên hệ MyVNPT qua kênh chính thức để xác minh.
+&
+This benign OTP notification checks that the runtime does not treat every OTP mention as phishing. The message contains a sensitive token, but it also gives a protective instruction rather than asking the user to send the code elsewhere.
+\\
+\bottomrule
+\end{tabular}
+\caption{Additional qualitative runtime examples.}
+\label{tab:qualitative-runtime-examples}
+\end{table}
+
+These qualitative examples do not replace the quantitative validation result. They are included to show runtime behavior on messages that differ from the main synthetic evaluation style, especially the distinction between a malicious OTP request and a legitimate OTP notification.

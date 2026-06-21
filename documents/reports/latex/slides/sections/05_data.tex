@@ -12,7 +12,7 @@
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
         \item Generated messages were used for model training.
-        \item Validation rows were not gradient-training rows, but were used for model evaluation and recovery decisions.
+        \item Validation rows were not gradient-training rows, but were used for evaluation and model-development decisions.
         \item They are still project data, not real user traffic.
       \end{itemize}}
     \end{column}
@@ -25,15 +25,15 @@
         \item \textbf{Pydantic:} schema constraints; \textbf{LLM judge:} sampled semantics
       \end{itemize}}
       \vspace{0.3em}
-      {\footnotesize\textbf{LLM quality check (n\,=\,50):}}\\[2pt]
+      {\footnotesize\textbf{Quality check (n\,=\,100):}}\\[2pt]
       {\scriptsize
       \renewcommand{\arraystretch}{1.1}
-      \begin{tabular}{lc}
-        & \textbf{Recorded result} \\
-        Passed & 49 / 50 \\
-        Realism & 4.68 / 5 \\
-        Label correctness & 4.96 / 5 \\
-      \end{tabular}}
+      \begin{tabular}{lcc}
+        & \textbf{Mean} & \textbf{$t$-stat} \\
+        Realism & 4.43\,/\,5 & $t{=}8.7$ \\
+        Label acc. & 4.92\,/\,5 & $t{=}53.2$ \\
+      \end{tabular}\\[2pt]
+      $p < 0.0001$; H$_0$: $\mu \leq 4.0$ rejected}
     \end{column}
   \end{columns}
 \end{frame}

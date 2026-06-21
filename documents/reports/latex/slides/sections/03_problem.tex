@@ -2,19 +2,18 @@
 \begin{frame}{Problem: Vietnamese Phishing \& the Privacy Gap}
   \framesubtitle{Problem \& Privacy Gap}
   \begin{itemize}\footnotesize
-    \item \textbf{VND 18.9 trillion (\$744M)} lost to online fraud in Vietnam in 2024;
-          \textbf{66\%} of users reported unauthorized use of personal data.
-    \item Asia-Pacific: \textbf{5.5 per 1{,}000} users click phishing links monthly
-          --- \textbf{2$\times$ the global average}.
-    \item Targeted campaigns impersonate major Vietnamese banks via SMS and Zalo,
-          requesting OTP codes or urgent re-verification.
-    \item Cloud-based classifiers upload message content to remote servers
-          --- a \textbf{direct privacy risk} for financial conversations.
+    \item Group-IB documented cloned bank-login pages distributed through SMS
+          to customers of major Vietnamese banks. {\scriptsize [Group-IB, 2022]}
+    \item Vietnam's information-security authority warned about bank-impersonation
+          messages exploiting biometric-verification procedures. {\scriptsize [AIS, 2024]}
+    \item Suspicious messages can include OTP codes, phone numbers, account details,
+          and urgent re-verification requests.
+    \item Sending this content to a cloud classifier creates additional transit,
+          retention, and provider-exposure risks.
   \end{itemize}
   \vfill
   \begin{block}{Problem Statement}
-    We deliver an offline-first, locally-running
-    threat detector --- risk tier, threat labels, and actionable guidance
-    without sending any text off-device.
+    This project develops an offline-first threat detector that returns a risk tier,
+    threat labels, and safety guidance without sending message text off-device.
   \end{block}
 \end{frame}
