@@ -1,375 +1,139 @@
-# Technology Stack: LaTeX Department Template Compliance (v2.2)
+# Stack Research
 
-**Project:** VN Phishing Detection Thesis — USTH ICT Bachelor Template Reformat
-**Milestone:** v2.2 Report Formatting
-**Researched:** 2026-06-15
-**Scope:** LaTeX packages and commands needed for the five formatting changes ONLY.
-  Existing packages (fontspec, titlesec, tocloft, geometry, fancyhdr, natbib, hyperref,
-  booktabs, longtable, array, setspace, tikz, enumitem) are treated as already available.
+**Domain:** Demo verification & presentation hardening (existing local Python + wsgiref + vanilla-JS demo, GGUF/llama.cpp CPU inference)
+**Researched:** 2026-07-02
+**Confidence:** HIGH (codebase-grounded) / MEDIUM (external latency-tuning claims, verified against official docs and one GitHub maintainer discussion)
 
----
+## Scope Note
 
-## Executive Summary
+This is a v5.1 hardening milestone, ~10 days before the defense (13-20 July 2026). The existing stack (`llama-cpp-python`, `wsgiref`, vanilla HTML/CSS/JS, `pytest`) already works and is validated by 5 prior milestones. **The goal here is near-zero-risk verification and diagnosis tooling, not new product dependencies.** Every recommendation below is either (a) already installed in this environment, (b) a stdlib/OS-native tool, or (c) a small, dev-only, zero-runtime-footprint addition. Nothing here touches `pyproject.toml` `dependencies` (the shipped runtime path) — additions go in `dev`/`runtime` extras only, or are external, non-Python tools.
 
-All five formatting requirements can be implemented with ZERO new LaTeX packages.
-Every mechanism is either a plain LaTeX command or an already-loaded package feature
-(titlesec, tocloft, natbib). The key insight is that the `report` class chapter/section
-machinery can be fully replaced via `\renewcommand` and `\titleformat` without adding
-any dependency.
+Confirmed directly from the codebase (`src/runtime/analyzers/gguf.py`, `src/runtime/demo.py`, `src/runtime/service.py`, `src/data_pipeline/processing/normalizer.py`, `tests/runtime/test_demo.py`, `pyproject.toml`):
 
----
+- The ~13s latency is a **warm** per-request cost, not a cold-load cost. `run_demo_server()` calls `app.service.backend.doctor()` at startup, which triggers `GGUFAnalyzer._load_runtime()` once and caches the `llama_cpp.Llama` instance (`_cached_runtime`). Every `/api/analyze` call reuses it — the model is not reloaded per request.
+- Text normalization (`ftfy.fix_text` + NFC + whitespace collapse, in `normalize_text`) is negligible. No heavy NLP (no `underthesea`) runs on the request path. The 13s sits inside `llama_cpp`'s decode step, not Python-side preprocessing.
+- `GGUFAnalyzer` hardcodes `n_gpu_layers=0`, `n_ctx=512`, `verbose=False`, and does **not** pass `n_threads`, `n_batch`, or `flash_attn` — all sit at `llama_cpp.Llama.__init__` defaults, confirmed by direct introspection in this environment: `n_threads=None` (library auto-picks), `n_batch=512`, `n_ubatch=512`, `flash_attn=False`, `verbose=True` (overridden to `False` in this codebase).
+- `pyproject.toml` pins `llama-cpp-python>=0.3` (open-ended) and `playwright>=1.58` (open-ended). Installed versions in this dev environment are `llama_cpp_python==0.3.23` and `playwright==1.60.0`, Python `3.13.13`. **Upstream latest is `llama-cpp-python==0.3.32`** (released 2026-06-29) — a fresh `pip install -e .[dev,runtime]` on the presentation laptop today would silently resolve to 0.3.32, not the 0.3.23 this system was actually validated against.
+- `psutil==7.2.2` is present in this dev environment only as a transitive dependency of the `train` extra (`accelerate`/`peft`), which is **not** part of `dev` or `runtime` extras. It will likely be absent on a presentation laptop that only runs the documented install command (`python -m pip install -e .[dev]`, per `doctor.py`'s `INSTALL_COMMAND`).
+- The existing test (`tests/runtime/test_demo.py`) already exercises the WSGI app in-process via `wsgiref.util.setup_testing_defaults` — this covers HTML/JSON contract shape but **never renders in a real browser**, so JS/DOM-level "UI quirks" (the exact class of bug flagged as unverified in the milestone) are structurally invisible to it.
 
-## 1. Roman Numeral Section Headings (I/ Introduction, II/ Objectives, …)
+## Recommended Stack
 
-### Requirement
-Replace "Chapter 1 / Introduction" with "I/ Introduction" at the top level. Department
-format uses an uppercase Roman numeral followed by a forward slash, no "Chapter" word.
+### Core Technologies (already present — pin, don't add)
 
-### Package needed
-**None.** titlesec is already loaded.
+| Technology | Version to lock | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| `llama-cpp-python` | `==0.3.23` (exact pin, not `>=0.3`) | GGUF local inference backend | This is the exact version the ~13s latency and demo behavior were validated against. Upstream `0.3.32`'s changelog includes chat-template loading fixes and KV-cache/embedding changes — behavior-affecting for a fine-tuned model's chat-template path. Re-validating a newer version 10 days out is not worth the risk; freeze what already works. |
+| CPython | `3.13.13` (or nearest 3.13.x) | Runtime interpreter | Matches this dev environment; `pyproject.toml` requires `>=3.13`. Wheel availability for `llama-cpp-python` on a given Python/OS/arch combo is one of the most common "worked on my machine" failures for this library — verify a prebuilt wheel (not a source build) installs cleanly on the actual presentation laptop before the defense window. |
+| `wsgiref.simple_server` (stdlib) | n/a | Local demo HTTP server | Already the shipped server; zero new dependency needed. Note it is single-threaded/synchronous — fine for a one-person live demo, but a second tab or stray request will queue rather than run concurrently. Not worth changing this close to the defense, just worth knowing. |
+| Playwright (Python) | `==1.60.0` (already installed, pin it) | Automated **real-browser** E2E smoke test of the demo UI, and scripted fallback screenshots | Already a project dependency (used by `src/data_pipeline/scraper/ncsc_scraper.py`), so a browser-driven smoke test costs zero new install surface. It is the only tool in the stack that can catch actual DOM/JS "UI quirks" (fetch lifecycle, i18n toggle, typing-indicator removal, ARIA live region updates) — the existing `wsgiref`-environ unit test never runs `demo.js` in a JS engine. |
 
-### Approach
-Redefine the chapter counter representation and the chapter title format.
+### Supporting Libraries (small, dev-only additions)
 
-```latex
-% In main.tex, AFTER \usepackage{titlesec}
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `psutil` | `==7.2.2` (pin explicitly under `dev` extra) | CPU/RAM sampling during a manual latency run (confirm no swapping, confirm thread usage matches core count) | Add explicitly — do not rely on it arriving transitively via `train` extras, since it will be absent from a `[dev,runtime]`-only install on the presentation laptop. Use only in a throwaway diagnostic script, never imported by `src/runtime/`. |
+| `py-spy` | `0.4.2` | Sampling profiler to attach to the running `vnphish demo` process (`py-spy top --pid <pid>` or `py-spy record -o out.svg --pid <pid>`), to rule out Python-side overhead vs. llama.cpp decode time | Only reach for this if `llama_cpp`'s built-in verbose timings (below) don't explain the 13s. External, attaches without code changes, zero risk to the demo process. Likely unnecessary given the codebase already caches the runtime and preprocessing is negligible — try the free option first. |
+| `llama_cpp` verbose timing (built-in, no install) | n/a (already in `0.3.23`) | Get a load/prompt-eval/decode timing breakdown and tokens/sec | Temporarily flip `GGUFAnalyzer._load_runtime`'s `verbose=False` to `True` (or gate it behind an env var) for one diagnostic run of `vnphish analyze`, capture the printed timings, then revert to `False` before the defense. This is the cheapest, zero-dependency first step for latency diagnosis — try it **before** `py-spy`. |
 
-% Step 1: make the chapter counter print as Roman numerals (I, II, III …)
-\renewcommand{\thechapter}{\Roman{chapter}}
+### Development Tools (non-Python, for verification and fallback)
 
-% Step 2: reformat the chapter heading display
-% Format: "I/ Introduction" — bold, centered, no "Chapter" label
-\titleformat{\chapter}[block]
-  {\normalfont\Large\bfseries\centering}  % font / alignment
-  {\thechapter/}                           % label: "I/"
-  {0.5em}                                  % sep between label and title
-  {}                                        % before-code (nothing)
-\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| Browser DevTools (Chrome/Edge, built-in, F12) — Network tab | Verify the offline/portability requirement: with Wi-Fi and Ethernet disabled, drive the demo and confirm the Network tab shows only requests to `127.0.0.1:8765`, zero external hosts | Zero install. Directly and visibly verifies "no network calls" rather than inferring it from code review alone. |
+| Windows Power Plan (`Settings > Power` or `powercfg`) | Set the presentation laptop to **High performance** / **Best performance**, not Balanced/Battery Saver, before measuring or presenting | Balanced/power-saver plans throttle sustained CPU clocks on Windows laptops, directly inflating llama.cpp decode latency. Zero-risk, one-click, high-payoff — check this explicitly on the actual presentation laptop rather than assuming AC power alone is sufficient. |
+| OBS Studio | Primary defense fallback: pre-recorded screen capture of a full successful demo run (load page → paste sample scam text → risk tier + explanation renders → paste a benign message → paste an edge case) | Version `32.1.2` (stable, released 2026-04-21), free, open-source (GPL-2.0), fully offline, no account or subscription. Use "Display Capture" or "Window Capture," export to a local MP4. Record in advance under realistic conditions (same laptop, same power plan) so playback timing matches what the committee would otherwise see live. |
+| Windows Game Bar (`Win+G`, built-in) | Secondary/backup recorder if OBS setup time is a concern | Already ships with Windows 10/11, zero install. Less capture-region control than OBS, but useful as a fallback-of-the-fallback if OBS setup can't be completed in time. |
+| PowerPoint/Keynote embedded video | Delivery mechanism for the recorded fallback | Embed the MP4 directly into the defense slide deck rather than keeping it as a separate file to alt-tab to — turns a failed live demo into "advance to next slide" instead of a visible app-switch scramble. |
+
+## Installation
+
+```bash
+# Pin the exact validated inference version — do NOT let a fresh install
+# silently resolve to a newer, unvalidated llama-cpp-python.
+python -m pip install -e ".[dev,runtime]" "llama-cpp-python==0.3.23"
+
+# Dev-only diagnostics (not part of the shipped runtime path)
+python -m pip install psutil==7.2.2 py-spy==0.4.2
+
+# Playwright browsers for the new browser-driven smoke test.
+# NOTE: this installs Playwright's OWN bundled Chromium for the automated
+# test only — it does NOT affect what browser opens for the live demo
+# (webbrowser.open_new_tab uses the OS default browser). If browsers are
+# already installed for the scraper, this is a no-op.
+python -m playwright install chromium
+
+# OBS Studio — download the Windows installer directly (not via pip):
+# https://obsproject.com/download  (version 32.1.2, Windows 10/11 64-bit)
 ```
 
-This replaces the existing `\titleformat{\chapter}` line in main.tex (currently line 72).
-
-### TOC impact
-tocloft already uses `\thechapter` when building the TOC entry, so the TOC will
-automatically read "I Introduction …… 1" once `\thechapter` is changed to `\Roman`.
-No tocloft changes required beyond what is already set.
-
-### Cross-reference impact
-`\ref{chap:intro}` will now produce "I" instead of "1". The in-text prose in
-01_introduction.tex ("Chapter~2 summarizes …", "Chapter~5 reports …") must be updated
-to "Section~II", "Section~V", etc., or replaced with `\ref{}` calls. This is a content
-edit, not a package change.
-
-### No-new-package path
-This IS the no-new-package path. titlesec covers it completely.
-
----
-
-## 2. List of Abbreviations (2-column glossary table)
-
-### Requirement
-A dedicated front-matter page listing abbreviations in a left-aligned abbreviation
-column and a right-aligned/left-aligned expansion column.
-
-### Package needed
-**None.** longtable + array are already loaded.
-
-### Approach — manual table (recommended for a short list)
-
-Create `chapters/frontmatter/abbreviations.tex`:
-
-```latex
-\chapter*{List of Abbreviations}
-\addcontentsline{toc}{chapter}{List of Abbreviations}
-
-\begin{longtable}{@{} p{3.2cm} @{\hspace{0.8cm}} p{10.5cm} @{}}
-  \toprule
-  \textbf{Abbreviation} & \textbf{Definition} \\
-  \midrule
-  \endhead
-  \bottomrule
-  \endfoot
-
-  AI       & Artificial Intelligence \\
-  API      & Application Programming Interface \\
-  BERT     & Bidirectional Encoder Representations from Transformers \\
-  CPU      & Central Processing Unit \\
-  F1       & Harmonic mean of Precision and Recall \\
-  GGUF     & GPT-Generated Unified Format \\
-  GPU      & Graphics Processing Unit \\
-  ICT      & Information and Communication Technology \\
-  LLM      & Large Language Model \\
-  LoRA     & Low-Rank Adaptation \\
-  NLP      & Natural Language Processing \\
-  OTP      & One-Time Password \\
-  QLoRA    & Quantized Low-Rank Adaptation \\
-  SMS      & Short Message Service \\
-  USTH     & University of Science and Technology of Hanoi \\
-  XAI      & Explainable Artificial Intelligence \\
-\end{longtable}
+```toml
+# pyproject.toml — tighten the open-ended runtime pin and add explicit dev diagnostics
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "psutil==7.2.2",
+    "py-spy==0.4.2",
+]
+runtime = [
+    "llama-cpp-python==0.3.23",
+]
 ```
 
-The `@{}` suppresses default longtable left/right padding. `@{\hspace{0.8cm}}`
-creates the visual gap between columns without a visible rule. `booktabs` \toprule/
-\midrule/\bottomrule give the same ruled style already used in the thesis tables.
+## Alternatives Considered
 
-### Alternative: `glossaries` package
-The `glossaries` package supports auto-sorted abbreviation lists and in-text `\gls{}`
-calls. It is significantly heavier (generates auxiliary files, requires `makeglossaries`
-or `bib2gls` pass). For a thesis with a static abbreviation list that will not be
-referenced inline, the longtable approach is strongly preferred. Do NOT add glossaries
-for this use case.
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|--------------------------|
+| Reuse existing Playwright for browser E2E smoke test | `pytest-playwright` plugin | If you want pytest fixtures (`page`, `browser`) and built-in HTML reporting for a longer-lived test suite. For a one-off pre-defense smoke script, driving `playwright.sync_api` directly avoids one more dependency and config surface with no functional loss. |
+| `llama_cpp` built-in `verbose=True` timings first | `py-spy` / full profiler first | Use `py-spy` only if verbose timings show the bottleneck sits *outside* `create_chat_completion` (unlikely given this codebase's caching, but worth ruling out before assuming a C++-side fix is needed). |
+| OBS Studio for fallback recording | Native Windows Game Bar only | If time before the defense is extremely tight and one quick recording is all that's needed, Game Bar is faster with zero setup — acceptable as the *only* fallback if OBS setup can't be completed, but OBS gives more control over capture region/quality. |
+| Exact-pin `llama-cpp-python==0.3.23` | Upgrade to `0.3.32` and re-validate | Only if a specific, named bug in `0.3.23` is actually blocking the defense and the fix is confirmed present in the `0.3.32` changelog — then budget real time to re-run the eval/UAT checks, not just a visual smoke test. |
+| `psutil` for lightweight CPU/RAM sampling | Windows Task Manager / Resource Monitor (GUI, no install) | If you don't want any additional pip install at all, Task Manager's Performance tab gives the same CPU-utilization-during-inference signal manually, just without a saved log. Fine for a single manual check. |
 
-### No-new-package path
-longtable + array + booktabs. All already loaded. No new packages.
+## What NOT to Use
 
----
+| Avoid | Why | Use Instead |
+|-------|-----|--------------|
+| Upgrading `llama-cpp-python` to latest (`0.3.32`) this close to the defense | Changelog includes chat-template loading fixes and KV-cache/embedding changes — behavior-affecting for a fine-tuned model's exact prompt/response path that has already been validated. A regression discovered on defense week has no time to fix. | Pin `==0.3.23` exactly; only upgrade with a specific, verified reason and time to re-run the release-gate eval. |
+| Enabling GPU offload (`n_gpu_layers > 0`, Vulkan/CUDA build of `llama-cpp-python`) on the presentation laptop | Untested iGPU/driver combinations are one of the most common `llama.cpp` crash and correctness sources (driver mismatch, VRAM sizing, silent fallback to CPU with a confusing error). The project's own constraint is "CPU/iGPU baseline" — the validated path is CPU-only. | Keep `n_gpu_layers=0`; tune `n_threads`/power plan instead (see Stack Patterns below) if latency needs to improve. |
+| Adding an observability/telemetry stack (Prometheus, Grafana, LangSmith, W&B) to watch the demo | Massive overkill for a single local demo verified by one person before one event; adds setup risk and moving parts with no payoff for this milestone. | `llama_cpp`'s built-in verbose timings + manual stopwatch + Task Manager, escalate to `py-spy` only if needed. |
+| Selenium or Cypress (Node-based) for the E2E smoke test | Playwright is already installed and is the project's existing browser-automation dependency (used by the scraper). Adding a second, redundant browser-automation stack for one smoke test increases dependency surface for zero benefit. | Playwright `sync_api`, driven directly in a plain script or `pytest` test. |
+| Cloud-based screen recorders (Loom, Camtasia trial, cloud-synced OBS projects) | Violates the offline/local-first posture of the whole project and risks needing network access or an account login on defense day. | OBS Studio (fully offline, GPL, free) or Windows Game Bar. |
+| Leaving `llama-cpp-python>=0.3` and `playwright>=1.58` unbounded in `pyproject.toml` | Any fresh install (a new laptop, a wiped venv, someone else helping set up) can silently resolve to a newer minor/patch version than what was actually validated, right when reproducibility matters most. | Exact-pin both for the remainder of this milestone; loosen again post-defense if desired. |
 
-## 3. Supervisor Certification Letter Page
+## Stack Patterns by Variant
 
-### Requirement
-A standalone page with: a "To Whom It May Concern" block-letter header, certification
-text, date/location line, and a signature block for the supervisor. No ornamental border
-needed (titlepage.tex has a TikZ border; the certification page is typically plain).
+**If the presentation laptop has a different core count than this dev machine:**
+- Do not assume `n_threads=None` (library auto-pick) is optimal on a different CPU. Run a one-time diagnostic (`verbose=True` for a single `vnphish analyze` call) on the actual presentation laptop, then try setting `n_threads` to the laptop's *physical* core count (not logical/hyperthreaded count) as a bounded experiment — community guidance and llama.cpp's own maintainers note 4-8 threads is often the sweet spot for short-context CPU inference, and more threads can *hurt* via memory contention. Only ship the change if it measurably helps on that exact machine; otherwise leave the default.
+- Because CPU-bound decode throughput does not scale linearly with thread count past the memory-bandwidth ceiling, and this is a common regression, not just an upside, in llama.cpp community discussions.
 
-### Package needed
-**None.** This is a pure layout page using existing geometry/fontspec.
+**If time allows only one latency intervention before the defense:**
+- Set the laptop's Windows power plan to High performance and re-measure before touching any code or model config.
+- Because this is zero-risk (no code change, fully reversible) and Balanced/power-saver throttling is a common, easy-to-miss cause of "why is it slower on this laptop than my dev machine."
 
-### Approach
+**If the live demo fails during the defense:**
+- Have the OBS-recorded MP4 embedded directly in the slide deck as the primary fallback, and a Playwright-scripted PNG screenshot sequence (of the same sample inputs) as a secondary, playback-risk-free fallback if video codec/driver issues also affect the presentation machine.
+- Because a video can fail to play (codec, driver, audio-monitor routing) in ways a static image cannot — a screenshot sequence is the most degradation-resistant fallback available using tools already in the stack.
 
-Create `chapters/frontmatter/certification.tex`:
+## Version Compatibility
 
-```latex
-\newpage
-\thispagestyle{empty}   % no header/footer on this page
+| Package A | Compatible With | Notes |
+|-----------|------------------|-------|
+| `llama-cpp-python==0.3.23` | Python 3.13.x (Windows, 64-bit) | Confirmed installed and importable in this exact environment (`3.13.13`). Re-verify a wheel (not source build) installs on the presentation laptop's Python 3.13.x before the defense — a source build under time pressure with no compiler toolchain is a real failure mode for this library. |
+| `playwright==1.60.0` | Python 3.13.x | Already installed and working (`sync_playwright` import verified in this environment). `python -m playwright install chromium` is needed only for the new automated smoke test, not for the live demo itself. |
+| `psutil==7.2.2` | Python 3.13.x | Already resolvable in this environment (currently only via `train` extra's transitive chain); pin it directly under `dev` so it doesn't silently disappear on a `[dev,runtime]`-only install. |
+| `wsgiref` (stdlib) | Any CPython 3.x | No compatibility risk — ships with Python. |
 
-\begin{center}
-  {\Large\bfseries SUPERVISOR CERTIFICATION}
-\end{center}
+## Sources
 
-\vspace{1.5cm}
-
-\noindent\textbf{To Whom It May Concern,}
-
-\vspace{0.8cm}
-
-\noindent I, \textbf{Giang Anh Tuan}, Internal Supervisor at the Department of
-Information and Communication Technology, University of Science and Technology of
-Hanoi (USTH), hereby certify that the Bachelor Thesis entitled:
-
-\vspace{0.6cm}
-
-\begin{center}
-  \textit{Localized Explainable AI Engine for Vietnamese Financial Phishing Detection}
-\end{center}
-
-\vspace{0.6cm}
-
-\noindent was prepared by student \textbf{Phạm Thế Minh} (Student ID: 23BI14279)
-under my supervision during the academic year 2025--2026 and fulfills the requirements
-for the Bachelor of Science degree in Information and Communication Technology.
-
-\vspace{1.2cm}
-
-\noindent Hanoi, \today
-
-\vspace{2.5cm}
-
-\noindent\begin{tabular}{@{}l@{\hspace{4cm}}l@{}}
-  \textbf{Student}      & \textbf{Internal Supervisor} \\[3.5cm]
-  Phạm Thế Minh         & Giang Anh Tuan \\
-\end{tabular}
-```
-
-### Placement in main.tex
-Input this immediately after `\input{chapters/frontmatter/titlepage}` and before
-the roman-numeral front matter begins.
-
-### XeLaTeX note
-fontspec is already active; `\today` in XeLaTeX with `babel[english]` produces
-"June 15, 2026" style — acceptable. If a Vietnamese date format is needed, add
-`\renewcommand{\today}{ngày ... tháng ... năm ...}` locally on the page.
-
-### No-new-package path
-This IS the no-new-package path.
+- Codebase inspection (HIGH confidence): `src/runtime/analyzers/gguf.py`, `src/runtime/demo.py`, `src/runtime/service.py`, `src/runtime/doctor.py`, `src/data_pipeline/processing/normalizer.py`, `tests/runtime/test_demo.py`, `pyproject.toml`; installed package versions confirmed via `pip show`/`pip list` and `inspect.signature(llama_cpp.Llama.__init__)` in this exact environment.
+- [llama-cpp-python PyPI](https://pypi.org/project/llama-cpp-python/) and [Changelog](https://llama-cpp-python.readthedocs.io/en/stable/changelog/) — confirmed latest release `0.3.32` (2026-06-29) vs. installed `0.3.23`. MEDIUM confidence (WebSearch-derived changelog summary, not directly diffed).
+- [Diagnosing Latency in llama-cpp-python Wrapper for Short Prompts — GitHub Discussion #2073](https://github.com/abetlen/llama-cpp-python/discussions/2073) — confirms Python/C++ boundary overhead and pre-warming as the standard mitigation; this project's `GGUFAnalyzer` already caches the loaded runtime, so this overhead is already mitigated in this codebase. MEDIUM confidence.
+- [Optimal parameters for parallel inference — llama.cpp GitHub Discussion #18308](https://github.com/ggml-org/llama.cpp/discussions/18308) and community CPU-tuning writeups on `n_threads`/`n_batch` — MEDIUM confidence, cross-checked against the library's own default signature (`n_threads=None`, `n_batch=512`, `flash_attn=False`) inspected directly in this environment (HIGH confidence for the defaults themselves).
+- [OBS Project official download](https://obsproject.com/download) plus version-tracking cross-check — confirmed current stable `32.1.2` (2026-04-21), free/open-source/offline. MEDIUM confidence.
+- [pytest-localserver PyPI](https://pypi.org/project/pytest-localserver/) — considered and rejected in favor of the project's existing `wsgiref.util.setup_testing_defaults` pattern (already proven in `tests/runtime/test_demo.py`) plus Playwright for real-browser coverage; no new dependency needed for WSGI-level testing. LOW confidence, informational only (not adopted).
+- [py-spy PyPI](https://pypi.org/project/py-spy/) — confirmed latest version `0.4.2` (2026-04-24). MEDIUM confidence.
 
 ---
-
-## 4. Front Matter Reordering
-
-### Current order (preface.tex)
-Abstract → Acknowledgements → TOC → List of Figures → List of Tables
-
-### Required order (department template)
-TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
-
-### Package needed
-**None.** This is a structural edit to preface.tex (and main.tex input ordering).
-
-### New preface.tex structure
-
-```latex
-\pagenumbering{roman}
-
-% 1. Table of Contents
-{\singlespacing
-\tableofcontents
-}
-\clearpage
-
-% 2. Acknowledgements
-\chapter*{Acknowledgements}
-\addcontentsline{toc}{chapter}{Acknowledgements}
-The author gratefully acknowledges ...
-
-\clearpage
-
-% 3. List of Abbreviations (new file)
-\input{chapters/frontmatter/abbreviations}
-\clearpage
-
-% 4. List of Tables
-{\singlespacing
-\addcontentsline{toc}{chapter}{\listtablename}
-\listoftables
-}
-\clearpage
-
-% 5. List of Figures
-{\singlespacing
-\addcontentsline{toc}{chapter}{\listfigurename}
-\listoffigures
-}
-\clearpage
-
-% 6. Abstract
-\chapter*{Abstract}
-\addcontentsline{toc}{chapter}{Abstract}
-...abstract text...
-
-\cleardoublepage
-\pagenumbering{arabic}
-```
-
-### tocloft note
-The `\addcontentsline{toc}{chapter}{...}` calls for List of Tables and List of
-Figures already exist in the current preface.tex. Moving them to a new position
-in the file is the entire change required — tocloft configuration in main.tex
-does not need editing.
-
-### hyperref note
-hyperref's bookmark order mirrors the TOC order. Because TOC now appears first,
-the PDF bookmark tree will correctly list: TOC / Acknowledgements / List of
-Abbreviations / List of Tables / List of Figures / Abstract. No hyperref option
-changes needed.
-
----
-
-## 5. Appendices Section (APPENDIX 1, APPENDIX 2 headings)
-
-### Requirement
-Post-bibliography section with headings "APPENDIX 1", "APPENDIX 2" (not "Appendix A").
-Numbered with Arabic numerals, not letters.
-
-### Package needed
-**None.** LaTeX's built-in `\appendix` command plus titlesec covers this.
-
-### Approach
-
-```latex
-% In main.tex, AFTER \bibliography{references}
-
-\appendix
-
-% Reset chapter counter to arabic numbering for appendices
-\renewcommand{\thechapter}{\arabic{chapter}}
-
-% Reformat chapter heading for appendices: "APPENDIX 1" style
-\titleformat{\chapter}[block]
-  {\normalfont\Large\bfseries\centering}
-  {APPENDIX \thechapter}
-  {0.5em}
-  {}
-\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
-
-\input{chapters/appendix_01}
-\input{chapters/appendix_02}
-```
-
-Then create `chapters/appendix_01.tex`:
-
-```latex
-\chapter{Source Code Repository}
-\label{app:code}
-
-The full source code is available at: \url{https://github.com/...}
-
-...
-```
-
-This produces the heading "APPENDIX 1" followed by the chapter title on the same
-or next line. If the department template requires "APPENDIX 1" as the SOLE heading
-(no subtitle), pass an empty title:
-
-```latex
-\chapter{}   % produces "APPENDIX 1" with no subtitle
-```
-
-### TOC appearance
-Appendix chapters will appear in the TOC as "APPENDIX 1 Source Code ……  X". If
-appendices should be excluded from the TOC entirely:
-
-```latex
-\addtocontents{toc}{\protect\setcounter{tocdepth}{-1}}
-\appendix
-...
-\addtocontents{toc}{\protect\setcounter{tocdepth}{1}}
-```
-
-### No-new-package path
-`\appendix` + `\renewcommand{\thechapter}` + titlesec `\titleformat`. All available.
-
----
-
-## Summary: Package Delta
-
-| Requirement | New Package | Mechanism |
-|---|---|---|
-| Roman numeral headings | None | `\renewcommand{\thechapter}{\Roman{chapter}}` + titlesec `\titleformat` |
-| List of Abbreviations | None | longtable + array + booktabs (already loaded) |
-| Certification letter | None | Plain LaTeX layout, `tabular`, existing geometry |
-| Front matter reorder | None | Structural edit to preface.tex input order |
-| Appendices section | None | `\appendix` + `\renewcommand{\thechapter}{\arabic{chapter}}` + titlesec |
-
-**Total new packages required: 0**
-
----
-
-## XeLaTeX Compatibility Notes
-
-- All commands above are XeLaTeX-compatible. `\Roman`, `\arabic`, `\appendix`,
-  longtable, titlesec, and tocloft are engine-agnostic.
-- fontspec's `\addfontfeatures{LetterSpace=...}` used in titlepage.tex does not
-  interact with any of the above changes.
-- The `\thispagestyle{empty}` on the certification page suppresses the fancyhdr
-  header/footer. This is the correct approach; do not call `\fancyhf{}` locally
-  as that would affect the global fancyhdr state.
-- When `\pagenumbering{roman}` is active, all front-matter pages get lowercase
-  roman page numbers. The certification letter should appear BEFORE
-  `\pagenumbering{roman}` (immediately after titlepage) if it must be unnumbered,
-  or be given `\thispagestyle{empty}` explicitly.
-
----
-
-## Integration Checklist for Phase 22
-
-1. main.tex — replace `\titleformat{\chapter}` block (line 72) with Roman version
-2. main.tex — add certification input after titlepage input
-3. main.tex — add `\appendix` + retitled format + appendix inputs after bibliography
-4. preface.tex — reorder sections per Section 4 above; extract abstract and
-   acknowledgements text for easier editing if desired
-5. NEW: `chapters/frontmatter/certification.tex`
-6. NEW: `chapters/frontmatter/abbreviations.tex`
-7. NEW: `chapters/appendix_01.tex`, `chapters/appendix_02.tex` (content TBD)
-8. Content edits: update all "Chapter X" cross-references in chapter files to
-   "Section~\ref{}" or explicit Roman numeral references
+*Stack research for: Demo verification & presentation hardening (v5.1 milestone)*
+*Researched: 2026-07-02*

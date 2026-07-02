@@ -1,510 +1,301 @@
-# Domain Pitfalls: Vietnamese Financial Scam Detection + Explainable Local LLM Inference
+# Pitfalls Research: Last-Mile Hardening of a Local Offline LLM Demo Before a Live Thesis Defense
 
-**Domain:** Offline Vietnamese financial phishing detection with explainable outputs
-**Researched:** 2026-03-18
-**Milestone context:** Greenfield
+**Domain:** Verifying/hardening an existing local demo (Python `wsgiref` backend + vanilla JS chat UI + GGUF-quantized LLM via llama.cpp-style inference) in the final ~2 weeks before a live, offline, high-stakes academic presentation (13-20 July 2026).
+**Researched:** 2026-07-02
+**Confidence:** MEDIUM-HIGH (mixed: several findings verified directly against this repo's source; general demo-day and llama.cpp/OS behavior corroborated by external sources; a few items are reasoned from known OS/hardware behavior without a project-specific test yet)
 
-## Phase Map (for roadmap ownership)
-
-- **Phase 1 - Taxonomy and Risk Policy:** Define scam classes, severity policy, explanation contract, and release gates.
-- **Phase 2 - Data Acquisition and Governance:** Collect seed data, deduplicate, label, and enforce split hygiene.
-- **Phase 3 - Synthetic Expansion QA:** Generate synthetic data with diversity controls and adversarial coverage.
-- **Phase 4 - Fine-Tuning and Thresholding:** Train, calibrate thresholds, and optimize for false-negative risk.
-- **Phase 5 - Explainability Alignment and Safety:** Verify explanation faithfulness and recommendation quality.
-- **Phase 6 - Local Inference Optimization:** Quantization, latency, and edge-runtime regression controls.
-- **Phase 7 - Post-Deploy Monitoring and Update Loop:** Drift detection, incident review, and rapid model/data updates.
+This is not a "what tech should we pick" research pass — the stack is frozen (`wsgiref`, vanilla JS, GGUF). The risk surface here is entirely **verification and environment discipline**: does the thing that already works on the dev machine still work, unattended, offline, on battery, in front of a committee, with no do-overs.
 
 ## Critical Pitfalls
 
-### 1) Vietnamese fraud lexicon drift is missed
+### Pitfall 1: Environment drift between the dev machine and the actual presentation laptop
 
-**What goes wrong:** New scam slang, regional wording, and euphemisms appear faster than dataset updates.
+**What goes wrong:**
+The demo is verified and "works" on the machine it was built on, but the presentation laptop is a different physical machine (or the same machine after a reset/update) with different drive letters, missing off-repo files, or a different Python environment. The demo fails to start, or starts but silently falls back to a degraded backend, at the worst possible moment.
+
+**Why it happens:**
+This repo already stores model artifacts **off-repo** at an absolute Windows path (`D:\PROJEct\AI MODELS`), overridden via a git-ignored `.env/.env` file (`MODEL_ARTIFACT_ROOT`, `MODEL_REGISTRY_PATH`), specifically to dodge OneDrive sync interference (per `.planning/STATE.md`). That means:
+- `.env/.env` is **not tracked in git** — a fresh clone or a different laptop has no such file until someone manually recreates it from `.env.example`.
+- The model registry stores **absolute paths** (`D:\...`). If the presentation laptop assigns model storage to a different drive letter (e.g., an external SSD mounts as `E:` instead of `D:`), or the files were copied but not into the identical directory structure, the registry silently points at nothing.
+- The project itself lives inside a **OneDrive-synced folder** (`OneDrive - caugiay.edu.vn\...`). If the presentation laptop's OneDrive client hasn't finished syncing, or uses Files On-Demand placeholders, opening/reading repo files (even just Python source) can stall or trigger a cloud fetch — exactly the sync interference the off-repo model path was designed to avoid, but for the *code*, not the model.
+- `runtime-profile`, `runtime_backend`, and other settings come from environment variables / `.env`, which are invisible in a code diff — nothing in git review will catch a config drift.
+
+**How to avoid:**
+- Treat the presentation laptop as the **only machine that matters** for the last verification pass — do not trust "it worked on my dev machine" as sufficient evidence.
+- Do a **full dry run from a cold clone**: wipe or use a second user account / fresh checkout, manually create `.env/.env` from `.env.example`, and confirm `vnphish doctor` reports `READY` with zero manual troubleshooting beyond the documented setup steps.
+- Verify the absolute model paths in `.env/.env` and in `model-registry.json` actually resolve to files that exist **on the exact drive letter the presentation laptop will use**. If using an external/USB drive, plug it into the presentation laptop once beforehand and confirm the drive letter is stable across reboots (Windows can reassign drive letters).
+- If the presentation laptop is different from the dev laptop, pre-sync OneDrive fully and switch to "Always keep on this device" for the whole repo folder before travel, or better: copy the repo out of OneDrive into a plain local folder for the presentation to remove sync as a variable entirely.
+- Run `vnphish doctor` on the actual presentation laptop and require a clean `READY` at least 48 hours before the defense window (13 July), with a second confirmation the morning of.
+
 **Warning signs:**
+- `vnphish doctor` has only ever been run on the primary dev machine.
+- `.env/.env` was last edited/created weeks ago and nobody has re-verified the paths since.
+- The presentation laptop is undecided this close to the defense window.
+- OneDrive sync status icon shows "syncing" or "online-only" on repo files.
 
-- Stable validation metrics but rising user-reported misses for new scam styles.
-- Frequent OOV-like token spikes in recent production text.
-- Classifier confidence drops on messages containing new bait phrases.
-**Prevention strategy:**
-- Weekly drift mining from fresh scam reports and failed cases.
-- Maintain a living fraud lexicon (bait verbs, urgency markers, payment cues, spoof words).
-- Add adversarial canary sets per release containing latest slang variants.
-**Roadmap phase owner:** Phase 7 (primary), Phase 2 (initial setup).
-
-### 2) Code-switching and obfuscation bypass detection
-
-**What goes wrong:** Attackers mix Vietnamese-English, split keywords, use homoglyphs, or alter spacing/punctuation to evade pattern learning.
-**Warning signs:**
-
-- High miss rate on mixed-language samples versus pure Vietnamese samples.
-- Recall collapse when characters are normalized or spacing is perturbed.
-- URL/domain risk not detected when text contains altered separators.
-**Prevention strategy:**
-- Robust normalization pipeline (unicode normalization, spacing cleanup, obfuscation transforms).
-- Train/evaluate with perturbation suites: code-switch, typo, homoglyph, punctuation noise.
-- Add explicit URL and domain token features to preserve phishing cues.
-**Roadmap phase owner:** Phase 2 (normalization pipeline), Phase 4 (robustness training).
-
-### 3) False-negative risk is under-controlled
-
-**What goes wrong:** Teams optimize for aggregate F1 and accuracy, then ship thresholds that miss high-risk scams.
-**Warning signs:**
-
-- Good macro metrics but severe misses in high-harm classes (bank impersonation, account takeover).
-- Threshold chosen on convenience, not cost-weighted policy.
-- No per-class recall gate in release checklist.
-**Prevention strategy:**
-- Use risk-weighted evaluation where high-harm classes have strict minimum recall.
-- Calibrate thresholds per class, not one global score.
-- Block release when high-harm recall gate fails, even if overall F1 passes.
-**Roadmap phase owner:** Phase 1 (policy), Phase 4 (calibration and gating).
-
-### 4) Explanation hallucination creates unsafe trust
-
-**What goes wrong:** Model outputs plausible but unsupported reasons, fake evidence, or overconfident advice.
-**Warning signs:**
-
-- Explanations reference cues not present in the input text.
-- Similar predictions produce inconsistent rationale.
-- User testing shows high trust in wrong recommendations.
-**Prevention strategy:**
-- Enforce evidence-linked explanation schema (claim -> text span evidence -> recommendation).
-- Add faithfulness tests: rationale overlap, counterfactual consistency, and contradiction checks.
-- Refuse unsupported claims and fall back to uncertainty language when evidence is weak.
-**Roadmap phase owner:** Phase 5 (primary), Phase 1 (contract definition).
-
-### 5) Dataset leakage inflates offline metrics
-
-**What goes wrong:** Near-duplicate or template-related examples leak across train/val/test, especially from synthetic generation.
-**Warning signs:**
-
-- Very high validation scores but weak field performance.
-- Same URL patterns, phone formats, or template skeletons across splits.
-- Performance drops sharply on time-based holdout.
-**Prevention strategy:**
-- Deduplicate with lexical + semantic similarity before split.
-- Split by scam campaign/template family and by time window.
-- Keep an untouched external holdout set for final acceptance.
-**Roadmap phase owner:** Phase 2 (split governance), Phase 3 (synthetic controls).
-
-### 6) Synthetic data mode collapse narrows coverage
-
-**What goes wrong:** Synthetic expansion repeats a few templates and fails to represent real attacker creativity.
-**Warning signs:**
-
-- High n-gram/template repetition in synthetic corpus.
-- Strong benchmark results but poor robustness to novel scam phrasings.
-- Class coverage appears balanced numerically but not linguistically diverse.
-**Prevention strategy:**
-- Diversity constraints in generation prompts and post-generation filtering.
-- Human-in-the-loop spot audits by scam archetype.
-- Track diversity metrics (distinct n-grams, template entropy, lexical variety).
-**Roadmap phase owner:** Phase 3 (primary).
-
-### 7) Label ontology is too coarse or inconsistent
-
-**What goes wrong:** Labels mix scam mechanism, intent, and severity without clear boundaries, causing unstable learning and explanations.
-**Warning signs:**
-
-- Frequent annotator disagreement between similar classes.
-- Explanation text conflicts with assigned class semantics.
-- Confusion matrix shows persistent class collapse.
-**Prevention strategy:**
-- Define hierarchical taxonomy: mechanism, actor claim, action requested, harm severity.
-- Write annotation playbook with positive/negative examples per class.
-- Run adjudication cycles and update guidelines before scaling labeling.
-**Roadmap phase owner:** Phase 1 (taxonomy), Phase 2 (annotation ops).
-
-### 8) Privacy promises break in telemetry/logging
-
-**What goes wrong:** "Offline-first" product still leaks sensitive raw text via logs, crash reports, or debug exports.
-**Warning signs:**
-
-- Raw user messages appear in local logs by default.
-- Support workflows request full message copy/paste.
-- No data retention policy for local artifacts.
-**Prevention strategy:**
-- Redact PII and sensitive spans before any logging.
-- Default telemetry off for raw text; opt-in with explicit consent.
-- Add privacy test cases to CI for log output and error paths.
-**Roadmap phase owner:** Phase 1 (policy), Phase 6 (runtime controls), Phase 7 (ops audits).
-
-### 9) Quantization regression harms recall/explanation quality
-
-**What goes wrong:** GGUF quantization and CPU-focused optimization reduce subtle linguistic detection ability and rationale quality.
-**Warning signs:**
-
-- Recall gap between FP16 reference and quantized builds exceeds safety threshold.
-- Explanations become shorter, generic, or contradictory after optimization.
-- Regression appears only on long, mixed-language messages.
-**Prevention strategy:**
-- Maintain golden evaluation suite for pre/post-quantization comparison.
-- Define acceptance deltas for per-class recall and explanation faithfulness.
-- Use model-size fallback tiers when low-bit variants fail safety gates.
-**Roadmap phase owner:** Phase 6 (primary), Phase 4 (reference baseline).
-
-### 10) Alert fatigue from false positives reduces real-world safety
-
-**What goes wrong:** Overly aggressive detector flags too many benign financial messages; users start ignoring warnings.
-**Warning signs:**
-
-- High override/dismiss rate in user trials.
-- Declining user trust scores despite high recall.
-- Repeated complaints that recommendations are "always panic".
-**Prevention strategy:**
-- Introduce graded risk bands (low/medium/high) with calibrated language.
-- Tune recommendation UX to match confidence and evidence strength.
-- Track precision-at-action threshold, not only headline recall.
-**Roadmap phase owner:** Phase 5 (recommendation design), Phase 7 (post-deploy tuning).
-
-## Phase-Specific Warning Matrix
-
-| Phase Topic | Likely Pitfall | Detection Signal | Mitigation |
-| ------------- | ---------------- | ------------------ | ------------ |
-| Taxonomy/policy | Under-specified high-harm classes | Ambiguous labels, unstable recall target | Hierarchical ontology + class-level recall gates |
-| Data ingestion | Leakage and normalization blind spots | Duplicate bleed and mixed-language misses | Dedup + robust normalization + split governance |
-| Synthetic expansion | Template repetition | High template similarity | Diversity constraints + human audits |
-| Fine-tuning/calibration | False negatives hidden by aggregate metrics | Strong F1, weak critical-class recall | Cost-sensitive thresholds + hard release gates |
-| Explainability | Hallucinated rationale | Unsupported claims in rationale | Evidence-linked schema + faithfulness checks |
-| Local optimization | Quantization safety regression | Recall/fidelity drop vs reference | Golden suite + acceptance deltas + fallback models |
-| Deployment | Trust erosion from false alarms | High dismiss rate | Risk bands + recommendation calibration |
-| Monitoring | Lexicon drift | OOV spikes and incident misses | Weekly drift loop + canary refresh |
-
-## Minimum Failure-Detection Dashboard (should exist before first public trial)
-
-- Per-class recall for high-harm scam classes.
-- False-negative incident tracker with root-cause tags.
-- Explanation faithfulness pass rate.
-- Duplicate/leakage score across splits.
-- Drift indicators: lexical novelty, code-switch ratio, obfuscation ratio.
-- Quantized-vs-reference regression delta.
-- User trust and warning-dismiss rate.
-
-## Confidence
-
-- **Domain fit:** High (pitfalls are specific to Vietnamese financial scam text and local XAI inference workflow).
-- **Operational specificity:** Medium (exact thresholds should be finalized during calibration with real pilot data).
+**Verification category:** Offline/portability check (primary), Functional verification (secondary — nothing else is testable until this passes)
 
 ---
 
-# Chat UI Pitfalls: Vanilla JS Chat-Bubble Interface (v2.0 Revamp)
+### Pitfall 2: Cold-start / model-load timing does not match the rehearsed number
 
-**Domain:** Chat-bubble UI, vanilla HTML/CSS/JS, bilingual Vietnamese/English, Python wsgiref backend
-**Researched:** 2026-06-08
-**Milestone context:** Replacing AI-demo card layout with chat thread layout — no framework, no build step
+**What goes wrong:**
+The team rehearses pacing around a known "~13s warm CPU latency" figure (from `.planning/STATE.md`, measured after prompt/context optimization). On presentation day, the actual first response takes far longer — or the whole "Warming up local model..." startup step itself takes much longer than expected — creating dead air in front of the committee.
 
-## Existing Code Context
+**Why it happens:**
+- **mmap cold-cache effect:** llama.cpp-style loaders use `mmap` by default, which is fast (sub-2s) only when the OS page cache already holds the model file from a recent prior run. After a reboot, sleep/hibernate, or simply not having opened the file recently, the *first* load touches every page from disk, which can be 10-40x slower than the cached case (confirmed pattern across llama.cpp cold-start reports: mmap load can go from ~2s cached to ~15s+ uncached even on NVMe, and much worse on slower disks). The "~13s warm latency" number in this project's own state notes is explicitly a **warm** number — the doctor check does not measure or gate on cold-start behavior at all.
+- **Antivirus first-touch scanning:** Windows Defender's real-time protection intercepts and scans files as they're read, and a large GGUF file (multi-GB) being mapped for the first time on the presentation laptop can add many extra seconds of latency the dev machine never showed (if the dev machine already has the file excluded or previously scanned/cached clean).
+- **`doctor` checks existence, not performance:** Reading this project's `RuntimeDoctor` implementation, every check is a pass/fail on config, imports, and file presence (`backend-ready`, `runtime-profile`, etc.) — there is no timing assertion anywhere. A green `doctor` report gives false confidence that the demo will *feel* the same as it did during development.
+- Presentation laptops are frequently rebooted the morning of (fresh Windows updates, printer setup, projector handshake) — guaranteeing a cold cache at the exact moment it matters most.
 
-The current demo.js architecture is stateless-per-request: one `<form>` submits once, `setBusyState()` disables both buttons, `renderResult()` replaces the result panel via `replaceChildren()`, and the existing `aria-live="polite"` is on the static result panel container. The chat revamp introduces a fundamentally different interaction model: an append-only message thread, a persistent input bar at the bottom, multiple bot bubbles, and a shared conversation history. Every pitfall below is calibrated to the gaps between the existing code and that new model.
+**How to avoid:**
+- Rehearse the **worst case**, not the best case: reboot the presentation laptop, then immediately run `vnphish demo` and time everything from cold boot to first rendered answer, at least once per rehearsal day.
+- Add the model file's directory (or file extension) to a Windows Defender exclusion on the presentation laptop ahead of time, and confirm this is allowed by the venue's device policy.
+- Warm the model **once**, deliberately, a few minutes before walking into the room (open the demo, submit one throwaway sample message) so the OS page cache is hot when the real Q&A starts — but don't rely on this as the only safety net (see sleep/lock pitfall below, which can cold the cache again).
+- If timing is still inconsistent, consider running `demo` and pre-warming it as the very first action after arriving in the presentation room, before the committee arrives, rather than as a live "watch it boot" moment.
+
+**Warning signs:**
+- The "~13s" figure has only ever been measured on a machine that was recently used for development (hot disk cache, hot OS scheduler).
+- No one has timed a true cold boot → first answer path.
+- Windows Defender has not been checked for exclusions on the model directory.
+
+**Verification category:** Functional verification, Edge-case verification (cold-start is itself an edge case that must be tested explicitly, not assumed away by the warm-path doctor check)
 
 ---
 
-## Critical Chat UI Pitfalls
+### Pitfall 3: The "offline, local-first" demo has a hardcoded internet dependency
 
-### C1) Scroll Anchor Race After DOM Insertion
+**What goes wrong:**
+The UI explicitly advertises "Local-first" / "Không gửi dữ liệu lên cloud" (no cloud data sent) in its own header copy, but `index.html` loads its primary typeface from Google Fonts over the network:
 
-**What goes wrong:** `container.scrollTop = container.scrollHeight` executes before the browser has laid out the newly inserted bubble. The measured `scrollHeight` is stale — it reflects the old height. The view jumps to a position that is several pixels short of the true bottom. On slow CPUs or when a large bot bubble is rendered, the shortfall is visually obvious (last message is partially hidden).
-
-**Why it happens:** `scrollHeight` and `clientHeight` are integer-rounded layout values. They are only reliable after a paint cycle. Calling them synchronously immediately after `appendChild` reads the pre-layout value.
-
-**Warning signs:**
-- Bottom of the last bubble is clipped by 10-50 px after each new message.
-- Works fine on fast desktop, breaks on budget Android phones.
-- Adding a `console.log` delay accidentally "fixes" it (masks the timing issue).
-
-**Prevention:**
-Use `requestAnimationFrame` to defer the scroll measurement until after the browser has painted:
-```js
-function scrollToBottom(container) {
-  requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
-  });
-}
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 ```
-Add a "user has scrolled up" guard: only auto-scroll when `container.scrollHeight - container.scrollTop - container.clientHeight < 80`. This prevents yanking the user back to bottom when they are reading older messages.
 
-**Phase:** Phase 1 of chat revamp (initial thread layout implementation).
-
----
-
-### C2) Re-entrant Submit: User Sends While Bot Is Still Responding
-
-**What goes wrong:** The existing `setBusyState(isBusy)` pattern disables the button for the duration of the single fetch. In a chat model the user will expect to type the next message before the bot has finished replying. If you carry over the same disable-everything approach, the input bar is frozen. If you remove the disable guard without replacing it, the user can submit while a prior fetch is in-flight, causing two concurrent requests to the Python wsgiref server — which is single-threaded and will queue them serially, so the second request starves until the first (potentially slow model inference) completes.
-
-**Why it happens:** wsgiref processes one request at a time on a single thread. A second POST to `/api/analyze` while the first is still waiting for the model will be accepted at the TCP level but will not enter the WSGI app until the first request handler returns. The user sees the second submission appear to hang.
-
-**Warning signs:**
-- Submit button is clickable mid-inference and second bubble appears immediately as "pending" but never resolves.
-- Server logs show requests queued serially; total latency doubles for the second request.
-
-**Prevention:**
-- Maintain a module-level `let currentController = null` (`AbortController`). On each new submit, call `currentController?.abort()` before creating a new one and passing its `signal` to `fetch`.
-- In the `catch` block, check `error.name === 'AbortError'` and treat it silently (remove the pending bubble rather than showing an error).
-- Disable only the send button (not the text input) during in-flight requests. This prevents a second submit while giving the user visual feedback that the first is pending.
-- Show a per-bubble loading indicator on the bot bubble that was requested, not a global page lock.
-
-**Phase:** Phase 1 of chat revamp. Must be resolved before any UX testing.
-
----
-
-### C3) DOM Used as Sole Source of Truth for Conversation History
-
-**What goes wrong:** The existing `renderResult()` approach treats the result panel as a display artifact — it is rebuilt from scratch on each response. In a chat model, if you follow the same pattern and let the DOM bubbles be the only record of the conversation, you have no recoverable state when you need to: (a) scroll to an earlier message, (b) export the thread, (c) reset/clear, or (d) replay history on page reload.
-
-**Why it happens:** Appending `<div>` nodes is the path of least resistance in vanilla JS. Developers forget that `replaceChildren()` or `innerHTML = ''` on the container also destroys the only record of what was said.
-
-**Warning signs:**
-- "Clear chat" button calls `container.replaceChildren()` then needs to know how many turns were had — but can't.
-- Refreshing the page loses the conversation without warning.
-- Trying to add a "copy conversation" feature requires walking the DOM tree and re-serializing text.
-
-**Prevention:**
-- Maintain a JS array `let history = []` where each entry is `{ role: 'user'|'bot', content: string, timestamp: Date, riskTier?: string }`.
-- Append to `history` first, then call `appendBubble(entry)` to render from that record.
-- `clearChat()` resets both `history = []` and `container.replaceChildren()` atomically.
-- This also makes scroll-to-top (re-render from history) and export trivial.
-
-**Phase:** Phase 1 of chat revamp (data model, before DOM construction).
-
----
-
-### C4) ARIA Live Region Registered Too Late
-
-**What goes wrong:** The existing `index.html` has `aria-live="polite"` on the static `#result-panel` container, which works because it is present in the DOM at page load. In the chat revamp, if the chat thread container or individual bot bubbles are created dynamically (injected with `createElement` after the user submits), screen readers will not announce their content. The ARIA live region specification requires the region to be present and registered in the DOM *before* content is added to it.
-
-**Why it happens:** Developers add `aria-live` to a newly created `div` and then immediately `appendChild` it with content. The browser's accessibility tree has not yet registered the live region, so the announcement never fires.
-
-**Warning signs:**
-- Screen reader announces the first message but not subsequent ones.
-- NVDA/VoiceOver is silent after the bot replies.
-- Adding a 200 ms delay before populating the bubble "fixes" it — this is the timing tell.
-
-**Prevention:**
-- Place a single, persistent `<div id="chat-log" role="log" aria-live="polite" aria-label="Conversation">` in `index.html` at page load, empty. Append all bubbles into it rather than replacing it.
-- `role="log"` carries implicit `aria-live="polite"` and is semantically correct for a chat thread.
-- For error announcements (network failure, runtime unavailable), use a separate `<div role="alert" aria-live="assertive">` that is also pre-rendered but empty.
-- Do not set `aria-atomic="true"` on the chat log container: you want each new bubble announced individually, not the entire thread re-read.
-- The send button should announce its state change: `analyzeButton.setAttribute('aria-label', isBusy ? 'Đang phân tích...' : 'Gửi')`.
-
-**Phase:** Phase 1 of chat revamp (HTML scaffolding, before any JS logic).
-
----
-
-### C5) Vietnamese Diacritics Rendered Poorly on macOS and Linux
-
-**What goes wrong:** The existing CSS font stack is `"Segoe UI Variable Display", "Bahnschrift", "Trebuchet MS", sans-serif`. On Windows 11 these fonts have adequate Vietnamese diacritic coverage. On macOS and Linux, none of these fonts are available. The browser falls through to the OS generic `sans-serif`, which on Ubuntu may be DejaVu Sans — a font with incomplete Vietnamese glyph coverage, causing combining diacritics to render with incorrect positioning (floating accents, colliding marks) or fall back to tofu (empty rectangles).
-
-Vietnamese uses stacked diacritics (a base letter + a vowel modifier + a tone mark, e.g. `ộ` = `o` + circumflex + dot below). Fonts that only partially support Latin Extended Additional will render the base character from one font and the combining mark from another, producing visually broken text.
+If the presentation venue has no internet access (common for locked-down defense rooms, or simply flaky campus wifi), the browser will spend time attempting these connections (each `preconnect`/stylesheet fetch has its own DNS/TCP/TLS timeout), then silently fall back to the CSS `font-family` fallback stack. The visual result is a different, untested font rendering — and specifically risks resurfacing the Vietnamese-diacritic-stacking problem that Be Vietnam Pro was chosen to fix (per this project's own `STATE.md`: "Font target: Be Vietnam Pro renders Vietnamese diacritics without stacking"). This is also a credibility risk: a committee member technical enough to open DevTools' Network tab during a "fully offline, local-only" demo would see outbound requests to Google's CDN.
 
 **Why it happens:**
-- NFD-encoded Vietnamese text (decomposed form, each diacritic as a separate code point) is more vulnerable to font fallback mismatches than NFC-encoded text (precomposed).
-- The Python runtime returns JSON strings. If those strings are NFD-normalized somewhere in the pipeline, the browser may split glyph lookup across two fonts.
+Google Fonts (and other CDN-hosted assets — analytics snippets, icon fonts, CSS frameworks) are added during UI development for convenience and never revisited once the "it looks good" milestone is reached, because on a dev machine with internet, they always resolve near-instantly and the dependency is invisible.
+
+**How to avoid:**
+- Self-host the Be Vietnam Pro `.woff2` files under `/static/fonts/` and switch `index.html`/CSS to local `@font-face` declarations — removes the network dependency entirely and removes any timeout risk on a slow/no connection.
+- Grep the entire `demo_assets` directory (HTML/CSS/JS) for any other `http(s)://` reference before sign-off — this is the single highest-value offline-verification check to run, since a hardcoded remote URL is invisible in normal (online) testing.
+- As part of offline verification, physically disconnect Wi-Fi/Ethernet (or use OS airplane mode) on the test laptop and load the demo fresh — do not just trust code review to catch this.
 
 **Warning signs:**
-- Test the UI on macOS Chrome/Safari or Ubuntu Firefox — diacritics look incorrect or missing.
-- Vietnamese characters in bot bubbles look fine in DevTools (the Unicode is correct) but the visual rendering has floating or missing marks.
-- Bold or italic variants of the fallback font lack the diacritic glyphs even if the regular weight works.
+- Anyone can search the codebase for `googleapis.com`, `gstatic.com`, `cdn.`, `unpkg`, or `jsdelivr` and get a hit in a supposedly offline-first asset directory. (This search currently returns a hit in `src/runtime/demo_assets/index.html`.)
+- The demo has never actually been tested with Wi-Fi/Ethernet fully disabled — only tested "on my machine" with normal internet running in the background.
 
-**Prevention:**
-- Add `"system-ui"` as the first entry in the font stack. On macOS, system-ui resolves to SF Pro, which has full Vietnamese coverage. On modern Linux it resolves to a system font with good Unicode support.
-- Add `"Noto Sans"` or `"Noto Sans Vietnamese"` as an explicit fallback after system-ui. Noto is specifically designed for full Unicode coverage including all Vietnamese precomposed and combining characters.
-- Revised font stack for chat bubbles: `system-ui, "Segoe UI Variable Display", "Noto Sans", sans-serif`.
-- Ensure the Python backend returns JSON text in NFC Unicode normalization. Python's `unicodedata.normalize('NFC', text)` before serializing to JSON prevents decomposed diacritic issues.
-- Set `lang="vi"` on bot bubble elements that contain Vietnamese verdict text. This enables browser-level hyphenation and font-matching hints.
-
-**Phase:** Phase 1 of chat revamp (CSS font stack) and Phase 2 (backend normalization verification).
+**Verification category:** Offline/portability check — this is the single most concrete, already-confirmed finding in this research pass.
 
 ---
 
-### C6) Chat Container Height Collapses or Overflows on Mobile
+### Pitfall 4: Laptop power plan / battery state silently changes CPU inference speed
 
-**What goes wrong:** A chat-first layout requires the message thread to fill the available vertical space between the hero/header and the fixed input bar at the bottom. The natural approach is `height: 100vh` or `height: calc(100vh - headerHeight - inputBarHeight)`. On mobile browsers, `100vh` includes the browser chrome (address bar, navigation bar), which is not always visible. When the browser chrome auto-hides on scroll, `100vh` grows, causing a layout jump. When the on-screen keyboard appears, `100vh` does not shrink — the input bar is pushed off screen or the thread overlaps the keyboard.
+**What goes wrong:**
+The demo is rehearsed on AC power with a "Balanced" or "Performance" power plan, producing the expected ~13s latency. On the day, the laptop runs on battery (podium has no outlet nearby, or the presenter unplugs to walk to the front), and Windows' battery-saving power plan throttles the CPU — inference now takes visibly longer, breaking the rehearsed pacing and possibly making it look like the system "hung."
 
 **Why it happens:**
-- `100vh` in mobile browsers is the "largest viewport height" (LVH) — the full height when chrome is hidden. The visible height is shorter.
-- iOS Safari does not support the VirtualKeyboard API. Keyboard appearance does not trigger a `resize` event on the visual viewport in the same way as Android Chrome.
-- The existing CSS uses `min-height: 100vh` on `body`, which is fine for the card layout but is wrong as a constraint for a fixed-height chat container.
+Windows power plans directly gate CPU maximum processor state: "Balanced" can throttle CPU down significantly on battery, and "Battery saver" is explicitly designed to reduce CPU/background performance to extend runtime. Since this is a CPU-bound GGUF inference workload (not GPU-accelerated on the baseline path), the effect is directly visible in generation latency, not hidden behind GPU headroom the way a lighter workload might tolerate it.
+
+**How to avoid:**
+- Always run the live demo **on AC power**, with the laptop plugged in before the presentation starts, and verify the outlet/extension cord situation at the venue in advance (do not assume one exists near the podium).
+- Set the Windows power plan to "Best performance" / "High performance" (or pin max processor state to ~100%) explicitly on the presentation laptop, and re-check this setting the morning of — Windows updates and "recommended settings" prompts can silently reset power plans.
+- Rehearse at least once **unplugged** on whatever the actual battery level will realistically be (e.g., 60-80%, not 100%) to know the worst-case latency, in case power is lost mid-demo.
+- Disable "Battery saver auto-triggers below X%" during the presentation window so a struggling battery doesn't unexpectedly throttle performance without a proactive prompt.
 
 **Warning signs:**
-- On Android Chrome, the input bar jumps up by the keyboard height when typing.
-- On iOS Safari, the input bar is completely hidden behind the keyboard.
-- Thread container height is correct on desktop but wrong on all mobile tests.
+- All latency testing so far has happened plugged in on the dev machine.
+- No one has checked which power plan is active on the specific laptop that will be used.
+- The venue's podium power situation has not been scouted.
 
-**Prevention:**
-- Use `height: 100dvh` (dynamic viewport height, supported in all modern browsers) for the outer shell. `dvh` recomputes as chrome shows/hides.
-- For the thread container: `flex: 1 1 0; overflow-y: auto; min-height: 0;`. The `min-height: 0` override is critical — without it, a flex child's minimum height is its content height, preventing the container from shrinking.
-- Add `padding-bottom: env(safe-area-inset-bottom)` to the fixed input bar to avoid iOS home indicator overlap.
-- For iOS Safari keyboard, listen to `window.visualViewport.addEventListener('resize', ...)` and adjust the input bar's `bottom` offset by `window.innerHeight - window.visualViewport.height`.
-- Test at 375 px width (iPhone SE) with keyboard open before shipping.
-
-**Phase:** Phase 1 of chat revamp (CSS layout). Must be validated on a real mobile device, not only desktop DevTools emulation.
+**Verification category:** Functional verification (performance is part of "does it behave as demonstrated"), Edge-case verification (battery-only operation is a real edge case for a laptop-based live demo).
 
 ---
 
-### C7) Long Bot Bubble Content Overflows or Breaks Layout
+### Pitfall 5: No rehearsed fallback, or a fallback that was never actually tested under failure conditions
 
-**What goes wrong:** The bot response bubble contains: risk tier badge, Vietnamese verdict text, a list of grounded cues (each with a quoted span + reason), and safe next steps. On narrow screens, a grounded cue span quoting the original suspicious text (e.g., a long URL like `"https://vpbank-secure.example/xac-minh-tai-khoan"`) has no natural break point. Without explicit overflow handling the text either overflows the bubble container, or the bubble expands wider than the chat column pushing sibling elements.
+**What goes wrong:**
+The plan is "if the live demo breaks, show a recording/screenshots instead" — but the fallback asset doesn't exist yet, is out of date relative to the current UI, or nobody has actually rehearsed switching to it under time pressure. The presenter freezes or over-apologizes when the live system fails, which experienced demo-day post-mortems consistently identify as more damaging to audience trust than the technical failure itself.
 
 **Why it happens:**
-- URLs and long Vietnamese compound words have no natural word-break opportunities. The browser's default `overflow-wrap: normal` will not break them.
-- `overflow-wrap: anywhere` forces breaks at arbitrary character boundaries, which can make mid-word line breaks that look like spaces to readers (documented real bug in chat UIs).
-- The risk pill badge (`white-space: nowrap`) at the top of the bubble occupies full row width on narrow screens, leaving no room for the verdict text beside it.
+"We'll have a fallback" is treated as a checkbox rather than a rehearsed artifact. Recordings get made once early, then the UI changes (chat bubble redesign, i18n copy edits, a fixed latency bug) and the recording now shows a stale interface that contradicts what's on screen if both are shown side by side, or raises a "wait, why does the live one look different" question.
+
+**How to avoid:**
+- Record the fallback **last**, only after all other verification/fix work for this milestone is frozen — never record it first and consider it done.
+- Script the fallback narration exactly like the live path: same sample scam message, same expected risk tier and explanation output, so switching between live and recorded feels seamless rather than like admitting failure.
+- Actually rehearse the failure-to-fallback transition at least once: deliberately kill the demo process or disconnect power mid-sentence during a practice run, and practice the verbal pivot ("let me show you a recorded run of this same flow") rather than only rehearsing the happy path.
+- Keep the fallback in at least two forms — a short screen recording (video) and a handful of annotated screenshots — since video playback itself can fail (wrong file, codec issue, no audio output cable) and a static screenshot fallback is more robust as a last resort.
+- Store the fallback locally on the presentation laptop itself (not only cloud storage) — the same offline assumptions that apply to the demo apply to the backup plan.
 
 **Warning signs:**
-- Bot bubble containing a URL extends past the right edge of the chat column.
-- Risk pill wraps or overlaps the summary text on 375 px width.
-- Vietnamese text in cue reasons displays with erratic line breaks that resemble random spaces.
+- The fallback recording predates the most recent UI or latency fix.
+- Nobody has practiced narrating over the fallback out loud.
+- The fallback only exists in one format, or only in cloud storage.
 
-**Prevention:**
-- Set `overflow-wrap: break-word` (not `anywhere`) on all bubble text content. This breaks only when the word is longer than the container — correct behavior for URLs.
-- Set `word-break: break-all` exclusively on elements that display raw URL spans (the `cue.span` field), not on all bubble text.
-- Make the risk pill a block element on narrow screens (`display: block; width: fit-content; margin-bottom: 8px`) rather than a flex row sibling to the summary text.
-- Cap maximum bubble width at `min(80%, 480px)` to prevent single-line bubbles from spanning the full chat column width.
-- For the list of cues, use `<details>/<summary>` to collapse long lists behind a toggle when there are more than 3 cues, avoiding overflow-driven layout breaks.
-
-**Phase:** Phase 2 of chat revamp (bubble component design).
+**Verification category:** Fallback verification — this is the entire purpose of this category; a fallback that hasn't been rehearsed under simulated failure is not verified, it's just recorded.
 
 ---
 
-### C8) Stale ID References After Template Cloning
+### Pitfall 6: Last-minute UI/prompt fixes silently exceed the tuned context window or break template wiring
 
-**What goes wrong:** The existing `renderResult()` and `renderError()` functions use `fragment.querySelector('#result-summary')`, `#result-cues`, `#result-risk-tier`, etc. These work because only one result card exists at a time. In a chat model, multiple bot bubbles coexist in the DOM simultaneously. After the second `resultTemplate.content.cloneNode(true)`, there are two elements with `id="result-summary"` in the document. `document.querySelector('#result-summary')` will return the first one (the older bubble), not the new one, silently corrupting the older message's content.
+**What goes wrong:**
+A late "quick fix" to the UI (e.g., adding a field, lengthening placeholder/help text, tweaking the prompt for a fixed wording issue) pushes the effective prompt size past the tightly-tuned `GGUF_CONTEXT_WINDOW=512` budget, or breaks the `data-slot` template contract the JS relies on to render results — and the regression only shows up on specific inputs (e.g., long pasted messages), which may not be the exact samples used in earlier rehearsals.
 
-**Why it happens:** `<template>` cloning does not automatically rename IDs. The existing single-result code uses IDs as stable query targets because only one instance ever exists. The chat model invalidates that assumption.
+**Why it happens:**
+This project's own history shows the context window and prompt were deliberately shrunk to hit the ~13s target (`GGUF_CONTEXT_WINDOW=512`, `GGUF_COMPLETION_MAX_TOKENS=250`, ~130-150 token stripped prompt, per `STATE.md`) — this is a tight, already-optimized budget with very little headroom. Similarly, the front-end templates were migrated from raw `id` attributes to `data-slot` selectors specifically to avoid ID-collision bugs (`STATE.md`: "Phase 16 must update `demo.js` from old inner-ID queries to `data-slot` selectors"). Any "last-minute" fix that touches prompt text, adds a UI field that flows into the request payload, or edits `index.html`/`demo.js` templates risks silently reintroducing exactly the bug classes that were already fixed, because these fixes are easy to forget once the code "looks fine" in a quick visual check.
+- The `runtime_max_text_chars` enforcement (mentioned in `STATE.md`) exists specifically to keep the stripped prompt inside `n_ctx=512` — a UI or prompt-template change that bypasses this path or changes what gets concatenated into the prompt (e.g., adding the channel name in a verbose way) could quietly erode that safety margin without any error, just gradually more truncated/degraded output.
+
+**How to avoid:**
+- Freeze any prompt-template edits after the fix list is settled and re-run the full test suite (`tests/runtime`) plus a manual long-message input test after every edit, not just the sample messages already known to work.
+- For any UI change: search for existing tests before hand-editing `index.html`/`demo.js` (`tests/runtime/test_demo.py`) and add the smallest possible diff, re-confirming `data-slot` internals are preserved rather than reintroducing bare `id` attributes inside cloned templates.
+- Treat "fix any UI quirks surfaced during verification" (an explicit v5.1 active item) as a change that must go through the same edge-case re-test pass as the original build — a fix for one bug is a regression risk for the others.
+- Do one final full run-through of all in-scope threat classes plus edge cases (empty input, very long text, malformed/non-scam text) **after** the last UI/prompt fix lands, not before.
 
 **Warning signs:**
-- Second bot response overwrites the first bot bubble's content instead of populating its own bubble.
-- DevTools HTML inspector shows duplicate `id` attributes — multiple elements with the same `id` in the live DOM.
-- `document.getElementById` always returns the first match; the second bubble is never updated.
+- A UI or prompt fix is made and only the specific reported bug is re-tested, not the full sample matrix.
+- No one has re-run `tests/runtime/test_demo.py` after the most recent change.
+- Long-message edge case wasn't part of the smoke test for the latest fix.
 
-**Prevention:**
-- Remove all `id` attributes from the `<template>` content in `index.html`.
-- Query exclusively on the cloned `fragment` reference: `fragment.querySelector('.result-summary')` instead of `document.querySelector('#result-summary')`. This is already partially correct in `renderResult()` for the fragment itself, but the template HTML still declares `id` attributes that pollute the live DOM after insertion.
-- Convert all `id`-based template targets to `data-slot` attributes or semantic class names. Example: `data-slot="summary"` queried as `fragment.querySelector('[data-slot="summary"]')`.
-
-**Phase:** Phase 1 of chat revamp (HTML template refactor). This is a silent correctness bug — it will not be visible until the second message is sent.
+**Verification category:** Functional verification (regression re-check), Edge-case verification (long input specifically threatens this budget).
 
 ---
 
-## Moderate Chat UI Pitfalls
+## Moderate Pitfalls
 
-### C9) Clearing Chat History While a Request Is In-Flight
+### Pitfall 7: `wsgiref`'s single-threaded nature resurfaces under live, nervous UI interaction
 
-**What goes wrong:** User clicks "New conversation" while the bot is mid-request. `container.replaceChildren()` clears the thread, but the in-flight fetch still resolves and calls `appendBubble()`, inserting an orphaned bot response into the now-empty thread. The history array (if maintained as per C3) is also out of sync: it was cleared but the in-flight response appends to it post-clear.
+**What goes wrong:**
+`wsgiref.simple_server` processes one request at a time on a single thread (confirmed in this repo's own `demo.py` and already documented in this project's prior UI-revamp pitfall research as issue "C2"). A presenter who double-clicks "Phân tích tại máy" out of nerves, or a committee member who submits a second message while the first is still computing (very plausible given ~13s+ latency), can trigger a second request that queues behind the first at the TCP level and appears to hang.
 
-**Prevention:**
-- Call `currentController?.abort()` before clearing state (abort the in-flight request).
-- Reset the history array to `[]` and clear the DOM container in the same synchronous block.
-- The `AbortError` catch path must be a no-op (do not append a bubble).
+**Why it happens:**
+The original fix (`currentController?.abort()` before each new `fetch`, catching `AbortError` silently) was implemented for the chat-UI revamp, but any UI change since then (or an accidental revert) could silently drop this guard, and it is easy to miss in a visual-only review since the bug only manifests under rapid double-submission, not normal single-message use.
 
-**Phase:** Phase 2 of chat revamp (clear/reset feature).
+**How to avoid:**
+Explicitly re-test rapid double-submit (click twice fast, or submit while a prior request is still spinning) as a scripted edge case in this verification pass, not just as a "we fixed this once" assumption. Confirm the abort-controller guard is still present in the current `demo.js`.
 
----
-
-### C10) Sample Button Behavior in Chat Context
-
-**What goes wrong:** The existing `sampleButton` sets `messageInput.value = sampleText` and focuses the textarea. In a chat context, if the user previously analyzed a message and the thread has history, clicking "Try sample" mid-conversation gives no indication that it is replacing the input — and if the thread is long, the user may not see the textarea fill. This is minor but confusing in a chat-first layout where the input bar is always visible at the bottom.
-
-**Prevention:**
-- Keep the sample button. Change its label to "Thử mẫu" (primary Vietnamese).
-- On click, scroll the chat input bar into view and animate a brief highlight on the textarea (`outline` flash via CSS transition) to signal that text was inserted.
-- Do not auto-submit the sample — user should still press send explicitly, matching the current behavior.
-
-**Phase:** Phase 2 of chat revamp (bilingual text pass).
+**Verification category:** Edge-case verification.
 
 ---
 
-### C11) Keyboard Submit (Ctrl+Enter) Conflict with Textarea Newlines
+### Pitfall 8: CLI entrypoint confusion between `vnphish analyze` and `vnphish demo`
 
-**What goes wrong:** The existing `keydown` listener fires `form.requestSubmit()` on `Ctrl+Enter` or `Cmd+Enter`. This is correct for the large standalone textarea. In a chat-first design with a compact single-line-style input, users coming from WhatsApp/Zalo expect `Enter` alone to submit and `Shift+Enter` for newlines. Changing to `Enter`-to-submit without guarding `Shift+Enter` breaks multi-line paste flows (users paste a multi-paragraph scam message and hit Enter to break lines, accidentally submitting early).
+**What goes wrong:**
+`vnphish analyze` is a text-only, no-browser flow that reads from `--text` or stdin and prints to the terminal; `vnphish demo` starts the web UI and opens a browser tab. This is already flagged as a known issue in `PROJECT.md` ("Fix CLI entrypoint confusion"). If the presenter (or a helper running the laptop) types the wrong command live, or a rehearsed script/shortcut points at the wrong subcommand, the audience sees a terminal window instead of the expected browser UI, or vice versa.
 
-**Prevention:**
-- For the chat input, use `Enter` alone to submit; `Shift+Enter` inserts a newline. Implementation: in the `keydown` handler, if `event.key === 'Enter' && !event.shiftKey` call `form.requestSubmit()` and `event.preventDefault()`.
-- Show a helper label below the textarea: "Enter để gửi · Shift+Enter để xuống dòng".
-- If the textarea is multi-line tall (user pasted a long message), still respect `Shift+Enter` for line breaks within that paste session.
+**Why it happens:**
+Both subcommands share the same `vnphish` prefix and overlapping purpose (both "analyze a message"), but one is a CLI debug/automation tool and the other is the actual presentation surface. Notably, `analyze` calls `run_runtime_doctor()` as a pre-flight readiness gate, while `demo` does not call the same top-level doctor — it only calls `service.backend.doctor()` internally inside `run_demo_server`. These are two different readiness-check code paths with potentially different coverage, so "I ran `vnphish doctor` and it passed" does not guarantee `vnphish demo` will encounter the exact same checks at startup.
 
-**Phase:** Phase 1 of chat revamp (input bar implementation).
+**How to avoid:**
+- Prepare a single, unambiguous launcher (a desktop shortcut, batch file, or clearly labeled terminal alias) that runs exactly `vnphish demo` with the correct flags, so there is no live decision to make about which subcommand to type.
+- Run `vnphish doctor` AND a full `vnphish demo` startup (through to a rendered browser page) as two separate explicit checks in the final verification pass — do not treat a passing `doctor` as proof that `demo` will start cleanly.
+- Rename or add a help note distinguishing the two subcommands if there's any remaining time budget, per the already-planned fix in `PROJECT.md`.
 
----
-
-### C12) XSS Risk When Rendering Bot Response Fields
-
-**What goes wrong:** The existing `renderResult()` uses `textContent` for all dynamic content (summary, labels, backend, cues, recommendations), which is safe against XSS. In a chat revamp, if any developer switches to `innerHTML` to render the risk tier badge with color markup, or to format cue spans with `<strong>`, and passes bot response fields directly without sanitization, a maliciously crafted backend response (or a compromised local runtime) could inject script tags.
-
-This is a local-only demo, but the backend is a local Python process — the threat model is low. However, the user pastes raw Vietnamese scam text that may contain HTML-like content (`<script>`, `<img onerror=...>`), and if that pasted text ever reaches a DOM-setter via `innerHTML`, it executes.
-
-**Prevention:**
-- Maintain the existing pattern: use `element.textContent = value` for all dynamic text fields.
-- For the risk tier badge, use `element.dataset.riskTier = tier` and CSS `[data-risk-tier="high-risk"]` selectors for styling — no `innerHTML` needed.
-- If rich formatting in cues is needed (bold the quoted span), use `createElement('strong')` + `textContent`, not `innerHTML`.
-
-**Phase:** Phase 1 of chat revamp (bubble rendering). The textContent pattern from the existing code must be preserved, not replaced.
+**Verification category:** Functional verification.
 
 ---
 
-## Minor Chat UI Pitfalls
+### Pitfall 9: Screensaver, sleep, lock screen, or OS update prompts interrupting a live demo
 
-### C13) `lang` Attribute Set to `"en"` While Primary Content Is Vietnamese
+**What goes wrong:**
+Vietnamese explanation text can take real time to read aloud; if the presenter talks for 60-90 seconds without touching the keyboard/mouse, the default Windows sleep/lock/screensaver timeout can trigger mid-sentence, requiring a password re-entry in front of the committee. Separately, Windows Update "restart required" nags, or a background app update popping a dialog, can steal focus or force a reboot at the worst time.
 
-**What goes wrong:** The existing `index.html` declares `<html lang="en">`. After the bilingual revamp, the majority of visible UI text (verdict, cues, next steps) is Vietnamese. Screen readers use `lang` to select the correct speech synthesis voice and pronunciation engine. With `lang="en"`, NVDA/JAWS will read Vietnamese text with English phonological rules, producing unintelligible pronunciation.
+**Why it happens:**
+Default OS power/lock settings are tuned for everyday productivity use, not for a scenario where the screen is the primary presentation surface but keyboard/mouse activity is intermittent.
 
-**Prevention:**
-- Change `<html lang="vi">` as the primary language.
-- Add `lang="en"` attributes on inline elements containing English technical terms (e.g., `<span lang="en">High risk</span>` for the risk tier label).
+**How to avoid:**
+Set the presentation laptop's sleep/screen-lock timeout to "Never" (or a generous value like 60+ minutes) for the duration of the defense window, disable Windows Update's automatic restart notifications/scheduling for that day, and put the machine in Airplane Mode or otherwise block update checks entirely (this also reinforces the offline posture from Pitfall 3).
 
-**Phase:** Phase 1 of chat revamp (HTML scaffolding).
-
----
-
-### C14) Typing Indicator Bubble Left Orphaned on Network Error
-
-**What goes wrong:** A common UX pattern is to insert a "bot is typing" placeholder bubble immediately after the user sends, then replace it with the real response. If the fetch throws (runtime not started, network reset), the placeholder bubble must be removed. If the `finally` block only calls `setBusyState(false)` without removing the placeholder, the typing indicator sits permanently in the thread.
-
-**Prevention:**
-- Store a reference to the placeholder bubble element: `let pendingBubble = appendPlaceholder()`.
-- In the `catch` block: remove `pendingBubble` from the DOM, then `appendErrorBubble(error)`.
-- In the `finally` block: if `pendingBubble` is still attached (success path already replaced it with the real bubble), remove it as a safety net.
-
-**Phase:** Phase 2 of chat revamp (typing indicator feature).
+**Verification category:** Offline/portability check, Fallback verification (this is exactly the kind of live disruption the fallback plan should be ready to absorb).
 
 ---
 
-### C15) Missing `autocomplete="off"` and `spellcheck="false"` on Message Input
+## Technical Debt Patterns
 
-**What goes wrong:** Browsers show autocomplete suggestions for the message textarea. Vietnamese IME (input method editors) combined with browser autocomplete interact poorly: the autocomplete dropdown covers the suggestion from the IME and the user cannot complete diacritic composition. `spellcheck="true"` (the default) marks most Vietnamese-English mixed scam text as misspelled, littering the input with red underlines and confusing users about whether the text is corrupted.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|-----------------|------------------|
+| Load Be Vietnam Pro from Google Fonts CDN instead of self-hosting | Fast to wire up during UI development | Breaks the "local-first / offline" claim exactly when it matters most (no-network venue) | Never for the final presentation build — acceptable only during early dev iteration |
+| Skip the cold-boot timing rehearsal because "warm latency was already measured" | Saves rehearsal time | Rehearsed pacing doesn't match reality if the laptop was rebooted that morning | Never this close to the defense; acceptable earlier when latency work was still in progress |
+| Treat a green `vnphish doctor` as sufficient proof the demo will run | Quick confidence check | Doctor checks config/existence, not performance, power state, or network isolation — false sense of readiness | Acceptable as one signal among several, never as the sole verification step |
+| Record the fallback video early and consider it "done" | One less task on the list | Fallback drifts out of sync with UI/latency fixes made afterward | Never — always record fallback last, after the fix list is frozen |
 
-**Prevention:**
-- Add `autocomplete="off" spellcheck="false"` to the message textarea.
-- Add `autocorrect="off" autocapitalize="none"` for iOS Safari, which auto-capitalizes the first character of input fields and attempts to correct Vietnamese words.
+## Integration Gotchas
 
-**Phase:** Phase 1 of chat revamp (input bar HTML attributes).
+| Integration | Common Mistake | Correct Approach |
+|-------------|-----------------|-------------------|
+| Google Fonts CDN (`fonts.googleapis.com`, `fonts.gstatic.com`) | Assuming `preconnect`/`display=swap` degrades gracefully enough to ignore offline | Self-host the `.woff2` files under `/static/` and use local `@font-face`; test with network fully disabled |
+| Off-repo model registry (`D:\PROJEct\AI MODELS`) | Assuming absolute paths and drive letters carry over to a different laptop unchanged | Verify the exact drive letter and directory structure on the actual presentation laptop before the defense window; consider a relative or configurable root if time allows |
+| Windows Defender real-time protection | Assuming first-run model load timing on the presentation laptop matches dev-machine timing | Add the model directory/extension to a Defender exclusion (where policy allows) and re-time cold start after doing so |
+| `wsgiref.simple_server` (single-threaded) | Assuming the earlier AbortController fix is still intact after later UI edits | Explicitly re-test rapid double-submit as part of this verification pass, don't assume a past fix persists |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|-----------------|
+| Cold mmap page cache after reboot/sleep | First inference after boot is far slower than the rehearsed ~13s figure | Pre-warm the model once with a throwaway message before the committee arrives; time a true cold-boot path at least once | Every reboot, sleep, or long idle period on the presentation laptop |
+| Battery-saver / non-performance power plan | CPU-bound GGUF generation visibly slows down or stutters | Force "High performance" power plan, stay plugged into AC throughout | Any time the laptop is unplugged or Windows auto-switches power mode near a low battery threshold |
+| Antivirus first-touch file scanning on a multi-GB GGUF file | Unexplained extra delay only on the presentation laptop, not the dev machine | Add exclusion for the model directory ahead of time (if policy allows) | First access to the model file per boot/session on a machine where it hasn't been scanned/cached yet |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Loading a remote font/CDN asset while marketing the tool as privacy-preserving/local-only | Undermines the core thesis claim in front of the exact audience evaluating that claim; a technical committee member checking DevTools Network tab sees outbound calls | Self-host all static assets; verify zero outbound network calls with Wi-Fi disabled |
+| Binding the demo server to a non-loopback host (e.g., `0.0.0.0`) to "share" it over venue Wi-Fi for a projector or second screen | Exposes the local analysis endpoint to anyone else on the same network segment during the defense | Keep the default `127.0.0.1` binding; if a second screen is needed, mirror the primary laptop's display instead of exposing the server over the network |
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|--------------|-------------------|
+| Font fallback silently swaps in a font that stacks Vietnamese diacritics incorrectly when the Google Fonts CDN is unreachable | Vietnamese text renders visibly wrong exactly during the live demo, undermining polish in front of the committee | Self-host Be Vietnam Pro so the tested, diacritic-safe font is guaranteed regardless of network state |
+| Presenter or helper types `vnphish analyze` when `vnphish demo` was intended (or vice versa) | Wrong surface shown live (terminal vs. browser), visible confusion during a high-stakes moment | Pre-built, clearly labeled launcher shortcut that always runs the correct command with the correct flags |
+| No visible "processing" affordance during a slow cold-start load | Committee may think the system has frozen/crashed during the "Warming up local model..." step | Confirm the console message and/or browser UI clearly signals "loading, please wait" during doctor warm-up, and rehearse narrating over it |
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **Offline claim:** Often missing a full network-disabled test pass — verify by disabling Wi-Fi/Ethernet entirely and reloading the demo from a fresh browser tab, confirming zero failed/pending network requests in DevTools.
+- [ ] **`vnphish doctor` passing:** Often mistaken for full readiness — verify by also running `vnphish demo` end-to-end through to a rendered first answer, since `doctor` and `demo`'s internal readiness check are not the same code path.
+- [ ] **"~13s latency" figure:** Often measured only warm, on the dev machine — verify by timing a true cold boot → first answer path on the actual presentation laptop, on battery and on AC.
+- [ ] **Fallback recording:** Often stale relative to the current UI/latency — verify by watching it back-to-back against a live run immediately after the last UI/prompt fix lands.
+- [ ] **Edge case coverage (empty input, very long text, malformed/non-scam text):** Often re-tested only for the originally reported bug, not the full matrix, after each late fix — verify by re-running the complete edge-case set after every UI/prompt change, not a subset.
+- [ ] **Environment parity:** Often assumed identical to the dev machine — verify `.env/.env` exists and resolves correctly, and that model registry paths point at files that actually exist, on the exact laptop and drive letters used for the defense.
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|----------------|-----------------|
+| Live demo fails to load or times out during the defense | LOW (if rehearsed) | Switch immediately to the pre-recorded fallback video/screenshots with a calm, matter-of-fact line ("let me show you a recorded run of this same flow") rather than apologizing at length |
+| Font fails to load due to no network, Vietnamese text looks visually broken | LOW | Self-host the font before the defense window; if discovered live, continue — it is a cosmetic issue, not a functional failure, and should not derail the presentation |
+| Demo appears to hang after a double-submit | MEDIUM | Refresh the browser tab (in-memory history is lost, which is expected/acceptable per this project's privacy-by-design choice) and resubmit once; rehearse this exact recovery motion beforehand so it looks intentional, not panicked |
+| Laptop battery dies or power plan throttles mid-demo | MEDIUM | Have a charged spare laptop with the identical `.env`/model setup as a hot spare, verified working before the defense window, not just "the same laptop, hopefully plugged in in time" |
+
+## Pitfall-to-Verification-Category Mapping
+
+This milestone's four verification categories (per `.planning/PROJECT.md`) are: **Functional**, **Offline/portability**, **Edge-case**, **Fallback**.
+
+| Pitfall | Verification Category | How to Verify Prevention Worked |
+|---------|------------------------|-----------------------------------|
+| Environment drift (dev machine vs. presentation laptop) | Offline/portability | `vnphish doctor` returns clean `READY` on the exact presentation laptop from a fresh checkout with manually recreated `.env/.env` |
+| Cold-start/model-load timing surprise | Functional + Edge-case | Timed cold-boot-to-first-answer run on the presentation laptop, on both AC and battery, matches or beats rehearsed pacing |
+| Hardcoded Google Fonts CDN dependency | Offline/portability | Demo loads and renders correctly with Wi-Fi/Ethernet fully disabled; zero pending/failed network requests in DevTools |
+| Power plan / battery throttling CPU inference | Functional + Edge-case | Latency measured unplugged on realistic battery level matches the plugged-in baseline closely enough not to disrupt pacing |
+| No rehearsed fallback | Fallback | A dry run where the live demo is deliberately killed mid-flow, and the presenter successfully narrates the transition to the recorded fallback without dead air |
+| Late UI/prompt fix exceeds context window or breaks templates | Functional + Edge-case | Full edge-case matrix (empty, very long, malformed input) re-passes after every fix, plus `tests/runtime` suite green |
+| `wsgiref` single-thread re-entrant submit regression | Edge-case | Rapid double-submit test explicitly re-run and confirmed non-blocking after any JS change |
+| CLI entrypoint confusion (`analyze` vs `demo`) | Functional | A single, tested launcher/shortcut exists that always invokes the correct subcommand; no live typing of raw commands required |
+| Sleep/lock/update interruptions | Offline/portability + Fallback | Sleep/lock timeout set to effectively "never" and Windows Update paused for the defense window, verified the morning of |
+
+## Sources
+
+- Repository evidence (HIGH confidence, verified directly): `src/runtime/demo_assets/index.html` (Google Fonts CDN links), `src/runtime/demo.py` (`wsgiref.simple_server`, single-request handling), `src/runtime/cli.py` (`analyze` vs `demo` subcommands, differing doctor-check paths), `src/runtime/doctor.py` (`RuntimeDoctor` checks are config/existence-only, no timing/power/network checks), `.planning/STATE.md` (off-repo model root rationale, OneDrive sync interference history, `GGUF_CONTEXT_WINDOW=512` budget, ~13s warm latency figure, prior `wsgiref` re-entrant fetch bug and fix), `.planning/PROJECT.md` (v5.1 milestone scope and known active issues), `.gitignore` (`.env/` excluded from version control).
+- [llama.cpp mmap cold-start behavior discussion](https://markaicode.com/architecture/llamacpp-architecture/) — MEDIUM confidence, corroborated by multiple community reports of cold vs. warm mmap load time differences (seconds vs. tens of seconds).
+- [Windows Defender real-time protection slowing first file access](https://learn.microsoft.com/en-us/answers/questions/2732424/windows-defender-real-time-protection-service-slow) — MEDIUM confidence, official Microsoft Q&A plus multiple independent reports; exclusion-based mitigation is a documented Defender feature.
+- [Google Fonts silently depending on network at every page load](https://medium.com/@bogdanpshonyak/using-google-fonts-offline-b327467e0999) and related offline-Google-Fonts issue reports — MEDIUM confidence, consistent across multiple independent sources.
+- [Windows power plan / battery saver CPU throttling](https://www.xda-developers.com/your-windows-power-plan-is-probably-wrong/) — MEDIUM confidence; general Windows power-management behavior, consistent across multiple sources, though exact throttling percentage varies by device/driver.
+- [Live demo failure recovery patterns ("confident composure", pre-recorded fallback, rehearsing failure not just the happy path)](https://www.reprise.com/resources/blog/the-art-of-failing-forward-demo-lessons-learned) — MEDIUM confidence, sales/product-demo domain rather than academic defense specifically, but the failure-recovery psychology and rehearsal discipline transfer directly.
 
 ---
-
-## Phase-Specific Warning Matrix (Chat UI)
-
-| Implementation Phase | Pitfall | Priority | Detection Signal |
-| ---------------------- | --------- | ---------- | ----------------- |
-| HTML scaffolding | ARIA live region registered late (C4) | Critical | Screen reader silent on second message |
-| HTML scaffolding | `lang="en"` on Vietnamese-primary page (C13) | High | NVDA reads Vietnamese with English accent |
-| HTML scaffolding | Template IDs duplicated in DOM (C8) | Critical | Second bubble overwrites first |
-| CSS layout | Mobile viewport height collapse (C6) | Critical | Input bar hidden by keyboard on mobile |
-| CSS layout | Bot bubble overflow on narrow screens (C7) | High | URL or long text breaks container width |
-| JS data model | DOM as sole history source (C3) | High | Clear button loses conversation |
-| JS fetch logic | Re-entrant submit with wsgiref blocking (C2) | Critical | Second request hangs until first resolves |
-| JS rendering | Scroll anchor race after insertion (C1) | High | Last bubble clipped on slow devices |
-| JS rendering | textContent replaced with innerHTML (C12) | High | XSS on user-pasted content |
-| Input UX | Enter/Shift+Enter submit conflict (C11) | Medium | Accidental submit on paste |
-| Input UX | IME/autocomplete interference (C15) | Medium | Vietnamese diacritic composition broken |
-| Font/text | Vietnamese diacritics on macOS/Linux (C5) | High | Floating/missing tone marks off-Windows |
-| Features | Sample button UX in chat context (C10) | Low | User does not notice textarea was filled |
-| Features | Typing indicator orphaned on error (C14) | Medium | Permanent spinner in thread |
-| Features | Clear-during-in-flight request (C9) | Medium | Orphaned bot bubble after clear |
-
-## Confidence
-
-- **Scroll/layout pitfalls:** High (C1, C6, C7 verified against MDN, CSS-Tricks, and mobile viewport spec).
-- **ARIA live region timing:** High (C4 verified against MDN ARIA live regions spec and Sara Soueidan's research).
-- **Concurrent fetch / wsgiref blocking:** High (C2 verified against Python wsgiref docs and AbortController MDN spec).
-- **Vietnamese font rendering cross-platform:** Medium (C5 — Segoe UI Variable has Vietnamese coverage on Windows; macOS/Linux fallback relies on system-ui and Noto Sans; actual rendering depends on specific OS font installation; recommend live testing on each platform).
-- **Template ID duplication:** High (C8 — direct consequence of how `id` attributes work in HTML; no ambiguity).
-- **DOM-as-history source-of-truth:** High (C3 — established pattern anti-recommendation across all JS architectures).
+*Pitfalls research for: last-mile hardening of a local offline LLM demo before a live thesis defense*
+*Researched: 2026-07-02*

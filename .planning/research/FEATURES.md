@@ -1,226 +1,178 @@
-# Feature Landscape: Chapter-to-Section Mapping (v2.2 Department Template)
+# Feature Research
 
-**Domain:** LaTeX thesis restructuring — 6 numbered chapters → 5 Roman numeral department sections
-**Researched:** 2026-06-15
-**Scope anchor:** Content already written; this is a structural remapping exercise, not new research.
-**Source documents read:** `chapters/01_introduction.tex`, `02_related_work_and_background.tex`,
-`03_methodology_and_system_design.tex`, `04_implementation.tex`,
-`05_evaluation_and_discussion.tex`, `06_conclusion_and_future_work.tex`;
-department template from `documents/reports/example/2026_required_format_thesis.md`.
+**Domain:** Pre-demo verification & hardening for a live academic thesis-defense demo of a local/offline LLM tool
+**Researched:** 2026-07-02
+**Confidence:** MEDIUM (synthesized from general live-demo/deployment best practices + direct inspection of this repo's actual CLI/server code; no single canonical "thesis demo checklist" source exists, so items are triangulated across multiple domains: conference-demo lore, air-gapped deployment QA, and local-LLM latency practice)
 
----
+## Codebase Grounding
 
-## Chapter-to-Section Mapping Table
+Before listing findings, the actual runtime was inspected directly (not assumed) so recommendations map to real code:
 
-| Existing Chapter | Content summary | Target Section | Disposition |
-|---|---|---|---|
-| Ch 1 — Introduction | Background & motivation, problem statement, objectives & scope (bullet list), report organization | I/ Introduction (partially) + II/ Objectives | Split: narrative goes to I/, objectives bullet list becomes II/ |
-| Ch 2 — Related Work and Background | Vietnamese phishing context, local inference as privacy control (with OpenAI/Samsung incidents + cloud_vs_local figure), explainability rationale, open-weight model trade-offs, evaluation priorities | I/ Introduction (majority) | Move: literature review and scientific background are exactly what the department template wants in I/ |
-| Ch 3 — Methodology and System Design | Data construction + split governance, offline runtime baseline, model selection + QLoRA adaptation (with equations, tables), explainable decisioning, design principles | III/ Materials and Methods | Direct map: methodology + reproducible system description = department III/ |
-| Ch 4 — Implementation | Codebase organization (tree), data pipeline impl, runtime contracts (with TikZ figure), backend implementations, model adaptation workflow, packaging + example output | III/ Materials and Methods (majority) + IV/ Results (example output) | Partial split: structural/method content → III/; the worked example analysis output → IV/ as first results illustration |
-| Ch 5 — Evaluation and Discussion | Data quality checks, candidate selection record, end-to-end verification, expanded-holdout results (tables, recall barchart, confusion matrix), interpretation, error analysis, limits | IV/ Results and Discussion | Direct map: student's own results + critical analysis = department IV/ |
-| Ch 6 — Conclusion and Future Work | Main takeaways, evaluation meaning, limitations, future work (3 directions) | V/ Conclusion & Perspective | Direct map: achievements + perspectives = department V/ |
+- `src/runtime/cli.py` — `vnphish analyze` (stdin/`--text`, prints to terminal, runs `run_runtime_doctor()` first and exits 2 if not ready) vs `vnphish demo` (`--host`, `--port 8765`, `--no-browser`, opens a browser tab). This confirms the PROJECT.md-reported "CLI entrypoint confusion" is real: two subcommands with silently different output surfaces (terminal text vs. browser UI) and no cross-referencing help text pointing a user from one to the other.
+- `src/runtime/demo.py` — the demo server is a single-threaded `wsgiref.simple_server.make_server` WSGI app (stdlib, no gunicorn/uvicorn workers). It calls `app.service.backend.doctor()` once at startup ("Warming up local model...") before serving — this is an existing warm-up step, not a gap. But because `wsgiref.simple_server` handles one request at a time by default, **a slow in-flight `/api/analyze` call will block any concurrent request** (e.g., a double-click submit, or a second browser tab) — relevant to the reported latency issue and worth explicit verification.
+- `src/runtime/doctor.py` — `vnphish doctor` already checks Python version, required imports, settings load, backend readiness (heuristic/gguf/accelerated), fail-closed default, and `runtime_store_raw_text=False`. This is a strong existing pre-flight tool — the verification checklist should **use it**, not duplicate it.
+- No apparent request timeout, no explicit "already processing" UI guard was seen in the reviewed `demo.py` beyond the client-side `AbortController` mentioned in PROJECT.md (re-entrant fetch guard) — confirms the fetch-guard is a client-side mitigation for the single-threaded server characteristic above.
 
----
+## Feature Landscape
 
-## Per-Section Notes
+### Table Stakes (Verification/Hardening Actions Every Defense-Ready Local-LLM Demo Needs)
 
-### I/ Introduction (target: 2–3 pages)
+These are non-negotiable pre-defense checks. Skipping any of them risks a visible on-stage failure in front of the committee.
 
-**Sources to merge:**
+| Feature/Action | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Run `vnphish doctor` on the **actual presentation laptop**, not the dev machine | Confirms model artifacts, backend, and fail-closed defaults are present on the exact hardware that will be used live — dev-machine-only testing is the single most common cause of "works on my machine" demo failure | LOW | Already built; just needs to be run and its output screenshotted/logged as verification evidence |
+| End-to-end functional pass across all in-scope threat classes (bank impersonation, account-takeover/social-engineering, "light work high pay" scams) + at least one clearly benign message | Confirms risk tier + threat label + grounded cues + safe-steps render correctly for every class the thesis claims to cover — an untested class failing live undermines the exact claim being defended | LOW-MEDIUM | Use committed sample/eval texts where possible so outputs are reproducible and can be compared run-to-run |
+| Network-isolation check: disconnect Wi-Fi/Ethernet on the presentation laptop and re-run the full flow | Directly validates the "offline/local-only, no cloud submission" claim that is central to the thesis's privacy argument — a live network call (even a benign favicon/telemetry request) visibly contradicts the pitch if a committee member notices browser dev tools or a delay tied to DNS timeout | LOW | Airplane mode or physically unplugging is sufficient; watch browser Network tab for any non-localhost request |
+| Model loads from the **local artifact path actually present on the presentation laptop**, not a path that only exists on the dev machine | Cross-machine path/config drift (env vars, `.env`, absolute paths) is a top cause of "doctor passes on dev, fails on stage" | LOW-MEDIUM | Copy or sync the exact model directory used at development time; re-run doctor after transfer |
+| Edge-case input pass: empty input, whitespace-only, very long text (paste a huge block), non-scam/off-topic text, mixed Vietnamese-English, malformed/garbled text | These are the inputs most likely to be tried by curious committee members deviating from the rehearsed script; a crash or unhandled exception here is far more damaging than a wrong classification | LOW-MEDIUM | `analyze_text` / `_handle_analyze` already validates `text` is a string and `channel` is in the allowed enum and returns 400 for bad requests — confirm the UI surfaces these gracefully rather than a raw stack trace or silent hang |
+| Verify the **CLI vs demo UI distinction** is either fixed or scripted around | `vnphish analyze` prints text-only to a terminal; `vnphish demo` starts a browser UI on port 8765 — if the presenter types the wrong one live, or forgets `--no-browser` state, it costs visible fumbling time | LOW | Minimum viable fix: update `--help` strings to cross-reference each other, or just standardize the exact command the presenter will type and rehearse it verbatim (see Anti-Features — do not build a bigger CLI redesign) |
+| Latency/timing measurement: time several representative analyze calls end-to-end (first call cold vs subsequent warm) | The known latency issue must be *quantified*, not just "fixed" — if it can't be eliminated, the presenter needs to know the real number to narrate through it confidently ("this typically takes N seconds because...") | LOW-MEDIUM | The server already warms the model once at startup (`doctor()` call in `run_demo_server`); confirm this warm-up actually keeps weights resident through the full 13-20 July window of no-network usage, and measure per-request latency after warm-up, not just startup time |
+| Concurrency/re-entrancy check: submit two requests in quick succession (double-click, or open a second tab) while a first request is in flight | The demo server is single-threaded `wsgiref`; a nervous presenter double-clicking submit is a realistic live failure mode | LOW | Confirm the existing client-side `AbortController`/fetch-guard actually prevents this, and that the *second* legitimate use (opening the tool again after closing it) still works cleanly |
+| Rehearsal with a timer, on the real laptop, in the room's actual conditions (screen resolution/projector, Wi-Fi off) if possible | Matches general live-demo best practice ("appease the demo gods": test on the exact hardware/software combination that will be used, not an approximation) | LOW | At least one full dry run on battery power (not just plugged in) since laptop throttling under battery can change CPU inference latency |
+| Freeze code/config a few days before the defense window opens (13 July) | Last-minute changes are the single most cited cause of live-demo breakage in software-demo literature ("freeze code three to four days before the demo") | LOW (process, not code) | Aligns with the milestone already being scoped as verification-only, not new development — reinforce as a hard rule for this milestone |
+| Prepared fallback: recorded screen capture (video) of a full successful run, plus static screenshots of key states (result cards for each threat class) | If live demo fails (laptop dies, model crashes, Wi-Fi captive portal steals focus, projector driver issue), presenter needs an immediate, rehearsed pivot rather than dead air | LOW-MEDIUM | Record on the *same* laptop/config being verified, so the recording matches what committee expects to see live; keep on a USB stick and locally on disk (not only cloud) in case laptop needs replacing |
+| Battery/power check: laptop charger present, laptop tested on AC power at the venue if possible | Trivial but a real, common failure class ("bring two of everything") | LOW | Not a software task, but part of the "verification" checklist scope |
 
-- Ch 1, Section 1 "Background and Motivation" — 1 paragraph on design constraints and safety question.
-- Ch 1, Section 2 "Problem Statement" — 2 paragraphs on cloud privacy risk and Vietnamese phishing gap.
-- Ch 2 (entire chapter) — Vietnamese phishing context, local inference privacy rationale with documented cloud incidents, explainability as safety control, open-weight model trade-offs, evaluation priorities.
+### Differentiators (What Separates a Genuinely Defense-Ready Demo from a "Technically Working" One)
 
-**What to exclude from Ch 1:**
+Not required to avoid embarrassment, but they are what makes the demo feel controlled and convincing to a committee evaluating rigor.
 
-- "Objectives and Scope" bullet list → moves to II/ instead.
-- "Report Organization" paragraph → becomes obsolete once chapter numbering is replaced by Roman numeral sections; drop or rewrite as a 1-sentence structural note at end of I/.
+| Feature/Action | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| A short, memorized "narration script" that explains the expected ~N-second latency *before* it happens | Turns a known weakness (latency) into a demonstrated understanding of the system's tradeoffs (CPU/iGPU inference cost vs. cloud) — committees react far better to "here's why, and here's the number" than silence while waiting | LOW | Pure presentation prep, zero code; directly reinforces the thesis's own "why local, not cloud" argument from Chapter 2 |
+| A pre-selected, rehearsed set of 3-5 input messages (one per threat class + one benign) copied into a text file/clipboard manager ready to paste | Removes live-typing risk (typos, forgetting Vietnamese diacritics, freezing under pressure) and guarantees results match what was verified in advance | LOW | Should be the *same* messages used in the end-to-end verification pass above — one artifact serving both QA and live use |
+| A visible, explicit "offline" cue during the demo (e.g., narrate turning off Wi-Fi on stage, or show a simple network-off indicator) | Makes the privacy/local-only claim *demonstrated* rather than merely *asserted* — for an academic committee, showing beats telling | MEDIUM | Physically toggling Wi-Fi live is higher-risk (OS reconnect delays, projector/display driver reliance on network in some setups) — validate this specific action during rehearsal, don't improvise it live for the first time |
+| Doctor output shown once, upfront, as "system readiness proof" (e.g., running `vnphish doctor` on-screen before the live analyze demo) | Uses an artifact that already exists in the codebase to visibly establish credibility/rigor before the "trick" part of the demo runs | LOW | Zero new code — reuses `format_doctor_report()` output already built for this purpose |
+| A one-page "if X fails, do Y" incident-response card kept next to the laptop (not shown to committee) | Reduces presenter panic and recovery time under live pressure — matches general demo-god wisdom that the presenter's calm handling of a hiccup often matters more than the hiccup itself | LOW | E.g., "if analyze hangs >15s → say the line about CPU latency and wait; if it errors → switch to backup video; if Wi-Fi popup steals focus → close and continue" |
 
-**Ch 2 fits naturally here** because the department template defines I/ as "global context, literature review, main questions and objectives including the presentation of the problem with the scientific background." Ch 2 is exactly that.
+### Anti-Features (Explicitly Avoid This Close to the Defense — 13-20 July 2026)
 
-**Page-length estimate:**
+Things that look like reasonable "improvements" but introduce risk with no defense-relevant payoff, or are simply out of scope for a QA/hardening milestone.
 
-- Ch 1 narrative (excluding objectives bullets and report organization): ~0.5 pages.
-- Ch 2 full content (5 sections): ~2.5–3 pages as currently written (heavy, citation-dense prose).
-- Combined target: 3–3.5 pages. This is slightly over the 2–3 page guideline.
-- **Trimming needed:** Ch 2 Section 4 "Open-Weight Local Models" is the longest section and overlaps with III/ Materials. Its second paragraph (Google Gemini Nano deployment rationale) can move to III/ as a justification note rather than background. This trims approximately 0.3–0.4 pages from I/.
-- After trim: ~2.8–3 pages. Borderline acceptable; tighter editing of Ch 2 prose could bring it to 2.5 pages cleanly.
+| Feature/Action | Why Requested/Tempting | Why Problematic | Alternative |
+|---------|---------------|------------------|-------------|
+| Redesigning the UI (new layout, new visual style, new components) | "While I'm in there fixing bugs, I could also make it look nicer" | Every UI change is a new untested surface days before a live, unrepeatable event; directly contradicts the "code freeze before demo" principle that is the single most consistent piece of live-demo advice found across sources | Fix only the specific UI quirks already surfaced during verification; leave everything else untouched |
+| Rebuilding/renaming the CLI (e.g., merging `analyze` and `demo` into a new unified command, restructuring argparse subcommands) | The entrypoint confusion feels like it "should" be solved architecturally | A CLI restructure risks breaking the `analyze`/`doctor`/`demo` contract relied on by existing tests (`tests/runtime/test_cli.py`) and by any rehearsed muscle-memory commands, for a problem that is really a presenter-facing communication issue, not a technical one | Fix `--help` text/README to disambiguate, and standardize + rehearse the exact one or two commands the presenter will actually type live |
+| Adding new model capabilities, new threat classes, or new UI features not already shipped | Momentum from earlier milestones; "since I'm testing, why not add X" | This milestone is explicitly QA/hardening only per PROJECT.md ("Out of Scope" already excludes new domains); new capabilities are unverified by definition and reintroduce exactly the risk this milestone exists to remove | Log any such idea as a v6/future backlog item, do not implement before 20 July |
+| Switching the demo server to a "production-grade" WSGI server (gunicorn/uvicorn) or adding multi-threading/concurrency support to fix the single-threaded blocking behavior | Feels like the "correct" fix for the concurrency limitation found in `demo.py` | Swapping the server stack this close to defense is an infrastructure change with new dependencies, new failure modes, and no time for equivalent-depth testing, for a problem that a client-side re-entrant-fetch guard (already implemented) plus presenter discipline (don't double-click) already mitigates adequately for a single-presenter live demo | Verify the existing `AbortController` guard behaves correctly under a double-click/second-tab test; do not touch the server threading model |
+| Deep model-level latency optimization (re-quantizing, swapping GGUF backend, changing runtime profile) days before the defense | The latency issue is "known" so it feels urgent to root-cause and fix at the model layer | Requantizing or swapping runtime profiles this close to a fixed presentation date without a full evaluation re-run risks silently changing the model's classification behavior/accuracy that the thesis's own evaluation chapter already reports and locks — a regression here is worse than a slow-but-correct demo | Measure and narrate the existing latency (see Differentiators); if a *trivial*, well-understood latency fix exists (e.g., ensuring warm-up already keeps the model resident, confirming no redundant reloads), apply only that narrowly, then re-run the full evaluation-adjacent smoke tests before treating it as done |
+| Adding telemetry, analytics, or "nice to have" logging/instrumentation for the demo itself | Feels useful for "knowing how the demo went" | New instrumentation is new code that could itself introduce a bug or an unexpected network call, directly undermining the offline/privacy claim being verified | Manual note-taking or the pre-planned recording/screenshots (already in scope) is sufficient evidence-gathering for a one-time defense event |
+| Testing on/porting to a different OS or a "just in case" second machine with a different environment setup than what was actually developed on | Seems like it increases redundancy | Unless there is a truly identical, already-provisioned backup laptop, spending verification time provisioning a second environment from scratch this close to the deadline is higher-risk than hardening the one real presentation laptop thoroughly | If a backup laptop exists, it must already have the identical artifact root/model files staged well in advance — do not attempt first-time setup during the verification window |
 
-**Cross-references:** The `cloud_vs_local_dataflow` figure lives in Ch 2 and should stay here in I/ as-is.
-
----
-
-### II/ Objectives (target: 2–3 sentences, standalone section)
-
-**Source:** Ch 1, Section 3 "Objectives and Scope" — the bullet list of 4 objectives.
-
-**Transform needed:** The department format specifies "submit your goal and summarize the strategy in 2-3 concise sentences." The existing content is a 4-bullet list. It must be collapsed into 2–3 prose sentences.
-
-**Existing bullets:**
-1. Build reproducible Vietnamese phishing dataset pipeline.
-2. Deliver text-only local runtime (privacy by default).
-3. Adapt local model via LoRA/QLoRA + deploy via GGUF and accelerated paths.
-4. Return structured explainability outputs (risk tier, labels, cues, recommendations).
-
-**Recommended prose form (draft):**
-> This project aims to build and evaluate a localized, offline-capable explainable AI pipeline for detecting Vietnamese financial phishing messages while preserving user privacy by default. The strategy combines a reproducible synthetic dataset pipeline, parameter-efficient QLoRA adaptation of a 4B open-weight model, GGUF quantization for consumer hardware deployment, and a structured explainability layer returning risk tiers, threat labels, grounded cues, and safe next steps.
-
-This is 2 sentences, uses all 4 bullets, stays within the format requirement. The Ch 1 sentence "The thesis documents completed work…with task-scam recall reaching 0.871 on 62 held-out examples" can optionally become sentence 3 (adds result preview). New writing required: **1 paragraph rewrite** of existing bullet list — minimal effort, all content is already present.
-
----
-
-### III/ Materials and Methods
-
-**Sources to merge (in order):**
-
-1. Ch 3, Section 2 "Data Construction and Split Governance" — corpus assembly, synthetic generation pipeline, quality judge, split governance. This is the "materials" part.
-2. Ch 3, Section 3 "Offline Text Runtime Baseline" — runtime design, privacy constraint.
-3. Ch 3, Section 4 "Local Model Selection and Deployment Paths" — pilot evaluation, QLoRA config (with equation and qlora_config table), GGUF export. This is the "methods" part.
-4. Ch 3, Section 5 "Explainable Threat Decisioning" — decision layer design rules.
-5. Ch 3, Section 6 "Design Principles" — reusable local-first principles.
-6. Ch 4, Sections 1–5 (Codebase Organization, Data Pipeline Impl, Runtime Contracts, Backend Implementations, Model Adaptation Workflow) — implementation detail that is part of the reproducible method description.
-
-**What stays out of III/:**
-
-- Ch 4, Section 6 "Operator Surface and Packaging" subsection "Example Analysis Output" (the worked Vietnamese SMS example) → moves to IV/ as the opening illustration of results.
-- Ch 4, Section 6 packaging prose (pyproject.toml dependency groups, `vnphish demo` command) → keep in III/ as it is part of reproducibility.
-- The pilot comparison table (`tables/pilot_comparison`) lives in Ch 3 and stays in III/.
-- The dataset statistics table (`tables/dataset_statistics`) lives in Ch 3 and stays in III/.
-- The runtime contract TikZ figure (in Ch 4) stays in III/ as method documentation.
-- The system_overview figure (currently in Ch 3 preamble) stays in III/.
-
-**Department requirement check:** "include all information necessary for a third person to reproduce your experiments (in detail but condensed)." Ch 3 + Ch 4 together already satisfy this. No new method text is needed.
-
-**Section ordering concern:** Ch 3 (high-level methodology) followed by Ch 4 (low-level codebase details) currently reads as a natural progression. In III/, the merge should maintain this order: data → runtime → model selection → adaptation → deployment → codebase detail. The `Development Structure` opening of Ch 3 can serve as III/'s introductory paragraph with the milestone_summary table removed or moved to front matter.
-
----
-
-### IV/ Results and Discussion
-
-**Sources to merge:**
-
-1. Ch 4, Subsection "Example Analysis Output" — the worked SMS analysis (Vietnamese input → risk tier, labels, cues, next steps). Department template notes "Never start your result section with a Fig or Table only — an introduction paragraph should be added." The existing prose before the example output block serves as that introduction.
-2. Ch 5, Section 1 "Data Quality and Candidate Selection" — earliest quantitative evidence, quality-judge scores.
-3. Ch 5, Section 2 "End-to-End Verification" — verification pass, 5 acceptance checks.
-4. Ch 5, Section 3 "Expanded-Holdout Results" — accuracy 0.957, macro F1 0.955, per-class table, recall barchart figure, confusion matrix table.
-5. Ch 5, Section 4 "Interpretation of the Final Result" — critical analysis, explanation quality cautions. This is the "Discussion" sub-section.
-6. Ch 5, Section 5 "Error Analysis" — root cause of 11 misclassifications (bank-naming boundary). Also Discussion.
-7. Ch 5, Section 6 "Limits of the Current Evidence" — limitation acknowledgement. Belongs in Discussion.
-
-**Department requirement check:**
-
-- "Description of the student's own research, procedures and results. Interpretation of results; conclusions and review of results comparison with other research; critical assessment." — Ch 5 + the worked example satisfy all of these.
-- "Critical analysis and discuss results in regards to data already available in the scientific literature." — Ch 5 Section 4 references `lim2025explicate` as comparison; Ch 5 Section 6 contextualizes against production-scale studies. Adequate coverage exists, though it is thin (2 comparison references). No additional literature comparison is strictly required to satisfy the format, but adding one sentence connecting recall results to the EXPLICATE benchmark numbers would strengthen the Discussion sub-section.
-
-**Subsection structure for IV/:**
+## Feature Dependencies
 
 ```
-IV/ Results and Discussion
-  1. Results
-     1.1  System Demo Output (worked example from Ch 4 §6)
-     1.2  Data Quality Evidence (Ch 5 §1 first half)
-     1.3  Model Selection Record (Ch 5 §1 second half)
-     1.4  End-to-End Verification (Ch 5 §2)
-     1.5  Expanded Holdout Evaluation (Ch 5 §3 — main quantitative results)
-  2. Discussion
-     2.1  Interpretation of Results (Ch 5 §4)
-     2.2  Error Analysis (Ch 5 §5)
-     2.3  Limitations (Ch 5 §6)
+[vnphish doctor passes on presentation laptop]
+    └──requires──> [Model artifacts physically present/synced on that laptop]
+                       └──requires──> [Correct artifact-root path/config on that laptop, not dev-machine-only]
+
+[End-to-end functional verification across threat classes]
+    └──requires──> [vnphish doctor passes] (fail-closed default means analyze exits 2 / demo won't serve meaningfully if not ready)
+
+[Offline/network-isolation check]
+    └──enhances──> [Privacy claim credibility in the live demo]
+
+[Edge-case input pass] ──uses──> [Same sample messages prepared for "pre-selected rehearsed inputs" differentiator]
+
+[Latency measurement] ──informs──> [Presenter narration script for latency]
+
+[Recorded video/screenshot fallback]
+    └──requires──> [End-to-end functional verification already passing] (record the verified-good run, not an ad hoc one)
+
+[CLI help-text fix] ──conflicts──> [CLI restructure/redesign] (only one is in scope this milestone; see Anti-Features)
+
+[Any UI quirk fix] ──conflicts──> [UI redesign] (fix only what verification surfaces; no aesthetic rework)
 ```
 
+### Dependency Notes
+
+- **Functional verification requires `doctor` passing:** both `handle_analyze` and `run_demo_server` are effectively gated by runtime readiness (`analyze` explicitly checks `run_runtime_doctor()` and exits 2 if not ready; `demo` calls `backend.doctor()` at startup as a warm-up). There is no point testing threat-class outputs before confirming the readiness check passes on the actual presentation hardware.
+- **Network-isolation check enhances but does not block functional verification:** it should be run as an additional pass after normal functional verification succeeds online, to isolate whether anything unexpectedly depends on network access.
+- **Edge-case testing and rehearsed-input prep share one artifact:** the same curated message set (bank impersonation, account-takeover, job-scam, benign) used to verify correctness should double as the presenter's live-demo script, so there is only one "known good" input set to maintain, not two diverging ones.
+- **Latency measurement informs narration, not code changes:** per the anti-features above, the default assumption should be "measure and narrate" rather than "re-engineer," unless a trivially safe fix is found.
+- **CLI and UI fixes conflict with their respective redesigns:** this is the central scope-creep guardrail for this milestone — every fix should be evaluated against "does this reduce or increase the amount of untested surface area before 13 July."
+
+## MVP Definition
+
+### Launch With (v5.1 Milestone — Due Before 13 July 2026)
+
+Minimum viable verification pass — what's needed to be confident the live demo will not embarrass the presenter.
+
+- [ ] `vnphish doctor` run and passing on the actual presentation laptop — non-negotiable baseline readiness proof
+- [ ] Full functional pass: one message per in-scope threat class + one benign message, on the presentation laptop, confirming risk tier + threat label + cues + safe-steps render correctly
+- [ ] Offline pass: same messages re-run with network disabled, confirming identical behavior and no network calls
+- [ ] Edge-case pass: empty input, very long input, malformed/off-topic input handled without a raw crash or hang visible in the UI
+- [ ] Latency measured and quantified (cold vs. warm), with a one-line presenter explanation ready
+- [ ] CLI entrypoint disambiguation: at minimum, `--help` text or a README note clarifying `analyze` (terminal) vs `demo` (browser UI), and the presenter's exact command(s) rehearsed
+- [ ] Concurrency/double-submit check: confirm the existing fetch-guard prevents a broken state on double-click or duplicate tab
+- [ ] Recorded video (full successful run) + screenshots of each threat-class result, saved locally in at least two places (laptop + USB)
+- [ ] Any UI quirk found during the above passes fixed narrowly (no redesign)
+
+### Add After Validation (Only If Time Remains Before 13 July)
+
+- [ ] Presenter incident-response card (if X fails, do Y) — pure documentation, near-zero risk to add
+- [ ] A rehearsed live "toggle Wi-Fi off" moment in the presentation script — only if tested safely in advance and proven not to disrupt the projector/display setup
+
+### Future Consideration (Explicitly Deferred Past the Defense — v6+)
+
+- [ ] Any UI redesign or visual polish
+- [ ] CLI subcommand restructuring or unification
+- [ ] Swapping the WSGI dev server for a production-grade multi-threaded server
+- [ ] Model-level latency optimization beyond confirming existing warm-up behavior
+- [ ] New telemetry/logging instrumentation for the demo
+
+## Feature Prioritization Matrix
+
+| Feature/Action | User Value (Defense Success) | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| `doctor` pass on presentation laptop | HIGH | LOW | P1 |
+| Functional pass across threat classes | HIGH | LOW-MEDIUM | P1 |
+| Offline/network-isolation check | HIGH | LOW | P1 |
+| Edge-case input pass | HIGH | LOW-MEDIUM | P1 |
+| CLI entrypoint disambiguation (docs/help only) | MEDIUM-HIGH | LOW | P1 |
+| Latency measurement + narration prep | MEDIUM-HIGH | LOW-MEDIUM | P1 |
+| Concurrency/double-submit check | MEDIUM | LOW | P1 |
+| Recorded video/screenshot fallback | HIGH | LOW-MEDIUM | P1 |
+| Narrow UI quirk fixes (only what's surfaced) | MEDIUM | LOW | P1 |
+| Rehearsed pre-selected input script | MEDIUM | LOW | P2 |
+| Presenter incident-response card | MEDIUM | LOW | P2 |
+| Live Wi-Fi-off toggle moment | LOW-MEDIUM | LOW (but risk if untested) | P3 |
+| UI redesign | LOW (for this milestone) | HIGH | Out of scope |
+| CLI restructure | LOW (for this milestone) | MEDIUM-HIGH | Out of scope |
+| Production WSGI server swap | LOW (for this milestone) | MEDIUM | Out of scope |
+| Model-level latency re-engineering | LOW (for this milestone), HIGH risk | HIGH | Out of scope |
+
+**Priority key:**
+- P1: Must have for the 13-20 July defense window
+- P2: Should have if time remains
+- P3: Nice to have, only if it can be validated safely without adding risk
+
+## Competitor/Reference Analysis
+
+Not a market-competitive product; "competitors" here are analogous demo/verification practices from other domains.
+
+| Practice | Conference tech-talk demos | Enterprise sales-software demos | This project's approach |
+|---------|--------------------|--------------------|--------------|
+| Code freeze before the event | Freeze 3-4 days out; no last-minute changes | Dry run day-of, environment locked | Adopt: freeze this milestone's fixes days before 13 July, verification-only after |
+| Backup for live failure | Pre-recorded backup video/screenshots | Pre-recorded fallback + sandbox environment | Adopt: recorded full run + screenshots per threat class |
+| Environment parity | Test on the exact hardware/software used live | Reproduce a staging environment matching prod | Adopt: verify on the actual presentation laptop, not dev machine |
+| Handling known slowness | Narrate through it, don't hide it | Pre-warm systems, skip slow steps in script | Adopt: measure latency, prepare a narration line, keep warm-up already in place |
+
+## Sources
+
+- [Essential Checklist for Your Next Software Demo Prep](https://www.sharefable.com/blog/ultimate-checklist-for-software-demo-presentation) — MEDIUM confidence, general SaaS demo checklist, cross-referenced against academic-specific advice
+- [How to Appease the Demo Gods](http://www2.rdrop.com/~paulmck/DemoGods/) — MEDIUM confidence, widely cited engineering-conference demo-failure lore; principle of code-freeze days before demo and testing only what's rehearsed
+- [Don't Tempt The Demo Gods (Hackaday)](https://hackaday.com/2016/04/30/dont-tempt-the-demo-gods/) — MEDIUM confidence, corroborates "bring two of everything," avoid last-minute changes
+- [Ten tips for a great demo — Steve Clayton](https://www.stevecla.com/musings/ten-tips-for-a-great-demo/24/8/2014) — LOW-MEDIUM confidence, general practitioner advice
+- [How to Be a Demo God — Guy Kawasaki](https://guykawasaki.com/how_to_be_a_dem/) — LOW-MEDIUM confidence, widely referenced but anecdotal
+- [Virtual Thesis Defense — recording a stressful Zoom presentation](https://jaan.io/virtual-thesis-defense-recording-zoom-presentation/) — MEDIUM confidence, direct academic-defense context; corroborates pre-recorded backup video practice and redundant recording setups
+- [Testing Your Application in Air-Gapped Environments with Compatibility Matrix (Replicated)](https://www.replicated.com/blog/testing-your-application-in-air-gapped-environments-with-compatibility-matrix) — MEDIUM confidence, corroborates "every item in an air-gapped checklist must be verified, missing one is a failure point," and reproducing the sealed/offline environment before relying on it
+- [Air-Gapped REST API Deployment Best Practices (hoop.dev)](https://hoop.dev/blog/air-gapped-rest-api-deployment-best-practices-for-secure-offline-environments) — MEDIUM confidence, corroborates verifying no unintended network egress as an explicit, automatable check
+- [Optimize LLM response costs and latency with effective caching (AWS)](https://aws.amazon.com/blogs/database/optimize-llm-response-costs-and-latency-with-effective-caching/) and general local-LLM guides (sitepoint.com, ikangai.com) — LOW-MEDIUM confidence, general local-inference latency/keep-resident practice, used only to frame the "measure and narrate, don't re-engineer" recommendation
+- Direct repo inspection (HIGH confidence, primary source): `src/runtime/cli.py`, `src/runtime/demo.py`, `src/runtime/doctor.py` in this repository — used to ground every finding in the actual entrypoints, server threading model, and existing readiness tooling rather than assumptions
+- `.planning/PROJECT.md` — HIGH confidence, primary source for milestone scope, known issues, and explicit out-of-scope boundaries
+
 ---
-
-### V/ Conclusion & Perspective
-
-**Source:** Ch 6 entire chapter — direct map.
-
-- "Main Takeaways" → Conclusion paragraph (achievements).
-- "What the Final Evaluation Means" → expands on achievements with the quantitative anchor.
-- "Limitations" → brief limitation acknowledgement before perspectives.
-- "Future Work" (3 directions) → Perspective paragraph.
-
-**Department requirement:** "The conclusion recapitulates the main achievements of your work and the main perspectives it opens." Ch 6 does exactly this. No new content needed.
-
-**Minor edit needed:** Ch 6 references "Chapter 5" in the phrase "the error analysis in Chapter 5 shows…". This internal cross-reference must be updated to "Section IV" or "the error analysis above" in the restructured document. This is a find-and-replace edit, not new writing.
-
----
-
-## Content Gaps Requiring New Text
-
-| Gap | Location | Estimated Size | Priority |
-|---|---|---|---|
-| II/ Objectives prose | Replace 4-bullet list with 2–3 sentences | 1 paragraph (2–3 sentences) | Required — format non-negotiable |
-| Ch 1 "Report Organization" replacement | Existing paragraph names chapters; replace with section-aware orientation sentence | 1 sentence | Required — factual update |
-| Ch 2 → I/ transition | Ch 2 currently opens as a standalone chapter; needs a 1–2 sentence bridge connecting the introduction narrative to the literature review | 1–2 sentences | Low effort, high readability value |
-| IV/ intro paragraph before example output | Department template requires introduction paragraph before first table/figure in results | 1 short paragraph (already partially present as prose before the example block in Ch 4 §6) | Already exists — confirm it is sufficient as-is |
-| Ch 5 §4 literature comparison expansion | One sentence connecting holdout recall to published benchmarks (e.g., EXPLICATE baseline numbers) to strengthen Discussion sub-section | 1 sentence | Optional — format compliant without it |
-| "Section IV" cross-reference fix in Ch 6 | Replace "Chapter 5" with section-aware reference | 1 find-and-replace | Required — avoids broken references |
-| Chapter → Section header renaming throughout | All `\chapter{...}` → `\section*{...}` or equivalent Roman numeral headings | Mechanical edit throughout | Required — automated with sed/find-replace |
-
-**Total new prose required: 1 paragraph + 2–3 sentences.** All other changes are restructuring, reordering, and header renaming of existing content.
-
----
-
-## Merge/Split Strategy (Minimizing New Writing)
-
-**Rule:** Move entire sections as atomic units wherever possible. Only split at subsection boundaries.
-
-```
-KEEP INTACT (no restructuring inside the section):
-  Ch 2 §1 Vietnamese Phishing Context   → I/ body
-  Ch 2 §2 Local Inference as Privacy    → I/ body
-  Ch 2 §3 Explainability                → I/ body
-  Ch 2 §4 Open-Weight Models (partial)  → I/ body (trim Gemini para → III/)
-  Ch 2 §5 Evaluation Priorities         → I/ body
-  Ch 3 §2 Data Construction             → III/ §1
-  Ch 3 §3 Runtime Baseline              → III/ §2
-  Ch 3 §4 Model Selection + QLoRA       → III/ §3
-  Ch 3 §5 Explainable Decisioning       → III/ §4
-  Ch 3 §6 Design Principles             → III/ §5
-  Ch 4 §1 Codebase Organization         → III/ §6
-  Ch 4 §2 Data Pipeline Impl            → III/ §7
-  Ch 4 §3 Runtime Contracts             → III/ §8
-  Ch 4 §4 Backend Implementations       → III/ §9
-  Ch 4 §5 Model Adaptation Workflow     → III/ §10
-  Ch 4 §6 Packaging (prose only)        → III/ §11
-  Ch 5 §1–§6 (all)                      → IV/ (split into Results + Discussion)
-  Ch 6 §1–§4 (all)                      → V/
-
-SPLIT (extract subsection or paragraph):
-  Ch 1 §1–§2 narrative                  → I/ opening
-  Ch 1 §3 objectives bullets            → II/ (rewrite as prose)
-  Ch 1 §4 report organization           → Drop or replace with 1 sentence
-  Ch 4 §6 subsection "Example Analysis" → IV/ Results §1 (extract from III/)
-  Ch 2 §4 second paragraph (Gemini)     → III/ justification note (extract from I/)
-
-NEW TEXT:
-  II/ Objectives prose                   → 2–3 sentences (write fresh from bullets)
-  Ch 2 → Ch 1 bridge sentence            → 1–2 sentences
-  Ch 6 cross-reference fix               → 1 find-and-replace
-```
-
----
-
-## Section Length Estimates (vs Department Guidance)
-
-| Section | Department Guidance | Estimated length from merged content | Status |
-|---|---|---|---|
-| I/ Introduction | 2–3 pages | ~2.5–3 pages (Ch 1 narrative + Ch 2) | Borderline — trim Ch 2 §4 second paragraph |
-| II/ Objectives | 2–3 sentences | Currently 4 bullets → needs rewrite | Gap — requires 1 paragraph rewrite |
-| III/ Materials and Methods | Reproducible, publication-style | ~5–7 pages (Ch 3 + Ch 4) | Comfortable — department format has no page limit here |
-| IV/ Results and Discussion | Student's own results + discussion vs literature | ~4–5 pages (Ch 5 + worked example) | Comfortable |
-| V/ Conclusion & Perspective | Achievements + perspectives | ~1.5–2 pages (Ch 6) | Comfortable |
-
----
-
-## Confidence Assessment
-
-| Area | Confidence | Basis |
-|---|---|---|
-| Chapter content inventory | HIGH | Read all 6 chapter .tex files directly |
-| Department section requirements | HIGH | Read official 2026_required_format_thesis.md directly |
-| Page-length estimates | MEDIUM | Based on prose density in .tex files; actual compiled length may vary by ±0.5 pages depending on figure placement and table sizes |
-| "Objectives prose" rewrite adequacy | HIGH | Department spec is unambiguous (2–3 sentences); existing bullet content provides all the raw material |
-| Literature comparison coverage in Discussion | MEDIUM | Ch 5 references EXPLICATE and one other; sufficient for format compliance, thin for academic strength |
+*Feature research for: pre-demo verification & presentation hardening (thesis defense, local offline LLM demo)*
+*Researched: 2026-07-02*

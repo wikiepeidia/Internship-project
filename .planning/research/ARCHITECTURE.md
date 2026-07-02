@@ -1,734 +1,265 @@
-# Architecture: LaTeX File Layout — Department Template Compliance
+# Architecture Research
 
-**Scope:** Phase 22+ LaTeX restructure  
-**Researched:** 2026-06-15  
-**Compiler:** XeLaTeX  
-**Document class:** `report` (kept — `\chapter` infrastructure retained)
+**Domain:** Pre-presentation verification & hardening of an existing local Python/wsgiref demo app (offline GGUF LLM inference)
+**Researched:** 2026-07-02
+**Confidence:** HIGH (based on direct source reading of `src/runtime/*` and `tests/runtime/*`) / MEDIUM for llama.cpp performance tuning claims (WebSearch-verified, not benchmarked on the actual presentation laptop yet)
+
+> Note: this file replaces a prior milestone's LaTeX-layout architecture note (v2.2 report formatting), which is no longer relevant to the active v5.1 "Demo Verification & Presentation Readiness" milestone. That content is preserved in git history if needed again.
+
+## Standard Architecture
+
+### System Overview (As-Is, Verified by Reading Source)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Entry points (frozen contract surface)                             │
+│  ┌────────────────────┐        ┌──────────────────────────────────┐ │
+│  │ vnphish CLI         │        │ vnphish demo (wsgiref server)    │ │
+│  │ src/runtime/cli.py  │        │ src/runtime/demo.py              │ │
+│  │ analyze / doctor /  │        │ DemoApp: GET / , /static/*.css,  │ │
+│  │ demo subcommands    │        │ /static/*.js, POST /api/analyze  │ │
+│  └─────────┬───────────┘        └───────────────┬──────────────────┘ │
+│            │                                    │                    │
+├────────────┴────────────────────────────────────┴────────────────────┤
+│                    RuntimeService (src/runtime/service.py)           │
+│  normalize_text → boundary checks → backend.doctor() → backend.      │
+│  analyze() → cue-count trim → AnalysisResult                         │
+├────────────────────────────────────────────────────────────────────┤
+│  AnalyzerBackend (selected by Settings.runtime_backend)              │
+│  ┌───────────────┐ ┌────────────────────┐ ┌────────────────────┐    │
+│  │ HeuristicAnal.│ │ GGUFAnalyzer        │ │ AcceleratedAnalyzer│    │
+│  │ (no model)    │ │ llama_cpp.Llama,    │ │ (transformers, not │    │
+│  │               │ │ n_ctx=512, n_gpu_   │ │ default profile)   │    │
+│  │               │ │ layers=0 (CPU only) │ │                    │    │
+│  └───────────────┘ └─────────┬──────────┘ └────────────────────┘    │
+├─────────────────────────────┴────────────────────────────────────────┤
+│  Local artifacts (off-repo, env-overridden)                          │
+│  D:\PROJEct\AI MODELS\...\gguf-laptop.gguf                            │
+│  model-registry.json (selection metadata)                            │
+│  .env/.env → MODEL_ARTIFACT_ROOT, MODEL_REGISTRY_PATH overrides      │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+The web demo and the CLI `analyze` command are two independent entry points into the **same** `RuntimeService`/`GGUFAnalyzer` stack — they do not share process state, so verifying one does not verify the other's wiring (host/port args, browser launch, stdin handling, JSON body parsing).
+
+### Component Responsibilities
+
+| Component | Responsibility | Verification relevance |
+|-----------|----------------|-------------------------|
+| `src/runtime/cli.py` | argparse dispatch for `analyze`/`doctor`/`demo`; owns the exact subcommand names presenters must remember | Root cause of "CLI entrypoint confusion" — fixable via help text/launcher, not a contract change |
+| `src/runtime/demo.py` (`DemoApp`, `run_demo_server`) | wsgiref WSGI app; serves 4 static assets + 1 POST endpoint; does model warmup once at server start | Best neutral point to wrap for server-side latency logging without touching the JSON wire contract |
+| `src/runtime/service.py` (`RuntimeService`) | Normalize-first orchestration; boundary/empty/short-text checks; calls `backend.doctor()` on **every** `analyze_text()` call, not just at startup | Doctor call is cheap once `GGUFAnalyzer._cached_doctor_status` is warm — but this is the layer to time to separate "normalize+validate" cost from "model inference" cost |
+| `src/runtime/doctor.py` (`RuntimeDoctor`) | Readiness checks: python version, imports, settings load, backend-specific checks including an actual `GGUFAnalyzer.doctor()` model load probe | This is the tool for the offline-portability pass — `vnphish doctor` is a complete, zero-network, self-diagnosing readiness report already built |
+| `src/runtime/analyzers/gguf.py` (`GGUFAnalyzer`) | Resolves artifact path from registry, loads `llama_cpp.Llama` (cached instance), runs `create_chat_completion`/`create_completion` with `max_tokens=250`, `n_ctx=512`, `n_gpu_layers=0` (hardcoded CPU-only) | Primary latency suspect: no explicit `n_threads`, hardcoded `n_gpu_layers=0`, fixed 512-token context regardless of laptop hardware |
+| `src/runtime/analyzers/local_model.py` | Prompt building (`build_structured_analysis_prompt`, no truncation) + JSON payload extraction/validation via Pydantic (`ThreatDecision`) | Long-input edge case risk: full message text is concatenated into the prompt with **no length cap**, but `n_ctx=512` is fixed — long pastes can overflow context and produce truncated/unparseable JSON, surfacing as a generic `RuntimeUnavailableError` rather than a clear "text too long" message |
+| `src/config/settings.py` (`Settings`) | pydantic-settings; reads `.env/APIKEY.json`/`.env/.env` **relative to current working directory**, with OS env vars as override | Portability trap: if the presentation laptop launches `vnphish` from a shortcut/terminal whose CWD isn't the repo root, the relative `.env/.env` file is silently not found and `model_artifact_root`/`model_registry_path` fall back to repo-relative defaults (`data/models`, `data/manifests/model-registry.json`) instead of the off-repo `D:\PROJEct\AI MODELS` path |
+| `src/runtime/demo_assets/{demo.js,demo.css,index.html,i18n.js}` | Static, unauthenticated assets; `demo.js` owns the `fetch('/api/analyze')` call and all DOM rendering | Safe to instrument client-side (not part of the "backend contract" — it's presentation-layer JS already modified across prior milestones) |
+
+## Recommended Structure for the Verification Pass
+
+No new `src/` package is warranted — this is a hardening milestone, not a feature milestone. The right footprint is a handful of **new, additive, non-shipped files** that never touch `src/runtime/service.py`, `src/runtime/analyzers/*`, or the `/api/analyze` wire contract:
+
+```
+scripts/
+├── verify_latency.py        # NEW — external timing harness, imports build_default_runtime_service
+│                             #   directly (no monkeypatching of src/), times normalize→doctor→
+│                             #   analyze as three separate perf_counter spans, runs N sample
+│                             #   messages, prints a table. Never imported by src/ or shipped.
+├── defense/
+│   ├── START_DEMO_UI.bat    # NEW — cd's to repo root, activates venv, sets
+│   │                         #   MODEL_ARTIFACT_ROOT/MODEL_REGISTRY_PATH explicitly (not relying
+│   │                         #   on .env discovery), runs `vnphish demo`
+│   ├── START_TEXT_ANALYZE.bat # NEW — same env setup, runs `vnphish analyze` in a loop-friendly
+│   │                         #   console window, for the "text-only, no page" fallback path
+│   └── record_fallback.md   # NEW — checklist, not code: which scam/benign/edge messages to run
+│                             #   on camera, in what order, using which recorder
+tests/runtime/
+└── test_demo_latency_smoke.py  # OPTIONAL NEW — a fast pytest that asserts a fake/heuristic
+                                  #   backend request completes under a generous ceiling
+                                  #   (protects against future accidental regressions, not a
+                                  #   real GGUF benchmark since CI likely lacks the model file)
+```
+
+### Structure Rationale
+
+- **`scripts/verify_latency.py` lives outside `src/`:** it is diagnostic tooling for one milestone, not part of the shipped runtime or the frozen `/api/analyze` contract. Keeping it out of `src/runtime` means zero risk of accidentally changing import-time behavior of the demo/CLI.
+- **`scripts/defense/*.bat` replace "remembering CLI subcommands":** this directly resolves the "CLI entrypoint confusion between `vnphish analyze` and `vnphish demo`" item without touching `cli.py`'s argparse contract at all. If a code-level fix is still wanted, the only safe addition is an argparse `epilog`/`--help` text clarification in `build_parser()` (additive string only, no argument/flag changes, no behavior change to any handler).
+- **No new `src/` module:** every actual instrumentation need (timing, portability check, recording) is satisfiable by external tooling or additive scripts, consistent with "backend frozen except the i18n.js route."
+
+## Architectural Patterns
+
+### Pattern 1: Outer WSGI Timing Middleware (server-side latency, zero contract risk)
+
+**What:** Wrap the existing `DemoApp` instance from *outside* `demo.py`, at the point `make_server()` is called, with a thin function that times `app(environ, start_response)` using `time.perf_counter()` and logs to stdout/stderr.
+**When to use:** When you need to know total server-side latency (including model warmup misses) without changing what bytes go back to the browser.
+**Trade-offs:** Because `_json_response`/`_text_response` in `demo.py` build the full response body into a `list[bytes]` *before* calling `start_response`, a naive "time between call and return" wrapper already captures the full request-processing time — there is no streaming/generator response to worry about here (confirmed by reading `demo.py`: every handler returns a fully-materialized list, never a generator). This makes the simple wrapper pattern sufficient; the more complex "wrap the iterable's `close()`" pattern documented for general WSGI middleware is unnecessary in this codebase.
+
+**Example (belongs in a new, tiny wrapper — NOT edited into `DemoApp`):**
+```python
+# in run_demo_server(), wrap only at server-construction time:
+import time
+
+def _timed(app):
+    def _wrapped(environ, start_response):
+        t0 = time.perf_counter()
+        result = app(environ, start_response)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if environ.get("PATH_INFO") == "/api/analyze":
+            print(f"[latency] /api/analyze took {elapsed_ms:.0f} ms")
+        return result
+    return _wrapped
+
+with make_server(host, port, _timed(app)) as server:
+    ...
+```
+This can be added as a small, reviewable diff to `run_demo_server` (it changes zero response bytes, zero status codes, zero headers — it only adds a print statement), or kept entirely external as a `scripts/` wrapper that monkeypatches `make_server` for a one-off verification run. Given the deadline, the monkeypatch-in-a-script approach is lower-risk because it requires no commit to `src/runtime/demo.py` at all.
+
+### Pattern 2: Client-Side `performance.now()` Around the Existing `fetch` Call
+
+**What:** In `demo.js`'s `analyzeMessage()`, wrap the existing `fetch('/api/analyze', ...)` call with `performance.now()` before/after and `console.log` (or a `data-*` attribute) the round trip.
+**When to use:** To measure what the presenter/audience actually experiences (network + JSON parse + DOM render), not just backend compute.
+**Trade-offs:** Requires a small `demo.js` edit. `demo.js` is a static asset, not the request/response schema, so it is not part of the "frozen backend contract" — but it is still shipped/rendered code, so keep the change to `console.log` only (invisible in the UI) unless the roadmap explicitly wants a visible "analyzed in Xs" badge as a UI polish item.
+
+```javascript
+const t0 = performance.now();
+const response = await fetch('/api/analyze', { ... });
+const payload = await response.json();
+console.log(`[latency] round trip ${(performance.now() - t0).toFixed(0)} ms`);
+```
+
+### Pattern 3: Browser DevTools Network Tab (zero code, zero risk)
+
+**What:** Open the demo in a browser, open DevTools → Network, submit a message, read the `/api/analyze` request's Time column (TTFB + content download).
+**When to use:** First diagnostic step, always — it requires no code changes whatsoever and directly answers "is the bottleneck server compute or something else (browser rendering, extension interference, etc.)."
+**Trade-offs:** Doesn't break down *why* the backend is slow (normalize vs. doctor vs. model inference), only that it is. Use this first; only add Pattern 1/2 instrumentation if this doesn't already explain the reported issue.
+
+## Data Flow
+
+### Latency-Relevant Request Flow (current, as built)
+
+```
+Browser fetch POST /api/analyze
+    ↓
+DemoApp.__call__ → DemoApp._handle_analyze
+    ↓ (JSON parse, channel validation — cheap, in-process)
+RuntimeService.analyze_text(text, channel)
+    ↓ normalize_text(text)                      [cheap]
+    ↓ boundary checks (empty/short/non-text)     [cheap]
+    ↓ self.backend.doctor()                      [cheap AFTER warmup — GGUFAnalyzer
+    │                                              caches DoctorStatus once ready]
+    ↓ backend.analyze(request)
+        ↓ GGUFAnalyzer._resolve_artifact_path()  [cheap — registry JSON read]
+        ↓ GGUFAnalyzer._load_runtime()           [cached after first call —
+        │                                          run_demo_server already calls
+        │                                          app.service.backend.doctor() once
+        │                                          at startup as a warmup, so the
+        │                                          FIRST real request should NOT pay
+        │                                          model-load cost]
+        ↓ GGUFAnalyzer._infer_payload()          [*** dominant cost: CPU token
+        │                                          generation, up to 250 tokens,
+        │                                          n_gpu_layers=0 hardcoded, no
+        │                                          explicit n_threads ***]
+        ↓ extract_structured_payload + Pydantic validation [cheap]
+    ↓ AnalysisResult
+    ↓ result.model_dump(mode="json")
+Browser renders result bubble
+```
+
+**Key implication for diagnosis:** given the warmup call already exists in `run_demo_server` (`app.service.backend.doctor()` before `make_server`), a slow *first* request is a different bug (warmup not actually loading weights, or doctor() being skipped) than a slow *every* request (CPU generation is simply slow on this hardware). The verification pass must distinguish these two cases before proposing a fix, since they have different remedies (warmup fix vs. `n_threads`/`n_gpu_layers`/`max_tokens` tuning).
+
+### Offline-Portability Data Flow (env resolution — the part that breaks silently)
+
+```
+Settings() instantiated (pydantic-settings)
+    ↓ reads .env/APIKEY.json, .env/.env  — PATH IS RELATIVE TO CURRENT WORKING DIRECTORY
+    ↓ (if CWD ≠ repo root when `vnphish` is launched, these files are NOT found)
+    ↓ OS environment variables override file values IF SET
+    ↓ falls back to Settings field defaults:
+        model_artifact_root = Path("data/models")            ← repo-relative default
+        model_registry_path = Path("data/manifests/model-registry.json")  ← repo-relative default
+    ↓ GGUFAnalyzer reads registry_path → if wrong path, doctor() correctly
+      reports "Missing model registry" (fail-closed) rather than silently using
+      a stale/wrong model — this is a SAFE failure mode, but it looks identical
+      to "the demo is broken" to a presenter who doesn't know why
+```
+
+This confirms the fail-closed design (`runtime_fail_closed: bool = True` in `Settings`) protects against wrong/missing models being used silently — but it does **not** protect against a working-directory mismatch producing a confusing "NOT READY" report on defense day. The fix is procedural (always launch from repo root, or set OS-level persistent env vars via `setx` so `.env/.env` discovery is not load-bearing), not a code change.
+
+## Scaling Considerations — Reframed as "Verification Load Profile"
+
+This app will never see concurrent-user scale; the only "load" that matters is defense-day conditions:
+
+| Scenario | What matters | Verification approach |
+|----------|---------------|------------------------|
+| Single presenter, single browser tab, sequential messages | Per-request latency (the reported issue) | DevTools Network tab + `scripts/verify_latency.py`, sample messages across all 4 threat classes + benign |
+| Cold start (laptop just booted, model never loaded) | Time from `vnphish demo` invocation to "Warming up local model..." → ready | Time the warmup print-to-ready-print gap once per cold boot rehearsal |
+| Network fully disabled (airplane mode / no Wi-Fi) | Zero outbound calls anywhere in the request path | `wsgiref.make_server` binds `127.0.0.1` only; `llama_cpp.Llama(model_path=...)` loads a local file with no download step (unlike `AcceleratedAnalyzer`, which is not the default profile and should stay untouched); confirm no `transformers`/`huggingface_hub` cache-miss network calls are reachable from the `gguf` backend path — `GGUFAnalyzer` never imports those |
+| Different Windows user profile / different machine | `.env/.env` CWD-relative discovery, PATH availability of `python`/`vnphish` console script, presence of the Visual C++ runtime `llama-cpp-python` wheels typically need, permission to read `D:\PROJEct\AI MODELS` from that profile | Dedicated dry run: new user profile (or a second laptop), fresh `pip install -e .[dev,runtime]`, explicit OS-level env vars, `vnphish doctor` must report READY before trusting `vnphish demo` |
+
+### "First Bottleneck" Priority
+
+1. **Per-token CPU generation cost in `GGUFAnalyzer._infer_payload`** (no `n_threads` set, `n_gpu_layers=0` hardcoded, `max_tokens=250`) — almost certainly the dominant cost once warmup is confirmed to be working. Diagnose with `scripts/verify_latency.py` timing spans before touching any tuning parameter.
+2. **CWD-relative `.env` discovery** — not a runtime performance issue, but the single most likely cause of "it worked on my machine, broke on the presentation laptop" if the launch shortcut's working directory differs from the repo root.
+
+## Anti-Patterns to Avoid in This Milestone
+
+### Anti-Pattern 1: Adding a New `src/runtime` Module for "Observability"
+
+**What people do:** Build a metrics/logging subsystem (structured logging, a `/metrics` endpoint, a timing decorator library) inside `src/runtime/` to "properly" instrument the app.
+**Why it's wrong:** This milestone is QA/hardening with a hard deadline (defense window opens in ~11 days from today). Any new importable module inside `src/runtime` risks touching import order, doctor checks, or test fixtures that 9 existing `tests/runtime/*.py` files depend on. It also drifts toward "restructuring the app," which is explicitly out of scope.
+**Instead:** Use external scripts (`scripts/verify_latency.py`) and browser DevTools. If a tiny in-process print statement is truly needed (Pattern 1 above), keep it to a 5-line addition in `run_demo_server` only, never a new module.
+
+### Anti-Pattern 2: Building an In-App "Record Demo" Feature
+
+**What people do:** Add a "record this session" button or server-side screenshot/video capture endpoint to the demo UI itself.
+**Why it's wrong:** Directly contradicts the project's own "Out of Scope" line (`Image processing, computer vision, OCR, and screenshot analysis`) and the frozen-backend constraint — it would add a new endpoint and new dependencies (screen/video capture libraries) with days left before the defense.
+**Instead:** Fallback recording is a pure **external tooling** concern: OBS Studio (portable build, no install needed, works fully offline) or the Windows built-in Xbox Game Bar (`Win+G`) for screen capture; Windows `Snipping Tool`/`PrtScn` for stills. Record against the *finished, verified* demo running normally through the browser and CLI — the recording step should be last in the build order, not implemented as app code.
+
+### Anti-Pattern 3: Tuning `n_threads`/`n_gpu_layers` Before Measuring
+
+**What people do:** See "latency issue" in the backlog and immediately start changing `GGUFAnalyzer._load_runtime()` parameters.
+**Why it's wrong:** Without first separating "cold load" from "per-request generation" and without knowing the actual presentation laptop's core count, a blind tuning pass can make things worse (llama.cpp CPU throughput does not scale linearly with thread count past ~4-8 threads due to memory-bandwidth limits) and burns limited pre-defense time on speculative fixes.
+**Instead:** Run `scripts/verify_latency.py` on the actual presentation laptop first, record a baseline (cold vs. warm, across 4-5 representative messages), then apply one targeted change (e.g., explicit `n_threads=<measured optimum>`) and re-measure before/after.
+
+## Integration Points
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| None (by design) | N/A | `gguf` backend path has zero network dependency — `llama_cpp.Llama(model_path=...)` is a local file load; this should be explicitly re-verified with network disabled as part of the portability pass, not just assumed from reading the code |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| CLI (`cli.py`) ↔ `RuntimeService` | Direct Python call, in-process | `handle_analyze` runs `run_runtime_doctor()` itself before building the service — this is a *second*, separate doctor invocation from the one `RuntimeService.analyze_text()` runs internally; both are cheap once warm, but worth knowing when timing "why does `vnphish analyze` feel slower than the web demo's second request" |
+| Web demo (`demo.py`) ↔ `RuntimeService` | Direct Python call, in-process, via `build_demo_app()`/`build_default_runtime_service()` | Only `DemoApp` calls `app.service.backend.doctor()` once eagerly at server start (the warmup); the CLI path never pre-warms, so the *first* `vnphish analyze` invocation in a fresh process always pays full model-load cost — this asymmetry is a legitimate source of "CLI feels slower/different from the web demo" confusion and should be verified/documented, not silently fixed by changing CLI behavior (which would touch the frozen contract) |
+| `demo.js` (browser) ↔ `DemoApp` (`POST /api/analyze`) | `fetch` + JSON, single endpoint, no auth, no streaming | Response is small, fully-materialized JSON — safe for either server-side (Pattern 1) or client-side (Pattern 2) timing without touching the schema itself |
+| `Settings` ↔ filesystem | pydantic-settings `env_file` resolution, CWD-relative | The single highest-risk integration point for the portability check — verify explicitly with `python -c "from src.config.settings import get_settings; s=get_settings(); print(s.model_artifact_root, s.model_registry_path)"` run from a directory other than the repo root, with and without OS-level env vars set |
+
+## Suggested Build Order (Deadline-Aware)
+
+Today is 2026-07-02; defense window opens 2026-07-13 (~11 days). Order below front-loads the cheapest, zero-risk diagnostics and defers any code change until it's proven necessary, ending with the fallback recording only once the live demo is trustworthy:
+
+1. **`vnphish doctor`** — baseline readiness on the current dev machine. Zero code, minutes.
+2. **CLI functional pass** — `vnphish analyze --text "..."` across sample scam (bank impersonation, task scam, zalo social engineering) + benign + edge cases (empty string, very long paste exceeding ~512-token context, malformed/gibberish text). Validates the model/backend in isolation from the web layer and from browser variables.
+3. **Browser DevTools Network tab pass** — launch `vnphish demo`, submit the same sample set, read per-request timings. Zero code. Often sufficient to characterize the reported latency issue.
+4. **If deeper breakdown is needed:** add `scripts/verify_latency.py` (external, per Pattern 1/3) to separate cold-load vs. warm per-request vs. normalize/doctor overhead. Only then consider one targeted tuning change (`n_threads`, or reducing `GGUF_COMPLETION_MAX_TOKENS` if 250 tokens is generating more than needed) and re-measure.
+5. **CLI entrypoint confusion fix** — ship `scripts/defense/START_DEMO_UI.bat` and `scripts/defense/START_TEXT_ANALYZE.bat` (zero risk, immediately usable); optionally add an argparse epilog clarifying the two commands in `cli.py` (additive text only).
+6. **Offline-portability pass** — new Windows user profile or second machine: fresh `pip install -e .[dev,runtime]`, explicit OS-level `MODEL_ARTIFACT_ROOT`/`MODEL_REGISTRY_PATH` env vars (do not rely on `.env/.env` discovery), network disabled, run `vnphish doctor` → `vnphish demo` → `vnphish analyze`. This is the step most likely to surface a "worked on my machine" surprise and should not be left until the day before the defense.
+7. **UI quirks pass** — exercise the demo UI itself (long text, rapid double-submit given the existing `AbortController` logic in `demo.js`, clear button, sample button) and log anything visually broken.
+8. **Fallback recording** — only after 1-7 are green: use OBS Studio (portable, offline) or Windows Game Bar to record (a) the full happy-path web demo across the 4 threat classes + benign, (b) one edge case handled gracefully, (c) the CLI fallback path via `START_TEXT_ANALYZE.bat`. Take stills as a lighter-weight backup to the video.
+9. **Full dry rehearsal on the actual presentation laptop**, cold boot, using the `scripts/defense/*.bat` launchers exactly as planned for the defense — validates that steps 5-6's fixes actually hold end-to-end under real conditions, not just in isolation.
+
+## Sources
+
+- Direct source reading (HIGH confidence): `src/runtime/cli.py`, `src/runtime/demo.py`, `src/runtime/service.py`, `src/runtime/doctor.py`, `src/runtime/analyzers/gguf.py`, `src/runtime/analyzers/local_model.py`, `src/config/settings.py`, `src/runtime/demo_assets/demo.js`, `tests/runtime/test_cli.py`, `tests/runtime/test_gguf_latency.py` (note: despite the filename, this file tests prompt-stripping/JSON parsing, not actual timing — no existing latency instrumentation was found anywhere in the repo), `.planning/STATE.md` (confirms `.env/.env` off-repo model path override), `TODO.md`, `REAL_LIFE_SCAM_TEST_DEMO.md`.
+- [Diagnosing Latency in llama.cpp Python Wrapper for Short Prompts (GitHub Discussion)](https://github.com/abetlen/llama-cpp-python/discussions/2073) — MEDIUM confidence, community discussion, informs the "measure before tuning n_threads" recommendation.
+- [llama.cpp: CPU vs GPU, shared VRAM and Inference Speed (DEV Community)](https://dev.to/maximsaplin/llamacpp-cpu-vs-gpu-shared-vram-and-inference-speed-3jpl) — MEDIUM confidence, corroborates memory-bandwidth-bound CPU thread scaling.
+- [Performance monitoring of real WSGI application traffic (Graham Dumpleton)](https://grahamdumpleton.me/posts/2015/05/performance-monitoring-of-real-wsgi/) — MEDIUM confidence, standard WSGI middleware timing pattern; confirmed applicable here because this app's WSGI handlers never return generator/streaming bodies (verified by reading `demo.py`).
+- [WSGI Middleware to record Request and Response data (Gist)](https://gist.github.com/georgevreilly/5762777) — MEDIUM confidence, general pattern reference for the timing wrapper shape.
 
 ---
-
-## Target File Tree
-
-```
-documents/reports/latex/
-├── main.tex                                        ← full rewrite (orchestrator)
-├── references.bib                                  ← unchanged
-├── chapters/
-│   ├── frontmatter/
-│   │   ├── titlepage.tex                           ← keep (minor text edits only)
-│   │   ├── certification.tex                       ← NEW: certification/declaration page
-│   │   ├── abbreviations.tex                       ← NEW: List of Abbreviations table
-│   │   └── abstract.tex                            ← NEW: extracted from preface.tex + 6 keywords
-│   ├── body/
-│   │   ├── I_introduction.tex                      ← MERGED: 01 (minus Objectives) + full 02
-│   │   ├── II_objectives.tex                       ← SPLIT OUT: Objectives section from 01
-│   │   ├── III_materials_and_methods.tex           ← MERGED: full 03 + full 04
-│   │   ├── IV_results_and_discussion.tex           ← COPY: 05 (heading change only)
-│   │   └── V_conclusion_and_perspective.tex        ← COPY: 06 (heading change only)
-│   └── appendices/
-│       └── appendices.tex                          ← NEW: appendix content
-├── figures/                                        ← unchanged
-└── tables/                                         ← unchanged
-```
-
-### New Files to Create (5)
-
-| File | Purpose |
-|------|---------|
-| `chapters/frontmatter/certification.tex` | Certification/declaration page with supervisor signature block — required by department |
-| `chapters/frontmatter/abbreviations.tex` | Acronym table: AI, NLP, LLM, LoRA, QLoRA, GGUF, OTP, SMS, F1, NF4, CUDA, CLI, API, SHA, OCR |
-| `chapters/frontmatter/abstract.tex` | Existing abstract paragraph moved from `preface.tex`, plus a `\textbf{Keywords:}` line with 6 terms |
-| `chapters/body/` (directory + 5 files) | Holds the five roman-numeral body sections under clean filenames |
-| `chapters/appendices/appendices.tex` | Appendix section (training config detail, sample annotated outputs, etc.) |
-
-### Source File Disposition
-
-| Old File | Action | Destination |
-|----------|--------|-------------|
-| `chapters/frontmatter/preface.tex` | Gutted — Abstract and Ack blocks extracted; TOC/LoF/LoT infrastructure absorbed into `main.tex` | Mark `%% DEPRECATED` at top; do not delete until compile verified |
-| `chapters/01_introduction.tex` | Split: drop "Report Organization", move "Objectives and Scope" to II/, merge remainder into I/ | Keep as dead file until Phase 22 compile passes |
-| `chapters/02_related_work_and_background.tex` | Merge entire file into I/ after the ch01 content | Keep as dead file |
-| `chapters/03_methodology_and_system_design.tex` | Merge entire file into III/ | Keep as dead file |
-| `chapters/04_implementation.tex` | Merge entire file into III/ after ch03 content | Keep as dead file |
-| `chapters/05_evaluation_and_discussion.tex` | Verbatim copy to IV/ (remove `\chapter{...}` line only) | Keep as dead file |
-| `chapters/06_conclusion_and_future_work.tex` | Verbatim copy to V/ (title changes to "Conclusion and Perspective") | Keep as dead file |
-
-**Rule:** Do NOT delete old `01`–`06` chapter files until the restructured `main.tex` compiles cleanly to PDF and has been visually spot-checked. Mark them `%% DEPRECATED — superseded Phase 22` and leave them in-place as a rollback safety net. Delete in a separate commit after confirmation.
-
----
-
-## `main.tex` New `\input` Order
-
-Replace everything between `\begin{document}` and `\end{document}` with:
-
-```latex
-\begin{document}
-
-%% ── FRONT MATTER (roman page numbers) ───────────────────────────────────────
-\pagenumbering{roman}
-
-\input{chapters/frontmatter/titlepage}         % cover page — no printed number
-\clearpage
-
-\input{chapters/frontmatter/certification}     % certification/declaration page
-\clearpage
-
-\chapter*{Acknowledgements}
-\addcontentsline{toc}{chapter}{Acknowledgements}
-\markboth{Acknowledgements}{Acknowledgements}
-[Acknowledgements text here, or \input a separate ack.tex]
-\clearpage
-
-{\singlespacing\tableofcontents}
-\clearpage
-
-\input{chapters/frontmatter/abbreviations}
-\clearpage
-
-{\singlespacing
-  \addcontentsline{toc}{chapter}{\listtablename}
-  \listoftables
-}
-\clearpage
-
-{\singlespacing
-  \addcontentsline{toc}{chapter}{\listfigurename}
-  \listoffigures
-}
-\clearpage
-
-\input{chapters/frontmatter/abstract}          % abstract + 6 keywords
-
-\cleardoublepage
-\pagenumbering{arabic}
-
-%% ── BODY (arabic page numbers, roman-numeral headings) ───────────────────────
-\input{chapters/body/I_introduction}
-\input{chapters/body/II_objectives}
-\input{chapters/body/III_materials_and_methods}
-\input{chapters/body/IV_results_and_discussion}
-\input{chapters/body/V_conclusion_and_perspective}
-
-%% ── BACK MATTER ──────────────────────────────────────────────────────────────
-\renewcommand{\bibname}{References}
-\bibliography{references}
-
-\appendix
-\input{chapters/appendices/appendices}
-
-\end{document}
-```
-
-**Notes on order:**
-- Acknowledgements appears before TOC per standard academic convention (USTH format matches this).
-- List of Abbreviations immediately after TOC, before LoT/LoF — mirrors the milestone target order.
-- LoT appears before LoF (as specified in the milestone context).
-- `\cleardoublepage` before `\pagenumbering{arabic}` ensures body always starts on a recto page.
-
----
-
-## Roman Numeral Heading Approach
-
-### Decision: `\chapter*` with a `\thesissection` helper command
-
-**Do NOT redefine `\chapter` globally.** The `report` class chapter counter drives figure and table caption numbering (e.g., "Figure 3.2"). Replacing `\thechapter` with `\Roman{\thechapter}` would corrupt all auto-numbered captions to "Figure III.2" format and break the existing `fig:`, `tab:`, and `eq:` cross-references throughout the document.
-
-The correct approach is unnumbered chapters (`\chapter*`) with a one-time helper macro that:
-1. Emits the correct visual heading
-2. Adds a manual TOC entry at chapter indent level
-3. Sets `\leftmark` for the running page header (required — `\chapter*` does not update `\leftmark` automatically)
-
-**Add this block to `main.tex` preamble**, after the existing `\usepackage{titlesec}` and `\pagestyle{fancy}` setup:
-
-```latex
-%% ── Roman-numeral thesis section headings (Phase 22) ─────────────────────────
-%% Usage: \thesissection{I}{Introduction}
-%%   - emits unnumbered chapter heading "I/ Introduction"
-%%   - adds TOC entry at chapter level
-%%   - sets running header via \markboth
-\newcommand{\thesissection}[2]{%
-  \chapter*{#1/ #2}%
-  \addcontentsline{toc}{chapter}{#1/ #2}%
-  \markboth{#1/ #2}{#1/ #2}%
-}
-```
-
-**Usage inside each body file** — the body files contain NO `\chapter{}` or `\chapter*{}` calls; heading emission is the caller's responsibility via `main.tex`:
-
-```latex
-%% Option A: emit heading from within the body file (simpler, more self-contained)
-\thesissection{I}{Introduction}
-
-\section{Background and Motivation}
-...
-```
-
-```latex
-%% Option B: emit heading from main.tex immediately before \input (alternative)
-\thesissection{III}{Materials and Methods}
-\input{chapters/body/III_materials_and_methods}
-```
-
-Option A (heading inside the body file) is preferred: it keeps each file self-contained and makes the PDF reproducible even if the file is compiled in isolation during editing.
-
-**Why this approach wins over all alternatives:**
-
-| Approach | Problem |
-|----------|---------|
-| Redefine `\chapter` to prepend `\Roman{\thechapter}/` | Breaks figure/table caption numbering; "Fig 3.2" becomes "Fig III.2" |
-| Pure `\chapter*` with `\addcontentsline` repeated manually | Must remember 3-line boilerplate every time; `\markboth` gets forgotten, header shows stale text |
-| Switch to `book` class | Introduces `\part` above `\chapter`; needless structural change; page margins differ |
-| Use `titlesec` `\titleformat` with `\Roman` counter | Same counter-corruption problem as redefining `\chapter` |
-| Use `\section` at top level (demote everything) | Breaks LoF/LoT; figures become "Figure 0.1" without a chapter counter |
-
-**`titlesec` interaction:** The existing `\titleformat{\chapter}` definition applies to both `\chapter` and `\chapter*` in `titlesec`. The roman-numeral headings will inherit the same compact spacing (`-20pt` top, `10pt` bottom, `\LARGE` font) automatically. No additional `\titleformat` change is needed.
-
-**`tocloft` interaction:** The existing `\setcounter{tocdepth}{1}` already limits TOC to chapter+section depth. The `\addcontentsline{toc}{chapter}{...}` call inside `\thesissection` places the roman-numeral entry at chapter indent level, matching all other chapter entries. No `tocloft` parameter changes needed.
-
----
-
-## Content Mapping: What Moves Where
-
-### I/ Introduction (`chapters/body/I_introduction.tex`)
-
-Sources:
-- `01_introduction.tex`: "Background and Motivation" and "Problem Statement" sections
-- `02_related_work_and_background.tex`: all 5 sections (Vietnamese Phishing Context, Local Inference as Privacy Control, Explainability and User-Facing Safety, Open-Weight Local Models, Evaluation Priorities)
-
-Exclusions:
-- "Objectives and Scope" from ch01 moves to II/
-- "Report Organization" from ch01 is deleted (see Cross-References below)
-
-### II/ Objectives (`chapters/body/II_objectives.tex`)
-
-Sources:
-- "Objectives and Scope" section from `01_introduction.tex` — copy verbatim
-
-### III/ Materials and Methods (`chapters/body/III_materials_and_methods.tex`)
-
-Sources (in order):
-1. All of `03_methodology_and_system_design.tex` (Development Structure, Data Construction, Offline Runtime, Local Model Selection, Explainability, Design Principles)
-2. All of `04_implementation.tex` (Codebase Organization, Data Pipeline Implementation, Runtime Implementation, Model Adaptation Implementation)
-
-The `\section{}` headings from both files coexist cleanly under one unnumbered chapter with no naming conflicts.
-
-### IV/ Results and Discussion (`chapters/body/IV_results_and_discussion.tex`)
-
-Source: verbatim copy of `05_evaluation_and_discussion.tex` body content. Remove only the `\chapter{Evaluation and Discussion}` line. All `\input{tables/...}` and `\input{figures/...}` calls are preserved unchanged.
-
-### V/ Conclusion and Perspective (`chapters/body/V_conclusion_and_perspective.tex`)
-
-Source: verbatim copy of `06_conclusion_and_future_work.tex` body content. Remove only the `\chapter{Conclusion and Future Work}` line. The roman-numeral heading "V/ Conclusion and Perspective" replaces it via `\thesissection` in the file header.
-
----
-
-## Cross-Reference Handling
-
-### `\label` / `\ref` audit — zero breakage risk
-
-All `\label` definitions are in figure/table fragment files (`figures/*.tex`, `tables/*.tex`) or inline in content that stays co-located. Every label and the `\ref{}` that references it moves into the same merged body file. No cross-boundary ref exists.
-
-| Label | Defined in | Referenced in | After restructure |
-|-------|-----------|---------------|-------------------|
-| `tab:confusion-matrix` | `tables/confusion_matrix.tex` | ch05 | Both in IV/ — safe |
-| `tab:dataset-stats` | `tables/dataset_statistics.tex` | ch03 | Both in III/ — safe |
-| `fig:cloud-vs-local-flow` | `figures/cloud_vs_local_dataflow.tex` | ch02 | Both in I/ — safe |
-| `tab:evaluation-snapshot` | `tables/evaluation_snapshot.tex` | ch05 | Both in IV/ — safe |
-| `fig:system-overview` | `figures/system_overview_placeholder.tex` | ch03 | Both in III/ — safe |
-| `tab:milestone-summary` | `tables/milestone_summary.tex` | ch03 | Both in III/ — safe |
-| `eq:qlora-forward` | `03_methodology_and_system_design.tex` inline | same file | Stays in III/ — safe |
-| `tab:pilot-comparison` | `tables/pilot_comparison.tex` | ch03 | Both in III/ — safe |
-| `fig:runtime-flow` | `04_implementation.tex` inline | same file | Stays in III/ — safe |
-| `fig:recall-by-class` | `figures/recall_barchart.tex` | ch05 | Both in IV/ — safe |
-| `tab:qlora-config` | `tables/qlora_config.tex` | ch03 | Both in III/ — safe |
-
-### Prose "Chapter~N" references that will break
-
-These are hardcoded text strings, NOT `\ref{}` commands. LaTeX cannot auto-update them. Three must be manually fixed:
-
-| File | Text | Fix |
-|------|------|-----|
-| `01_introduction.tex` ("Report Organization" section) | "Chapter~2 summarizes… Chapter~3 presents… Chapter~4 maps… Chapter~5 reports… Chapter~6 closes…" | Delete the entire "Report Organization" section. It is meaningless after merges and adds no value in the new structure. |
-| `04_implementation.tex` (line ~126) | "…discussed in Chapter~5." | Add `\label{sec:iv-results}` at the top of IV/ section "Expanded-Holdout Results". Change prose to `"…discussed in Section~\ref{sec:iv-results}."` |
-| `06_conclusion_and_future_work.tex` | "error analysis in Chapter~5" | Change to `"error analysis in Section~\ref{sec:iv-results}."` using the same label. |
-
-**Standing rule for new text:** Replace all future "Chapter~N" prose with `\nameref{sec:...}` or descriptive section-name prose ("see Results and Discussion") to survive any future restructure without breakage.
-
-### Label naming convention for new sections
-
-Use `sec:` prefix to avoid namespace collisions with existing `fig:`, `tab:`, `eq:` labels:
-- `\label{sec:objectives-scope}` at the top of `II_objectives.tex`
-- `\label{sec:iv-results}` at the start of the "Expanded-Holdout Results" section in IV/
-
----
-
-## New Frontmatter Files: Content Templates
-
-### `certification.tex`
-
-```latex
-% chapters/frontmatter/certification.tex
-\thispagestyle{empty}
-\begin{center}
-  {\Large\bfseries CERTIFICATION\par}
-\end{center}
-\vspace{1.5cm}
-
-I hereby certify that the work presented in this thesis entitled
-\textit{``Localized Explainable AI Engine for Vietnamese Financial Phishing Detection''}
-is my own original work carried out under the supervision of
-\textbf{Giang Anh Tuan} (internal supervisor) and
-\textbf{Nguyen Viet Anh} (external supervisor),
-and has not been submitted for any other degree or professional qualification.
-
-\vspace{3cm}
-\begin{flushright}
-  Hanoi, \today\\[2cm]
-  \underline{\hspace{5cm}}\\
-  Ph\d{a}m Th\d{e} Minh\\
-  Student ID: 23BI14279
-\end{flushright}
-\clearpage
-```
-
-Adjust wording to match any exact department-provided text if a Word template exists. The structure above is a reasonable draft; treat as LOW confidence until verified against the department's official template.
-
-### `abbreviations.tex`
-
-```latex
-% chapters/frontmatter/abbreviations.tex
-\chapter*{List of Abbreviations}
-\addcontentsline{toc}{chapter}{List of Abbreviations}
-\markboth{List of Abbreviations}{List of Abbreviations}
-\begin{tabular}{@{}lp{10cm}@{}}
-  AI    & Artificial Intelligence \\
-  NLP   & Natural Language Processing \\
-  LLM   & Large Language Model \\
-  LoRA  & Low-Rank Adaptation \\
-  QLoRA & Quantized Low-Rank Adaptation \\
-  GGUF  & GPT-Generated Unified Format (llama.cpp model format) \\
-  OTP   & One-Time Password \\
-  SMS   & Short Message Service \\
-  F1    & F1-Score (harmonic mean of precision and recall) \\
-  NF4   & Normal Float 4-bit quantization \\
-  CUDA  & Compute Unified Device Architecture \\
-  CLI   & Command-Line Interface \\
-  API   & Application Programming Interface \\
-  SHA   & Secure Hash Algorithm \\
-  OCR   & Optical Character Recognition \\
-\end{tabular}
-\clearpage
-```
-
-### `abstract.tex`
-
-```latex
-% chapters/frontmatter/abstract.tex
-\chapter*{Abstract}
-\addcontentsline{toc}{chapter}{Abstract}
-\markboth{Abstract}{Abstract}
-
-[Paste existing abstract paragraph from preface.tex here verbatim]
-
-\medskip
-\noindent\textbf{Keywords:} Vietnamese financial phishing, explainable AI,
-local inference, LoRA fine-tuning, privacy-preserving NLP, phishing detection.
-\clearpage
-```
-
----
-
-## Safe Restructure Sequence
-
-Execute in this order. Compile after every step. Do not proceed to the next step if the compile produces errors or unexpected warnings.
-
-**Step 1 — Preamble-only change (zero content risk)**
-
-Add `\newcommand{\thesissection}` to `main.tex` preamble. Compile existing `main.tex`. Verify clean compile. This is an additive-only change; nothing existing is touched.
-
-**Step 2 — Create new frontmatter files without wiring them in**
-
-Create `certification.tex`, `abbreviations.tex`, `abstract.tex` with their content. Do NOT yet reference them from `main.tex`. Compile unchanged `main.tex`. Verify it still compiles (unused files have no effect).
-
-**Step 3 — Create `chapters/body/` stub files and a shadow `main_new.tex`**
-
-Create stub body files with only their `\thesissection{X}{...}` call and a `% TODO: migrate content` comment. Create `main_new.tex` as a copy of `main.tex` that `\input`s the new body stubs instead of the old chapters. Compile `main_new.tex`. Verify the five roman-numeral headings appear in the PDF TOC with correct entries. Fix any `\thesissection` spacing issues before proceeding.
-
-**Step 4 — Migrate IV/ and V/ (pure copy, lowest risk)**
-
-`IV_results_and_discussion.tex` and `V_conclusion_and_perspective.tex` are almost verbatim copies. Copy content from `05` and `06`, remove the old `\chapter{...}` line, add `\thesissection{IV/V}{...}` at the top. Compile `main_new.tex`. Verify `\ref{fig:recall-by-class}`, `\ref{tab:confusion-matrix}`, `\ref{tab:evaluation-snapshot}` all resolve. Fix the two "Chapter~5" prose references in V/ using `\label{sec:iv-results}`.
-
-**Step 5 — Migrate III/ (merge of 03 + 04)**
-
-Copy full content of `03_methodology_and_system_design.tex` then `04_implementation.tex` into `III_materials_and_methods.tex`. Remove both old `\chapter{...}` lines. Add `\thesissection{III}{Materials and Methods}` at the top. Compile. Verify all table/figure/equation refs resolve: `\ref{tab:dataset-stats}`, `\ref{tab:pilot-comparison}`, `\ref{tab:qlora-config}`, `\ref{eq:qlora-forward}`, `\ref{fig:runtime-flow}`, `\ref{fig:system-overview}`, `\ref{tab:milestone-summary}`. Fix "Chapter~5" reference in former ch04 content (line ~126).
-
-**Step 6 — Migrate I/ and II/ (split + merge)**
-
-Extract "Objectives and Scope" from `01_introduction.tex` into `II_objectives.tex`. Delete "Report Organization" section from `01_introduction.tex`. Append full content of `02_related_work_and_background.tex` after the trimmed ch01 content into `I_introduction.tex`. Add `\thesissection{I}{Introduction}` at top of I/, `\thesissection{II}{Objectives}` at top of II/. Compile. Verify `\ref{fig:cloud-vs-local-flow}` resolves.
-
-**Step 7 — Wire new frontmatter into `main_new.tex`**
-
-Replace the `\input{chapters/frontmatter/preface}` line in `main_new.tex` with the full new frontmatter sequence (certification, Acknowledgements, TOC, abbreviations, LoT, LoF, abstract). Compile. Verify: roman page numbers on frontmatter, arabic from I/ onward, TOC shows all five roman-numeral body entries plus all frontmatter entries (Acknowledgements, List of Abbreviations, List of Tables, List of Figures, Abstract).
-
-**Step 8 — Promote `main_new.tex` to `main.tex`**
-
-Rename existing `main.tex` to `main_old.tex` (backup). Rename `main_new.tex` to `main.tex`. Compile two full passes (for `natbib` label resolution). Perform visual spot-check on the PDF: cover page, certification, TOC page numbers, first body section heading "I/ Introduction", References, page header content.
-
-**Step 9 — Add appendices**
-
-Write `chapters/appendices/appendices.tex` with `\chapter{Appendix A: ...}` content. Verify it appears in TOC and that the appendix chapter letter renders correctly (LaTeX `\appendix` resets `\thechapter` to letters).
-
-**Step 10 — Cleanup commit (deferred)**
-
-After the next milestone's compile is confirmed clean, delete the deprecated old chapter files (`01` through `06`, `preface.tex`) in a dedicated cleanup commit. Do not co-mingle cleanup with content changes.
-
----
-
-## `fancyhdr` Running Header Behavior
-
-The current `main.tex` defines:
-```latex
-\fancyhead[L]{\small\leftmark}
-```
-
-For `\chapter*`, LaTeX does NOT auto-update `\leftmark`. Without the `\markboth` call inside `\thesissection`, the page header would display the previous section's name throughout the entire following body section.
-
-The `\markboth{#1/ #2}{#1/ #2}` call in `\thesissection` is therefore mandatory, not optional. This applies to ALL frontmatter `\chapter*` calls as well. The certification, abbreviations, and abstract files must each call `\markboth{...}{...}` or use `\thispagestyle{plain}` to suppress the header on those pages.
-
----
-
-## Confidence Assessment
-
-| Area | Confidence | Notes |
-|------|------------|-------|
-| `\chapter*` + `\addcontentsline` approach | HIGH | Standard LaTeX idiom; safe with `titlesec` and `tocloft` |
-| `\titlesec` inheritance to `\chapter*` | HIGH | `titlesec` documents that `\titleformat{\chapter}` applies to starred form |
-| `\markboth` requirement for `fancyhdr` | HIGH | Documented `fancyhdr` behavior; verified by inspection of current `main.tex` |
-| Label/ref safety across all merges | HIGH | All 11 labels audited; no cross-boundary reference pairs exist |
-| Prose "Chapter~N" breakages | HIGH | Three instances found by grep; all fixable before Step 4 |
-| Restructure step ordering | MEDIUM | Based on dependency analysis; compile-test at each step is the primary safety net |
-| `certification.tex` exact wording | LOW | No official department `.tex` template available; draft is reasonable but must be verified against department's Word template before submission |
-
----
-
----
-
-# Software Pipeline Architecture (Phases 1–21)
-
-**Domain:** Localized explainable LLM for Vietnamese financial phishing/social engineering text detection
-**Project:** Localized Explainable AI (XAI) Engine for Vietnamese phishing triage
-**Researched:** 2026-03-18
-
-## Recommended Architecture
-
-Use an offline-first, modular pipeline with strict stage boundaries:
-
-1. Ingestion and normalization
-2. Threat analysis (rules + retrieval + LLM classifier)
-3. Explanation synthesis (evidence-grounded)
-4. User recommendation generation
-5. Logging and evaluation feedback loop
-
-Design principle: high recall on threat detection, deterministic evidence capture, and explainable outputs that are safe for non-technical users.
-
-## Component Boundaries and Interfaces
-
-- **Client Adapter** — Accepts raw text from UI, clipboard, or message paste. Input: `POST /analyze` request payload. Output: canonical analysis request object. Talks to: Preprocessor.
-- **Preprocessor** — Language normalization, typo/slang cleanup, PII masking tags, URL/phone/entity extraction. Input: canonical analysis request. Output: enriched text document with extracted artifacts. Talks to: Retrieval, Rule Engine, LLM Orchestrator.
-- **Rule Engine** — Fast deterministic high-recall signals (domain spoofing, urgency, payment pressure, impersonation markers). Input: enriched text document. Output: rule signal set with confidence priors. Talks to: LLM Orchestrator, Evidence Store.
-- **Retrieval Layer** — Fetches known scam patterns, local financial entity knowledge, phrase templates. Input: enriched text + extracted entities. Output: ranked context snippets. Talks to: LLM Orchestrator.
-- **LLM Orchestrator** — Runs local model prompt chain for threat class, confidence, rationale candidates. Input: enriched text + rule signals + retrieved context. Output: structured threat assessment JSON. Talks to: Explanation Engine.
-- **Explanation Engine** — Converts model output + evidence into user-readable explanation with citation links to evidence spans. Input: structured threat assessment + evidence bundle. Output: explanation object. Talks to: Recommendation Engine.
-- **Recommendation Engine** — Generates action checklist (block/report/verify channel) by risk level. Input: explanation object + threat level. Output: user action plan. Talks to: Response Assembler.
-- **Response Assembler** — Composes final API response in stable schema. Input: assessment + explanation + recommendations. Output: API response payload. Talks to: Client Adapter.
-- **Event Logger** — Persists anonymized events, model metadata, latency, confidence, and user feedback. Input: events from all stages. Output: append-only local log records. Talks to: Eval Harness, Monitoring.
-- **Eval Harness** — Replays benchmark datasets, computes metrics, compares against release gates. Input: dataset + model bundle + pipeline version. Output: scorecards and pass/fail report. Talks to: CI, Release Manager.
-- **Model Runtime** — Offline inference engine (GGUF model + tokenizer + runtime config). Input: prompt requests. Output: token stream/JSON output. Talks to: LLM Orchestrator.
-- **Model/Rules Registry** — Versioned model, prompts, rules, and retrieval snapshots. Input: version query. Output: immutable artifact references. Talks to: Orchestrator, Eval Harness.
-
-## Interface Contracts (Suggested)
-
-### 1. Analyze Request
-
-```json
-{
-  "request_id": "uuid",
-  "channel": "sms|zalo|messenger|telegram|facebook|other",
-  "text": "raw user-provided text",
-  "locale_hint": "vi|en|mixed",
-  "timestamp": "ISO-8601"
-}
-```
-
-### 2. Threat Assessment
-
-```json
-{
-  "request_id": "uuid",
-  "threat_label": "safe|suspicious|phishing|social_engineering|job_scam",
-  "risk_score": 0.0,
-  "confidence": 0.0,
-  "signals": [
-    {"type": "spoofed_domain", "value": "example-paypa1.com", "source": "rule"},
-    {"type": "urgency_language", "value": "khoa tai khoan ngay", "source": "llm"}
-  ],
-  "evidence_spans": [
-    {"start": 14, "end": 41, "text": "...", "reason": "impersonation cue"}
-  ],
-  "model_version": "xai-vi-8b-lora-q4_0@2026-03-18",
-  "policy_version": "ruleset-0.1.0"
-}
-```
-
-### 3. Explanation and Recommendation
-
-```json
-{
-  "summary": "High risk financial phishing likely.",
-  "why": [
-    "Message creates urgency to bypass verification.",
-    "Sender requests credential or transfer action.",
-    "Link/domain pattern is inconsistent with official institution naming."
-  ],
-  "recommendations": [
-    "Do not click links or share OTP/password.",
-    "Call official hotline from bank website, not message contact.",
-    "Report message in the platform and block sender."
-  ],
-  "user_safe_mode": true
-}
-```
-
-### 4. Logging Event
-
-```json
-{
-  "event_id": "uuid",
-  "request_id": "uuid",
-  "stage": "preprocess|rules|retrieval|llm|explanation|recommendation",
-  "latency_ms": 0,
-  "artifact_versions": {
-    "model": "...",
-    "prompt": "...",
-    "rules": "..."
-  },
-  "risk_score": 0.0,
-  "decision": "...",
-  "feedback": "optional_user_feedback"
-}
-```
-
-## Data Flow (Ingestion -> Analysis -> Explanation -> Recommendation -> Logging/Eval)
-
-1. Ingestion receives raw text and metadata from the client adapter.
-2. Preprocessor normalizes Vietnamese/mixed text, extracts URLs, entities, and suspicious lexical cues.
-3. Rule Engine computes deterministic risk signals to protect recall and catch obvious fraud patterns.
-4. Retrieval Layer pulls local threat patterns and institution references to ground model reasoning.
-5. LLM Orchestrator runs offline model inference and emits a structured threat assessment.
-6. Explanation Engine transforms assessment into human-readable rationale tied to evidence spans.
-7. Recommendation Engine maps risk level and scam type to concrete user actions.
-8. Response Assembler returns stable schema to client.
-9. Event Logger stores per-stage telemetry and prediction artifacts.
-10. Eval Harness consumes logs plus benchmark sets to produce quality, recall, and latency reports.
-11. Release Manager promotes model/rules only if evaluation gates are met.
-
-## Offline Deployment Architecture
-
-### Topology
-
-- Desktop or local service host (consumer laptop, CPU/iGPU baseline)
-- Embedded model runtime process (GGUF + quantized 8B LoRA merge)
-- Local vector/rule store and retrieval index (on-device)
-- Local encrypted event store (SQLite or append-only JSONL + encryption)
-- Optional air-gapped update package import for model/rule updates
-
-### Runtime Packaging
-
-- Single installer bundle contains:
-  - Inference runtime binaries
-  - Quantized model artifacts
-  - Prompt templates and rules
-  - Local knowledge snapshot (financial entities, known patterns)
-- No outbound network requirement for inference path.
-- Update mechanism is explicit and versioned (manual package or signed internal updater).
-
-### Security/Privacy Boundaries
-
-- Raw user text never leaves local device in production mode.
-- PII masking for logs by default; full raw text logging disabled unless debug mode is explicitly enabled.
-- Tamper-evident version metadata for model and rules to preserve auditability.
-
-## Evaluation Harness Architecture
-
-### Core Harness Components
-
-- **Dataset Manager** — Curates train/validation/test sets (real + synthetic Vietnamese scams, mixed-language edge cases).
-- **Scenario Generator** — Builds adversarial and mutation tests (typo, slang, obfuscation, unicode confusables).
-- **Runner** — Executes pipeline versions against fixed benchmark suites.
-- **Metrics Engine** — Computes recall, precision, F1, calibration, explanation quality, latency.
-- **Threshold Gate** — Enforces release criteria with recall-priority policy.
-- **Regression Tracker** — Compares current run vs previous approved baseline.
-- **Error Analyzer** — Clusters false negatives/positives and maps to remediation actions.
-
-### Evaluation Data Flow
-
-1. Select immutable benchmark suite by version.
-2. Run full pipeline end-to-end (not model-only) to capture system behavior.
-3. Store predictions, explanations, and recommendations.
-4. Score across detection, explanation fidelity, and user-action quality.
-5. Produce fail report highlighting high-severity false negatives.
-6. Feed errors into data improvement loop (rules update, retrieval update, fine-tune data updates).
-
-### Minimum Release Gates (suggested)
-
-- Recall on phishing/social-engineering classes: prioritize as primary gate.
-- Macro F1 for overall classification stability.
-- Explanation quality checks:
-  - Evidence-grounded reasons present
-  - No hallucinated institution/action claims
-- Latency budget on consumer hardware.
-
-## Patterns to Follow
-
-### Pattern 1: Hybrid Detection (Rules + Retrieval + LLM)
-
-**What:** Combine deterministic rules with grounded LLM reasoning.
-**When:** Safety-critical scam detection where recall is critical.
-**Why:** Rules catch known high-risk patterns quickly; LLM handles nuanced language and social context.
-
-### Pattern 2: Structured Output First
-
-**What:** Force model outputs into fixed JSON schema before user rendering.
-**When:** Need stable downstream explanation/recommendation logic and evaluability.
-**Why:** Prevent brittle parsing and enable robust regression testing.
-
-### Pattern 3: Evidence-Bound Explanations
-
-**What:** Every explanation claim should map to explicit text spans/rule hits.
-**When:** XAI requirements and trust-sensitive product context.
-**Why:** Improves user trust and reduces unsafe overclaiming.
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: LLM-Only Classification Without Rules
-
-- What goes wrong: misses simple but dangerous patterns under prompt variance.
-- Consequence: preventable false negatives in phishing detection.
-- Instead: always include deterministic high-recall guards.
-
-### Anti-Pattern 2: Binary Output Without Action Layer
-
-- What goes wrong: user knows something is risky but has no safe next steps.
-- Consequence: reduced practical safety impact.
-- Instead: attach scenario-specific recommendations.
-
-### Anti-Pattern 3: Evaluating Model in Isolation
-
-- What goes wrong: hidden failures in retrieval, rules, or rendering are missed.
-- Consequence: production regressions despite good offline model scores.
-- Instead: evaluate full pipeline end-to-end.
-
-## Build-Order Implications for Phase Planning
-
-Suggested build order for a greenfield milestone:
-
-1. Foundation and contracts first — define canonical schemas, establish artifact versioning.
-2. Ingestion + preprocessing + logging skeleton — wire end-to-end request tracing before model work.
-3. Rule Engine v1 + baseline retrieval — implement high-recall deterministic signals.
-4. Offline model runtime integration — structured output constraints, initial threat labels.
-5. Explanation and recommendation layers — evidence-to-rationale mapping, safe guidance wording.
-6. Evaluation harness and release gates — benchmark runner, metrics, regression dashboard.
-7. Data flywheel and hardening — use error clusters to update data, rules, prompts, retrieval.
-
-## Architecture Risks to Track During Planning
-
-- Retrieval contamination from low-quality synthetic patterns can degrade explanations.
-- Over-aggressive normalization can erase signal (slang/spoof tokens).
-- Quantization settings may impact calibration and confidence reliability.
-- Recommendation policy drift can produce unsafe or outdated advice.
-
----
-
-## Chat-Bubble UI Integration Architecture (Milestone v2.0)
-
-**Researched:** 2026-06-08
-**Scope:** Frontend redesign only — Python WSGI backend (`demo.py`) is unchanged.
-
-### Integration Point Summary
-
-The existing system provides a single stable integration seam: `POST /api/analyze` returning `AnalysisResult` JSON. Everything else — HTML, CSS, JS — is static asset serving with no server-side templating. The chat-bubble redesign is a purely frontend concern.
-
-**Backend contract (unchanged):**
-
-Request body:
-
-```json
-{ "text": "<string>", "channel": "<ChannelName>" }
-```
-
-Response on success (`200`):
-
-```json
-{
-  "risk_tier": "benign | suspicious | high-risk",
-  "summary": "<string>",
-  "top_cues": [{"span": "<string>", "reason": "<string>", "cue_type": "<string|null>"}],
-  "threat_labels": ["bank_impersonation | zalo_social_engineering | task_scam | benign"],
-  "recommendations": ["<string>"],
-  "backend_name": "<string>",
-  "provisional": true,
-  "normalized_text": "<string|null>"
-}
-```
-
-Response on error (`400` or `503`):
-
-```json
-{ "error": { "message": "<string>", "steps": ["<string>"] } }
-```
-
-`demo.py` needs zero changes for the core API contract. No new routes. No server-side rendering.
-
-### File Change Map
-
-All paths below are relative to `src/runtime/demo_assets/` unless otherwise noted.
-
-**Modified files (in-place rewrites):**
-
-- **index.html** — Replace card-layout shell with chat-window shell. Remove old result/error templates. Add `#chat-thread` scroll container, `#composer` input bar with channel pill, and new bubble templates (`bubble-user`, `bubble-bot`, `bubble-error`, `bubble-typing`).
-- **demo.css** — Remove panel/grid rules. Add chat-window, bubble, typing-indicator, composer-bar, and channel-pill rules. Retain all existing CSS variables and font stack.
-- **demo.js** — Replace `renderResult`, `renderError`, `resetPanel`, and `setBusyState` with bubble-append functions and typing lifecycle. Keep the fetch call to `POST /api/analyze` intact.
-
-**New files:**
-
-- **demo_assets/i18n.js** — Bilingual string table (Vietnamese primary, English for technical terms). Plain JS object global, no module bundler needed. Served by a new static route in `demo.py`.
-
-No new Python files beyond the one added route. No `package.json`, no build step.
-
-### Data Flow: User Input to Bot Bubble
-
-```text
-User types text + selects channel
-  -> clicks Send (or Ctrl+Enter)
-  -> appendUserBubble(text, channel)         // instant, right-aligned
-  -> appendTypingIndicator()                  // animated dots, left-aligned
-  -> scrollToBottom()
-  -> fetch POST /api/analyze {text, channel}
-       [demo.py: DemoApp._handle_analyze -> service.analyze_text -> AnalysisResult]
-  -> response.json()
-  -> removeTypingIndicator()
-  -> if response.ok:
-       appendBotBubble(result)               // structured left-aligned bubble
-     else:
-       appendErrorBubble(error)             // error left-aligned bubble
-  -> scrollToBottom()
-  -> clear textarea, re-enable send
-```
-
-### Constraints Carried From Existing Architecture
-
-- No framework, no build step, no npm — pure vanilla HTML/CSS/JS.
-- Python WSGI backend `demo.py` serves static files from `demo_assets/` via `_load_asset()`. Any new static file needs a matching route in `demo.py`.
-- The `AnalysisResult` contract (`contracts.py`) is frozen. JS must consume fields as-is: `risk_tier`, `summary`, `top_cues[].span`, `top_cues[].reason`, `threat_labels`, `recommendations`, `backend_name`.
-- `ChannelName` values are the literal option `value` attributes in the channel select: `unknown`, `sms`, `zalo`, `messenger`, `telegram`, `facebook`.
-- Inference on consumer hardware is slow (13+ seconds on CPU). The typing indicator is not cosmetic — it is the primary loading affordance. It must appear before the `fetch` resolves, not after.
+*Architecture research for: pre-presentation demo verification & hardening*
+*Researched: 2026-07-02*
