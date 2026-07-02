@@ -643,7 +643,11 @@ Plans:
 3. A first-pass warm-latency reading for a demo request is captured via browser DevTools Network tab and recorded for later comparison.
 4. One scam message and one benign message are selected as the fixed live-demo script and each is run at least 5 times, producing the identical correct verdict every run — any prompt that flips is rejected and replaced until a stable pair is found.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 28-01-PLAN.md -- DIAG-01 doctor confirmation, DIAG-02 four-class CLI correctness pass, Playwright golden-prompt verification script, and GOLD-01/GOLD-02/DIAG-03 locking
 
 ### Phase 29: Environment Parity & Offline Verification
 
@@ -734,7 +738,7 @@ Plans:
 | 22. Cover Page, Certification Letter, and Front Matter | 1/1 | Complete | 2026-06-15 |
 | 23. Document Restructure and Evaluation Tables | 1/1 | Complete | 2026-06-15 |
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
-| 28. Baseline Readiness and Zero-Code Diagnostics | 0/TBD | Not started | - |
+| 28. Baseline Readiness and Zero-Code Diagnostics | 0/1 | Planned | - |
 | 29. Environment Parity and Offline Verification | 0/TBD | Not started | - |
 | 30. Latency Diagnosis and Targeted Fix | 0/TBD | Not started | - |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
