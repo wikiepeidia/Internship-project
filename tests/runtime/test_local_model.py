@@ -378,6 +378,78 @@ def test_safety_floor_keeps_benign_when_helper_cues_are_too_generic_to_map_in_sc
     assert result.threat_labels == ["benign"]
 
 
+def test_legitimate_bank_otp_notice_overrides_model_suspicion():
+    request = AnalysisRequest(
+        text=(
+            "VPBank Smart OTP: Mã xác thực của bạn là 847291. "
+            "Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. "
+            "Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng."
+        ),
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "suspicious",
+        "threat_labels": ["bank_impersonation"],
+        "decision_summary": "Model treated the OTP notice as suspicious.",
+        "suspicious_spans": ["Smart OTP", "Internet Banking"],
+        "recommendations": [{"text": "Neu van thay bat thuong, hay xac minh qua ung dung chinh thuc."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "benign"
+    assert result.threat_labels == ["benign"]
+    assert result.top_cues == []
+
+
+def test_ascii_legitimate_bank_otp_notice_overrides_model_suspicion():
+    request = AnalysisRequest(
+        text=(
+            "Thông báo từ Techcombank :Ma OTP la 74449637. de xac nhan giao dich "
+            "(TRU TIEN) tu The cua quy khach. Vui long giu bao mat va khong chia se "
+            "OTP cho bat cu ai. LH Techcombank: 1800588822"
+        ),
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "suspicious",
+        "threat_labels": ["bank_impersonation"],
+        "decision_summary": "Model treated the OTP notice as suspicious.",
+        "suspicious_spans": ["Ma OTP la 74449637"],
+        "recommendations": [{"text": "Kiem tra giao dich trong ung dung ngan hang chinh thuc."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "benign"
+    assert result.threat_labels == ["benign"]
+
+
+def test_legitimate_otp_override_does_not_hide_link_based_bank_scam():
+    request = AnalysisRequest(
+        text=(
+            "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. "
+            "Neu ko phai ban, bam vao link de khoa ngay: "
+            "http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 "
+            "(mien phi). OTP se het han sau 5 phut!"
+        ),
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "benign",
+        "threat_labels": ["benign"],
+        "decision_summary": "Model attempted a harmful benign downgrade.",
+        "suspicious_spans": [],
+        "recommendations": [{"text": "Khong bam vao lien ket trong tin nhan."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert any(cue.cue_type == "url" for cue in result.top_cues)
+
+
 def test_recommendation_sanitizer_blocks_unsafe_actions():
     request = AnalysisRequest(
         text="VPBank yeu cau OTP tai https://vpbank-safe.example de mo khoa tai khoan.",

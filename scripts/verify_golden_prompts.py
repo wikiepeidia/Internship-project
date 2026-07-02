@@ -14,12 +14,14 @@ from typing import Any
 
 
 DEFAULT_SCAM_TEXT = (
-    "Thông báo từ TPBank: OTP của bạn là 847291. KHÔNG chia sẻ mã này với bất kỳ ai. "
-    "Nếu bạn ko thực hiện giao dịch, gọi ngay 0938.xxx.xxx để được hỗ trợ khóa account."
+    "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. "
+    "Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 "
+    "hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!"
 )
 DEFAULT_BENIGN_TEXT = (
-    "Chào bạn, lịch họp nhóm được dời sang 9h sáng mai tại phòng học tầng 3. "
-    "Nếu bận thì báo lại giúp mình trước tối nay."
+    "VPBank Smart OTP: Mã xác thực của bạn là 847291. "
+    "Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. "
+    "Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng."
 )
 RESULTS_PATH = Path(
     ".planning/phases/28-baseline-readiness-zero-code-diagnostics/artifacts/"

@@ -65,6 +65,44 @@ UNSAFE_RECOMMENDATION_MARKERS = (
 )
 BANK_BRAND_MARKERS = ("vpbank", "vietcombank", "techcombank", "mb bank", "agribank")
 TASK_SCAM_MARKERS = ("nhiem vu", "nạp tiền", "nap tien", "hoa hong", "cong tac vien")
+LEGITIMATE_OTP_NOTICE_MARKERS = (
+    "otp",
+    "smart otp",
+    "ma xac thuc",
+    "mã xác thực",
+)
+LEGITIMATE_OTP_CONTEXT_MARKERS = (
+    "khong chia se",
+    "không chia sẻ",
+    "giu bao mat",
+    "giữ bảo mật",
+    "xac nhan giao dich",
+    "xác nhận giao dịch",
+    "xac nhan dang nhap",
+    "xác nhận đăng nhập",
+    "hieu luc",
+    "hiệu lực",
+)
+UNSAFE_OTP_ACTION_MARKERS = (
+    "http://",
+    "https://",
+    "bit.ly",
+    "tinyurl",
+    "bam vao",
+    "bấm vào",
+    "click",
+    "link",
+    "mo khoa",
+    "mở khóa",
+    "khoa ngay",
+    "khóa ngay",
+    "bi khoa",
+    "bị khóa",
+    "truy cap tu thiet bi la",
+    "truy cập từ thiết bị lạ",
+    "neu ko phai ban",
+    "nếu không phải bạn",
+)
 
 
 @dataclass(frozen=True)
@@ -575,6 +613,30 @@ def _apply_safety_floor(decision: ThreatDecision, helper_cues: list[HelperCue], 
     )
 
 
+def _looks_like_legitimate_bank_otp_notice(text: str) -> bool:
+    shadow_text = text.casefold()
+    has_bank_brand = any(marker in shadow_text for marker in BANK_BRAND_MARKERS)
+    has_otp_notice = any(marker in shadow_text for marker in LEGITIMATE_OTP_NOTICE_MARKERS)
+    has_legitimate_context = any(marker in shadow_text for marker in LEGITIMATE_OTP_CONTEXT_MARKERS)
+    has_unsafe_action = any(marker in shadow_text for marker in UNSAFE_OTP_ACTION_MARKERS)
+    return has_bank_brand and has_otp_notice and has_legitimate_context and not has_unsafe_action
+
+
+def _downgrade_legitimate_otp_notice(decision: ThreatDecision, request: AnalysisRequest) -> ThreatDecision:
+    return ThreatDecision.model_validate(
+        {
+            "risk_tier": "benign",
+            "threat_labels": ["benign"],
+            "decision_summary": (
+                f"Structured decision from {request.channel} local runtime: legitimate bank OTP notice."
+            ),
+            "evidence": [],
+            "recommendations": [{"text": DEFAULT_BENIGN_RECOMMENDATION, "priority": "medium"}],
+            "provisional": decision.provisional,
+        }
+    )
+
+
 def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) -> ThreatDecision:
     risk_tier = str(payload.get("risk_tier", "suspicious")).strip().casefold()
     if risk_tier not in {"benign", "suspicious", "high-risk"}:
@@ -630,7 +692,10 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
             "provisional": payload.get("provisional", True),
         }
     )
-    decision = _apply_safety_floor(decision, helper_cues, request)
+    if _looks_like_legitimate_bank_otp_notice(request.text):
+        decision = _downgrade_legitimate_otp_notice(decision, request)
+    else:
+        decision = _apply_safety_floor(decision, helper_cues, request)
     sanitized_recommendations = _sanitize_recommendation_models(decision.recommendations, risk_tier=decision.risk_tier)
     return ThreatDecision.model_validate(
         {
