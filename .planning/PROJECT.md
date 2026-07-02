@@ -16,10 +16,18 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Phase 4 complete and closed (implementation plus UAT/security closeout 2026-05-25): the local runtime now returns stable risk tiers, in-scope threat labels, grounded cues, and safe next steps through the shipped GGUF and accelerated paths, with fail-closed doctor-backed defaults.
 - Phase 6 complete and closed (implementation plus UAT closeout 2026-05-25): the repo now ships a defense-ready local demo UI over the existing runtime contract and keeps the interface text-only and local-first.
 - Phase 14 complete and closed (2026-06-08): the local demo now has a static chat-shell scaffold with Be Vietnam Pro, `100dvh`, a page-load ARIA live thread, a pinned safe-area composer, and clone-safe `data-slot` templates.
+- Milestone v2.2 complete and closed (2026-06-15/16): thesis reformatted to the USTH ICT Bachelor Thesis department template — cover page, certification letter, front matter order, abbreviations table, 5-section Roman numeral restructure, appendices, evaluation tables synced to slides.
+- Milestone v3.0 complete and closed (2026-06-18): supervisor comments addressed — literature review added (20+ new citations), baseline Qwen3.5-4B comparison run added, synthetic-data-percentage stated explicitly, page count brought to department target.
+- Milestone v4.0 complete and closed (2026-06-19/20): pre-print academic review passed (20 findings fixed) — thesis print-ready at 33 pages, 36 citations, 24 abbreviations, zero compile errors.
+- Milestone v5.0 complete and closed (2026-06-20): final audit pass — report LOCKED for print.
 
 ### Active
 
-- [ ] Reformat LaTeX thesis to USTH ICT Bachelor Thesis department template: cover page, certification letter, front matter structure, 5-section Roman numeral restructure, abbreviations, appendices, evaluation tables sync.
+- [ ] Verify the local demo runs reliably end-to-end (functional, offline, edge cases) on the presentation laptop before the defense window (13-20 July 2026).
+- [ ] Fix known demo latency/performance issue.
+- [ ] Fix CLI entrypoint confusion between `vnphish analyze` (text-only, no page) and `vnphish demo` (web UI).
+- [ ] Fix any UI quirks surfaced during verification.
+- [ ] Prepare a fallback (recording or screenshots) in case the live demo fails during the defense.
 
 ### Out of Scope
 
@@ -52,21 +60,35 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v2.2 Report Formatting — Department Template
+## Current Milestone: v5.1 Demo Verification & Presentation Readiness
 
-**Goal:** Reformat the LaTeX thesis to comply with the USTH ICT Bachelor Thesis department template; sync slides and any missing evaluation tables.
+**Goal:** Confirm the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues, and prep a fallback in case the live demo fails.
 
 **Target features:**
 
+- End-to-end functional verification: sample scam + benign messages across all in-scope threat classes, confirm risk tier + explanation + safe-steps output
+- Offline/portability check on the presentation laptop (no network calls, model loads from local artifact root)
+- Edge case handling verification (empty input, very long text, malformed/non-scam text)
+- Fix: demo latency/performance issue
+- Fix: CLI entrypoint confusion between `vnphish analyze` (text-only, no page) and `vnphish demo` (web UI)
+- Fix: any UI quirks surfaced during verification
+- Fallback plan: recorded screen capture or screenshots as backup if the live demo fails during defense
+
+## Completed Milestone: v2.2 Report Formatting — Department Template
+
+**Closed:** 2026-06-15/16
+
+**Delivered:**
+
 - Cover page: "BACHELOR THESIS" label + "By / Title:" layout matching department template
-- Supervisor certification letter page (currently missing)
-- List of Abbreviations section (currently missing)
-- Abstract: 6 English keywords + ≤250 words
+- Supervisor certification letter page added
+- List of Abbreviations section added (2-column table)
+- Abstract: 6 English keywords + ≤250 words (125 words)
 - Front matter order: TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract
-- Restructure 6 numbered chapters → 5 Roman numeral sections (I/ Introduction, II/ Objectives, III/ Materials & Methods, IV/ Results & Discussion, V/ Conclusion & Perspective)
-- Appendices section (currently missing)
-- Slides: scan + fix any "Chapter X" references
-- Results section: add/sync binary per-class metrics table and 2×2 confusion matrix to match slide content
+- Restructured 6 numbered chapters → 5 Roman numeral sections via `\thesissection` macro (figure/table numbering preserved)
+- Appendices section added
+- Slides scanned and "Chapter X" references fixed
+- Binary per-class metrics table and 2×2 confusion matrix synced to Results section
 
 ## Completed Milestone: v2.1 Defense Corrections
 
@@ -107,9 +129,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 ## Current State
 
-- All 21 phases across milestones v1.0–v2.1 are complete and closed.
-- Thesis content and defense slides are complete and compile-clean (XeLaTeX, 23 pages).
-- v2.2 starts: reformatting the thesis report to match the USTH ICT Bachelor Thesis department template.
+- All phases across milestones v1.0–v5.0 are complete and closed.
+- Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
+- v5.1 starts: verifying the local demo works reliably before the 13-20 July 2026 defense presentation.
 
 ## Evolution
 
@@ -131,4 +153,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-06-15 after v2.2 milestone started — department template formatting
+Last updated: 2026-07-02 after v5.1 milestone started — demo verification & presentation readiness
