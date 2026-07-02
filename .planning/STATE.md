@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Demo Verification & Presentation Readiness
 status: planning
-last_updated: "2026-07-02T03:59:15.293Z"
+last_updated: "2026-07-02T00:00:00.000Z"
 last_activity: 2026-07-02
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: Address supervisor comments — add proper literature review (20-30 citations), run baseline model evaluation, clarify synthetic dataset %, and meet 28-35 page target.
+- Current milestone focus: v5.1 — verify the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues (latency, CLI entrypoint confusion, UI quirks), lock 2 golden demo prompts (scam + benign) for the real ~1-minute live-demo window, and prepare a rehearsed fallback. Backend/API contract stays frozen for this milestone.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -31,10 +31,12 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-02 — Milestone v5.1 started
+Phase: 28 of 32 (Baseline Readiness & Zero-Code Diagnostics) — first phase of v5.1
+Plan: — of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-07-02 — v5.1 roadmap created (Phases 28-32, 21/21 requirements mapped)
+
+Progress: [..........] 0%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -77,12 +79,41 @@ Last activity: 2026-07-02 — Milestone v5.1 started
 - Phase 14 template rule: outer compatibility IDs `result-template` and `error-template` remain, but all cloned template internals use `data-slot`. Phase 16 must update `demo.js` from old inner-ID queries to `data-slot` selectors.
 - v2.2 LaTeX implementation rules (from research): zero new LaTeX packages needed; use `\thesissection` macro (not global `\thechapter` rename) to avoid corrupting figure/table numbering; 3 prose "Chapter~N" locations to fix: ch01 line ~22, ch04 line ~126, ch06 line ~20; safe compile sequence: delete aux files + 3 XeLaTeX passes + 1 BibTeX pass; LaTeX source: documents/reports/latex/main.tex.
 - Phase 22 Plan 01 COMPLETE: titlepage now uses `BACHELOR THESIS` plus By / Title layout; certification letter is input between titlepage and preface; preface order is TOC → Acknowledgements → List of Abbreviations → List of Tables → List of Figures → Abstract; abstract body is 125 words with six English keyword phrases; clean XeLaTeX/BibTeX/XeLaTeX/XeLaTeX compile produced a 26-page PDF with zero fatal LaTeX errors.
+- v5.1 roadmap (2026-07-02): 5 phases in strict dependency order — Phase 28 Baseline Readiness & Zero-Code Diagnostics, Phase 29 Environment Parity & Offline Verification, Phase 30 Latency Diagnosis & Targeted Fix, Phase 31 UI Quirks/Edge Cases & Regression Re-check, Phase 32 Fallback Recording & Full Dry Rehearsal. Each phase gates the next; fallback recording (Phase 32) is deliberately last so it is not recorded against a stale UI/latency state.
+- v5.1 fixes are non-invasive by design: external scripts/launchers, self-hosted font assets, and exact version pins (`llama-cpp-python==0.3.23`) — no redesign of `src/runtime/service.py`, the `/api/analyze` contract, or `data-slot` templates.
+- The real live demo window during defense is only ~1 minute, so v5.1 adds GOLD-01/GOLD-02 (Phase 28): lock exactly 2 prompts (1 scam + 1 benign) proven correct across 5+ repeated runs each, and Phase 32's fallback recording/rehearsal narrows to those same 2 locked prompts (not the fuller 4-message threat-class set) so the fallback mirrors exactly what's shown live.
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 78 (66 prior milestones + 12 v2.2)
-- mapped to phases: 78
+- tracked requirements: 99 (78 prior milestones + 21 v5.1)
+- mapped to phases: 99
 - Unmapped: 0
+
+### v5.1 Requirements at a Glance
+
+| Requirement | Phase | Description |
+| ----------- | ----- | ----------- |
+| DIAG-01 | 28 | `vnphish doctor` READY on dev machine |
+| DIAG-02 | 28 | `vnphish analyze` correct on all threat classes + benign |
+| DIAG-03 | 28 | First-pass warm-latency reading via DevTools |
+| GOLD-01 | 28 | Lock 1 scam + 1 benign prompt as the fixed ~1-minute live-demo script |
+| GOLD-02 | 28 | Each golden prompt correct 5/5 repeated runs before locking |
+| ENV-01 | 29 | `vnphish doctor` READY on presentation laptop, fresh install |
+| ENV-02 | 29 | Demo works offline, zero external requests |
+| ENV-03 | 29 | Be Vietnam Pro self-hosted, not CDN |
+| ENV-04 | 29 | `MODEL_ARTIFACT_ROOT`/`MODEL_REGISTRY_PATH` as OS-level env vars |
+| ENV-05 | 29 | `llama-cpp-python` exact-pinned to `0.3.23` |
+| PERF-01 | 30 | True cold-boot-to-first-answer latency measured |
+| PERF-02 | 30 | One targeted fix only if measured bottleneck found |
+| PERF-03 | 30 | Latency verified on AC and battery/Balanced power |
+| UIQ-01 | 31 | Full edge-case matrix re-tested, no crash/hang |
+| UIQ-02 | 31 | Rapid double-submit / `AbortController` guard re-verified |
+| UIQ-03 | 31 | CLI entrypoint confusion resolved (help text/launchers) |
+| UIQ-04 | 31 | UI quirks catalogued and fixed, backend/templates intact |
+| FB-01 | 32 | Recorded video of the 2 locked golden prompts, saved in two local locations |
+| FB-02 | 32 | Screenshot sequence of the golden-prompt run, saved as secondary fallback |
+| FB-03 | 32 | Live-to-fallback pivot rehearsed at least once |
+| FB-04 | 32 | Full cold-boot dry rehearsal before 2026-07-13 |
 
 ### v2.2 Requirements at a Glance
 
@@ -125,13 +156,16 @@ Last activity: 2026-07-02 — Milestone v5.1 started
 - The remaining Claude API budget is small, so it should be spent only on targeted missing-class generation or judging work that improves final validated yield.
 - ~~The final repaired-holdout release verdict is `BLOCK` because `task_scam` recall is `0.44`~~ — RESOLVED. Phase 7a Colab eval (2026-05-28): task_scam recall=0.871, gate verdict PASS. Adapter `task-scam-recovery-2026-05-28` registered at `D:\PROJEct\AI MODELS\task-scam-recovery-2026-05-28\qwen3-4b-instruct-2507\adapter`. Snapshot at `.planning/phases/07a-task-scam-recall-recovery/eval-snapshot-task-scam-recovery.json`.
 - The local runtime still trusts the operator-managed off-repo model registry path instead of enforcing a trusted-root allowlist; that residual risk is accepted and documented in `.planning/phases/07-proposal-closeout-and-quantitative-validation/07-SECURITY.md`.
+- v5.1 research gaps (2026-07-02, MEDIUM-HIGH confidence overall): presentation laptop core count, drive letters, OneDrive sync state, and Windows Defender policy are unresolved until Phase 29 establishes them as ground truth; true cold-boot latency has never been measured (existing ~13s figure is warm-only, dev-machine); backup laptop provisioning status is unconfirmed; `llama-cpp-python==0.3.32` upgrade path (if ever needed) requires its own verification pass, not a drop-in swap.
+- Confirmed offline-claim leak (2026-07-02): `src/runtime/demo_assets/index.html` currently loads Be Vietnam Pro from Google Fonts CDN, contradicting the local-first pitch — targeted for fix in Phase 29 (ENV-03).
 
 ## Session Continuity
 
-- Last session: 2026-06-15
-- Stopped at: v2.2 roadmap created. Phases 22-24 defined, 12/12 v2.2 requirements mapped.
-- Resume file: `.planning/ROADMAP.md` (Phase 22-24 detail sections)
-- Next step: `/gsd-plan-phase 22` to plan cover page, certification letter, and front matter work
+- Last session: 2026-07-02
+- Stopped at: v5.1 roadmap created. Phases 28-32 defined, 21/21 v5.1 requirements mapped.
+- Resume file: `.planning/ROADMAP.md` (Phase 28-32 detail sections)
+- Next step: `/gsd-plan-phase 28` to plan baseline readiness & zero-code diagnostics
+- Prior session (2026-06-15): v2.2 roadmap created. Phases 22-24 defined, 12/12 v2.2 requirements mapped.
 - Local model artifacts intentionally live off-repo at `D:\PROJEct\AI MODELS`; `.env/.env` overrides `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` there to avoid OneDrive sync interference and costly redownloads.
 - The three locked Qwen base checkpoints are already downloaded under `D:\PROJEct\AI MODELS\base`, with a local download manifest at `D:\PROJEct\AI MODELS\manifests\download-manifest.json`, so future work should reuse those files instead of downloading again.
 - The locked pilot selection is now persisted at `D:\PROJEct\AI MODELS\manifests\model-registry.json`, with the larger comparison summary mirrored in `data/manifests/phase3-large-pilot-2026-05-14.json`.
@@ -165,10 +199,13 @@ Last activity: 2026-07-02 — Milestone v5.1 started
 | 2026-06-08 | Prepare mock defense script for supervisor | Complete. Context gathered from planning and slides; script written to `documents/reports/supervisor/mock_defense_script.md`. |
 | 2026-06-15 | v2.2 roadmap creation | Complete. Phases 22-24 defined, 12/12 v2.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-06-15 | Phase 22 Plan 01 execution | Complete. Cover page, certification letter, front matter order, abbreviations table, and six-keyword abstract implemented and compile-verified. |
+| 2026-07-02 | v5.1 roadmap creation | Complete. Phases 28-32 defined, 21/21 v5.1 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 
 ## Operator Next Steps
 
-- v3.0 milestone active — 4 supervisor comments to address
-- Next: `/gsd-plan-phase 25` to plan the literature review research & writing
-- Phase 26 requires running base Qwen3.5-4B on holdout (code task, needs GPU/Colab)
-- Target: 28-35 pages after literature review added
+- v5.1 milestone active — demo verification & presentation readiness, hard deadline: defense window opens 2026-07-13
+- Next: `/gsd-plan-phase 28` to plan baseline readiness & zero-code diagnostics
+- Phase 29 (environment parity) requires the actual presentation laptop and is the highest-risk unknown per research — flag if the laptop's specific config (OneDrive sync, Defender policy, drive letters) is still undecided
+- Phase 30 (latency diagnosis) should only apply a fix if a measured bottleneck is found — no blind tuning
+- Backup laptop provisioning status is unresolved per research gaps — confirm with user before Phase 32 fallback planning
+- Prior v3.0 milestone (Phases 25-27, supervisor comments & literature review) closed 2026-06-18

@@ -424,6 +424,8 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 - [ ] **DIAG-01**: `vnphish doctor` reports READY on the dev machine before any other verification proceeds.
 - [ ] **DIAG-02**: `vnphish analyze` produces correct risk tier, threat label, grounded cues, and safe-steps output for one sample message per in-scope threat class (bank impersonation, account-takeover/social-engineering, task scam) plus one benign message.
 - [ ] **DIAG-03**: A first-pass warm-latency reading is captured via browser DevTools Network tab for a demo request.
+- [ ] **GOLD-01**: One scam message and one benign message are selected as the fixed, timed live-demo script for the ~1-minute presentation window.
+- [ ] **GOLD-02**: Each golden prompt (scam + benign) is run at least 5 times through `vnphish analyze`/`demo` and produces the identical correct verdict every run before being locked as final; any prompt that flips between correct/incorrect across runs is rejected and replaced.
 
 ### Environment Parity & Offline
 
@@ -448,43 +450,45 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 ### Fallback & Rehearsal
 
-- [ ] **FB-01**: A recorded video of a successful full run (one message per threat class + benign) is saved in two local locations.
-- [ ] **FB-02**: A static screenshot sequence of the same run is saved as a secondary fallback.
+- [ ] **FB-01**: A recorded video of a successful run using the 2 locked golden prompts (scam + benign) is saved in two local locations.
+- [ ] **FB-02**: A static screenshot sequence of the same golden-prompt run is saved as a secondary fallback.
 - [ ] **FB-03**: A live-to-fallback pivot is rehearsed at least once.
 - [ ] **FB-04**: A full cold-boot dry rehearsal is completed on the actual presentation laptop using final launchers, before the defense window opens (2026-07-13).
 
-| DIAG-01 | Phase TBD | Pending |
-| DIAG-02 | Phase TBD | Pending |
-| DIAG-03 | Phase TBD | Pending |
-| ENV-01 | Phase TBD | Pending |
-| ENV-02 | Phase TBD | Pending |
-| ENV-03 | Phase TBD | Pending |
-| ENV-04 | Phase TBD | Pending |
-| ENV-05 | Phase TBD | Pending |
-| PERF-01 | Phase TBD | Pending |
-| PERF-02 | Phase TBD | Pending |
-| PERF-03 | Phase TBD | Pending |
-| UIQ-01 | Phase TBD | Pending |
-| UIQ-02 | Phase TBD | Pending |
-| UIQ-03 | Phase TBD | Pending |
-| UIQ-04 | Phase TBD | Pending |
-| FB-01 | Phase TBD | Pending |
-| FB-02 | Phase TBD | Pending |
-| FB-03 | Phase TBD | Pending |
-| FB-04 | Phase TBD | Pending |
+| DIAG-01 | Phase 28 | Pending |
+| DIAG-02 | Phase 28 | Pending |
+| DIAG-03 | Phase 28 | Pending |
+| GOLD-01 | Phase 28 | Pending |
+| GOLD-02 | Phase 28 | Pending |
+| ENV-01 | Phase 29 | Pending |
+| ENV-02 | Phase 29 | Pending |
+| ENV-03 | Phase 29 | Pending |
+| ENV-04 | Phase 29 | Pending |
+| ENV-05 | Phase 29 | Pending |
+| PERF-01 | Phase 30 | Pending |
+| PERF-02 | Phase 30 | Pending |
+| PERF-03 | Phase 30 | Pending |
+| UIQ-01 | Phase 31 | Pending |
+| UIQ-02 | Phase 31 | Pending |
+| UIQ-03 | Phase 31 | Pending |
+| UIQ-04 | Phase 31 | Pending |
+| FB-01 | Phase 32 | Pending |
+| FB-02 | Phase 32 | Pending |
+| FB-03 | Phase 32 | Pending |
+| FB-04 | Phase 32 | Pending |
 
 **Coverage (v5.1):**
 
-- tracked requirements: 19
-- mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 19
+- tracked requirements: 21
+- mapped to phases: 21 (Phase 28: 5, Phase 29: 5, Phase 30: 3, Phase 31: 4, Phase 32: 4)
+- Unmapped: 0
 
 **Coverage (all milestones):**
 
-- tracked requirements: 97 total (78 prior milestones + 19 v5.1)
-- mapped to phases: 78
-- Unmapped: 19
+- tracked requirements: 99 total (78 prior milestones + 21 v5.1)
+- mapped to phases: 99
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-02 — v5.1 Demo Verification & Presentation Readiness requirements added (19 requirements); phases pending roadmap*
+*Last updated: 2026-07-02 — v5.1 roadmap created: 21 requirements mapped to Phases 28-32 (added GOLD-01/02 for the 1-minute live-demo golden-prompt constraint)*

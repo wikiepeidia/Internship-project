@@ -39,6 +39,16 @@
 - [x] **Phase 26: Baseline Evaluation & Dataset Clarification** - Run base Qwen3.5-4B (no adapter) on 254 holdout, add comparison table to report+slides, state 100% synthetic explicitly.
 - [x] **Phase 27: Page Count & Final Polish** - Verify 28-35 pages per department standard, final consistency sweep.
 
+### v5.1 — Demo Verification & Presentation Readiness (target: complete before defense window opens 2026-07-13)
+
+**Note:** Verification/hardening milestone only — backend/API contract stays frozen; fixes are external scripts/launchers, self-hosted assets, and targeted pins, not redesign.
+
+- [ ] **Phase 28: Baseline Readiness & Zero-Code Diagnostics** - Confirm `vnphish doctor` and `vnphish analyze` work correctly on the dev machine using existing zero-code tooling; select and lock 2 golden demo prompts (scam + benign) proven correct across repeated runs, for the ~1-minute live demo window.
+- [ ] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks.
+- [ ] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found.
+- [ ] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract.
+- [ ] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Record and rehearse a fallback (video + screenshots) and complete one full cold-boot dry rehearsal on the presentation laptop.
+
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
@@ -615,6 +625,85 @@ Plans:
 
 ---
 
+## Milestone v5.1: Demo Verification & Presentation Readiness (Phases 28-32)
+
+**Milestone Goal:** Confirm the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues (latency, CLI entrypoint confusion, UI quirks), lock 2 golden demo prompts (scam + benign) proven stable across repeated runs for the real ~1-minute live-demo window, and prepare a rehearsed fallback in case the live demo fails. This is a verification/hardening milestone, not new-feature work — the backend/API contract stays frozen; findings are fixed non-invasively (external scripts/launchers, self-hosted assets, targeted version pins) rather than through redesign.
+
+**Hard deadline:** The defense window opens 2026-07-13. All 5 phases must be completable well before that date, in strict sequence — each phase gates the next (doctor pass gates functional verification, which gates edge-case/offline passes, which gate fallback recording).
+
+### Phase 28: Baseline Readiness & Zero-Code Diagnostics
+
+**Goal**: Establish whether the demo's core functionality is reproducibly correct on the dev machine, using only existing zero-code diagnostics, before any further verification work begins — and lock the exact 2 prompts (scam + benign) that will be used for the real ~1-minute live demo.
+**Depends on**: Phase 27 (prior milestone closed; first phase of v5.1)
+**Requirements**: DIAG-01, DIAG-02, DIAG-03, GOLD-01, GOLD-02
+**Success Criteria** (what must be TRUE):
+
+1. `vnphish doctor` exits 0 and reports READY status on the dev machine.
+2. `vnphish analyze` produces the correct risk tier, threat label, grounded cues, and safe-steps output for one sample message per in-scope threat class (bank impersonation, account-takeover/social-engineering, task scam) plus one benign message — all 4 samples correct.
+3. A first-pass warm-latency reading for a demo request is captured via browser DevTools Network tab and recorded for later comparison.
+4. One scam message and one benign message are selected as the fixed live-demo script and each is run at least 5 times, producing the identical correct verdict every run — any prompt that flips is rejected and replaced until a stable pair is found.
+
+**Plans**: TBD
+
+### Phase 29: Environment Parity & Offline Verification
+
+**Goal**: The demo installs cleanly and runs correctly on the actual presentation laptop, fully offline, with no reliance on CWD-relative environment discovery or CDN dependencies.
+**Depends on**: Phase 28
+**Requirements**: ENV-01, ENV-02, ENV-03, ENV-04, ENV-05
+**Success Criteria** (what must be TRUE):
+
+1. `vnphish doctor` reports READY on the actual presentation laptop after a fresh `pip install -e .[dev,runtime]`.
+2. With Wi-Fi/Ethernet disabled, the demo completes a full `analyze` request end-to-end with zero external requests observed in the DevTools Network tab.
+3. `index.html` references only self-hosted `.woff2` font files for Be Vietnam Pro — no Google Fonts CDN link remains.
+4. Launching `vnphish` from a working directory other than the repo root still resolves the correct off-repo model path, using explicit OS-level `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` environment variables rather than CWD-relative `.env/.env` discovery.
+5. `pyproject.toml` exact-pins `llama-cpp-python==0.3.23`, and a fresh install on the presentation laptop resolves to exactly that version.
+
+**Plans**: TBD
+
+### Phase 30: Latency Diagnosis & Targeted Fix
+
+**Goal**: The true cold-boot-to-first-answer latency on the presentation laptop is known, and — only if a specific, measured bottleneck is found — exactly one targeted fix is applied and re-measured.
+**Depends on**: Phase 29
+**Requirements**: PERF-01, PERF-02, PERF-03
+**Success Criteria** (what must be TRUE):
+
+1. Cold-boot-to-first-answer latency (measured from a post-reboot first request, not a warm request) is measured and recorded on the presentation laptop.
+2. If a specific bottleneck is identified (for example, an unset `n_threads` default), exactly one targeted fix is applied with a before/after measurement; if no clear bottleneck is found, no fix is applied and that decision is documented.
+3. Latency is measured and recorded under both AC power (High Performance plan) and battery/Balanced power plan, with the two results compared.
+
+**Plans**: TBD
+
+### Phase 31: UI Quirks, Edge Cases & Regression Re-check
+
+**Goal**: The demo handles the full edge-case matrix without crash or hang, the `analyze`-vs-`demo` CLI entrypoint confusion is resolved, and any fixes from Phases 28-30 have not regressed existing behavior.
+**Depends on**: Phase 30
+**Requirements**: UIQ-01, UIQ-02, UIQ-03, UIQ-04
+**Success Criteria** (what must be TRUE):
+
+1. The full edge-case matrix (empty input, very long text, malformed/off-topic text, mixed Vietnamese-English) completes with no crash or hang.
+2. Rapid double-submit produces exactly one in-flight request; the existing `AbortController` guard still prevents re-entrant requests.
+3. CLI help text and/or launcher scripts make the `vnphish analyze` (text-only) vs `vnphish demo` (web UI) distinction clear, with the CLI contract itself unchanged.
+4. All UI quirks found during this milestone's testing are catalogued and fixed without altering the frozen backend contract or breaking `data-slot` templates, and the `tests/runtime` suite passes green.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 32: Fallback Recording & Full Dry Rehearsal
+
+**Goal**: A rehearsed, verified fallback exists so the defense can proceed even if the live demo fails, validated by one full cold-boot dry rehearsal on the actual presentation laptop.
+**Depends on**: Phase 31
+**Requirements**: FB-01, FB-02, FB-03, FB-04
+**Success Criteria** (what must be TRUE):
+
+1. A recorded video of one successful run using the 2 locked golden prompts (scam + benign, matching the real live-demo script) is saved in two separate local locations.
+2. A static screenshot sequence of the same golden-prompt run is saved as a secondary fallback.
+3. A live-to-fallback pivot (simulating a live demo failure and switching to the recording or screenshots) has been rehearsed at least once.
+4. A full cold-boot dry rehearsal is completed on the actual presentation laptop using the final launchers, completed before the defense window opens (2026-07-13).
+
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -645,11 +734,16 @@ Plans:
 | 22. Cover Page, Certification Letter, and Front Matter | 1/1 | Complete | 2026-06-15 |
 | 23. Document Restructure and Evaluation Tables | 1/1 | Complete | 2026-06-15 |
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
+| 28. Baseline Readiness and Zero-Code Diagnostics | 0/TBD | Not started | - |
+| 29. Environment Parity and Offline Verification | 0/TBD | Not started | - |
+| 30. Latency Diagnosis and Targeted Fix | 0/TBD | Not started | - |
+| 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
+| 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 78 (66 prior milestones + 12 v2.2)
-- tracked requirements mapped: 78
+- tracked requirements total: 99 (78 prior milestones + 21 v5.1)
+- tracked requirements mapped: 99
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -740,3 +834,24 @@ Coverage map:
 - EVAL-07 -> Phase 23
 - APPEND-01 -> Phase 24
 - SYNC-01 -> Phase 24
+- DIAG-01 -> Phase 28
+- DIAG-02 -> Phase 28
+- DIAG-03 -> Phase 28
+- GOLD-01 -> Phase 28
+- GOLD-02 -> Phase 28
+- ENV-01 -> Phase 29
+- ENV-02 -> Phase 29
+- ENV-03 -> Phase 29
+- ENV-04 -> Phase 29
+- ENV-05 -> Phase 29
+- PERF-01 -> Phase 30
+- PERF-02 -> Phase 30
+- PERF-03 -> Phase 30
+- UIQ-01 -> Phase 31
+- UIQ-02 -> Phase 31
+- UIQ-03 -> Phase 31
+- UIQ-04 -> Phase 31
+- FB-01 -> Phase 32
+- FB-02 -> Phase 32
+- FB-03 -> Phase 32
+- FB-04 -> Phase 32
