@@ -1,6 +1,6 @@
 {
   "golden_scam": {
-    "text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!",
+    "text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi).",
     "channel": "sms",
     "runs": [
       {
@@ -8,35 +8,35 @@
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 26627.258
+        "latency_ms": 22705.561999999998
       },
       {
         "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 19944.811999999998
+        "latency_ms": 17091.208
       },
       {
         "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 19888.596
+        "latency_ms": 16353.239
       },
       {
         "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 18855.78
+        "latency_ms": 16658.474
       },
       {
         "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 19283.566
+        "latency_ms": 16820.464
       }
     ],
     "stable": true
@@ -50,38 +50,38 @@
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 24118.089
+        "latency_ms": 20612.627999999997
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 17171.969999999998
+        "latency_ms": 15857.721
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 17229.259000000002
+        "latency_ms": 15749.739
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 17004.724000000002
+        "latency_ms": 16288.196
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 17310.181
+        "latency_ms": 16321.367
       }
     ],
     "stable": true
   },
-  "recorded": "2026-07-02T08:15:06.049977+00:00"
+  "recorded": "2026-07-02T08:28:28.644369+00:00"
 }

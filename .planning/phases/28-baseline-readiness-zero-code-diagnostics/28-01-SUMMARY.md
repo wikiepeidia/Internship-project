@@ -32,7 +32,7 @@ key-files:
 
 key-decisions:
   - "Original lock used the TPBank OTP-style bank-impersonation fallback and the obviously-safe conftest benign fixture."
-  - "Post-closeout quick correction relocked the final live-demo pair to a malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice after fixing legitimate OTP false positives."
+  - "Post-closeout quick corrections relocked the final live-demo pair to a no-OTP malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice after fixing legitimate OTP false positives and case-insensitive evidence grounding."
   - "Recorded benign grounded cues as count=0 rather than fabricating suspicious evidence, matching the runtime contract where clearly benign messages may have top_cues: []."
 
 patterns-established:
@@ -64,8 +64,9 @@ completed: 2026-07-02
 - The three threat-class rows recorded non-empty grounded cues and safe next steps; the benign row recorded risk/label, `count=0` grounded cues, and a safe next step.
 - `scripts/verify_golden_prompts.py` now drives `vnphish demo` through a script-owned server and the real browser `/api/analyze` flow.
 - Original Phase 28 lock: the TPBank scam prompt locked 5/5 as `suspicious` + `bank_impersonation`; the benign fixture locked 5/5 as `benign` + `benign`.
-- Post-closeout correction `260702-l0q`: final live-demo lock is the malicious-link Vietcombank scam (`high-risk` + `bank_impersonation`, 5/5) and VPBank Smart OTP benign notice (`benign`, 5/5).
-- DIAG-03 warm-latency baseline recorded from the corrected first Playwright response timing: `26627.258 ms`.
+- Post-closeout correction `260702-l0q`: legitimate bank OTP notices now render benign, enabling a bank-OTP benign golden prompt.
+- Post-closeout correction `260702-ldt`: final live-demo lock is the no-OTP malicious-link Vietcombank scam (`high-risk` + `bank_impersonation`, 5/5) and VPBank Smart OTP benign notice (`benign`, 5/5).
+- DIAG-03 warm-latency baseline recorded from the latest corrected first Playwright response timing: `22705.562 ms`.
 
 ## Task Commits
 
@@ -88,7 +89,7 @@ Each task was committed atomically:
 ## Decisions Made
 
 - The original TPBank OTP-style scam prompt was superseded because it was too ambiguous for the live-demo boundary: normal bank OTP notices should be benign, while the demo scam should include clearly malicious link/action cues.
-- The final locked scam prompt is the Vietcombank fake-access alert with `http://vcb-secure-alert.net/...`; the final locked benign prompt is the VPBank Smart OTP notice.
+- The final locked scam prompt is the Vietcombank fake-access alert with `http://vcb-secure-alert.net/...` and no OTP sentence; the final locked benign prompt is the VPBank Smart OTP notice.
 - A benign output with no `Grounded cues:` section is acceptable when the result is clearly `Benign`; the artifact records this explicitly as `count=0` instead of treating missing suspicious evidence as a runtime failure.
 
 ## Deviations from Plan

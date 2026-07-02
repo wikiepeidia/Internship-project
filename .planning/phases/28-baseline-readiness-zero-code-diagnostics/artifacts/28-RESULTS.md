@@ -66,21 +66,21 @@ llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of th
 
 Machine-readable source: `.planning/phases/28-baseline-readiness-zero-code-diagnostics/artifacts/28-golden-prompt-results.json`
 
-Correction note: re-evaluated on 2026-07-02 after the original TPBank OTP-style scam prompt was judged too ambiguous for the live demo boundary. The corrected lock uses a clear malicious-link bank impersonation scam and a legitimate bank OTP notice that now returns benign.
+Correction note: re-evaluated on 2026-07-02 after the original TPBank OTP-style scam prompt was judged too ambiguous for the live demo boundary. The corrected lock uses a clear malicious-link bank impersonation scam with no OTP sentence and a legitimate bank OTP notice that returns benign.
 
 ### Golden scam prompt
 
 - Channel: `sms`
 - STABLE=true
-- Final locked text: "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!"
+- Final locked text: "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi)."
 
 | run | risk_tier | threat_labels | latency_ms |
 | --- | --- | --- | --- |
-| 1 | high-risk | bank_impersonation | 26627.258 |
-| 2 | high-risk | bank_impersonation | 19944.812 |
-| 3 | high-risk | bank_impersonation | 19888.596 |
-| 4 | high-risk | bank_impersonation | 18855.780 |
-| 5 | high-risk | bank_impersonation | 19283.566 |
+| 1 | high-risk | bank_impersonation | 22705.562 |
+| 2 | high-risk | bank_impersonation | 17091.208 |
+| 3 | high-risk | bank_impersonation | 16353.239 |
+| 4 | high-risk | bank_impersonation | 16658.474 |
+| 5 | high-risk | bank_impersonation | 16820.464 |
 
 ### Golden benign prompt
 
@@ -90,18 +90,18 @@ Correction note: re-evaluated on 2026-07-02 after the original TPBank OTP-style 
 
 | run | risk_tier | threat_labels | latency_ms |
 | --- | --- | --- | --- |
-| 1 | benign | benign | 24118.089 |
-| 2 | benign | benign | 17171.970 |
-| 3 | benign | benign | 17229.259 |
-| 4 | benign | benign | 17004.724 |
-| 5 | benign | benign | 17310.181 |
+| 1 | benign | benign | 20612.628 |
+| 2 | benign | benign | 15857.721 |
+| 3 | benign | benign | 15749.739 |
+| 4 | benign | benign | 16288.196 |
+| 5 | benign | benign | 16321.367 |
 
-Candidate correction/substitution: the original TPBank OTP-style scam prompt and meeting-reschedule benign fixture were superseded for demo clarity. The reported Techcombank OTP benign candidate was first observed as a false positive, then passed as `Benign` after the legitimate-bank-OTP correction. The final locked benign prompt is the VPBank Smart OTP notice because it is shorter and matches the trained benign OTP style.
+Candidate correction/substitution: the original TPBank OTP-style scam prompt and meeting-reschedule benign fixture were superseded for demo clarity. The later Vietcombank scam prompt was also corrected to remove the OTP sentence because that message scenario is account-access/link pressure, not an OTP delivery. The reported Techcombank OTP benign candidate was first observed as a false positive, then passed as `Benign` after the legitimate-bank-OTP correction. The final locked benign prompt is the VPBank Smart OTP notice because it is shorter and matches the trained benign OTP style.
 
 ## DIAG-03: Warm-latency reading
 
-- Recorded: `2026-07-02T08:15:06.049977+00:00`
-- Baseline warm-latency figure: `26627.258 ms`
+- Recorded: `2026-07-02T08:28:28.644369+00:00`
+- Baseline warm-latency figure: `22705.562 ms`
 - Method: Playwright captured `response.request.timing` for the first real browser `/api/analyze` response after the script-owned `vnphish demo` server became reachable. This is the same Resource Timing API data family exposed by the browser DevTools Network panel and is recorded as the Phase 30 comparison baseline.
 
 #### zalo_social_engineering
