@@ -62,6 +62,46 @@ llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of th
 llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of the model will not be utilized
 ```
 
+## GOLD-01 / GOLD-02: Locked golden prompts
+
+Machine-readable source: `.planning/phases/28-baseline-readiness-zero-code-diagnostics/artifacts/28-golden-prompt-results.json`
+
+### Golden scam prompt
+
+- Channel: `sms`
+- STABLE=true
+- Final locked text: "Thông báo từ TPBank: OTP của bạn là 847291. KHÔNG chia sẻ mã này với bất kỳ ai. Nếu bạn ko thực hiện giao dịch, gọi ngay 0938.xxx.xxx để được hỗ trợ khóa account."
+
+| run | risk_tier | threat_labels | latency_ms |
+| --- | --- | --- | --- |
+| 1 | suspicious | bank_impersonation | 23993.489 |
+| 2 | suspicious | bank_impersonation | 20014.696 |
+| 3 | suspicious | bank_impersonation | 20640.250 |
+| 4 | suspicious | bank_impersonation | 16957.768 |
+| 5 | suspicious | bank_impersonation | 16089.349 |
+
+### Golden benign prompt
+
+- Channel: `sms`
+- STABLE=true
+- Final locked text: "Chào bạn, lịch họp nhóm được dời sang 9h sáng mai tại phòng học tầng 3. Nếu bận thì báo lại giúp mình trước tối nay."
+
+| run | risk_tier | threat_labels | latency_ms |
+| --- | --- | --- | --- |
+| 1 | benign | benign | 7598.876 |
+| 2 | benign | benign | 6609.536 |
+| 3 | benign | benign | 6585.394 |
+| 4 | benign | benign | 6559.911 |
+| 5 | benign | benign | 6604.690 |
+
+No candidate rejection/substitution was needed during locking. The default Phase 28 TPBank fallback scam prompt and the `sample_benign_message` fixture both locked cleanly through the real web demo.
+
+## DIAG-03: Warm-latency reading
+
+- Recorded: `2026-07-02T06:59:46.512347+00:00`
+- Baseline warm-latency figure: `23993.489 ms`
+- Method: Playwright captured `response.request.timing` for the first real browser `/api/analyze` response after the script-owned `vnphish demo` server became reachable. This is the same Resource Timing API data family exposed by the browser DevTools Network panel and is recorded as the Phase 30 comparison baseline.
+
 #### zalo_social_engineering
 
 Command: vnphish analyze --text "Bro ơi mình đang ở nước ngoài, điện thoại hỏng ko gọi dc. Mày có thể mua giúp tao thẻ Viettel 500k rồi chụp mã gửi qua Zalo k? Tao về trả liền, cần gấp lắm 😭" --channel zalo

@@ -1,0 +1,87 @@
+{
+  "golden_scam": {
+    "text": "Thông báo từ TPBank: OTP của bạn là 847291. KHÔNG chia sẻ mã này với bất kỳ ai. Nếu bạn ko thực hiện giao dịch, gọi ngay 0938.xxx.xxx để được hỗ trợ khóa account.",
+    "channel": "sms",
+    "runs": [
+      {
+        "risk_tier": "suspicious",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 23993.489
+      },
+      {
+        "risk_tier": "suspicious",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 20014.696
+      },
+      {
+        "risk_tier": "suspicious",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 20640.25
+      },
+      {
+        "risk_tier": "suspicious",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 16957.768
+      },
+      {
+        "risk_tier": "suspicious",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 16089.349
+      }
+    ],
+    "stable": true
+  },
+  "golden_benign": {
+    "text": "Chào bạn, lịch họp nhóm được dời sang 9h sáng mai tại phòng học tầng 3. Nếu bận thì báo lại giúp mình trước tối nay.",
+    "channel": "sms",
+    "runs": [
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 7598.876
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 6609.536
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 6585.393999999999
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 6559.911
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 6604.69
+      }
+    ],
+    "stable": true
+  },
+  "recorded": "2026-07-02T06:59:46.512347+00:00"
+}
