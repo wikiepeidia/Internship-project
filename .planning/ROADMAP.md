@@ -625,7 +625,7 @@ Plans:
 
 ---
 
-## Milestone v5.1: Demo Verification & Presentation Readiness (Phases 28-32)
+## Milestone v5.1: Demo Verification & Presentation Readiness (Phases 28-32) (Phase Details)
 
 **Milestone Goal:** Confirm the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues (latency, CLI entrypoint confusion, UI quirks), lock 2 golden demo prompts (scam + benign) proven stable across repeated runs for the real ~1-minute live-demo window, and prepare a rehearsed fallback in case the live demo fails. This is a verification/hardening milestone, not new-feature work — the backend/API contract stays frozen; findings are fixed non-invasively (external scripts/launchers, self-hosted assets, targeted version pins) rather than through redesign.
 
