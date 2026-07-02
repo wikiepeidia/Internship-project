@@ -415,6 +415,76 @@ Requirements for milestone v2.2. Reformats the LaTeX thesis to comply with the U
 - mapped to phases: 78
 - Unmapped: 0
 
+## v5.1 Requirements — Demo Verification & Presentation Readiness
+
+Requirements for milestone v5.1. Verifies and hardens the existing local demo before the 13-20 July 2026 defense presentation. Not a new-feature milestone — the backend/API contract stays frozen; findings are fixed non-invasively (external scripts/launchers, self-hosted assets, targeted pins) rather than through redesign.
+
+### Baseline Diagnostics
+
+- [ ] **DIAG-01**: `vnphish doctor` reports READY on the dev machine before any other verification proceeds.
+- [ ] **DIAG-02**: `vnphish analyze` produces correct risk tier, threat label, grounded cues, and safe-steps output for one sample message per in-scope threat class (bank impersonation, account-takeover/social-engineering, task scam) plus one benign message.
+- [ ] **DIAG-03**: A first-pass warm-latency reading is captured via browser DevTools Network tab for a demo request.
+
+### Environment Parity & Offline
+
+- [ ] **ENV-01**: `vnphish doctor` reports READY on the actual presentation laptop after a fresh install.
+- [ ] **ENV-02**: Demo functions correctly with network/Wi-Fi disabled — zero external requests observed in DevTools, confirming the offline claim.
+- [ ] **ENV-03**: Be Vietnam Pro font is self-hosted instead of loaded from the Google Fonts CDN.
+- [ ] **ENV-04**: `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` are set as explicit OS-level environment variables so launching `vnphish` from any working directory still resolves the correct off-repo model path (not dependent on CWD-relative `.env/.env` discovery).
+- [ ] **ENV-05**: `llama-cpp-python` is exact-pinned to the validated version (`0.3.23`) in `pyproject.toml`.
+
+### Latency Diagnosis & Fix
+
+- [ ] **PERF-01**: True cold-boot-to-first-answer latency is measured on the presentation laptop (not just warm latency).
+- [ ] **PERF-02**: If a specific, measured latency bottleneck is found, one targeted fix (e.g., explicit `n_threads`) is applied and re-measured before/after; no fix is applied without a measured cause.
+- [ ] **PERF-03**: Latency is verified under both AC power and battery/Balanced power plan.
+
+### UI Quirks, Edge Cases & CLI
+
+- [ ] **UIQ-01**: Full edge-case matrix (empty input, very long text, malformed/off-topic text, mixed Vietnamese-English) is re-tested with no crash or hang.
+- [ ] **UIQ-02**: Rapid double-submit is tested to confirm the existing `AbortController` guard still prevents re-entrant requests.
+- [ ] **UIQ-03**: CLI entrypoint confusion between `vnphish analyze` (text-only) and `vnphish demo` (web UI) is resolved via help text and/or launcher scripts, without changing the CLI contract.
+- [ ] **UIQ-04**: Any UI quirks found during testing are catalogued and fixed without altering the frozen backend contract or breaking `data-slot` templates.
+
+### Fallback & Rehearsal
+
+- [ ] **FB-01**: A recorded video of a successful full run (one message per threat class + benign) is saved in two local locations.
+- [ ] **FB-02**: A static screenshot sequence of the same run is saved as a secondary fallback.
+- [ ] **FB-03**: A live-to-fallback pivot is rehearsed at least once.
+- [ ] **FB-04**: A full cold-boot dry rehearsal is completed on the actual presentation laptop using final launchers, before the defense window opens (2026-07-13).
+
+| DIAG-01 | Phase TBD | Pending |
+| DIAG-02 | Phase TBD | Pending |
+| DIAG-03 | Phase TBD | Pending |
+| ENV-01 | Phase TBD | Pending |
+| ENV-02 | Phase TBD | Pending |
+| ENV-03 | Phase TBD | Pending |
+| ENV-04 | Phase TBD | Pending |
+| ENV-05 | Phase TBD | Pending |
+| PERF-01 | Phase TBD | Pending |
+| PERF-02 | Phase TBD | Pending |
+| PERF-03 | Phase TBD | Pending |
+| UIQ-01 | Phase TBD | Pending |
+| UIQ-02 | Phase TBD | Pending |
+| UIQ-03 | Phase TBD | Pending |
+| UIQ-04 | Phase TBD | Pending |
+| FB-01 | Phase TBD | Pending |
+| FB-02 | Phase TBD | Pending |
+| FB-03 | Phase TBD | Pending |
+| FB-04 | Phase TBD | Pending |
+
+**Coverage (v5.1):**
+
+- tracked requirements: 19
+- mapped to phases: 0 (pending roadmap creation)
+- Unmapped: 19
+
+**Coverage (all milestones):**
+
+- tracked requirements: 97 total (78 prior milestones + 19 v5.1)
+- mapped to phases: 78
+- Unmapped: 19
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-06-15 — v2.2 Report Formatting — Department Template requirements added; phases 22-24 estimated*
+*Last updated: 2026-07-02 — v5.1 Demo Verification & Presentation Readiness requirements added (19 requirements); phases pending roadmap*
