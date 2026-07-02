@@ -430,8 +430,7 @@ def test_legitimate_otp_override_does_not_hide_link_based_bank_scam():
         text=(
             "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. "
             "Neu ko phai ban, bam vao link de khoa ngay: "
-            "http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 "
-            "(mien phi). OTP se het han sau 5 phut!"
+            "http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi)."
         ),
         channel="sms",
     )
@@ -448,6 +447,33 @@ def test_legitimate_otp_override_does_not_hide_link_based_bank_scam():
     assert result.risk_tier == "high-risk"
     assert result.threat_labels == ["bank_impersonation"]
     assert any(cue.cue_type == "url" for cue in result.top_cues)
+
+
+def test_case_insensitive_grounding_accepts_model_cue_case_drift():
+    request = AnalysisRequest(
+        text=(
+            "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. "
+            "Neu ko phai ban, bam vao link de khoa ngay: "
+            "http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi)."
+        ),
+        channel="sms",
+    )
+    payload = {
+        "risk_tier": "high-risk",
+        "threat_labels": ["bank_impersonation"],
+        "decision_summary": "Tin nhan gia mao ngan hang va dan toi lien ket khoa tai khoan.",
+        "evidence_spans": [
+            "http://vcb-secure-alert.net/lock?id=9182736",
+            "tai khoan cua ban vua bi truy cap",
+        ],
+        "recommendations": [{"text": "Khong bam vao lien ket trong tin nhan."}],
+    }
+
+    result = build_analysis_result(payload, request, backend_name="gguf")
+
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert any(cue.span == "tai khoan cua ban vua bi truy cap" for cue in result.top_cues)
 
 
 def test_recommendation_sanitizer_blocks_unsafe_actions():

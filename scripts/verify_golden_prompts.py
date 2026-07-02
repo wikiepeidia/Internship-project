@@ -16,7 +16,7 @@ from typing import Any
 DEFAULT_SCAM_TEXT = (
     "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. "
     "Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 "
-    "hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!"
+    "hoac goi 1800.9999 (mien phi)."
 )
 DEFAULT_BENIGN_TEXT = (
     "VPBank Smart OTP: Mã xác thực của bạn là 847291. "

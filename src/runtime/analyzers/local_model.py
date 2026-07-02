@@ -550,7 +550,7 @@ def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
     """Return True when a cue span is present in the reviewable normalized text."""
 
     normalized_span = span.strip()
-    return bool(normalized_span) and normalized_span in normalized_text
+    return bool(normalized_span) and normalized_span.casefold() in normalized_text.casefold()
 
 
 def is_recommendation_safe(text: str) -> bool:
@@ -575,11 +575,12 @@ def _sanitize_recommendation_models(recommendations: list[Recommendation], *, ri
 def _apply_safety_floor(decision: ThreatDecision, helper_cues: list[HelperCue], request: AnalysisRequest) -> ThreatDecision:
     cue_types = {cue.cue_type for cue in helper_cues}
     has_credential_or_payment = bool({"otp_request", "credential_request", "payment_request"} & cue_types)
+    has_bank_url = "url" in cue_types and any(marker in request.text.casefold() for marker in BANK_BRAND_MARKERS)
     has_escalation_support = bool({"url", "spoofed_brand", "job_offer"} & cue_types)
 
     if decision.risk_tier != "benign":
         return decision
-    if not helper_cues or not has_credential_or_payment:
+    if not helper_cues or not (has_credential_or_payment or has_bank_url):
         return decision
 
     floored_tier = "high-risk" if has_escalation_support else "suspicious"
