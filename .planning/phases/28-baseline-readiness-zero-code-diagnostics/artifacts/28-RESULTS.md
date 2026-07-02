@@ -66,40 +66,42 @@ llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of th
 
 Machine-readable source: `.planning/phases/28-baseline-readiness-zero-code-diagnostics/artifacts/28-golden-prompt-results.json`
 
+Correction note: re-evaluated on 2026-07-02 after the original TPBank OTP-style scam prompt was judged too ambiguous for the live demo boundary. The corrected lock uses a clear malicious-link bank impersonation scam and a legitimate bank OTP notice that now returns benign.
+
 ### Golden scam prompt
 
 - Channel: `sms`
 - STABLE=true
-- Final locked text: "Thông báo từ TPBank: OTP của bạn là 847291. KHÔNG chia sẻ mã này với bất kỳ ai. Nếu bạn ko thực hiện giao dịch, gọi ngay 0938.xxx.xxx để được hỗ trợ khóa account."
+- Final locked text: "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!"
 
 | run | risk_tier | threat_labels | latency_ms |
 | --- | --- | --- | --- |
-| 1 | suspicious | bank_impersonation | 23993.489 |
-| 2 | suspicious | bank_impersonation | 20014.696 |
-| 3 | suspicious | bank_impersonation | 20640.250 |
-| 4 | suspicious | bank_impersonation | 16957.768 |
-| 5 | suspicious | bank_impersonation | 16089.349 |
+| 1 | high-risk | bank_impersonation | 26627.258 |
+| 2 | high-risk | bank_impersonation | 19944.812 |
+| 3 | high-risk | bank_impersonation | 19888.596 |
+| 4 | high-risk | bank_impersonation | 18855.780 |
+| 5 | high-risk | bank_impersonation | 19283.566 |
 
 ### Golden benign prompt
 
 - Channel: `sms`
 - STABLE=true
-- Final locked text: "Chào bạn, lịch họp nhóm được dời sang 9h sáng mai tại phòng học tầng 3. Nếu bận thì báo lại giúp mình trước tối nay."
+- Final locked text: "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng."
 
 | run | risk_tier | threat_labels | latency_ms |
 | --- | --- | --- | --- |
-| 1 | benign | benign | 7598.876 |
-| 2 | benign | benign | 6609.536 |
-| 3 | benign | benign | 6585.394 |
-| 4 | benign | benign | 6559.911 |
-| 5 | benign | benign | 6604.690 |
+| 1 | benign | benign | 24118.089 |
+| 2 | benign | benign | 17171.970 |
+| 3 | benign | benign | 17229.259 |
+| 4 | benign | benign | 17004.724 |
+| 5 | benign | benign | 17310.181 |
 
-No candidate rejection/substitution was needed during locking. The default Phase 28 TPBank fallback scam prompt and the `sample_benign_message` fixture both locked cleanly through the real web demo.
+Candidate correction/substitution: the original TPBank OTP-style scam prompt and meeting-reschedule benign fixture were superseded for demo clarity. The reported Techcombank OTP benign candidate was first observed as a false positive, then passed as `Benign` after the legitimate-bank-OTP correction. The final locked benign prompt is the VPBank Smart OTP notice because it is shorter and matches the trained benign OTP style.
 
 ## DIAG-03: Warm-latency reading
 
-- Recorded: `2026-07-02T06:59:46.512347+00:00`
-- Baseline warm-latency figure: `23993.489 ms`
+- Recorded: `2026-07-02T08:15:06.049977+00:00`
+- Baseline warm-latency figure: `26627.258 ms`
 - Method: Playwright captured `response.request.timing` for the first real browser `/api/analyze` response after the script-owned `vnphish demo` server became reachable. This is the same Resource Timing API data family exposed by the browser DevTools Network panel and is recorded as the Phase 30 comparison baseline.
 
 #### zalo_social_engineering

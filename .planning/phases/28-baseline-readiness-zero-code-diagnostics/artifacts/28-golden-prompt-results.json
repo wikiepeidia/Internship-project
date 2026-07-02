@@ -1,48 +1,48 @@
 {
   "golden_scam": {
-    "text": "Thông báo từ TPBank: OTP của bạn là 847291. KHÔNG chia sẻ mã này với bất kỳ ai. Nếu bạn ko thực hiện giao dịch, gọi ngay 0938.xxx.xxx để được hỗ trợ khóa account.",
+    "text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi). OTP se het han sau 5 phut!",
     "channel": "sms",
     "runs": [
       {
-        "risk_tier": "suspicious",
+        "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 23993.489
+        "latency_ms": 26627.258
       },
       {
-        "risk_tier": "suspicious",
+        "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 20014.696
+        "latency_ms": 19944.811999999998
       },
       {
-        "risk_tier": "suspicious",
+        "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 20640.25
+        "latency_ms": 19888.596
       },
       {
-        "risk_tier": "suspicious",
+        "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 16957.768
+        "latency_ms": 18855.78
       },
       {
-        "risk_tier": "suspicious",
+        "risk_tier": "high-risk",
         "threat_labels": [
           "bank_impersonation"
         ],
-        "latency_ms": 16089.349
+        "latency_ms": 19283.566
       }
     ],
     "stable": true
   },
   "golden_benign": {
-    "text": "Chào bạn, lịch họp nhóm được dời sang 9h sáng mai tại phòng học tầng 3. Nếu bận thì báo lại giúp mình trước tối nay.",
+    "text": "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.",
     "channel": "sms",
     "runs": [
       {
@@ -50,38 +50,38 @@
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 7598.876
+        "latency_ms": 24118.089
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 6609.536
+        "latency_ms": 17171.969999999998
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 6585.393999999999
+        "latency_ms": 17229.259000000002
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 6559.911
+        "latency_ms": 17004.724000000002
       },
       {
         "risk_tier": "benign",
         "threat_labels": [
           "benign"
         ],
-        "latency_ms": 6604.69
+        "latency_ms": 17310.181
       }
     ],
     "stable": true
   },
-  "recorded": "2026-07-02T06:59:46.512347+00:00"
+  "recorded": "2026-07-02T08:15:06.049977+00:00"
 }

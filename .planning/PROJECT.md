@@ -20,7 +20,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Milestone v3.0 complete and closed (2026-06-18): supervisor comments addressed — literature review added (20+ new citations), baseline Qwen3.5-4B comparison run added, synthetic-data-percentage stated explicitly, page count brought to department target.
 - Milestone v4.0 complete and closed (2026-06-19/20): pre-print academic review passed (20 findings fixed) — thesis print-ready at 33 pages, 36 citations, 24 abbreviations, zero compile errors.
 - Milestone v5.0 complete and closed (2026-06-20): final audit pass — report LOCKED for print.
-- Phase 28 complete and closed (2026-07-02): dev-machine baseline diagnostics passed, the two golden demo prompts were locked through five stable real web-demo runs each, and a `23993.489 ms` warm-latency baseline was recorded for Phase 30 comparison.
+- Phase 28 complete and corrected (2026-07-02): dev-machine baseline diagnostics passed; the final golden demo prompts are a malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice, each locked through five stable real web-demo runs; the corrected warm-latency baseline is `26627.258 ms` for Phase 30 comparison.
 
 ### Active
 
@@ -132,7 +132,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
-- v5.1 is active: Phase 28 closed the dev-machine baseline and golden-prompt lock; Phase 29 now verifies the actual presentation-laptop environment, offline behavior, and portability before the 13-20 July 2026 defense presentation.
+- v5.1 is active: Phase 28 closed and corrected the dev-machine baseline plus golden-prompt lock; Phase 29 now verifies the actual presentation-laptop environment, offline behavior, and portability before the 13-20 July 2026 defense presentation.
 
 ## Evolution
 
@@ -154,4 +154,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-02 after Phase 28 closed — Phase 29 environment parity is next
+Last updated: 2026-07-02 after Phase 28 golden-prompt correction — Phase 29 environment parity is next

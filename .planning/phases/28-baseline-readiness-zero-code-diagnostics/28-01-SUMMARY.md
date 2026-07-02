@@ -31,8 +31,8 @@ key-files:
     - .planning/phases/28-baseline-readiness-zero-code-diagnostics/28-RESEARCH.md
 
 key-decisions:
-  - "Locked the TPBank OTP bank-impersonation fallback prompt instead of the demo.js VPBank sample, because research had already shown the VPBank URL sample fails and D-07 says to reject failing candidates rather than root-cause."
-  - "Accepted the obviously-safe conftest benign fixture as the golden benign prompt because it stayed stable 5/5 and matches D-04's live-demo clarity requirement."
+  - "Original lock used the TPBank OTP-style bank-impersonation fallback and the obviously-safe conftest benign fixture."
+  - "Post-closeout quick correction relocked the final live-demo pair to a malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice after fixing legitimate OTP false positives."
   - "Recorded benign grounded cues as count=0 rather than fabricating suspicious evidence, matching the runtime contract where clearly benign messages may have top_cues: []."
 
 patterns-established:
@@ -63,8 +63,9 @@ completed: 2026-07-02
 - `vnphish analyze` passed the Phase 28 four-class smoke set: bank impersonation, Zalo social engineering, task scam, and benign.
 - The three threat-class rows recorded non-empty grounded cues and safe next steps; the benign row recorded risk/label, `count=0` grounded cues, and a safe next step.
 - `scripts/verify_golden_prompts.py` now drives `vnphish demo` through a script-owned server and the real browser `/api/analyze` flow.
-- The TPBank scam prompt locked 5/5 as `suspicious` + `bank_impersonation`; the benign fixture locked 5/5 as `benign` + `benign`.
-- DIAG-03 warm-latency baseline recorded from the first Playwright response timing: `23993.489 ms`.
+- Original Phase 28 lock: the TPBank scam prompt locked 5/5 as `suspicious` + `bank_impersonation`; the benign fixture locked 5/5 as `benign` + `benign`.
+- Post-closeout correction `260702-l0q`: final live-demo lock is the malicious-link Vietcombank scam (`high-risk` + `bank_impersonation`, 5/5) and VPBank Smart OTP benign notice (`benign`, 5/5).
+- DIAG-03 warm-latency baseline recorded from the corrected first Playwright response timing: `26627.258 ms`.
 
 ## Task Commits
 
@@ -86,8 +87,8 @@ Each task was committed atomically:
 
 ## Decisions Made
 
-- The TPBank OTP prompt is the locked scam prompt because it is short, URL-free, already correctly classified, and remained stable through the web demo.
-- The meeting-reschedule fixture is the locked benign prompt because it is clearly safe and stable, avoiding a risky live-demo edge case.
+- The original TPBank OTP-style scam prompt was superseded because it was too ambiguous for the live-demo boundary: normal bank OTP notices should be benign, while the demo scam should include clearly malicious link/action cues.
+- The final locked scam prompt is the Vietcombank fake-access alert with `http://vcb-secure-alert.net/...`; the final locked benign prompt is the VPBank Smart OTP notice.
 - A benign output with no `Grounded cues:` section is acceptable when the result is clearly `Benign`; the artifact records this explicitly as `count=0` instead of treating missing suspicious evidence as a runtime failure.
 
 ## Deviations from Plan

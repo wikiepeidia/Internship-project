@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 status: planning
-last_updated: "2026-07-02T08:01:12.942Z"
-last_activity: 2026-07-02 — Phase 28 verified and closed; Phase 29 ready for context/planning
+last_updated: "2026-07-02T08:20:36.620Z"
+last_activity: 2026-07-02 — Quick task 260702-l0q corrected Phase 28 golden prompts and legitimate OTP false positives
 progress:
   total_phases: 20
   completed_phases: 11
@@ -34,7 +34,7 @@ progress:
 Phase: 29 of 32 (Environment Parity & Offline Verification)
 Plan: — of TBD in current phase
 Status: Ready to discuss/plan
-Last activity: 2026-07-02 — Phase 28 verified and closed; Phase 29 ready for context/planning
+Last activity: 2026-07-02 — Quick task 260702-l0q corrected Phase 28 golden prompts and legitimate OTP false positives
 
 Progress: [█████░░░░░] 55%
 
@@ -82,6 +82,7 @@ Progress: [█████░░░░░] 55%
 - v5.1 roadmap (2026-07-02): 5 phases in strict dependency order — Phase 28 Baseline Readiness & Zero-Code Diagnostics, Phase 29 Environment Parity & Offline Verification, Phase 30 Latency Diagnosis & Targeted Fix, Phase 31 UI Quirks/Edge Cases & Regression Re-check, Phase 32 Fallback Recording & Full Dry Rehearsal. Each phase gates the next; fallback recording (Phase 32) is deliberately last so it is not recorded against a stale UI/latency state.
 - v5.1 fixes are non-invasive by design: external scripts/launchers, self-hosted font assets, and exact version pins (`llama-cpp-python==0.3.23`) — no redesign of `src/runtime/service.py`, the `/api/analyze` contract, or `data-slot` templates.
 - The real live demo window during defense is only ~1 minute, so v5.1 adds GOLD-01/GOLD-02 (Phase 28): lock exactly 2 prompts (1 scam + 1 benign) proven correct across 5+ repeated runs each, and Phase 32's fallback recording/rehearsal narrows to those same 2 locked prompts (not the fuller 4-message threat-class set) so the fallback mirrors exactly what's shown live.
+- Phase 28 golden prompts were corrected after review: the final scam prompt is a malicious-link Vietcombank fake-access alert, and the final benign prompt is a legitimate VPBank Smart OTP notice. Legitimate bank OTP notices without unsafe link/action cues should render `benign`; fake bank alerts with links, lock/urgent action, or unknown access pressure remain `bank_impersonation`.
 
 ### Requirement Coverage Snapshot
 
@@ -162,7 +163,7 @@ Progress: [█████░░░░░] 55%
 ## Session Continuity
 
 - Last session: 2026-07-02
-- Stopped at: Phase 28 verified and closed. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
+- Stopped at: Quick task 260702-l0q corrected legitimate OTP false positives and relocked Phase 28 golden prompts. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
 - Resume file: `.planning/ROADMAP.md` (Phase 29 detail section)
 - Next step: `$gsd-discuss-phase 29` to gather presentation-laptop context, or `$gsd-plan-phase 29` if the context is already known.
 - Prior session (2026-06-15): v2.2 roadmap created. Phases 22-24 defined, 12/12 v2.2 requirements mapped.
@@ -200,6 +201,7 @@ Progress: [█████░░░░░] 55%
 | 2026-06-15 | v2.2 roadmap creation | Complete. Phases 22-24 defined, 12/12 v2.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-06-15 | Phase 22 Plan 01 execution | Complete. Cover page, certification letter, front matter order, abbreviations table, and six-keyword abstract implemented and compile-verified. |
 | 2026-07-02 | v5.1 roadmap creation | Complete. Phases 28-32 defined, 21/21 v5.1 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
+| 2026-07-02 | `260702-l0q` re-evaluate Phase 28 golden prompts | Complete. Legitimate bank OTP notices now render benign; final golden pair relocked as Vietcombank malicious-link scam 5/5 high-risk bank impersonation and VPBank Smart OTP benign 5/5 benign. |
 
 ## Operator Next Steps
 
