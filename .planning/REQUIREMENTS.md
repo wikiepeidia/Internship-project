@@ -421,11 +421,11 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 ### Baseline Diagnostics
 
-- [ ] **DIAG-01**: `vnphish doctor` reports READY on the dev machine before any other verification proceeds.
-- [ ] **DIAG-02**: `vnphish analyze` produces correct risk tier, threat label, grounded cues, and safe-steps output for one sample message per in-scope threat class (bank impersonation, account-takeover/social-engineering, task scam) plus one benign message.
-- [ ] **DIAG-03**: A first-pass warm-latency reading is captured via browser DevTools Network tab for a demo request.
-- [ ] **GOLD-01**: One scam message and one benign message are selected as the fixed, timed live-demo script for the ~1-minute presentation window.
-- [ ] **GOLD-02**: Each golden prompt (scam + benign) is run at least 5 times through `vnphish analyze`/`demo` and produces the identical correct verdict every run before being locked as final; any prompt that flips between correct/incorrect across runs is rejected and replaced.
+- [x] **DIAG-01**: `vnphish doctor` reports READY on the dev machine before any other verification proceeds.
+- [x] **DIAG-02**: `vnphish analyze` produces correct risk tier, threat label, grounded cues, and safe-steps output for one sample message per in-scope threat class (bank impersonation, account-takeover/social-engineering, task scam) plus one benign message.
+- [x] **DIAG-03**: A first-pass warm-latency reading is captured via browser DevTools Network tab for a demo request.
+- [x] **GOLD-01**: One scam message and one benign message are selected as the fixed, timed live-demo script for the ~1-minute presentation window.
+- [x] **GOLD-02**: Each golden prompt (scam + benign) is run at least 5 times through `vnphish analyze`/`demo` and produces the identical correct verdict every run before being locked as final; any prompt that flips between correct/incorrect across runs is rejected and replaced.
 
 ### Environment Parity & Offline
 
@@ -455,11 +455,11 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 - [ ] **FB-03**: A live-to-fallback pivot is rehearsed at least once.
 - [ ] **FB-04**: A full cold-boot dry rehearsal is completed on the actual presentation laptop using final launchers, before the defense window opens (2026-07-13).
 
-| DIAG-01 | Phase 28 | Pending |
-| DIAG-02 | Phase 28 | Pending |
-| DIAG-03 | Phase 28 | Pending |
-| GOLD-01 | Phase 28 | Pending |
-| GOLD-02 | Phase 28 | Pending |
+| DIAG-01 | Phase 28 | Complete |
+| DIAG-02 | Phase 28 | Complete |
+| DIAG-03 | Phase 28 | Complete |
+| GOLD-01 | Phase 28 | Complete |
+| GOLD-02 | Phase 28 | Complete |
 | ENV-01 | Phase 29 | Pending |
 | ENV-02 | Phase 29 | Pending |
 | ENV-03 | Phase 29 | Pending |

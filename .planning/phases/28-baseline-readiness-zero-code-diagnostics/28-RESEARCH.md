@@ -329,13 +329,15 @@ Not meaningfully applicable to this phase — it exercises pre-existing, already
 | A2 | The `zalo_social_engineering` candidate suggested ("Bro ơi mình đang ở nước ngoài...") will classify correctly | Sourcing DIAG-02 Candidates | LOW-MEDIUM — this specific row was identified from the dataset but not yet smoke-tested via `vnphish analyze` in this session (time-boxed); the planner/executor should verify it before locking it into a plan, same as any other DIAG-02 candidate |
 | A3 | Playwright's `request.timing` values are a faithful proxy for what a human would read in Chrome DevTools' Network panel `Time` column | DevTools Network Tab Capture | LOW — this is the standard W3C Resource Timing API, the same data model DevTools itself is built on, confirmed via official Playwright docs; residual risk is only in exactly which two fields to subtract for "the" DevTools number (requestStart→responseEnd vs. startTime→responseEnd), a labeling nuance, not a wrong-tool risk |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Will the TPBank fallback bank-impersonation candidate (or another `data/splits` row) pass the 5x stability check through the actual web demo, given it only produced `risk_tier: suspicious` (not `high-risk`) on its single CLI test in this session?**
+   - RESOLVED: `28-01-PLAN.md` Task 3 treats `suspicious` + correct `bank_impersonation` label as an acceptable correct verdict for locking, while still allowing substitution if a candidate is unstable or incorrect.
    - What we know: it correctly identifies `threat_labels: ["bank_impersonation"]` with grounded cues and safe-step recommendations every time tested so far (1 run).
    - What's unclear: whether "suspicious" (non-benign, correct label) counts as an acceptable "correct verdict" for GOLD-02's locking bar, or whether the plan should specifically seek a candidate that renders `high-risk` for a more dramatic live-demo moment.
    - Recommendation: leave this to the planner/executor — D-04's own rationale ("no room for a surprising misfire live... unambiguous correct result") arguably applies just as well to the scam side: prefer whichever validated bank-impersonation candidate renders `high-risk` most consistently, but `suspicious` + correct label should not be treated as a failure if no `high-risk` candidate is found stable.
 2. **Has the `zalo_social_engineering` and `task_scam` DIAG-02 candidates actually been smoke-tested end-to-end?**
+   - RESOLVED: `28-01-PLAN.md` Task 1 budgets explicit CLI smoke tests for both classes and requires a substitution fallback loop from `data/splits/recovered-balanced/val.jsonl` until each classifies correctly with the required DIAG-02 evidence fields.
    - What we know: candidates were identified and filtered from `data/splits/recovered-balanced/val.jsonl` but only the bank_impersonation and benign candidates were run through `vnphish analyze` in this research session (time-boxed).
    - What's unclear: whether these two remaining candidates produce clean, correct classifications on the first try, or whether they'll need iteration like the golden-scam prompt did.
    - Recommendation: the planner should budget explicit CLI smoke-test tasks for these two remaining classes before assuming DIAG-02 is a one-shot pass.
