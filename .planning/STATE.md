@@ -2,14 +2,18 @@
 gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
-status: Ready to discuss/plan
-last_updated: "2026-07-02T09:23:37.393Z"
-last_activity: 2026-07-02 — Quick task 260702-ldt removed OTP sentence from Phase 28 scam prompt and revalidated stability
+current_phase: 29
+current_phase_name: Environment Parity & Offline Verification
+status: executing
+stopped_at: Completed 29-01-PLAN.md; next incomplete plan is 29-02
+last_updated: "2026-07-05T13:59:00.959Z"
+last_activity: 2026-07-05
+last_activity_desc: Phase 29 execution started
 progress:
   total_phases: 20
   completed_phases: 11
-  total_plans: 44
-  completed_plans: 41
+  total_plans: 48
+  completed_plans: 42
   percent: 55
 ---
 
@@ -31,10 +35,10 @@ progress:
 
 ## Current Position
 
-Phase: 29 of 32 (Environment Parity & Offline Verification)
-Plan: — of TBD in current phase
-Status: Ready to discuss/plan
-Last activity: 2026-07-02 — Quick task 260702-ldt removed OTP sentence from Phase 28 scam prompt and revalidated stability
+Phase: 29 (Environment Parity & Offline Verification) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-07-05 — Phase 29 execution started
 
 Progress: [█████░░░░░] 55%
 
@@ -115,6 +119,7 @@ Progress: [█████░░░░░] 55%
 | FB-02 | 32 | Screenshot sequence of the golden-prompt run, saved as secondary fallback |
 | FB-03 | 32 | Live-to-fallback pivot rehearsed at least once |
 | FB-04 | 32 | Full cold-boot dry rehearsal before 2026-07-13 |
+| Phase 29 P01 | 25 min | 2 tasks | 16 files |
 
 ### v2.2 Requirements at a Glance
 
@@ -161,6 +166,10 @@ Progress: [█████░░░░░] 55%
 - Confirmed offline-claim leak (2026-07-02): `src/runtime/demo_assets/index.html` currently loads Be Vietnam Pro from Google Fonts CDN, contradicting the local-first pitch — targeted for fix in Phase 29 (ENV-03).
 
 ## Session Continuity
+
+**Last session:** 2026-07-05T13:59:00.946Z
+**Stopped at:** Completed 29-01-PLAN.md; next incomplete plan is 29-02
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
