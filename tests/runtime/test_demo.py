@@ -45,7 +45,8 @@ def test_demo_index_serves_text_only_form():
 
     assert status.startswith("200")
     assert headers["Content-Type"].startswith("text/html")
-    assert "Be+Vietnam+Pro" in html or "Be Vietnam Pro" in html
+    assert "fonts.googleapis.com" not in html
+    assert "fonts.gstatic.com" not in html
     assert "/static/demo.css" in html
     assert "/static/demo.js" in html
     assert 'id="analysis-form"' in html
