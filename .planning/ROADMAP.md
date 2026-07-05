@@ -662,7 +662,12 @@ Plans:
 4. Launching `vnphish` from a working directory other than the repo root still resolves the correct off-repo model path, using explicit OS-level `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` environment variables rather than CWD-relative `.env/.env` discovery.
 5. `pyproject.toml` exact-pins `llama-cpp-python==0.3.23`, and a fresh install on the presentation laptop resolves to exactly that version.
 
-**Plans**: TBD
+**Plans:**
+
+- [ ] 29-01-PLAN.md — Self-host Be Vietnam Pro: vendor 12 .woff2 files, add an allowlisted /static/fonts/<filename> route to demo.py, remove Google Fonts CDN links (ENV-03)
+- [ ] 29-02-PLAN.md — ENV-01 doctor sanity re-check and ENV-05 exact-pin llama-cpp-python==0.3.23 in pyproject.toml
+- [ ] 29-03-PLAN.md — Set MODEL_ARTIFACT_ROOT/MODEL_REGISTRY_PATH as permanent OS-level env vars via setx, human-verified from a new terminal outside the repo root (ENV-04)
+- [ ] 29-04-PLAN.md — Human-executed offline network-disconnect runbook proving the demo works with zero external requests, using the two locked Phase 28 golden prompts (ENV-02)
 
 ### Phase 30: Latency Diagnosis & Targeted Fix
 
