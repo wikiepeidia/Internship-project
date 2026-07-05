@@ -44,7 +44,7 @@
 **Note:** Verification/hardening milestone only — backend/API contract stays frozen; fixes are external scripts/launchers, self-hosted assets, and targeted pins, not redesign.
 
 - [x] **Phase 28: Baseline Readiness & Zero-Code Diagnostics** - Confirm `vnphish doctor` and `vnphish analyze` work correctly on the dev machine using existing zero-code tooling; select and lock 2 golden demo prompts (scam + benign) proven correct across repeated runs, for the ~1-minute live demo window. (completed 2026-07-02)
-- [ ] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks.
+- [x] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks. (completed 2026-07-05)
 - [ ] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found.
 - [ ] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract.
 - [ ] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Record and rehearse a fallback (video + screenshots) and complete one full cold-boot dry rehearsal on the presentation laptop.
@@ -665,12 +665,9 @@ Plans:
 **Plans:**
 
 - [x] 29-01-PLAN.md — Self-host Be Vietnam Pro: vendor 12 .woff2 files, add an allowlisted /static/fonts/<filename> route to demo.py, remove Google Fonts CDN links (ENV-03)
-
-3/4 plans executed
-
 - [x] 29-02-PLAN.md — ENV-01 doctor sanity re-check and ENV-05 exact-pin llama-cpp-python==0.3.23 in pyproject.toml
 - [x] 29-03-PLAN.md — Set MODEL_ARTIFACT_ROOT/MODEL_REGISTRY_PATH as permanent OS-level env vars via setx, human-verified from a new terminal outside the repo root (ENV-04)
-- [ ] 29-04-PLAN.md — Human-executed offline network-disconnect runbook proving the demo works with zero external requests, using the two locked Phase 28 golden prompts (ENV-02)
+- [x] 29-04-PLAN.md — Human-executed offline network-disconnect runbook proving the demo works with zero external requests, using the two locked Phase 28 golden prompts (ENV-02)
 
 ### Phase 30: Latency Diagnosis & Targeted Fix
 
@@ -747,7 +744,7 @@ Plans:
 | 23. Document Restructure and Evaluation Tables | 1/1 | Complete | 2026-06-15 |
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
-| 29. Environment Parity and Offline Verification | 3/4 | In Progress|  |
+| 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
 | 30. Latency Diagnosis and Targeted Fix | 0/TBD | Not started | - |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
