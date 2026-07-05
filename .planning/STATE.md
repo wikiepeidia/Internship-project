@@ -4,16 +4,16 @@ milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 30
 current_phase_name: Latency Diagnosis & Targeted Fix
-status: ready_to_execute
-stopped_at: Phase 30 planned; ready to execute 30-01
-last_updated: "2026-07-05T14:42:00.000Z"
+status: waiting_for_human
+stopped_at: Phase 30 Plan 01 complete; waiting for AC/battery post-reboot latency evidence
+last_updated: "2026-07-05T14:49:54.909Z"
 last_activity: 2026-07-05
-last_activity_desc: Phase 30 context, research, and plans created
+last_activity_desc: Phase 30 Plan 01 complete; cold-latency harness and runbook ready
 progress:
   total_phases: 20
   completed_phases: 12
   total_plans: 50
-  completed_plans: 45
+  completed_plans: 46
   percent: 60
 ---
 
@@ -36,9 +36,9 @@ progress:
 ## Current Position
 
 Phase: 30 — Latency Diagnosis & Targeted Fix
-Plan: 2 planned, 0 executed
-Status: Ready to execute
-Last activity: 2026-07-05 — Phase 30 context, research, and plans created
+Plan: 30-02-PLAN.md — human evidence checkpoint
+Status: Waiting for human AC/battery post-reboot latency evidence
+Last activity: 2026-07-05 — Phase 30 Plan 01 complete; cold-latency harness and runbook ready
 
 Progress: [██████░░░░] 60%
 

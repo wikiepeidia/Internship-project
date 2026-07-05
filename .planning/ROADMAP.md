@@ -470,8 +470,9 @@ Plans:
 
 **Plans**: 2 planned
 
-- [ ] 30-01-PLAN.md — Build a cold-latency measurement harness and AC/battery post-reboot runbook (PERF-01, PERF-03 setup)
+- [x] 30-01-PLAN.md — Build a cold-latency measurement harness and AC/battery post-reboot runbook (PERF-01, PERF-03 setup)
 - [ ] 30-02-PLAN.md — Human AC/Balanced evidence checkpoint, latency comparison, and no-fix-or-one-fix decision record (PERF-01, PERF-02, PERF-03)
+
 **UI hint**: yes
 
 ### Phase 17: Polish + Edge Cases
@@ -683,7 +684,10 @@ Plans:
 2. If a specific bottleneck is identified (for example, an unset `n_threads` default), exactly one targeted fix is applied with a before/after measurement; if no clear bottleneck is found, no fix is applied and that decision is documented.
 3. Latency is measured and recorded under both AC power (High Performance plan) and battery/Balanced power plan, with the two results compared.
 
-**Plans**: TBD
+**Plans**: 1/2 plans executed
+
+- [x] 30-01-PLAN.md — Build a cold-latency measurement harness and AC/battery post-reboot runbook (PERF-01, PERF-03 setup)
+- [ ] 30-02-PLAN.md — Human AC/Balanced evidence checkpoint, latency comparison, and no-fix-or-one-fix decision record (PERF-01, PERF-02, PERF-03)
 
 ### Phase 31: UI Quirks, Edge Cases & Regression Re-check
 
@@ -748,7 +752,7 @@ Plans:
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
 | 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
-| 30. Latency Diagnosis and Targeted Fix | 0/TBD | Not started | - |
+| 30. Latency Diagnosis and Targeted Fix | 1/2 | In Progress|  |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
 
