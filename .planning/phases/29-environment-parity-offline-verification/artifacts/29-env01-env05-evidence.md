@@ -30,3 +30,37 @@ READY backend=gguf local_only=True text_only=True
 - backend-ready: PASS - backend=gguf ready=True
 - release-gate-summary: PASS - latest_verdict=BLOCK run_id=phase5-recovered-balanced-val manifest=data\manifests\phase5-release-eval-phase5-recovered-balanced-val.json
 ```
+
+## ENV-05: exact-pin confirmation
+
+Summary: PASS. `pyproject.toml` now exact-pins `llama-cpp-python==0.3.23`, and the currently installed package version is already `0.3.23`. No reinstall, venv rebuild, uninstall, or force-reinstall was performed.
+
+Pin diff:
+
+```diff
+ runtime = [
+-    "llama-cpp-python>=0.3",
++    "llama-cpp-python==0.3.23",
+ ]
+```
+
+Read-only installed-version confirmation:
+
+```powershell
+python -m pip show llama-cpp-python
+```
+
+Output:
+
+```text
+Name: llama_cpp_python
+Version: 0.3.23
+Summary: Python bindings for the llama.cpp library
+Home-page: https://github.com/abetlen/llama-cpp-python
+Author:
+Author-email: Andrei Betlen <abetlen@gmail.com>
+License: MIT
+Location: C:\Users\wikiepeidia\AppData\Local\Programs\Python\Python313\Lib\site-packages
+Requires: diskcache, jinja2, numpy, typing-extensions
+Required-by:
+```
