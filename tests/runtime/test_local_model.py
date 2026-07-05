@@ -400,6 +400,10 @@ def test_legitimate_bank_otp_notice_overrides_model_suspicion():
     assert result.risk_tier == "benign"
     assert result.threat_labels == ["benign"]
     assert result.top_cues == []
+    assert result.recommendations == [
+        "Không cần thao tác thêm nếu bạn nhận ra nội dung này. "
+        "Nếu vẫn thấy bất thường, hãy tự kiểm tra qua ứng dụng, website hoặc tổng đài chính thức."
+    ]
 
 
 def test_ascii_legitimate_bank_otp_notice_overrides_model_suspicion():

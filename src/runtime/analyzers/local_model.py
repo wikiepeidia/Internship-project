@@ -35,7 +35,8 @@ DEFAULT_RISKY_RECOMMENDATIONS = (
     "Xac minh qua ung dung, website, hoac tong dai chinh thuc.",
 )
 DEFAULT_BENIGN_RECOMMENDATION = (
-    "Neu ban van thay bat thuong, hay tu xac minh qua kenh chinh thuc ma ban tin cay."
+    "Không cần thao tác thêm nếu bạn nhận ra nội dung này. "
+    "Nếu vẫn thấy bất thường, hãy tự kiểm tra qua ứng dụng, website hoặc tổng đài chính thức."
 )
 UNSAFE_RECOMMENDATION_MARKERS = (
     "bam vao",
