@@ -432,7 +432,7 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 - [x] **ENV-01**: `vnphish doctor` reports READY on the actual presentation laptop after a fresh install.
 - [ ] **ENV-02**: Demo functions correctly with network/Wi-Fi disabled — zero external requests observed in DevTools, confirming the offline claim.
 - [x] **ENV-03**: Be Vietnam Pro font is self-hosted instead of loaded from the Google Fonts CDN.
-- [ ] **ENV-04**: `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` are set as explicit OS-level environment variables so launching `vnphish` from any working directory still resolves the correct off-repo model path (not dependent on CWD-relative `.env/.env` discovery).
+- [x] **ENV-04**: `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` are set as explicit OS-level environment variables so launching `vnphish` from any working directory still resolves the correct off-repo model path (not dependent on CWD-relative `.env/.env` discovery).
 - [x] **ENV-05**: `llama-cpp-python` is exact-pinned to the validated version (`0.3.23`) in `pyproject.toml`.
 
 ### Latency Diagnosis & Fix
@@ -463,7 +463,7 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 | ENV-01 | Phase 29 | Complete |
 | ENV-02 | Phase 29 | Pending |
 | ENV-03 | Phase 29 | Complete |
-| ENV-04 | Phase 29 | Pending |
+| ENV-04 | Phase 29 | Complete |
 | ENV-05 | Phase 29 | Complete |
 | PERF-01 | Phase 30 | Pending |
 | PERF-02 | Phase 30 | Pending |
