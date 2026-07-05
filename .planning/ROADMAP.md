@@ -664,11 +664,11 @@ Plans:
 
 **Plans:**
 
-- [x] 29-01-PLAN.md
+- [x] 29-01-PLAN.md — Self-host Be Vietnam Pro: vendor 12 .woff2 files, add an allowlisted /static/fonts/<filename> route to demo.py, remove Google Fonts CDN links (ENV-03)
 
-1/4 plans executed
+2/4 plans executed
 
-- [ ] 29-02-PLAN.md — ENV-01 doctor sanity re-check and ENV-05 exact-pin llama-cpp-python==0.3.23 in pyproject.toml
+- [x] 29-02-PLAN.md — ENV-01 doctor sanity re-check and ENV-05 exact-pin llama-cpp-python==0.3.23 in pyproject.toml
 - [ ] 29-03-PLAN.md — Set MODEL_ARTIFACT_ROOT/MODEL_REGISTRY_PATH as permanent OS-level env vars via setx, human-verified from a new terminal outside the repo root (ENV-04)
 - [ ] 29-04-PLAN.md — Human-executed offline network-disconnect runbook proving the demo works with zero external requests, using the two locked Phase 28 golden prompts (ENV-02)
 
@@ -747,7 +747,7 @@ Plans:
 | 23. Document Restructure and Evaluation Tables | 1/1 | Complete | 2026-06-15 |
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
-| 29. Environment Parity and Offline Verification | 1/4 | In Progress|  |
+| 29. Environment Parity and Offline Verification | 2/4 | In Progress|  |
 | 30. Latency Diagnosis and Targeted Fix | 0/TBD | Not started | - |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
