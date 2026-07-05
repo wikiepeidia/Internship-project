@@ -156,6 +156,33 @@ def test_demo_static_assets_are_served():
     assert "prefers-reduced-motion" in css
 
 
+def test_demo_font_assets_are_served():
+    demo_module = _load_demo_module()
+    app = demo_module.build_demo_app(service=object())
+
+    status, headers, body = _call_app(app, method="GET", path="/static/fonts/be-vietnam-pro-400-vietnamese.woff2")
+
+    assert status.startswith("200")
+    assert headers["Content-Type"] == "font/woff2"
+    assert body
+
+
+def test_demo_font_route_rejects_unlisted_and_path_traversal_names():
+    demo_module = _load_demo_module()
+    app = demo_module.build_demo_app(service=object())
+
+    expected = {"error": {"message": "Not found", "steps": []}}
+    for path in (
+        "/static/fonts/not-a-real-font.woff2",
+        "/static/fonts/../demo.css",
+    ):
+        status, headers, body = _call_app(app, method="GET", path=path)
+
+        assert status.startswith("404")
+        assert headers["Content-Type"].startswith("application/json")
+        assert json.loads(body.decode("utf-8")) == expected
+
+
 def test_demo_i18n_js_is_served():
     demo_module = _load_demo_module()
     app = demo_module.build_demo_app(service=object())
