@@ -5,8 +5,8 @@ milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 29
 current_phase_name: Environment Parity & Offline Verification
 status: executing
-stopped_at: Completed 29-03-PLAN.md; next incomplete plan is 29-04
-last_updated: "2026-07-05T14:08:56.481Z"
+stopped_at: Paused at 29-04 Task 2 offline network-disconnect human verification checkpoint
+last_updated: "2026-07-05T14:13:07.594Z"
 last_activity: 2026-07-05
 last_activity_desc: Phase 29 execution started
 progress:
@@ -169,9 +169,9 @@ Progress: [█████░░░░░] 55%
 
 ## Session Continuity
 
-**Last session:** 2026-07-05T14:08:56.470Z
-**Stopped at:** Completed 29-03-PLAN.md; next incomplete plan is 29-04
-**Resume file:** None
+**Last session:** 2026-07-05T14:13:07.581Z
+**Stopped at:** Paused at 29-04 Task 2 offline network-disconnect human verification checkpoint
+**Resume file:** .planning/phases/29-environment-parity-offline-verification/.continue-here.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
