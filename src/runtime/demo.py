@@ -17,6 +17,24 @@ from src.runtime.service import (
 
 
 ASSET_DIR = Path(__file__).with_name("demo_assets")
+FONT_DIR = ASSET_DIR / "fonts"
+FONT_CONTENT_TYPE = "font/woff2"
+KNOWN_FONT_FILES = frozenset(
+    {
+        "be-vietnam-pro-400-vietnamese.woff2",
+        "be-vietnam-pro-400-latin-ext.woff2",
+        "be-vietnam-pro-400-latin.woff2",
+        "be-vietnam-pro-500-vietnamese.woff2",
+        "be-vietnam-pro-500-latin-ext.woff2",
+        "be-vietnam-pro-500-latin.woff2",
+        "be-vietnam-pro-600-vietnamese.woff2",
+        "be-vietnam-pro-600-latin-ext.woff2",
+        "be-vietnam-pro-600-latin.woff2",
+        "be-vietnam-pro-700-vietnamese.woff2",
+        "be-vietnam-pro-700-latin-ext.woff2",
+        "be-vietnam-pro-700-latin.woff2",
+    }
+)
 
 
 def _json_response(start_response: Callable, status: str, payload: dict[str, object]) -> list[bytes]:
@@ -65,6 +83,10 @@ class DemoApp:
             return _text_response(start_response, "200 OK", "application/javascript; charset=utf-8", _load_asset("demo.js"))
         if method == "GET" and path == "/static/i18n.js":
             return _text_response(start_response, "200 OK", "application/javascript; charset=utf-8", _load_asset("i18n.js"))
+        if method == "GET" and path.startswith("/static/fonts/"):
+            filename = path.removeprefix("/static/fonts/")
+            if filename in KNOWN_FONT_FILES:
+                return _text_response(start_response, "200 OK", FONT_CONTENT_TYPE, (FONT_DIR / filename).read_bytes())
         if method == "POST" and path == "/api/analyze":
             return self._handle_analyze(environ, start_response)
 

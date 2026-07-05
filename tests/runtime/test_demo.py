@@ -160,11 +160,12 @@ def test_demo_font_assets_are_served():
     demo_module = _load_demo_module()
     app = demo_module.build_demo_app(service=object())
 
-    status, headers, body = _call_app(app, method="GET", path="/static/fonts/be-vietnam-pro-400-vietnamese.woff2")
+    for filename in sorted(demo_module.KNOWN_FONT_FILES):
+        status, headers, body = _call_app(app, method="GET", path=f"/static/fonts/{filename}")
 
-    assert status.startswith("200")
-    assert headers["Content-Type"] == "font/woff2"
-    assert body
+        assert status.startswith("200")
+        assert headers["Content-Type"] == "font/woff2"
+        assert body
 
 
 def test_demo_font_route_rejects_unlisted_and_path_traversal_names():
