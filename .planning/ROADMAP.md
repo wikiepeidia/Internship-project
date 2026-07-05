@@ -468,7 +468,10 @@ Plans:
 7. The send button is disabled and shows a visual in-flight state while a request is pending; a network or model error appends a left-aligned error bubble and re-enables the send button.
 8. An in-memory `history[]` array accumulates all sent messages for the tab lifetime; reloading the page clears history (no localStorage).
 
-**Plans**: TBD
+**Plans**: 2 planned
+
+- [ ] 30-01-PLAN.md — Build a cold-latency measurement harness and AC/battery post-reboot runbook (PERF-01, PERF-03 setup)
+- [ ] 30-02-PLAN.md — Human AC/Balanced evidence checkpoint, latency comparison, and no-fix-or-one-fix decision record (PERF-01, PERF-02, PERF-03)
 **UI hint**: yes
 
 ### Phase 17: Polish + Edge Cases
