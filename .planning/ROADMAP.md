@@ -487,7 +487,12 @@ Plans:
 3. Each new bubble animates in with a subtle entrance effect (for example, fade-slide); the animation does not play when the `prefers-reduced-motion` media query is active.
 4. Clicking the sample button loads a pre-written Vietnamese phishing message into the textarea and auto-submits it, producing a complete bot reply with no manual send step.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 31-01-PLAN.md -- Real-demo Playwright edge-case, double-submit, and console-capture verifier
+- [ ] 31-02-PLAN.md -- CLI help text disambiguation and Windows launchers
+- [ ] 31-03-PLAN.md -- UIQ-04 triage, final verifier pass, and Phase 28-30 regression evidence
 **UI hint**: yes
 
 ### Phase 18: Mobile + Accessibility Validation
