@@ -4,17 +4,17 @@ milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 30
 current_phase_name: Latency Diagnosis & Targeted Fix
-status: waiting_for_human
-stopped_at: Phase 30 Plan 01 complete; waiting for AC/battery post-reboot latency evidence
-last_updated: "2026-07-05T14:49:54.909Z"
+status: complete
+stopped_at: Phase 30 complete (AC-only, NO_FIX_APPLIED); ready for Phase 31
+last_updated: "2026-07-06T02:01:55.800Z"
 last_activity: 2026-07-05
 last_activity_desc: Phase 30 Plan 01 complete; cold-latency harness and runbook ready
 progress:
   total_phases: 20
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 50
-  completed_plans: 46
-  percent: 60
+  completed_plans: 47
+  percent: 65
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -35,12 +35,12 @@ progress:
 
 ## Current Position
 
-Phase: 30 — Latency Diagnosis & Targeted Fix
-Plan: 30-02-PLAN.md — human evidence checkpoint
-Status: Waiting for human AC/battery post-reboot latency evidence
-Last activity: 2026-07-05 — Phase 30 Plan 01 complete; cold-latency harness and runbook ready
+Phase: 30 — Latency Diagnosis & Targeted Fix (complete, 2/2 plans)
+Plan: — of 32 total (Phase 31 not yet discussed/planned)
+Status: Phase 30 closed — PERF-01/02/03 satisfied, NO_FIX_APPLIED, AC-only per D-10 SUPERSEDED. Ready to discuss/plan Phase 31.
+Last activity: 2026-07-06 — Phase 30 Plan 02 complete: AC cold-latency evidence recorded (~27.0s to first answer), comparison + fix-gate decision written, battery measurement descoped by operator decision.
 
-Progress: [██████░░░░] 60%
+Progress: [█████████░] 65%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -170,9 +170,9 @@ Progress: [██████░░░░] 60%
 
 ## Session Continuity
 
-**Last session:** 2026-07-05T14:33:37.772Z
-**Stopped at:** Phase 29 complete; ready to discuss Phase 30
-**Resume file:** None
+**Last session:** 2026-07-06T02:01:55.788Z
+**Stopped at:** Phase 30 complete (AC-only, NO_FIX_APPLIED); ready for Phase 31
+**Resume file:** .planning/phases/30-latency-diagnosis-targeted-fix/30-02-SUMMARY.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.

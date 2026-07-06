@@ -437,9 +437,9 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 ### Latency Diagnosis & Fix
 
-- [ ] **PERF-01**: True cold-boot-to-first-answer latency is measured on the presentation laptop (not just warm latency).
-- [ ] **PERF-02**: If a specific, measured latency bottleneck is found, one targeted fix (e.g., explicit `n_threads`) is applied and re-measured before/after; no fix is applied without a measured cause.
-- [ ] **PERF-03**: Latency is verified under AC power (High Performance plan), post-reboot. Battery/Balanced-plan measurement is descoped — the laptop runs 1-2h on battery and a charger-backup plan covers the defense-day worst case, so battery-specific throttling is an accepted risk, not a measured one.
+- [x] **PERF-01**: True cold-boot-to-first-answer latency is measured on the presentation laptop (not just warm latency).
+- [x] **PERF-02**: If a specific, measured latency bottleneck is found, one targeted fix (e.g., explicit `n_threads`) is applied and re-measured before/after; no fix is applied without a measured cause.
+- [x] **PERF-03**: Latency is verified under AC power (High Performance plan), post-reboot. Battery/Balanced-plan measurement is descoped — the laptop runs 1-2h on battery and a charger-backup plan covers the defense-day worst case, so battery-specific throttling is an accepted risk, not a measured one.
 
 ### UI Quirks, Edge Cases & CLI
 
@@ -465,9 +465,9 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 | ENV-03 | Phase 29 | Complete |
 | ENV-04 | Phase 29 | Complete |
 | ENV-05 | Phase 29 | Complete |
-| PERF-01 | Phase 30 | Pending |
-| PERF-02 | Phase 30 | Pending |
-| PERF-03 | Phase 30 | Pending |
+| PERF-01 | Phase 30 | Complete |
+| PERF-02 | Phase 30 | Complete |
+| PERF-03 | Phase 30 | Complete |
 | UIQ-01 | Phase 31 | Pending |
 | UIQ-02 | Phase 31 | Pending |
 | UIQ-03 | Phase 31 | Pending |

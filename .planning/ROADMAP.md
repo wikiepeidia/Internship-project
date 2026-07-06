@@ -45,7 +45,7 @@
 
 - [x] **Phase 28: Baseline Readiness & Zero-Code Diagnostics** - Confirm `vnphish doctor` and `vnphish analyze` work correctly on the dev machine using existing zero-code tooling; select and lock 2 golden demo prompts (scam + benign) proven correct across repeated runs, for the ~1-minute live demo window. (completed 2026-07-02)
 - [x] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks. (completed 2026-07-05)
-- [ ] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found.
+- [x] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found. (completed 2026-07-06, AC-only per D-10 SUPERSEDED)
 - [ ] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract.
 - [ ] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Record and rehearse a fallback (video + screenshots) and complete one full cold-boot dry rehearsal on the presentation laptop.
 
@@ -680,14 +680,14 @@ Plans:
 **Requirements**: PERF-01, PERF-02, PERF-03
 **Success Criteria** (what must be TRUE):
 
-1. Cold-boot-to-first-answer latency (measured from a post-reboot first request, not a warm request) is measured and recorded on the presentation laptop.
-2. If a specific bottleneck is identified (for example, an unset `n_threads` default), exactly one targeted fix is applied with a before/after measurement; if no clear bottleneck is found, no fix is applied and that decision is documented.
-3. Latency is measured and recorded under both AC power (High Performance plan) and battery/Balanced power plan, with the two results compared.
+1. Cold-boot-to-first-answer latency (measured from a post-reboot first request, not a warm request) is measured and recorded on the presentation laptop. — MET: ~27.0s total, ~21.9s per-request, AC/High Performance.
+2. If a specific bottleneck is identified (for example, an unset `n_threads` default), exactly one targeted fix is applied with a before/after measurement; if no clear bottleneck is found, no fix is applied and that decision is documented. — MET: `NO_FIX_APPLIED` (no isolating diagnostic evidence for any single parameter).
+3. ~~Latency is measured and recorded under both AC power (High Performance plan) and battery/Balanced power plan, with the two results compared.~~ Descoped to AC-only per operator decision (D-10 SUPERSEDED 2026-07-06) — laptop battery life + charger backup cover the defense-day risk.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed. Closed 2026-07-06.
 
 - [x] 30-01-PLAN.md — Build a cold-latency measurement harness and AC/battery post-reboot runbook (PERF-01, PERF-03 setup)
-- [ ] 30-02-PLAN.md — Human AC/Balanced evidence checkpoint, latency comparison, and no-fix-or-one-fix decision record (PERF-01, PERF-02, PERF-03)
+- [x] 30-02-PLAN.md — Human AC evidence checkpoint, latency comparison, and no-fix decision record (PERF-01, PERF-02, PERF-03)
 
 ### Phase 31: UI Quirks, Edge Cases & Regression Re-check
 
@@ -752,7 +752,7 @@ Plans:
 | 24. Appendices, Slides Sync, and Final Compile | 1/1 | Complete | 2026-06-15 |
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
 | 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
-| 30. Latency Diagnosis and Targeted Fix | 1/2 | In Progress|  |
+| 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 0/TBD | Not started | - |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
 
