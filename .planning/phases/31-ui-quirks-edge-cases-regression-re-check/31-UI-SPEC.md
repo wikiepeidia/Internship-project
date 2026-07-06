@@ -1,7 +1,8 @@
 ---
 phase: 31
 slug: ui-quirks-edge-cases-regression-re-check
-status: draft
+status: approved
+reviewed_at: 2026-07-06T09:54:33.7931860+07:00
 shadcn_initialized: false
 preset: none
 created: 2026-07-06
@@ -35,40 +36,44 @@ Phase 31 re-tests an **already-shipped** chat UI (built v2.0, Phases 14-18; hard
 | Preset | not applicable |
 | Component library | none — hand-rolled `<template>` + `data-slot` clone pattern (`user-message-template`, `result-template`, `typing-template`, `error-template` in `index.html`; cloned/populated in `demo.js`). This pattern is load-bearing for the template-id-collision pitfall fix from v2.0 and must not be altered. |
 | Icon library | none — "AI" text-glyph avatar (`.message__avatar`), CSS-generated disclosure carets (`content: "▸ "` / `"▾ "` on `.detail-section summary::before`), and color-coded text pills for risk tiers. No icon font, SVG sprite, or emoji is in use; none should be introduced this phase. |
-| Font | `"Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif` — self-hosted since Phase 29/ENV-03 (`src/runtime/demo_assets/fonts/*.woff2`, weights 400/500/600/700, each split into `latin` / `latin-ext` / `vietnamese` unicode-range subsets, served via `/static/fonts/<filename>`). Note: the 500-weight `.woff2` files are vendored but no rule in `demo.css` currently sets `font-weight: 500` on any element — factual observation, not a defect to fix this phase. |
+| Font | `"Be Vietnam Pro", "Segoe UI Variable Display", system-ui, sans-serif` — self-hosted since Phase 29/ENV-03 (`src/runtime/demo_assets/fonts/*.woff2`, split into `latin` / `latin-ext` / `vietnamese` unicode-range subsets, served via `/static/fonts/<filename>`). Vendored asset availability is not an approval to add new UI type weights; the enforceable type scale is the Typography table below. |
+
+---
+
+## Visual Hierarchy
+
+The primary screen focal point is the active chat thread, especially the latest terminal bot result verdict (`.result-header h2`) after analysis completes. The secondary action focus is the composer row: message textarea first, then the navy primary analyze button. Header status chips, sample/clear controls, language selector, and detail-section disclosure rows are tertiary utilities and must not visually compete with the latest result.
 
 ---
 
 ## Spacing Scale
 
-**This phase does not retrofit a strict 4/8-point token system.** The shipped `demo.css` (Phase 14/16/17) uses hand-tuned values in the 5–24px range, chosen per component, not a formal scale. The table below anchors real shipped values to the nearest 8-point bucket for reference only — it documents what exists, it does not prescribe new values.
+**Enforceable contract for new or changed spacing:** use only the standard buckets below. Phase 31 does not retrofit the shipped CSS to a new grid; existing hand-tuned values in `demo.css` are frozen compatibility details and are not contract tokens. Do not normalize existing spacing solely for this spec.
 
-| Token | Nearest shipped value(s) | Real usage (verbatim from `demo.css`) |
-|-------|---------------------------|----------------------------------------|
-| xs (~4px) | 5px | `.typing-dots { gap: 5px }`; `.message__meta { margin: 0 0 5px }` |
-| sm (~8px) | 7-8px | `.status-strip, .hint-row { gap: 8px }`; `.detail-list li + li { margin-top: 7px }`; `select { padding: 8px 10px }` |
-| md (~16px) | 14-17px | `.message { margin: 0 0 16px }` (inter-bubble spacing); `.message__bubble { padding: 15px 17px }`; `.composer-panel { padding: 14px 16px ... }` |
-| lg (~24px) | 22px | `.chat-thread { padding: 22px }`; `.composer-panel { margin: 0 22px }` |
-| xl (~32px) | not used | no shipped rule uses a ~32px value anywhere in `demo.css` |
-| 2xl (~48px) | not used | no shipped rule uses a ~48px value |
-| 3xl (~64px) | not used | no shipped rule uses a ~64px value |
+| Token | Value | Allowed usage |
+|-------|-------|---------------|
+| xs | 4px | Tight inline gaps or caret/pill separation only |
+| sm | 8px | Small groups, chips, compact form rhythm |
+| md | 16px | Message rhythm, control padding, standard grouped spacing |
+| lg | 24px | Thread/composer outer breathing room |
+| xl | 32px | Reserved; avoid unless a measured layout fix needs a larger separation |
+| 2xl | 48px | Reserved; not expected in Phase 31 |
+| 3xl | 64px | Reserved; not expected in Phase 31 |
 
-**Exceptions (pre-existing, frozen — not to be normalized this phase):** 5px, 7px, 10px, 12px, 13px, 14px, 15px, 17px, 18px, 22px all appear as deliberate hand-tuned values from Phase 14/16/17. Touch targets already meet the 44px minimum where interactive (`.primary-button`/`.secondary-button` `min-height: 44px`, `select { min-height: 44px }`).
-
-**Rule for any UIQ-04 fix:** reuse the exact spacing value already used by the nearest sibling/parent element being touched. Do not introduce a new arbitrary spacing number.
+**Rule for any UIQ-04 fix:** when adding new spacing, choose one of the values above. When touching an existing rule only to fix a quirk, preserve its current visual rhythm unless a measured overflow/collision requires mapping to the nearest bucket above. Do not introduce any new arbitrary pixel literal.
 
 ---
 
 ## Typography
 
-**This documents an already-shipped system (more than the standard 3-4 size / 2 weight new-design guideline) because it is inherited, tested, and frozen — not new design.** Do not add a 5th size or a 3rd/4th weight without a specific measured quirk that requires it.
+**Enforceable contract for new or changed type:** keep the UI to the four sizes and two weights below. Phase 31 does not normalize legacy responsive/source-specific details; those are frozen implementation facts, not additional approved roles. Do not add another size or weight.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body (message text, default page text) | 16px / `1rem` (15px on ≤460px viewport) | 400 regular (implicit — no `font-weight` set) | 1.65 |
-| Label (meta text, form labels, status/hint pills, eyebrow) | 12px / `0.78rem` (meta, eyebrow, pills) and 14px / `0.86rem` (field labels, `detail-section` headings) | 700 bold (explicit) | ~1 (single-line labels; inherits body 1.65 but visually single-line) |
-| Heading (H1 page title, H2 result verdict) | 22px / `1.35rem` desktop H1 (18px / `1.12rem` on ≤460px); 18px / `1.15rem` H2 result verdict | 700 bold (browser UA default — no explicit `font-weight` set on `h1`/`.result-header h2`) | 1.28 (H1) / 1.38 (H2) |
-| Display / emphasis (risk-tier pill) | 12px / `0.78rem` | 800 extra-bold (explicit, only use of this weight) | n/a (single-line pill) |
+| Body (message text, default page text) | 16px / `1rem` | 400 regular | 1.65 |
+| Small label (meta text, eyebrow, status/hint pills) | 12px / `0.78rem` | 700 bold | Inherits page rhythm; visually single-line |
+| Label / section heading (form labels, `detail-section` headings) | 14px / `0.86rem` | 700 bold | Inherits page rhythm; visually single-line |
+| Page/result heading (H1 page title, H2 result verdict) | 22px / `1.35rem` | 700 bold | 1.28-1.38 |
 
 **Locked project-wide rule (STATE.md, carries into this phase's acceptance bar):** line-height minimum **1.65** on any Vietnamese-content-bearing element, to prevent diacritic stacking. This is the concrete meaning behind "font renders without diacritic stacking" in the Regression Acceptance Bar below.
 
@@ -159,11 +164,11 @@ Not applicable — no shadcn or any other component registry is used in this pro
 
 For this lock-down phase, "PASS" means: the plan/implementation preserves every documented existing value above and satisfies the Regression Acceptance Bar — not that it originates a new compliant design.
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: FLAG — `CLEAR_BTN` remains the shipped one-word label; non-blocking because no-confirmation and in-memory-only risk are documented.
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved — 2026-07-06T09:54:33.7931860+07:00

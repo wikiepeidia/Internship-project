@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
-current_phase: 30
-current_phase_name: complete, 2/2 plans
-status: complete
-stopped_at: Phase 31 context gathered
-last_updated: "2026-07-06T02:32:16.123Z"
+current_phase: 31
+current_phase_name: UI Quirks, Edge Cases & Regression Re-check
+status: ready for planning
+stopped_at: Phase 31 UI-SPEC approved
+last_updated: "2026-07-06T09:55:23.7676624+07:00"
 last_activity: 2026-07-06
-last_activity_desc: "Phase 30 Plan 02 complete: AC cold-latency evidence recorded (~27.0s to first answer), comparison + fix-gate decision written, battery measurement descoped by operator decision."
+last_activity_desc: "Phase 31 UI-SPEC approved by gsd-ui-checker; ready to plan UIQ-01/UIQ-02/UIQ-03/UIQ-04."
 progress:
   total_phases: 20
   completed_phases: 13
@@ -35,10 +35,10 @@ progress:
 
 ## Current Position
 
-Phase: 30 — Latency Diagnosis & Targeted Fix (complete, 2/2 plans)
-Plan: — of 32 total (Phase 31 not yet discussed/planned)
-Status: Phase 30 closed — PERF-01/02/03 satisfied, NO_FIX_APPLIED, AC-only per D-10 SUPERSEDED. Ready to discuss/plan Phase 31.
-Last activity: 2026-07-06 — Phase 30 Plan 02 complete: AC cold-latency evidence recorded (~27.0s to first answer), comparison + fix-gate decision written, battery measurement descoped by operator decision.
+Phase: 31 — UI Quirks, Edge Cases & Regression Re-check
+Plan: — of 32 total (Phase 31 UI-SPEC approved; plans not yet generated)
+Status: Phase 31 context and UI-SPEC complete — ready to plan UIQ-01/UIQ-02/UIQ-03/UIQ-04.
+Last activity: 2026-07-06 — Phase 31 UI-SPEC approved by gsd-ui-checker; ready to plan edge-case, double-submit, CLI entrypoint, and quirk-regression work.
 
 Progress: [█████████░] 65%
 
@@ -170,9 +170,9 @@ Progress: [█████████░] 65%
 
 ## Session Continuity
 
-**Last session:** 2026-07-06T02:32:16.112Z
-**Stopped at:** Phase 31 context gathered
-**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-CONTEXT.md
+**Last session:** 2026-07-06T09:55:23.7676624+07:00
+**Stopped at:** Phase 31 UI-SPEC approved; ready to plan the phase
+**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-UI-SPEC.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
