@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 30
-current_phase_name: Latency Diagnosis & Targeted Fix
+current_phase_name: complete, 2/2 plans
 status: complete
-stopped_at: Phase 30 complete (AC-only, NO_FIX_APPLIED); ready for Phase 31
-last_updated: "2026-07-06T02:01:55.800Z"
-last_activity: 2026-07-05
-last_activity_desc: Phase 30 Plan 01 complete; cold-latency harness and runbook ready
+stopped_at: Phase 31 context gathered
+last_updated: "2026-07-06T02:32:16.123Z"
+last_activity: 2026-07-06
+last_activity_desc: "Phase 30 Plan 02 complete: AC cold-latency evidence recorded (~27.0s to first answer), comparison + fix-gate decision written, battery measurement descoped by operator decision."
 progress:
   total_phases: 20
   completed_phases: 13
@@ -170,9 +170,9 @@ Progress: [█████████░] 65%
 
 ## Session Continuity
 
-**Last session:** 2026-07-06T02:01:55.788Z
-**Stopped at:** Phase 30 complete (AC-only, NO_FIX_APPLIED); ready for Phase 31
-**Resume file:** .planning/phases/30-latency-diagnosis-targeted-fix/30-02-SUMMARY.md
+**Last session:** 2026-07-06T02:32:16.112Z
+**Stopped at:** Phase 31 context gathered
+**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-CONTEXT.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
