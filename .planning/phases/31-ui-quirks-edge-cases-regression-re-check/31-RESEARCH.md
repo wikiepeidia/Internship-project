@@ -210,13 +210,15 @@ The first command names a recommended new script; it will not exist until Phase 
 
 Known threat pattern: accidentally persisting or logging raw pasted text would violate the local/privacy posture; the new verifier artifacts should record classifications and sanitized case names, not full arbitrary user-entered raw messages except for the already-locked golden prompts and deliberate test fixtures. [VERIFIED: STATE.md; tests/runtime/test_privacy.py]
 
-## Open Questions
+## Resolved Questions
 
 1. **What is the accepted behavior for very-long text if the model cannot return within the harness timeout?**
+   - **RESOLVED:** The planned behavior is to use a bounded long-input case with a hard Playwright timeout. Passing means the UI settles to a rendered result bubble or a well-formed error bubble, zero orphaned typing nodes, and an enabled analyze button. If the model does not return before the timeout, the verifier writes the failed case into `31-ui-quirks-results.json`; Plan 31-03 treats that as a UIQ-04 triage/fix item or documents a non-app/manual-boundary finding. No backend cap or `/api/analyze` contract change is planned.
    - What we know: no current `runtime_max_text_chars` enforcement was found, and the backend contract is frozen. [VERIFIED: codebase rg; src/config/settings.py; src/runtime/service.py; STATE.md]
    - Recommendation: plan a bounded long-input case first; if it fails, treat the smallest client-side guard or documented manual boundary as a UIQ-04 decision point before changing backend behavior. [VERIFIED: 31-UI-SPEC.md]
 
 2. **Does `SOURCE_LANG_VI` reproduce outside the user's original browser profile?**
+   - **RESOLVED:** The planned behavior is to compare clean Playwright Chromium console/page-error capture against local source search. If clean Playwright has no app-origin console/page error and source search still has no local match, Plan 31-03 records the finding as browser/profile noise in `31-uiq04-triage.md` and stops the hunt per D-01. If the clean capture ties it to app code, Plan 31-03 fixes the smallest app-origin quirk in existing vanilla assets only.
    - What we know: Phase 29 reported it, and local source search found no matching key/string. [VERIFIED: 29-04-SUMMARY.md; codebase rg]
    - Recommendation: compare clean Playwright Chromium against the original browser DevTools; stop once non-app origin is confirmed. [VERIFIED: 31-CONTEXT.md; cited Playwright docs]
 
