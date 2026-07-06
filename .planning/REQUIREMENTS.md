@@ -439,7 +439,7 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 - [ ] **PERF-01**: True cold-boot-to-first-answer latency is measured on the presentation laptop (not just warm latency).
 - [ ] **PERF-02**: If a specific, measured latency bottleneck is found, one targeted fix (e.g., explicit `n_threads`) is applied and re-measured before/after; no fix is applied without a measured cause.
-- [ ] **PERF-03**: Latency is verified under both AC power and battery/Balanced power plan.
+- [ ] **PERF-03**: Latency is verified under AC power (High Performance plan), post-reboot. Battery/Balanced-plan measurement is descoped — the laptop runs 1-2h on battery and a charger-backup plan covers the defense-day worst case, so battery-specific throttling is an accepted risk, not a measured one.
 
 ### UI Quirks, Edge Cases & CLI
 

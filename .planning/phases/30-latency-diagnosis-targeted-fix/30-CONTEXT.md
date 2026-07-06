@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-This phase measures true cold-boot-to-first-answer latency on the already-verified presentation laptop, under both AC/High Performance and battery/Balanced power conditions. It may apply exactly one targeted latency fix only if the measured evidence points to one specific bottleneck. If the measurements do not identify a clear cause, this phase records the baseline and explicitly applies no fix.
+This phase measures true cold-boot-to-first-answer latency on the already-verified presentation laptop, under AC/High Performance power (battery/Balanced descoped per D-10). It may apply exactly one targeted latency fix only if the measured evidence points to one specific bottleneck. If the measurements do not identify a clear cause, this phase records the baseline and explicitly applies no fix.
 
 This phase does not redesign the backend/API contract, change prompts or labels for correctness, fix UI quirks, resolve CLI `analyze` vs `demo` confusion, or create fallback recording assets. Those are either frozen constraints or owned by Phases 31 and 32.
 
@@ -29,7 +29,7 @@ This phase does not redesign the backend/API contract, change prompts or labels 
 
 ### Human Checkpoint
 - **D-09:** The agent must not fake the post-reboot, AC, or battery conditions. Build scripts/runbooks and stop for a human checkpoint when the laptop must actually reboot, unplug, or change power mode.
-- **D-10:** The operator should perform AC/High Performance first, then battery/Balanced, using the same harness and prompts so the comparison is meaningful.
+- **D-10 (SUPERSEDED 2026-07-06):** Originally required AC/High Performance then battery/Balanced. Descoped to AC-only: the laptop runs 1-2h on battery and a charger-backup plan covers the defense-day worst case, so battery-plan throttling is an accepted risk, not a measured one. Only the AC/High Performance post-reboot run is required to close PERF-01/PERF-03.
 
 ### the agent's Discretion
 - Exact artifact filenames, JSON schema, and console output formatting for the measurement harness are at the agent's discretion, as long as they are simple to run from PowerShell and preserve raw timings.
