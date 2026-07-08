@@ -1,0 +1,86 @@
+{
+  "schema": "vnphish.phase31.ui-quirks.v1",
+  "recorded_at": "2026-07-08T12:44:55.330712+00:00",
+  "overall_pass": true,
+  "cases": [
+    {
+      "name": "empty",
+      "status": "pass",
+      "passed": true,
+      "request_count": 0,
+      "typing_count": 0,
+      "terminal_bubble_count": 0,
+      "button_disabled": false,
+      "new_page_error_count": 0
+    },
+    {
+      "name": "very_long",
+      "status": "pass",
+      "passed": true,
+      "request_count": 1,
+      "response_count": 1,
+      "response_status": 503,
+      "typing_count": 0,
+      "terminal_bubble_count": 1,
+      "button_disabled": false,
+      "new_page_error_count": 0
+    },
+    {
+      "name": "malformed",
+      "status": "pass",
+      "passed": true,
+      "request_count": 1,
+      "response_count": 1,
+      "response_status": 200,
+      "typing_count": 0,
+      "terminal_bubble_count": 1,
+      "button_disabled": false,
+      "new_page_error_count": 0
+    },
+    {
+      "name": "mixed_vi_en",
+      "status": "pass",
+      "passed": true,
+      "request_count": 1,
+      "response_count": 1,
+      "response_status": 200,
+      "typing_count": 0,
+      "terminal_bubble_count": 1,
+      "button_disabled": false,
+      "new_page_error_count": 0
+    },
+    {
+      "name": "double_submit",
+      "status": "pass",
+      "passed": true,
+      "request_count": 2,
+      "fetch_request_count": 2,
+      "completed_analyze_response_count": 1,
+      "completed_superseded_response_count": 0,
+      "abort_error_bubble_count": 0,
+      "typing_count": 0,
+      "terminal_bubble_count": 1,
+      "button_disabled": false,
+      "new_page_error_count": 0
+    }
+  ],
+  "console_messages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "location": {
+        "url": "http://127.0.0.1:8766/api/analyze",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "page_errors": [],
+  "demo_process": {
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of the model will not be utilized\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET / HTTP/1.1\" 200 7202\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/demo.css HTTP/1.1\" 200 14029\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/i18n.js HTTP/1.1\" 200 2062\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/demo.js HTTP/1.1\" 200 6685\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-400-latin.woff2 HTTP/1.1\" 200 21168\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-700-latin.woff2 HTTP/1.1\" 200 22152\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-700-latin-ext.woff2 HTTP/1.1\" 200 13852\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-700-vietnamese.woff2 HTTP/1.1\" 200 12468\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-400-vietnamese.woff2 HTTP/1.1\" 200 11532\n127.0.0.1 - - [08/Jul/2026 19:42:45] \"GET /static/fonts/be-vietnam-pro-400-latin-ext.woff2 HTTP/1.1\" 200 13056\n127.0.0.1 - - [08/Jul/2026 19:43:12] \"POST /api/analyze HTTP/1.1\" 503 180\n127.0.0.1 - - [08/Jul/2026 19:43:19] \"POST /api/analyze HTTP/1.1\" 200 532\n127.0.0.1 - - [08/Jul/2026 19:43:53] \"POST /api/analyze HTTP/1.1\" 200 1143\n127.0.0.1 - - [08/Jul/2026 19:44:54] \"POST /api/analyze HTTP/1.1\" 200 757\n"
+  }
+}
