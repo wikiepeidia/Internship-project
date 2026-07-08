@@ -3,9 +3,20 @@
 import argparse
 import importlib
 import io
+import re
 import sys
+from pathlib import Path
 
 from src.runtime.contracts import AnalysisResult, DoctorStatus
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEMO_LAUNCHER_PATH = REPO_ROOT / "scripts" / "START_DEMO_UI.bat"
+ANALYZE_LAUNCHER_PATH = REPO_ROOT / "scripts" / "START_TEXT_ANALYZE.bat"
+
+# Patterns that would interpolate pasted user text through cmd variables.
+USER_TEXT_INTERPOLATION_PATTERN = re.compile(
+    r"(?i)set\s+/p|for\s+/f|%\*|%1|%2|%TEXT%|%MESSAGE%|%INPUT%|!TEXT!|!MESSAGE!|!INPUT!"
+)
 
 
 def _load_cli_module():
@@ -254,3 +265,33 @@ def test_analyze_returns_setup_guidance_when_doctor_is_not_ready(monkeypatch, ca
 
     assert exit_code == 2
     assert capsys.readouterr().out.strip() == "NOT READY"
+
+
+def test_demo_launcher_batch_file_exists_and_runs_from_repo_root():
+    assert DEMO_LAUNCHER_PATH.exists()
+
+    text = DEMO_LAUNCHER_PATH.read_text(encoding="utf-8")
+
+    assert 'cd /d "%~dp0.."' in text
+    assert re.search(r"chcp\s+65001", text)
+    assert "src.runtime.cli demo" in text
+    assert not USER_TEXT_INTERPOLATION_PATTERN.search(text)
+
+
+def test_text_analyze_launcher_batch_file_exists_and_runs_from_repo_root():
+    assert ANALYZE_LAUNCHER_PATH.exists()
+
+    text = ANALYZE_LAUNCHER_PATH.read_text(encoding="utf-8")
+
+    assert 'cd /d "%~dp0.."' in text
+    assert re.search(r"chcp\s+65001", text)
+    assert "src.runtime.cli analyze" in text
+    assert not USER_TEXT_INTERPOLATION_PATTERN.search(text)
+
+
+def test_launcher_batch_files_do_not_interpolate_pasted_text():
+    for path in (DEMO_LAUNCHER_PATH, ANALYZE_LAUNCHER_PATH):
+        text = path.read_text(encoding="utf-8")
+        assert not USER_TEXT_INTERPOLATION_PATTERN.search(text), (
+            f"{path} appears to interpolate user text through cmd variables"
+        )
