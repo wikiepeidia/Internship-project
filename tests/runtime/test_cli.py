@@ -101,6 +101,45 @@ def test_cli_only_exposes_analyze_doctor_and_demo_commands():
     assert sorted(subparsers_action.choices.keys()) == ["analyze", "demo", "doctor"]
 
 
+def test_root_help_lists_analyze_demo_and_doctor_commands():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    root_help = parser.format_help()
+
+    assert "analyze" in root_help
+    assert "demo" in root_help
+    assert "doctor" in root_help
+
+
+def test_analyze_help_states_terminal_text_only_no_browser():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+    analyze_help = subparsers_action.choices["analyze"].format_help().lower()
+
+    assert "text-only" in analyze_help or "text only" in analyze_help
+    assert "no browser" in analyze_help
+    assert "stdin" in analyze_help or "--text" in analyze_help
+
+
+def test_demo_help_states_starts_web_ui_and_opens_browser():
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+    demo_help = subparsers_action.choices["demo"].format_help().lower()
+
+    assert "web ui" in demo_help
+    assert "browser" in demo_help
+    assert "--no-browser" in demo_help
+
+
 def test_demo_command_starts_local_demo_server(monkeypatch):
     cli_module = _load_cli_module()
     captured = {}
