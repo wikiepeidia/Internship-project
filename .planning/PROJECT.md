@@ -21,13 +21,12 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Milestone v4.0 complete and closed (2026-06-19/20): pre-print academic review passed (20 findings fixed) — thesis print-ready at 33 pages, 36 citations, 24 abbreviations, zero compile errors.
 - Milestone v5.0 complete and closed (2026-06-20): final audit pass — report LOCKED for print.
 - Phase 28 complete and corrected (2026-07-02): dev-machine baseline diagnostics passed; the final golden demo prompts are a no-OTP malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice, each locked through five stable real web-demo runs; the corrected warm-latency baseline is `22705.562 ms` for Phase 30 comparison.
+- Phase 31 complete and verified (2026-07-08): the browser edge-case matrix (empty/very-long/malformed/mixed-language) and rapid double-submit race are covered by an automated real-demo verifier with `overall_pass: true`; the double-submit controller-ownership race was fixed in `demo.js`; `vnphish analyze` vs `vnphish demo` CLI confusion is resolved via clearer help text and two double-click Windows launchers; golden prompts remain stable 5/5 scam and 5/5 benign after the fix, with no backend/template regressions.
 
 ### Active
 
 - [ ] Verify the local demo runs reliably end-to-end (functional, offline, edge cases) on the presentation laptop before the defense window (13-20 July 2026).
 - [ ] Fix known demo latency/performance issue.
-- [ ] Fix CLI entrypoint confusion between `vnphish analyze` (text-only, no page) and `vnphish demo` (web UI).
-- [ ] Fix any UI quirks surfaced during verification.
 - [ ] Prepare a fallback (recording or screenshots) in case the live demo fails during the defense.
 
 ### Out of Scope
@@ -132,7 +131,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
-- v5.1 is active: Phase 28 closed and corrected the dev-machine baseline plus no-OTP golden-prompt lock; Phase 29 now verifies the actual presentation-laptop environment, offline behavior, and portability before the 13-20 July 2026 defense presentation.
+- v5.1 is active: Phase 28 closed and corrected the dev-machine baseline plus no-OTP golden-prompt lock; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers. Phase 32 (fallback recording and full dry rehearsal) is next, before the 13-20 July 2026 defense presentation.
 
 ## Evolution
 
@@ -154,4 +153,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-02 after Phase 28 no-OTP golden-prompt correction — Phase 29 environment parity is next
+Last updated: 2026-07-08 after Phase 31 UI quirks/edge-case/regression closeout — Phase 32 fallback recording and dry rehearsal is next
