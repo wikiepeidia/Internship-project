@@ -2,18 +2,14 @@
 gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
-current_phase: 31
-current_phase_name: UI Quirks, Edge Cases & Regression Re-check
-status: ready for planning
-stopped_at: Phase 31 UI-SPEC approved
-last_updated: "2026-07-06T09:55:23.7676624+07:00"
-last_activity: 2026-07-06
-last_activity_desc: "Phase 31 UI-SPEC approved by gsd-ui-checker; ready to plan UIQ-01/UIQ-02/UIQ-03/UIQ-04."
+status: executing
+last_updated: "2026-07-08T12:52:32.299Z"
+last_activity: 2026-07-08
 progress:
   total_phases: 20
   completed_phases: 13
-  total_plans: 50
-  completed_plans: 47
+  total_plans: 53
+  completed_plans: 48
   percent: 65
 ---
 
@@ -35,12 +31,12 @@ progress:
 
 ## Current Position
 
-Phase: 31 — UI Quirks, Edge Cases & Regression Re-check
-Plan: — of 32 total (Phase 31 UI-SPEC approved; plans not yet generated)
-Status: Phase 31 context and UI-SPEC complete — ready to plan UIQ-01/UIQ-02/UIQ-03/UIQ-04.
-Last activity: 2026-07-06 — Phase 31 UI-SPEC approved by gsd-ui-checker; ready to plan edge-case, double-submit, CLI entrypoint, and quirk-regression work.
+Phase: 31 (UI Quirks, Edge Cases & Regression Re-check) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-08
 
-Progress: [█████████░] 65%
+Progress: [█████████░] 91%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -123,6 +119,7 @@ Progress: [█████████░] 65%
 | Phase 29 P02 | 3 min | 2 tasks | 2 files |
 | Phase 29 P03 | 12 min | 3 tasks | 1 files |
 | Phase 29 P04 | 19 min | 3 tasks | 6 files |
+| Phase 31 P01 | 21min | 2 tasks | 3 files |
 
 ### v2.2 Requirements at a Glance
 
@@ -170,9 +167,9 @@ Progress: [█████████░] 65%
 
 ## Session Continuity
 
-**Last session:** 2026-07-06T09:55:23.7676624+07:00
-**Stopped at:** Phase 31 UI-SPEC approved; ready to plan the phase
-**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-UI-SPEC.md
+**Last session:** 2026-07-08T12:52:32.281Z
+**Stopped at:** Completed 31-01-PLAN.md (real-demo UI quirks verifier); Plan 31-02 (CLI clarity/launchers) next
+**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-02-PLAN.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -224,3 +221,9 @@ Progress: [█████████░] 65%
 - Phase 30 (latency diagnosis) should only apply a fix if a measured bottleneck is found — no blind tuning
 - Backup laptop provisioning status is unresolved per research gaps — confirm with user before Phase 32 fallback planning
 - Prior v3.0 milestone (Phases 25-27, supervisor comments & literature review) closed 2026-06-18
+
+## Decisions
+
+- [Phase 31]: Verifier instruments window.fetch via page.add_init_script (not demo.js) to distinguish completed vs. aborted /api/analyze calls for the double-submit case, preserving the frozen demo.js contract.
+- [Phase 31]: Double-submit is driven via textarea + Enter/form.requestSubmit(), not button double-click, since the button disables after first submit and would give a false pass.
+- [Phase 31]: 31-ui-quirks-results.json was force-added despite the repo-wide .planning/**/*.json gitignore rule, following the 28-golden-prompt-results.json precedent, since the plan declares it as a Plan 31-03 dependency.

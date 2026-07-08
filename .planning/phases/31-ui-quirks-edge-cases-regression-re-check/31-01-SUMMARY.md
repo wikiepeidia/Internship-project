@@ -119,3 +119,14 @@ None - no external service configuration required.
 ---
 *Phase: 31-ui-quirks-edge-cases-regression-re-check*
 *Completed: 2026-07-08*
+
+## Self-Check: PASSED
+
+- FOUND: scripts/verify_ui_quirks.py
+- FOUND: tests/runtime/test_ui_quirks_script.py
+- FOUND: .planning/phases/31-ui-quirks-edge-cases-regression-re-check/artifacts/31-ui-quirks-results.json
+- FOUND: .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-01-SUMMARY.md
+- FOUND commit: 9b69aa3 (test)
+- FOUND commit: 24fcadb (feat)
+- FOUND commit: f2b9a68 (feat)
+- FOUND commit: 473c01a (docs)
