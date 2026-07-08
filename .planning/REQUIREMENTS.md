@@ -445,7 +445,7 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 - [x] **UIQ-01**: Full edge-case matrix (empty input, very long text, malformed/off-topic text, mixed Vietnamese-English) is re-tested with no crash or hang.
 - [x] **UIQ-02**: Rapid double-submit is tested to confirm the existing `AbortController` guard still prevents re-entrant requests.
-- [ ] **UIQ-03**: CLI entrypoint confusion between `vnphish analyze` (text-only) and `vnphish demo` (web UI) is resolved via help text and/or launcher scripts, without changing the CLI contract.
+- [x] **UIQ-03**: CLI entrypoint confusion between `vnphish analyze` (text-only) and `vnphish demo` (web UI) is resolved via help text and/or launcher scripts, without changing the CLI contract.
 - [x] **UIQ-04**: Any UI quirks found during testing are catalogued and fixed without altering the frozen backend contract or breaking `data-slot` templates.
 
 ### Fallback & Rehearsal
@@ -470,7 +470,7 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 | PERF-03 | Phase 30 | Complete |
 | UIQ-01 | Phase 31 | Complete |
 | UIQ-02 | Phase 31 | Complete |
-| UIQ-03 | Phase 31 | Pending |
+| UIQ-03 | Phase 31 | Complete |
 | UIQ-04 | Phase 31 | Complete |
 | FB-01 | Phase 32 | Pending |
 | FB-02 | Phase 32 | Pending |

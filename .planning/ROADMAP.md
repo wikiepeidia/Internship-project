@@ -491,7 +491,7 @@ Plans:
 
 Plans:
 - [x] 31-01-PLAN.md -- Real-demo Playwright edge-case, double-submit, and console-capture verifier
-- [ ] 31-02-PLAN.md -- CLI help text disambiguation and Windows launchers
+- [x] 31-02-PLAN.md -- CLI help text disambiguation and Windows launchers
 - [ ] 31-03-PLAN.md -- UIQ-04 triage, final verifier pass, and Phase 28-30 regression evidence
 **UI hint**: yes
 
@@ -758,7 +758,7 @@ Plans:
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
 | 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
 | 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
-| 31. UI Quirks, Edge Cases and Regression Re-check | 1/3 | In Progress|  |
+| 31. UI Quirks, Edge Cases and Regression Re-check | 2/3 | In Progress|  |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
 
 ## Coverage Validation
