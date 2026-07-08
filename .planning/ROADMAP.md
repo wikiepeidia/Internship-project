@@ -46,7 +46,7 @@
 - [x] **Phase 28: Baseline Readiness & Zero-Code Diagnostics** - Confirm `vnphish doctor` and `vnphish analyze` work correctly on the dev machine using existing zero-code tooling; select and lock 2 golden demo prompts (scam + benign) proven correct across repeated runs, for the ~1-minute live demo window. (completed 2026-07-02)
 - [x] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks. (completed 2026-07-05)
 - [x] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found. (completed 2026-07-06, AC-only per D-10 SUPERSEDED)
-- [ ] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract.
+- [x] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract. (completed 2026-07-08)
 - [ ] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Record and rehearse a fallback (video + screenshots) and complete one full cold-boot dry rehearsal on the presentation laptop.
 
 ## Phase Details
@@ -492,7 +492,7 @@ Plans:
 Plans:
 - [x] 31-01-PLAN.md -- Real-demo Playwright edge-case, double-submit, and console-capture verifier
 - [x] 31-02-PLAN.md -- CLI help text disambiguation and Windows launchers
-- [ ] 31-03-PLAN.md -- UIQ-04 triage, final verifier pass, and Phase 28-30 regression evidence
+- [x] 31-03-PLAN.md -- UIQ-04 triage, final verifier pass, and Phase 28-30 regression evidence
 **UI hint**: yes
 
 ### Phase 18: Mobile + Accessibility Validation
@@ -758,7 +758,7 @@ Plans:
 | 28. Baseline Readiness and Zero-Code Diagnostics | 1/1 | Complete    | 2026-07-02 |
 | 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
 | 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
-| 31. UI Quirks, Edge Cases and Regression Re-check | 2/3 | In Progress|  |
+| 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete   | 2026-07-08 |
 | 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
 
 ## Coverage Validation

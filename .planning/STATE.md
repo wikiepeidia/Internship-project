@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
-status: executing
-last_updated: "2026-07-08T13:04:08.387Z"
+status: verifying
+last_updated: "2026-07-08T13:21:55.121Z"
 last_activity: 2026-07-08
 progress:
   total_phases: 20
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 53
-  completed_plans: 49
-  percent: 65
+  completed_plans: 50
+  percent: 70
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -33,10 +33,10 @@ progress:
 
 Phase: 31 (UI Quirks, Edge Cases & Regression Re-check) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-08
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 94%
 
 ## Performance Metrics (Baseline Targets)
 
@@ -121,6 +121,7 @@ Progress: [█████████░] 92%
 | Phase 29 P04 | 19 min | 3 tasks | 6 files |
 | Phase 31 P01 | 21min | 2 tasks | 3 files |
 | Phase 31 P02 | 8min | 2 tasks | 4 files |
+| Phase 31 P03 | 18min | 2 tasks | 5 files |
 
 ### v2.2 Requirements at a Glance
 
@@ -168,9 +169,9 @@ Progress: [█████████░] 92%
 
 ## Session Continuity
 
-**Last session:** 2026-07-08T13:04:08.376Z
-**Stopped at:** Completed 31-02-PLAN.md
-**Resume file:** .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-03-PLAN.md
+**Last session:** 2026-07-08T13:21:55.110Z
+**Stopped at:** Completed 31-03-PLAN.md
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -230,3 +231,6 @@ Progress: [█████████░] 92%
 - [Phase 31]: 31-ui-quirks-results.json was force-added despite the repo-wide .planning/**/*.json gitignore rule, following the 28-golden-prompt-results.json precedent, since the plan declares it as a Plan 31-03 dependency.
 - [Phase 31]: Phase 31 Plan 02 (UIQ-03): argparse help/description text now explicitly distinguishes terminal text-only vnphish analyze (no browser) from browser-launching vnphish demo, without changing subcommand names, flags, or handler dispatch.
 - [Phase 31]: Phase 31 Plan 02: added scripts/START_DEMO_UI.bat and scripts/START_TEXT_ANALYZE.bat double-click Windows launchers (cd to repo root, chcp 65001, python -m src.runtime.cli <subcommand>), never interpolating pasted text through cmd variables.
+- [Phase 31]: SOURCE_LANG_VI classified as confirmed non-app browser/profile noise per D-01's stop condition (clean Playwright run + local source search both found no match, corroborating Phase 29's own conclusion)
+- [Phase 31]: very_long case's HTTP 503 (GGUF n_ctx=512 context overflow -> RuntimeUnavailableError) classified as backend-origin, frozen-this-milestone behavior; documented, not fixed
+- [Phase 31]: Fixed demo.js double-submit controller-ownership race via request-local AbortController scoping, even though the verifier's final-state-only assertions already reported pass, because code trace confirmed a real transient race matching Pitfall 2
