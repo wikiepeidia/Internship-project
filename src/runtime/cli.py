@@ -18,11 +18,31 @@ from src.runtime.service import (
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for the local runtime."""
 
-    parser = argparse.ArgumentParser(prog="vnphish", allow_abbrev=False)
+    parser = argparse.ArgumentParser(
+        prog="vnphish",
+        allow_abbrev=False,
+        description=(
+            "Local Vietnamese financial phishing/threat detection runtime. "
+            "Use 'analyze' for terminal text-only checks (no browser). "
+            "Use 'demo' to start the local browser web UI."
+        ),
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    analyze_parser = subparsers.add_parser("analyze", help="Analyze one pasted message")
-    analyze_parser.add_argument("--text", help="Optional explicit message text for automation")
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze one pasted message in the terminal (text-only, no browser)",
+        description=(
+            "Analyze one pasted message directly in the terminal. This is a "
+            "text-only command: it opens no browser page. Paste the message "
+            "and finish stdin (Ctrl+Z then Enter on Windows) or pass --text "
+            "for automation."
+        ),
+    )
+    analyze_parser.add_argument(
+        "--text",
+        help="Optional explicit message text for automation (skips stdin)",
+    )
     analyze_parser.add_argument(
         "--channel",
         choices=get_args(ChannelName),
@@ -34,13 +54,21 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser = subparsers.add_parser("doctor", help="Check local runtime readiness")
     doctor_parser.set_defaults(handler=handle_doctor)
 
-    demo_parser = subparsers.add_parser("demo", help="Start the local demo UI for non-technical verification")
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Start the local demo web UI in your browser for non-technical verification",
+        description=(
+            "Start the local demo web UI. This launches a local web server and "
+            "opens the demo page in your default browser (unless --no-browser "
+            "is passed)."
+        ),
+    )
     demo_parser.add_argument("--host", default="127.0.0.1", help="Host interface for the local demo server")
     demo_parser.add_argument("--port", type=int, default=8765, help="Port for the local demo server")
     demo_parser.add_argument(
         "--no-browser",
         action="store_true",
-        help="Do not open the demo UI automatically in the default browser",
+        help="Do not open the demo web UI automatically in the default browser",
     )
     demo_parser.set_defaults(handler=handle_demo)
 
