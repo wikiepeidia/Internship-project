@@ -96,6 +96,7 @@ status: complete
 - **Files modified:** 4 (2 created, 2 modified)
 
 ## Accomplishments
+
 - `src/runtime/cli.py` root/subcommand help and descriptions now explicitly state that `analyze` is terminal/text-only/no-browser and `demo` starts the browser web UI, with subcommand names, flags, defaults, and handler dispatch completely unchanged.
 - New `scripts/START_DEMO_UI.bat` and `scripts/START_TEXT_ANALYZE.bat` let a non-technical presenter double-click to launch the correct mode; both run from repo root, force UTF-8 console mode, and invoke `python -m src.runtime.cli <subcommand>` rather than relying on the `vnphish` console script being on PATH.
 - `tests/runtime/test_cli.py` grew from 7 to 13 tests: 3 new help-text disambiguation tests (TDD RED/GREEN) plus 3 new static launcher-safety tests (existence, repo-root/UTF-8 setup, and no pasted-text interpolation through cmd variables).
@@ -116,6 +117,7 @@ _Note: Task 1 used TDD (test → feat); Task 2 was a single `type="auto"` commit
 ## TDD Gate Compliance
 
 Task 1 had `tdd="true"`. Gate sequence verified in git log:
+
 1. RED gate: `0ee7300 test(31-02): add failing CLI help-text disambiguation tests` - 2 of 4 new tests failed as expected before implementation.
 2. GREEN gate: `8032f7b feat(31-02): clarify analyze vs demo CLI help text (UIQ-03/D-02)` - all tests passed after `build_parser()` updates.
 3. No REFACTOR commit was needed; the GREEN implementation required no follow-up cleanup.
@@ -123,12 +125,14 @@ Task 1 had `tdd="true"`. Gate sequence verified in git log:
 Both gates present and in order. Compliant.
 
 ## Files Created/Modified
+
 - `src/runtime/cli.py` - Added `description=` to the root parser and `description=`/refined `help=` text to the `analyze` and `demo` subparsers; no argument, subcommand, or handler changes.
 - `tests/runtime/test_cli.py` - Added `test_root_help_lists_analyze_demo_and_doctor_commands`, `test_analyze_help_states_terminal_text_only_no_browser`, `test_demo_help_states_starts_web_ui_and_opens_browser` (Task 1); added `REPO_ROOT`/launcher path constants, `USER_TEXT_INTERPOLATION_PATTERN`, and `test_demo_launcher_batch_file_exists_and_runs_from_repo_root`, `test_text_analyze_launcher_batch_file_exists_and_runs_from_repo_root`, `test_launcher_batch_files_do_not_interpolate_pasted_text` (Task 2).
 - `scripts/START_DEMO_UI.bat` - New double-click launcher: `cd /d "%~dp0.."`, `chcp 65001`, runs `python -m src.runtime.cli demo`, pauses before closing.
 - `scripts/START_TEXT_ANALYZE.bat` - New double-click launcher: `cd /d "%~dp0.."`, `chcp 65001`, prints paste/Ctrl+Z instructions, runs `python -m src.runtime.cli analyze` (reads stdin directly, no `%VAR%` interpolation of pasted text), pauses before closing.
 
 ## Decisions Made
+
 - TDD applied to Task 1 exactly as the plan's `tdd="true"` flag required: help-text assertions written and confirmed failing first, then `build_parser()` updated minimally to pass them.
 - Launcher scripts avoid `set /p`, `for /f`, `%1`/`%2`/`%*`, and any `%TEXT%`/`%MESSAGE%`/`%INPUT%` style variable capture of pasted content, per the plan's tampering mitigation (T-31-02-T) — `python -m src.runtime.cli analyze` reads stdin directly instead.
 - No elevation request, no registry writes, no permanent environment variable changes in either launcher, per T-31-02-E.
@@ -138,6 +142,7 @@ Both gates present and in order. Compliant.
 None - plan executed exactly as written. Both tasks' `<action>`/`<behavior>` requirements were implemented as specified; all listed `<verify>` commands were run and passed, including the plan's own PowerShell static-check one-liner (adapted only for the Bash-tool's shell-quoting context, not in semantics — same literal checks, same result: PASS).
 
 ## Issues Encountered
+
 - The plan's literal PowerShell verification one-liner uses `""` inside a double-quoted `-Command` argument, which is a cmd.exe/PowerShell command-line quote-doubling convention that only applies when the whole line is passed as a single shell argument (e.g., from `cmd.exe` or a `.bat` file). Running it verbatim through the Bash tool (which parses quotes differently) initially misfired. Resolved by re-expressing the identical check with single-quoted-string semantics for the Bash invocation; the underlying literal pattern checked (`cd /d "%~dp0.."`, `chcp 65001`, absence of interpolation patterns, presence of the correct subcommand) is unchanged and confirmed PASS.
 
 ## User Setup Required
@@ -145,10 +150,23 @@ None - plan executed exactly as written. Both tasks' `<action>`/`<behavior>` req
 None - no external service configuration required. The two `.bat` files are ready to double-click on the presentation laptop; no installation step beyond the existing Python/repo checkout is needed.
 
 ## Next Phase Readiness
+
 - UIQ-03 is fully satisfied: CLI help text and launchers both ship, command set (`analyze`, `demo`, `doctor`) is unchanged, and 102/102 runtime tests pass.
 - Plan 31-03 (UI quirks catalog/backend-intact fixes, UIQ-04) can proceed independently; no shared files with this plan besides the frozen CLI contract.
 - Phase 32 (fallback recording) can safely reference these launchers in operator-facing instructions if desired, though the locked golden-prompt demo flow itself is unaffected.
 
 ---
-*Phase: 31-ui-quirks-edge-cases-regression-re-check*
-*Completed: 2026-07-08*
+_Phase: 31-ui-quirks-edge-cases-regression-re-check_
+_Completed: 2026-07-08_
+
+## Self-Check: PASSED
+
+- FOUND: scripts/START_DEMO_UI.bat
+- FOUND: scripts/START_TEXT_ANALYZE.bat
+- FOUND: src/runtime/cli.py
+- FOUND: tests/runtime/test_cli.py
+- FOUND: .planning/phases/31-ui-quirks-edge-cases-regression-re-check/31-02-SUMMARY.md
+- FOUND commit: 0ee7300 (test RED)
+- FOUND commit: 8032f7b (feat GREEN)
+- FOUND commit: 67a3740 (feat launchers)
+- FOUND commit: 692e513 (docs summary)
