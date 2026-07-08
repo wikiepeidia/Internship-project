@@ -133,7 +133,12 @@ async function analyzeMessage(event) {
   const channel = channelSelect.value;
 
   if (currentController) currentController.abort();
-  currentController = new AbortController();
+  // Request-local controller reference: only the request that is still the
+  // module-level "current" one when it settles may clear shared busy state.
+  // This prevents an aborted/superseded request's `finally` block from
+  // racing ahead of a newer, still-in-flight request (Phase 31 UIQ-02 fix).
+  const controller = new AbortController();
+  currentController = controller;
 
   history.push({ text, channel });
   appendUserBubble(text);
@@ -146,7 +151,7 @@ async function analyzeMessage(event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, channel }),
-      signal: currentController.signal,
+      signal: controller.signal,
     });
 
     const payload = await response.json();
@@ -170,8 +175,10 @@ async function analyzeMessage(event) {
       });
     }
   } finally {
-    setBusyState(false);
-    currentController = null;
+    if (currentController === controller) {
+      setBusyState(false);
+      currentController = null;
+    }
   }
 }
 
