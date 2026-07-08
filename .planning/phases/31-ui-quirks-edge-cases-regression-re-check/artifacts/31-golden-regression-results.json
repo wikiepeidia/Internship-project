@@ -1,0 +1,87 @@
+{
+  "golden_scam": {
+    "text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi).",
+    "channel": "sms",
+    "runs": [
+      {
+        "risk_tier": "high-risk",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 21821.608
+      },
+      {
+        "risk_tier": "high-risk",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 17574.754
+      },
+      {
+        "risk_tier": "high-risk",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 17067.367000000002
+      },
+      {
+        "risk_tier": "high-risk",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 17753.365999999998
+      },
+      {
+        "risk_tier": "high-risk",
+        "threat_labels": [
+          "bank_impersonation"
+        ],
+        "latency_ms": 18113.624
+      }
+    ],
+    "stable": true
+  },
+  "golden_benign": {
+    "text": "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.",
+    "channel": "sms",
+    "runs": [
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 21549.083
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 18333.775
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 15909.244999999999
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 16792.323
+      },
+      {
+        "risk_tier": "benign",
+        "threat_labels": [
+          "benign"
+        ],
+        "latency_ms": 16254.986
+      }
+    ],
+    "stable": true
+  },
+  "recorded": "2026-07-08T13:13:10.834126+00:00"
+}
