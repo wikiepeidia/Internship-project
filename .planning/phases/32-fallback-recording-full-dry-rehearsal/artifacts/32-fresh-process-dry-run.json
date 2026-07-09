@@ -1,0 +1,55 @@
+{
+  "schema": "vnphish.phase32.fresh-process-dry-run.v1",
+  "recorded_at": "2026-07-09T13:51:25.796966+00:00",
+  "started_at": "2026-07-09T13:50:37.372203+00:00",
+  "overall_pass": true,
+  "scope_notice": "fresh-process substitute only; not literal cold-boot coverage for OS, driver, OneDrive sync, or Windows Defender first-run effects",
+  "launcher": {
+    "path": "scripts\\START_DEMO_UI.bat",
+    "invoked_via": "cmd.exe /c",
+    "process": {
+      "pid": 23328,
+      "returncode": 1,
+      "stdout": "============================================================\n VNPhish - Local Demo Web UI\n This opens a browser page with the chat-style demo.\n For a terminal-only, no-browser check, use\n START_TEXT_ANALYZE.bat instead.\n============================================================\n\n",
+      "stderr": "llama_context: n_ctx_seq (512) < n_ctx_train (262144) -- the full capacity of the model will not be utilized\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET / HTTP/1.1\" 200 7202\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/demo.css HTTP/1.1\" 200 14029\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/i18n.js HTTP/1.1\" 200 2062\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET / HTTP/1.1\" 200 7202\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/demo.css HTTP/1.1\" 200 14029\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/i18n.js HTTP/1.1\" 200 2062\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/demo.js HTTP/1.1\" 200 7067\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/demo.js HTTP/1.1\" 200 7067\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-latin.woff2 HTTP/1.1\" 200 21168\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-latin.woff2 HTTP/1.1\" 200 22152\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-latin-ext.woff2 HTTP/1.1\" 200 13852\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-vietnamese.woff2 HTTP/1.1\" 200 12468\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-vietnamese.woff2 HTTP/1.1\" 200 11532\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-latin.woff2 HTTP/1.1\" 200 21168\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-latin.woff2 HTTP/1.1\" 200 22152\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-vietnamese.woff2 HTTP/1.1\" 200 12468\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-700-latin-ext.woff2 HTTP/1.1\" 200 13852\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-vietnamese.woff2 HTTP/1.1\" 200 11532\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-latin-ext.woff2 HTTP/1.1\" 200 13056\n127.0.0.1 - - [09/Jul/2026 20:50:38] \"GET /static/fonts/be-vietnam-pro-400-latin-ext.woff2 HTTP/1.1\" 200 13056\n127.0.0.1 - - [09/Jul/2026 20:51:02] \"POST /api/analyze HTTP/1.1\" 200 1086\n127.0.0.1 - - [09/Jul/2026 20:51:25] \"POST /api/analyze HTTP/1.1\" 200 677\n"
+    },
+    "stopped_existing_port_listeners": []
+  },
+  "port": 8765,
+  "prompt_source": {
+    "golden_scam": {
+      "text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi).",
+      "channel": "sms",
+      "source": "scripts/verify_golden_prompts.py:DEFAULT_SCAM_TEXT",
+      "phase28_artifact": ".planning\\phases\\28-baseline-readiness-zero-code-diagnostics\\artifacts\\28-golden-prompt-results.json"
+    },
+    "golden_benign": {
+      "text": "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.",
+      "channel": "sms",
+      "source": "scripts/verify_golden_prompts.py:DEFAULT_BENIGN_TEXT",
+      "phase28_artifact": ".planning\\phases\\28-baseline-readiness-zero-code-diagnostics\\artifacts\\28-golden-prompt-results.json"
+    }
+  },
+  "demo_url": "http://127.0.0.1:8765/",
+  "page_ready_ms": 786.3211999647319,
+  "results": {
+    "golden_scam": {
+      "risk_tier": "high-risk",
+      "threat_labels": [
+        "bank_impersonation"
+      ],
+      "latency_ms": 23567.709000000003,
+      "passed": true
+    },
+    "golden_benign": {
+      "risk_tier": "benign",
+      "threat_labels": [
+        "benign"
+      ],
+      "latency_ms": 22716.151,
+      "passed": true
+    }
+  },
+  "console_messages": [],
+  "page_errors": []
+}
