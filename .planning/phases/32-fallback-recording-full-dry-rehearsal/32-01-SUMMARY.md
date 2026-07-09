@@ -13,6 +13,7 @@ provides:
   - "Fresh-process Playwright dry-run harness that starts the final scripts/START_DEMO_UI.bat launcher"
   - "Tracked dry-run JSON proving both locked golden prompts return the expected verdicts through the browser UI"
   - "Explicit human-verification boundary for video copies, screenshot copies, pivot rehearsal, and strict literal cold-boot coverage"
+  - "Defense-readiness snapshot confirming the live demo path is good enough, with fallback/slides caveats documented"
 affects: [defense-fallback, demo-readiness, verify-work]
 
 # Tech tracking
@@ -28,6 +29,7 @@ key-files:
     - .planning/phases/32-fallback-recording-full-dry-rehearsal/artifacts/32-fallback-operator-checklist.md
     - .planning/phases/32-fallback-recording-full-dry-rehearsal/artifacts/32-fresh-process-dry-run.json
     - .planning/phases/32-fallback-recording-full-dry-rehearsal/32-01-SUMMARY.md
+    - .planning/phases/32-fallback-recording-full-dry-rehearsal/32-DEFENSE-READINESS.md
   modified: []
 
 key-decisions:
@@ -35,6 +37,7 @@ key-decisions:
   - "Keep FB-01, FB-02, and FB-03 human-routed because the agent cannot truthfully confirm saved video copies, saved screenshot copies, or a live-to-fallback pivot rehearsal without user evidence."
   - "Treat the automated run as a fresh-process FB-04 substitute only; it does not claim literal OS power-cycle/cold-boot coverage for drivers, OneDrive sync, Windows Defender first-run effects, or physical presentation-laptop conditions."
   - "Print the dry-run artifact path as repo-relative text to avoid Windows console encoding failures when the absolute path contains Vietnamese characters."
+  - "Close Phase 32 under a demo-focused defense scope per 2026-07-09 operator instruction: fallback media/pivot items are accepted-risk skips, while the final launcher-backed live demo proof is passed."
 
 requirements-completed: [FB-01, FB-02, FB-03, FB-04]
 
@@ -92,7 +95,7 @@ status: complete
 
 # Phase 32 Plan 01: Fallback Checklist and Fresh-Process Dry-Run Summary
 
-**Fallback evidence is staged honestly: the final Windows demo launcher passed a fresh-process browser dry-run for both locked golden prompts, while recording, screenshot, pivot, and strict cold-boot acceptance remain explicit human checks.**
+**Fallback evidence is staged honestly: the final Windows demo launcher passed a refreshed fresh-process browser dry-run for both locked golden prompts, and the unverified fallback-media items are closed as accepted-risk skips under the operator's demo-focused defense scope.**
 
 ## Performance
 
@@ -100,14 +103,15 @@ status: complete
 - **Started:** 2026-07-09T13:33:00Z
 - **Completed:** 2026-07-09T13:56:00Z
 - **Tasks:** 2 completed
-- **Files modified:** 4 tracked outputs (1 script, 1 checklist, 1 forced-added JSON artifact, 1 summary)
+- **Files modified:** 6 tracked outputs (1 script, 1 checklist, 1 forced-added JSON artifact, summary, verification/UAT updates, and defense-readiness snapshot)
 
 ## Accomplishments
 
 - Added `scripts/verify_phase32_fresh_process.py`, a reusable Phase 32 verifier that loads the locked golden prompts from `scripts/verify_golden_prompts.py`, cross-checks the Phase 28 artifact when present, starts the real `scripts/START_DEMO_UI.bat` launcher, drives the served browser UI with Playwright, and writes structured evidence.
 - Added `32-fallback-operator-checklist.md` with exact manual steps for FB-01 video recording, FB-02 screenshots, and FB-03 live-to-fallback pivot rehearsal, including the exact two locked golden prompt texts.
-- Ran the fresh-process dry-run successfully through the final launcher path. `32-fresh-process-dry-run.json` records `overall_pass: true`, scam verdict `high-risk` with `bank_impersonation`, benign verdict `benign` with only `benign`, and an explicit scope notice that this is not literal cold-boot coverage.
-- Preserved the manual boundary. The checklist and summary do not claim the operator has already saved videos/screenshots, rehearsed the pivot, or performed a physical OS power cycle.
+- Re-ran the fresh-process dry-run successfully through the final launcher path. `32-fresh-process-dry-run.json` records `overall_pass: true`, scam verdict `high-risk` with `bank_impersonation`, benign verdict `benign` with only `benign`, and an explicit scope notice that this is not literal cold-boot coverage.
+- Closed UAT under the user's demo-focused defense-readiness scope: final-launcher proof passed; fallback recording, screenshot, and pivot checks are documented as skipped accepted risks rather than falsely claimed.
+- Added `32-DEFENSE-READINESS.md`, giving a direct defense verdict: demo-readiness is green; slides and fallback media remain caveats.
 
 ## Task Commits
 
@@ -145,16 +149,16 @@ One small fix was needed after the first successful dry-run wrote a green JSON a
 
 ## User Setup Required
 
-Human fallback evidence is still required before Phase 32 can be marked fully complete:
+Optional, if there is still time before the defense:
 
 - Record the two-prompt fallback video and save it in two local locations.
 - Save the screenshot sequence as the secondary fallback.
 - Rehearse the live-to-fallback pivot at least once.
-- Confirm whether the documented fresh-process substitute is acceptable for FB-04, or perform a literal post-reboot dry rehearsal with `scripts/START_DEMO_UI.bat`.
+- Sync the defense slides to the final demo script.
 
 ## Next Phase Readiness
 
-There is no next v5.1 phase. Phase 32 is implementation-complete but verification is intentionally `human_needed`; `32-UAT.md` holds the remaining operator checks for `$gsd-verify-work 32`.
+There is no next v5.1 phase. The demo path is defense-ready with caveats: fallback media/pivot evidence was skipped as accepted risk, and slides still need the operator's planned sync.
 
 ---
 *Phase: 32-fallback-recording-full-dry-rehearsal*

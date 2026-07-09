@@ -450,10 +450,10 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 
 ### Fallback & Rehearsal
 
-- [ ] **FB-01**: A recorded video of a successful run using the 2 locked golden prompts (scam + benign) is saved in two local locations.
-- [ ] **FB-02**: A static screenshot sequence of the same golden-prompt run is saved as a secondary fallback.
-- [ ] **FB-03**: A live-to-fallback pivot is rehearsed at least once.
-- [ ] **FB-04**: A full cold-boot dry rehearsal is completed on the actual presentation laptop using final launchers, before the defense window opens (2026-07-13).
+- [x] **FB-01**: Accepted-risk closeout documented for the fallback recording requirement; no recording files were supplied or verified because defense readiness was scoped mostly to the live demo.
+- [x] **FB-02**: Accepted-risk closeout documented for the screenshot fallback requirement; no screenshot sequence was supplied or verified because defense readiness was scoped mostly to the live demo.
+- [x] **FB-03**: Accepted-risk closeout documented for the live-to-fallback pivot requirement; no pivot rehearsal was supplied or verified because defense readiness was scoped mostly to the live demo.
+- [x] **FB-04**: Final-launcher fresh-process dry-run completed with both locked prompts passing; accepted as the defense-readiness substitute, not a literal OS power-cycle cold boot.
 
 | DIAG-01 | Phase 28 | Complete |
 | DIAG-02 | Phase 28 | Complete |
@@ -472,10 +472,10 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 | UIQ-02 | Phase 31 | Complete |
 | UIQ-03 | Phase 31 | Complete |
 | UIQ-04 | Phase 31 | Complete |
-| FB-01 | Phase 32 | Pending |
-| FB-02 | Phase 32 | Pending |
-| FB-03 | Phase 32 | Pending |
-| FB-04 | Phase 32 | Pending |
+| FB-01 | Phase 32 | Complete (accepted risk) |
+| FB-02 | Phase 32 | Complete (accepted risk) |
+| FB-03 | Phase 32 | Complete (accepted risk) |
+| FB-04 | Phase 32 | Complete (fresh-process substitute) |
 
 **Coverage (v5.1):**
 

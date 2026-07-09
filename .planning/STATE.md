@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 32
-current_phase_name: Fallback Recording & Full Dry Rehearsal
-status: verifying
-stopped_at: Phase 32 automated proof complete; human verification pending
-last_updated: "2026-07-09T13:58:48.354Z"
-last_activity: 2026-07-08
-last_activity_desc: Phase 31 complete, transitioned to Phase 32
+status: completed
+stopped_at: Phase 32 complete; v5.1 demo readiness closed with accepted fallback risk
+last_updated: "2026-07-09T14:14:18.680Z"
+last_activity: 2026-07-09
+last_activity_desc: Phase 32 complete
 progress:
   total_phases: 20
-  completed_phases: 15
+  completed_phases: 20
   total_plans: 54
   completed_plans: 51
-  percent: 75
+  percent: 94
+current_phase_name: Fallback Recording & Full Dry Rehearsal
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -35,10 +35,10 @@ progress:
 
 ## Current Position
 
-Phase: 32 — Fallback Recording & Full Dry Rehearsal
-Plan: 32-01 complete; human UAT pending
-Status: Human verification needed
-Last activity: 2026-07-08 — Phase 31 complete, transitioned to Phase 32
+Phase: 32
+Plan: All Phase 32 plans complete
+Status: v5.1 demo readiness complete; slides pending sync
+Last activity: 2026-07-09 — Phase 32 complete
 
 Progress: [█████████░] 94%
 
@@ -173,9 +173,9 @@ Progress: [█████████░] 94%
 
 ## Session Continuity
 
-**Last session:** 2026-07-09T13:58:26.122Z
-**Stopped at:** Phase 32 automated proof complete; human verification pending
-**Resume file:** .planning/phases/32-fallback-recording-full-dry-rehearsal/32-UAT.md
+**Last session:** 2026-07-09T14:13:30.028Z
+**Stopped at:** Phase 32 complete; v5.1 demo readiness closed with accepted fallback risk
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -221,12 +221,11 @@ Progress: [█████████░] 94%
 
 ## Operator Next Steps
 
-- v5.1 milestone active — demo verification & presentation readiness, hard deadline: defense window opens 2026-07-13
-- Next: `$gsd-discuss-phase 29` to gather presentation-laptop context, or `$gsd-plan-phase 29` if the environment details are already known
-- Phase 29 (environment parity) requires the actual presentation laptop and is the highest-risk unknown per research — flag if the laptop's specific config (OneDrive sync, Defender policy, drive letters) is still undecided
-- Phase 30 (latency diagnosis) should only apply a fix if a measured bottleneck is found — no blind tuning
-- Backup laptop provisioning status is unresolved per research gaps — confirm with user before Phase 32 fallback planning
-- Prior v3.0 milestone (Phases 25-27, supervisor comments & literature review) closed 2026-06-18
+- v5.1 demo-readiness work is closed for the live-demo path.
+- Sync the defense slides to the final two-prompt demo script and Phase 32 readiness caveats.
+- Optional if time: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
+- Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
+- Next formal GSD step: `$gsd-complete-milestone v5.1` when you want to archive this milestone.
 
 ## Decisions
 
@@ -239,3 +238,4 @@ Progress: [█████████░] 94%
 - [Phase 31]: very_long case's HTTP 503 (GGUF n_ctx=512 context overflow -> RuntimeUnavailableError) classified as backend-origin, frozen-this-milestone behavior; documented, not fixed
 - [Phase 31]: Fixed demo.js double-submit controller-ownership race via request-local AbortController scoping, even though the verifier's final-state-only assertions already reported pass, because code trace confirmed a real transient race matching Pitfall 2
 - [Phase 32]: Phase 32 automated proof uses a fresh-process START_DEMO_UI.bat dry-run as evidence, while FB-01/FB-02/FB-03 and strict literal cold-boot acceptance remain human verification items; do not claim OS power-cycle coverage from the fresh-process run.
+- [Phase 32]: User scoped final defense readiness mostly to the live demo on 2026-07-09; fallback recording, screenshot sequence, and pivot rehearsal were closed as accepted-risk dispositions, while the final launcher dry-run passed both locked golden prompts.
