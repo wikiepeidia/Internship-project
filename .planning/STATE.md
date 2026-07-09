@@ -3,11 +3,10 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: — Demo Verification & Presentation Readiness
 current_phase: 32
-status: completed
+status: "Phase 32 shipped — PR #1"
 stopped_at: Phase 32 complete; v5.1 demo readiness closed with accepted fallback risk
-last_updated: "2026-07-09T14:14:18.680Z"
+last_updated: "2026-07-09T14:16:32.594Z"
 last_activity: 2026-07-09
-last_activity_desc: Phase 32 complete
 progress:
   total_phases: 20
   completed_phases: 20
@@ -37,8 +36,8 @@ current_phase_name: Fallback Recording & Full Dry Rehearsal
 
 Phase: 32
 Plan: All Phase 32 plans complete
-Status: v5.1 demo readiness complete; slides pending sync
-Last activity: 2026-07-09 — Phase 32 complete
+Status: Phase 32 shipped — PR #1
+Last activity: 2026-07-09
 
 Progress: [█████████░] 94%
 
