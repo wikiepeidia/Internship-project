@@ -337,7 +337,11 @@ def main(argv: list[str] | None = None) -> int:
     if error is not None:
         payload["error"] = error
     write_json(output_path, payload)
-    print(output_path)
+    try:
+        display_path = output_path.relative_to(ROOT)
+    except ValueError:
+        display_path = output_path
+    print(display_path)
     return 0 if overall_pass else 1
 
 
