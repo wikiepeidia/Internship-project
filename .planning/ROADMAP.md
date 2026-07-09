@@ -47,7 +47,7 @@
 - [x] **Phase 29: Environment Parity & Offline Verification** - Verify a fresh install on the actual presentation laptop is READY, fully offline, and free of CDN/CWD-relative-path leaks. (completed 2026-07-05)
 - [x] **Phase 30: Latency Diagnosis & Targeted Fix** - Measure true cold-boot latency on the presentation laptop and apply one targeted fix only if a specific bottleneck is found. (completed 2026-07-06, AC-only per D-10 SUPERSEDED)
 - [x] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract. (completed 2026-07-08)
-- [ ] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Record and rehearse a fallback (video + screenshots) and complete one full cold-boot dry rehearsal on the presentation laptop.
+- [x] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Demo-focused closeout: final launcher dry-run passed; fallback video/screenshot/pivot items documented as accepted-risk caveats. (completed 2026-07-09)
 
 ## Phase Details
 
@@ -512,6 +512,8 @@ Plans:
 
 **Plans**: TBD
 
+**Closeout note (2026-07-09):** Phase 32 was closed under a demo-focused defense-readiness scope. The final `scripts/START_DEMO_UI.bat` launcher passed a fresh-process browser dry-run with both locked golden prompts. Fallback recording, screenshot sequence, and pivot rehearsal were not supplied or verified; they are documented as accepted risks in `32-UAT.md`, `32-VERIFICATION.md`, and `32-DEFENSE-READINESS.md`.
+
 ---
 
 ### Phase 19: Slide Content Fixes
@@ -761,7 +763,7 @@ Plans:
 | 29. Environment Parity and Offline Verification | 4/4 | Complete    | 2026-07-05 |
 | 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete    | 2026-07-08 |
-| 32. Fallback Recording and Full Dry Rehearsal | 0/TBD | Not started | - |
+| 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
 
 ## Coverage Validation
 

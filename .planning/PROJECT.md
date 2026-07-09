@@ -22,12 +22,11 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Milestone v5.0 complete and closed (2026-06-20): final audit pass — report LOCKED for print.
 - Phase 28 complete and corrected (2026-07-02): dev-machine baseline diagnostics passed; the final golden demo prompts are a no-OTP malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice, each locked through five stable real web-demo runs; the corrected warm-latency baseline is `22705.562 ms` for Phase 30 comparison.
 - Phase 31 complete and verified (2026-07-08): the browser edge-case matrix (empty/very-long/malformed/mixed-language) and rapid double-submit race are covered by an automated real-demo verifier with `overall_pass: true`; the double-submit controller-ownership race was fixed in `demo.js`; `vnphish analyze` vs `vnphish demo` CLI confusion is resolved via clearer help text and two double-click Windows launchers; golden prompts remain stable 5/5 scam and 5/5 benign after the fix, with no backend/template regressions.
+- Phase 32 closed for demo-focused defense readiness (2026-07-09): the final `scripts/START_DEMO_UI.bat` launcher passed a fresh-process browser dry-run with both locked golden prompts (`high-risk`/`bank_impersonation` scam and `benign` OTP notice), doctor remains READY, and 30 focused runtime/UI tests passed. Fallback recording, screenshot sequence, and pivot rehearsal were not supplied or verified; they are documented as accepted-risk skips because the operator scoped defense readiness mostly to the live demo. Slide sync remains a separate near-term presentation task.
 
 ### Active
 
-- [ ] Verify the local demo runs reliably end-to-end (functional, offline, edge cases) on the presentation laptop before the defense window (13-20 July 2026).
-- [ ] Fix known demo latency/performance issue.
-- [ ] Prepare a fallback (recording or screenshots) in case the live demo fails during the defense.
+- [ ] Sync the defense slides to the final demo script and Phase 32 readiness caveats.
 
 ### Out of Scope
 
@@ -131,7 +130,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
-- v5.1 is active: Phase 28 closed and corrected the dev-machine baseline plus no-OTP golden-prompt lock; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers. Phase 32 (fallback recording and full dry rehearsal) is next, before the 13-20 July 2026 defense presentation.
+- v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk. Slides still need a final sync to the demo script.
 
 ## Evolution
 
@@ -153,4 +152,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-08 after Phase 31 UI quirks/edge-case/regression closeout — Phase 32 fallback recording and dry rehearsal is next
+Last updated: 2026-07-09 after Phase 32 demo-focused defense readiness closeout — slide sync remains pending
