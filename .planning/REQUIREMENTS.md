@@ -489,6 +489,43 @@ Requirements for milestone v5.1. Verifies and hardens the existing local demo be
 - mapped to phases: 99
 - Unmapped: 0
 
+## v5.2 Requirements — Emergency Slide Fix (10-Minute Presentation)
+
+Requirements for milestone v5.2. Compresses the defense slide deck to reliably fit a 10-minute presentation slot without cutting the Architecture/Data/Model methodology depth, and syncs the demo slide to the Phase 32 locked golden prompts. Emergency milestone — defense window is 13-20 July 2026.
+
+### Timing & Trim
+
+- [ ] **TIME-01**: Presenter has a measured baseline of current slide/section count and an estimated total delivery time against the 10-minute target.
+- [ ] **TIME-02**: Non-methodology sections (title, agenda, problem, why-local, confusion matrix, contributions, future work, references, thank-you) are trimmed or merged to reclaim time.
+- [ ] **TIME-03**: Architecture, Data pipeline, and Model/Training sections retain their existing explanatory depth — no content cuts.
+- [ ] **TIME-04**: Final deck lands at or near ~10 slides while still covering problem, methodology, evaluation, and conclusion.
+- [ ] **TIME-05**: Presenter has a rough per-slide timing estimate (seconds/slide) to rehearse against the 10-minute limit.
+
+### Demo Sync
+
+- [ ] **GDEMO-01**: Demo section of the slides references the 2 Phase-32 locked golden prompts (Vietcombank no-OTP scam + VPBank Smart OTP benign), not older/stale wording.
+- [ ] **GDEMO-02**: The demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit) is decided and reflected in both the deck and the presenter's run plan.
+
+| TIME-01 | Phase TBD | Pending |
+| TIME-02 | Phase TBD | Pending |
+| TIME-03 | Phase TBD | Pending |
+| TIME-04 | Phase TBD | Pending |
+| TIME-05 | Phase TBD | Pending |
+| GDEMO-01 | Phase TBD | Pending |
+| GDEMO-02 | Phase TBD | Pending |
+
+**Coverage (v5.2):**
+
+- tracked requirements: 7
+- mapped to phases: 0 (roadmap pending)
+- Unmapped: 7 ⚠️ (resolved during roadmap creation)
+
+**Coverage (all milestones):**
+
+- tracked requirements: 106 total (99 prior milestones + 7 v5.2)
+- mapped to phases: 99
+- Unmapped: 7 (v5.2, pending roadmap)
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-02 — v5.1 roadmap created: 21 requirements mapped to Phases 28-32 (added GOLD-01/02 for the 1-minute live-demo golden-prompt constraint)*
+*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: 7 requirements defined (TIME-01–05, GDEMO-01–02), roadmap pending*
