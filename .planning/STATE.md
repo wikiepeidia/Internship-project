@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v5.2
 milestone_name: Emergency Slide Fix
 status: planning
-last_updated: "2026-07-13T12:15:08.791Z"
+last_updated: "2026-07-13T13:30:00.000Z"
 last_activity: 2026-07-13
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v5.1 — verify the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues (latency, CLI entrypoint confusion, UI quirks), lock 2 golden demo prompts (scam + benign) for the real ~1-minute live-demo window, and prepare a rehearsed fallback. Backend/API contract stays frozen for this milestone.
+- Current milestone focus: v5.2 (emergency) — compress the defense slide deck so it reliably fits the 10-minute presentation slot within the 13-20 July 2026 defense window, without cutting Architecture/Data/Model methodology depth; sync the demo slide to the 2 Phase-32 locked golden prompts (scam + benign); lock the demo-in-slot decision. Single-phase milestone (Phase 33) — all 7 requirements are tightly coupled edits to the same slide deck.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 33 - Emergency 10-Minute Slide Compression (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-13 — Milestone v5.2 started
+Status: Roadmap created, ready for planning
+Last activity: 2026-07-13 — v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 requirements mapped (TIME-01-05, GDEMO-01-02)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -81,12 +81,25 @@ Last activity: 2026-07-13 — Milestone v5.2 started
 - v5.1 fixes are non-invasive by design: external scripts/launchers, self-hosted font assets, and exact version pins (`llama-cpp-python==0.3.23`) — no redesign of `src/runtime/service.py`, the `/api/analyze` contract, or `data-slot` templates.
 - The real live demo window during defense is only ~1 minute, so v5.1 adds GOLD-01/GOLD-02 (Phase 28): lock exactly 2 prompts (1 scam + 1 benign) proven correct across 5+ repeated runs each, and Phase 32's fallback recording/rehearsal narrows to those same 2 locked prompts (not the fuller 4-message threat-class set) so the fallback mirrors exactly what's shown live.
 - Phase 28 golden prompts were corrected after review: the final scam prompt is a no-OTP malicious-link Vietcombank fake-access alert, and the final benign prompt is a legitimate VPBank Smart OTP notice. Legitimate bank OTP notices without unsafe link/action cues should render `benign`; fake bank alerts with links, lock/urgent action, or unknown access pressure remain `bank_impersonation`.
+- v5.2 roadmap (2026-07-13, emergency): single-phase roadmap — Phase 33 covers all 7 requirements (TIME-01-05, GDEMO-01-02) because they are tightly coupled edits to the same slide deck (`documents/reports/latex/slides.tex`), not independent workstreams; splitting the timing audit from the content edits was considered and rejected as unnecessary process overhead given the emergency time pressure.
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 99 (78 prior milestones + 21 v5.1)
-- mapped to phases: 99
+- tracked requirements: 106 (99 prior milestones + 7 v5.2)
+- mapped to phases: 106
 - Unmapped: 0
+
+### v5.2 Requirements at a Glance
+
+| Requirement | Phase | Description |
+| ----------- | ----- | ----------- |
+| TIME-01 | 33 | Measured baseline of current slide/section count + estimated delivery time |
+| TIME-02 | 33 | Trim/merge non-methodology sections (title, agenda, problem, why-local, confusion, contributions, future, references, thank-you) |
+| TIME-03 | 33 | Architecture/Data/Model sections retain full explanatory depth, no cuts |
+| TIME-04 | 33 | Final deck lands at/near ~10 slides, still covers problem/methodology/evaluation/conclusion |
+| TIME-05 | 33 | Rough per-slide timing estimate (seconds/slide) for rehearsal |
+| GDEMO-01 | 33 | Demo section synced to the 2 Phase-32 locked golden prompts, no stale wording |
+| GDEMO-02 | 33 | Demo-in-slot decision (1-min reserved vs. cut) locked in deck + run plan |
 
 ### v5.1 Requirements at a Glance
 
@@ -167,9 +180,9 @@ Last activity: 2026-07-13 — Milestone v5.2 started
 
 ## Session Continuity
 
-**Last session:** 2026-07-09T14:13:30.028Z
-**Stopped at:** Phase 32 complete; v5.1 demo readiness closed with accepted fallback risk
-**Resume file:** None
+**Last session:** 2026-07-13T13:30:00.000Z
+**Stopped at:** v5.2 roadmap created; Phase 33 (Emergency 10-Minute Slide Compression) defined with 7/7 v5.2 requirements mapped, ready for planning
+**Resume file:** `.planning/ROADMAP.md` (Phase 33 detail section)
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -212,14 +225,16 @@ Last activity: 2026-07-13 — Milestone v5.2 started
 | 2026-07-02 | v5.1 roadmap creation | Complete. Phases 28-32 defined, 21/21 v5.1 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-02 | `260702-l0q` re-evaluate Phase 28 golden prompts | Complete. Legitimate bank OTP notices now render benign; final golden pair relocked as Vietcombank malicious-link scam 5/5 high-risk bank impersonation and VPBank Smart OTP benign 5/5 benign. |
 | 2026-07-02 | `260702-ldt` remove OTP sentence from scam golden prompt | Complete. No-OTP Vietcombank malicious-link scam relocked 5/5 as high-risk bank impersonation; VPBank Smart OTP benign stayed 5/5 benign. |
+| 2026-07-13 | v5.2 roadmap creation | Complete. Phase 33 defined (single phase, emergency milestone), 7/7 v5.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 
 ## Operator Next Steps
 
 - v5.1 demo-readiness work is closed for the live-demo path.
-- Sync the defense slides to the final two-prompt demo script and Phase 32 readiness caveats.
-- Optional if time: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
+- v5.2 roadmap is created: Phase 33 (Emergency 10-Minute Slide Compression) covers all 7 requirements — timing audit, trim non-methodology sections, protect Architecture/Data/Model depth, land at ~10 slides, per-slide timing estimate, sync demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
+- Given the emergency window (defense 13-20 July 2026, today 2026-07-13), move straight to execution: `$gsd-plan-phase 33` to build the execution plan, then `$gsd-execute-phase 33` (or equivalent) to make the edits.
+- Optional if time remains after Phase 33: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
 - Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
-- Next formal GSD step: `$gsd-complete-milestone v5.1` when you want to archive this milestone.
+- Next formal GSD step: `$gsd-complete-milestone v5.2` once Phase 33 ships and the deck is rehearsal-verified at or under 10 minutes.
 
 ## Decisions
 

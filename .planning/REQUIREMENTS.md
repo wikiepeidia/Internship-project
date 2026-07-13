@@ -506,26 +506,26 @@ Requirements for milestone v5.2. Compresses the defense slide deck to reliably f
 - [ ] **GDEMO-01**: Demo section of the slides references the 2 Phase-32 locked golden prompts (Vietcombank no-OTP scam + VPBank Smart OTP benign), not older/stale wording.
 - [ ] **GDEMO-02**: The demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit) is decided and reflected in both the deck and the presenter's run plan.
 
-| TIME-01 | Phase TBD | Pending |
-| TIME-02 | Phase TBD | Pending |
-| TIME-03 | Phase TBD | Pending |
-| TIME-04 | Phase TBD | Pending |
-| TIME-05 | Phase TBD | Pending |
-| GDEMO-01 | Phase TBD | Pending |
-| GDEMO-02 | Phase TBD | Pending |
+| TIME-01 | Phase 33 | Planned |
+| TIME-02 | Phase 33 | Planned |
+| TIME-03 | Phase 33 | Planned |
+| TIME-04 | Phase 33 | Planned |
+| TIME-05 | Phase 33 | Planned |
+| GDEMO-01 | Phase 33 | Planned |
+| GDEMO-02 | Phase 33 | Planned |
 
 **Coverage (v5.2):**
 
 - tracked requirements: 7
-- mapped to phases: 0 (roadmap pending)
-- Unmapped: 7 ⚠️ (resolved during roadmap creation)
+- mapped to phases: 7
+- Unmapped: 0
 
 **Coverage (all milestones):**
 
 - tracked requirements: 106 total (99 prior milestones + 7 v5.2)
-- mapped to phases: 99
-- Unmapped: 7 (v5.2, pending roadmap)
+- mapped to phases: 106
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: 7 requirements defined (TIME-01–05, GDEMO-01–02), roadmap pending*
+*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: roadmap created — Phase 33 covers all 7 requirements (TIME-01–05, GDEMO-01–02)*

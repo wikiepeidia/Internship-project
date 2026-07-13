@@ -49,6 +49,12 @@
 - [x] **Phase 31: UI Quirks, Edge Cases & Regression Re-check** - Re-test the full edge-case matrix and CLI entrypoint clarity after all fixes land, without breaking the frozen backend contract. (completed 2026-07-08)
 - [x] **Phase 32: Fallback Recording & Full Dry Rehearsal** - Demo-focused closeout: final launcher dry-run passed; fallback video/screenshot/pivot items documented as accepted-risk caveats. (completed 2026-07-09)
 
+### v5.2 — Emergency Slide Fix — 10-Minute Presentation (target: within defense window 13-20 July 2026)
+
+**Note:** Emergency milestone, single-phase by design — all 7 requirements are tightly coupled edits to the same slide deck (`documents/reports/latex/slides.tex`), not independent workstreams.
+
+- [ ] **Phase 33: Emergency 10-Minute Slide Compression** - Audit current slide/section timing, trim non-methodology sections while protecting Architecture/Data/Model depth, land at ~10 slides, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
+
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
@@ -727,6 +733,21 @@ Plans:
 
 **Plans**: TBD
 
+### Phase 33: Emergency 10-Minute Slide Compression
+
+**Goal**: The defense slide deck reliably fits a 10-minute presentation slot without cutting Architecture/Data/Model methodology depth, the demo slide reflects the 2 Phase-32 locked golden prompts, and the demo-in-slot decision is locked.
+**Depends on**: Phase 32
+**Requirements**: TIME-01, TIME-02, TIME-03, TIME-04, TIME-05, GDEMO-01, GDEMO-02
+**Success Criteria** (what must be TRUE):
+
+1. A documented baseline exists: current slide/section count per file (`01_title.tex` through `15_thankyou.tex`) and an estimated total delivery time against the 10-minute target, captured before any trims are made.
+2. Non-methodology sections (`01_title`, `02_agenda`, `03_problem`, `06_why_local`, `09_confusion`, `11_contributions`, `12_future`, `13_references`, `15_thankyou`) are visibly trimmed or merged to reclaim time, while `04_architecture.tex`, `05_data.tex`, and `07_model.tex` retain their existing explanatory depth with no content cut.
+3. The compiled deck (XeLaTeX, zero errors) lands at or near ~10 slides while still covering problem, methodology, evaluation, and conclusion.
+4. A rough per-slide timing estimate (seconds/slide) exists and sums to at or under 10 minutes total, including whatever demo time was decided on, so the presenter can rehearse against the real limit.
+5. The demo section (`10_demo.tex`) references the exact 2 Phase-32 locked golden prompts (Vietcombank no-OTP malicious-link scam + VPBank Smart OTP benign notice) with no stale wording, and the demo-in-slot decision (1-minute reserved demo vs. cut-if-timing-doesn't-fit) is written into both the deck and the presenter's run plan.
+
+**Plans**: TBD
+
 ---
 
 ## Progress Table
@@ -764,11 +785,12 @@ Plans:
 | 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete    | 2026-07-08 |
 | 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
+| 33. Emergency 10-Minute Slide Compression | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 99 (78 prior milestones + 21 v5.1)
-- tracked requirements mapped: 99
+- tracked requirements total: 106 (99 prior milestones + 7 v5.2)
+- tracked requirements mapped: 106
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -880,3 +902,10 @@ Coverage map:
 - FB-02 -> Phase 32
 - FB-03 -> Phase 32
 - FB-04 -> Phase 32
+- TIME-01 -> Phase 33
+- TIME-02 -> Phase 33
+- TIME-03 -> Phase 33
+- TIME-04 -> Phase 33
+- TIME-05 -> Phase 33
+- GDEMO-01 -> Phase 33
+- GDEMO-02 -> Phase 33
