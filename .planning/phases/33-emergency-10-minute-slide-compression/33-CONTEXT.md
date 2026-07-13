@@ -23,13 +23,18 @@ Compress the defense Beamer deck (`documents/reports/latex/slides.tex` + `docume
 - **D-06:** Architecture (`04_architecture.tex`), Data (`05_data.tex`), Model (`07_model.tex`), References (`13_references.tex`), and Thank You (`15_thankyou.tex`) remain **completely untouched** — no content cuts, no merges, no reordering.
 - **Result:** 15 → 11 frames: Title, Agenda, Motivation+WhyLocal, Architecture, Data, Model, Evaluation+Confusion, Contributions+Future, Demo (combined), Thank You, References.
 
-### Demo Content Sync (GDEMO-01)
+### Demo Content Sync (GDEMO-01) — REVISED
 
-- **D-07:** The "Sample Output" half of the demo frame currently shows a **stale, non-golden example**: `"Tài khoản Vietcombank của bạn đã bị hạn chế... nhập mã OTP đã gửi đến số điện thoại..."`. This does NOT match the actual locked scam golden prompt (which was deliberately stripped of any OTP-request sentence per quick task `260702-ldt`). Replace the sample input/output verbatim with the real locked scam text from `scripts/verify_golden_prompts.py` `DEFAULT_SCAM_TEXT`:
+- **D-07 (superseded — see correction below):** ~~Replace the static "Sample Output" text in `10_demo.tex` with the real locked scam text.~~ **User correction:** Do NOT edit the static "Sample Output" text in `10_demo.tex` — leave it exactly as it is. The recorded video (D-10) will visually cover this slide once placed via the PDF editor, so editing LaTeX text that won't be seen is wasted effort and adds unnecessary compile risk this close to the defense.
+- **D-08 (revised):** GDEMO-01 ("demo references the locked golden prompts, not stale wording") is satisfied through the **recording itself**, not the LaTeX. When the user records the live demo, they must actually type/paste the real locked `DEFAULT_SCAM_TEXT` from `scripts/verify_golden_prompts.py`:
   > "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi)."
 
-  And update the shown system output to match this text's real grounded cues (suspicious link + unauthorized-access urgency — not OTP cues) and its correct label (`bank_impersonation`, high risk).
-- **D-08:** Do not add the benign golden prompt to the slide — one worked example (the scam case) is enough for a single demo frame. Verbal narration during the talk can mention the benign case was also verified.
+  This is a **recording-content rule for the user to follow**, not a task this phase's LaTeX edits perform. The plan should surface this as a clear reminder/checklist item rather than a code change.
+- **D-08b:** Do not add the benign golden prompt to the slide — not applicable now that the static slide text isn't being touched at all.
+
+### Title Slide Date Fix (new — found during planning, not in original REQUIREMENTS.md scope, but user-approved)
+
+- **D-12:** `slides.tex` line 69 currently prints `\date{14 July 2026}`. The actual confirmed defense date is **15 July 2026**. Fix this one-line date string. This is a factual-correctness fix the user explicitly approved when it was surfaced — small, isolated, zero risk to the consolidation work.
 
 ### Demo-in-Slot Decision (GDEMO-02)
 
