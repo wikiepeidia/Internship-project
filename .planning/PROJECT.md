@@ -26,7 +26,9 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Sync the defense slides to the final demo script and Phase 32 readiness caveats.
+- [ ] Compress the defense slide deck to reliably fit a 10-minute presentation slot, without cutting Architecture/Data/Model methodology depth.
+- [ ] Sync the defense slides to the final demo script (2 locked golden prompts) and Phase 32 readiness caveats.
+- [ ] Decide and lock the demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit).
 
 ### Out of Scope
 
@@ -59,19 +61,30 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v5.1 Demo Verification & Presentation Readiness
+## Current Milestone: v5.2 Emergency Slide Fix — 10-Minute Presentation
 
-**Goal:** Confirm the local demo runs reliably end-to-end on the presentation laptop before the 13-20 July 2026 defense window, fix known issues, and prep a fallback in case the live demo fails.
+**Goal:** Compress and fix the defense slide deck so it reliably fits a 10-minute presentation slot, without cutting the depth of the Architecture, Data, and Model/Training methodology sections.
 
 **Target features:**
 
-- End-to-end functional verification: sample scam + benign messages across all in-scope threat classes, confirm risk tier + explanation + safe-steps output
-- Offline/portability check on the presentation laptop (no network calls, model loads from local artifact root)
-- Edge case handling verification (empty input, very long text, malformed/non-scam text)
-- Fix: demo latency/performance issue
-- Fix: CLI entrypoint confusion between `vnphish analyze` (text-only, no page) and `vnphish demo` (web UI)
-- Fix: any UI quirks surfaced during verification
-- Fallback plan: recorded screen capture or screenshots as backup if the live demo fails during defense
+- Slide count/timing audit: measure current section/slide count and estimate delivery time against the 10-minute target (~10 slides guideline, 1 minute reserved for the demo)
+- Trim/merge non-methodology sections (title, agenda, problem, why-local, confusion matrix, contributions, future work, references, thank-you) to reclaim time
+- Keep Architecture, Data pipeline, and Model/Training sections' content and depth intact — no cuts there
+- Sync remaining demo-related slide content to the Phase 32 locked golden prompts (scam + benign)
+- Decide and lock the demo-in-slot approach: 1-minute reserved demo vs. cutting the demo if timing doesn't fit
+- Rough per-slide timing estimate so the presenter can rehearse against the real 10-minute limit
+
+## Completed Milestone: v5.1 Demo Verification & Presentation Readiness
+
+**Closed:** 2026-07-09 (demo-readiness path) / slide sync folded into v5.2
+
+**Delivered:**
+
+- Phase 28: dev-machine baseline diagnostics; 2 golden prompts (no-OTP Vietcombank scam + VPBank Smart OTP benign) locked 5/5 through the real web demo
+- Phase 29: presentation-laptop environment, offline behavior, and portability verified
+- Phase 30: latency diagnosed, no fix needed (warm baseline `22705.562 ms`)
+- Phase 31: browser edge-case matrix green; double-submit controller-ownership race fixed in `demo.js`; CLI entrypoint confusion resolved via help text and launchers
+- Phase 32: `scripts/START_DEMO_UI.bat` launcher passed a fresh-process dry-run with both golden prompts; doctor READY; 30 runtime/UI tests passed. Fallback recording, screenshot sequence, and pivot rehearsal were accepted-risk skips.
 
 ## Completed Milestone: v2.2 Report Formatting — Department Template
 
@@ -130,7 +143,8 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
-- v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk. Slides still need a final sync to the demo script.
+- v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk.
+- v5.2 (started 2026-07-13, emergency): the 15-section slide deck is too long for the 10-minute defense slot. Scope is compress/trim to ~10 slides while keeping Architecture/Data/Model methodology depth intact, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
 
 ## Evolution
 
@@ -152,4 +166,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-09 after Phase 32 demo-focused defense readiness closeout — slide sync remains pending
+Last updated: 2026-07-13 after starting v5.2 emergency slide-fix milestone
