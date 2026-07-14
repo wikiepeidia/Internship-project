@@ -55,6 +55,12 @@
 
 - [x] **Phase 33: Emergency 10-Minute Slide Compression** - Audit current slide/section timing, trim non-methodology sections while protecting Architecture/Data/Model depth, land at ~10 slides, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision. (completed 2026-07-13)
 
+### v5.3 — Slide Scripts & Q&A Preparation (target: before defense 2026-07-15)
+
+**Note:** Emergency milestone, defense is tomorrow (2026-07-15). Two independent, non-overlapping content deliverables — presenter speaking-cue script and Q&A preparation document — touch different files and share no state, but are bundled into a single phase per the smallest-viable-phase-count directive; expected to execute as parallel plans/tasks within one wave rather than as separate phases. Pure content-writing (markdown), not code — the locked thesis report and slide deck are not modified by this milestone.
+
+- [ ] **Phase 34: Speaking Script & Q&A Preparation** - Write talking-point speaking cues for all 12 defense slides (short spoken fragments, timed to the `33-RUN-PLAN.md` ~8:05 budget) and a topic-organized Q&A preparation document in plain first-person language, with explicit talking points for authorship/understanding challenges.
+
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
@@ -752,6 +758,20 @@ Plans:
 
 - [x] 33-01-PLAN.md -- Compress 15->11 frames across 4 merges (Motivation+WhyLocal, Evaluation+Confusion, Contributions+Future, Demo), fix the defense date, wire a hidden backup appendix, XeLaTeX-verify, and write the presenter run plan (baseline+final timing, demo-in-slot decision, golden-prompt recording checklist)
 
+### Phase 34: Speaking Script & Q&A Preparation
+
+**Goal**: The presenter has talking-point speaking cues for all 12 defense slides and a topic-organized Q&A preparation document, both in plain first-person, explainable language, so they can present and defend the work confidently in their own words at the 2026-07-15 defense — directly addressing the judge's informal "reads as AI-generated" feedback.
+**Depends on**: Phase 33
+**Requirements**: SCRIPT-01, SCRIPT-02, SCRIPT-03, QA-01, QA-02, QA-03, QA-04
+**Success Criteria** (what must be TRUE):
+
+1. A speaking-cues document exists covering all 12 main slides in current deck order (Title, Agenda, Motivation & Why Local, Architecture, Data, Model, Evaluation Results, Contributions & Future Work, Sample Output, Demo, Thank You, References), with each slide's cues phrased as short spoken fragments/keywords to elaborate on live — not full sentences to recite — sized to fit that slide's allotted seconds from `33-RUN-PLAN.md`'s ~8:05 timing budget.
+2. A Q&A preparation document exists, organized by topic (data pipeline/dataset, model adaptation QLoRA/GGUF, architecture/privacy rationale, evaluation/metrics, limitations, design-choice rationale), with every answer written in plain first-person language backed by concrete numbers and reasoning the presenter can restate in their own words.
+3. The Q&A document contains an explicit, ready-to-use set of talking points for "does this look/sound AI-generated" and authorship/understanding-challenge questions from judges.
+4. The presenter can locate any topic's answer within seconds during last-minute review — the document is organized with clear per-topic headers/lookup structure, not one undifferentiated block of prose.
+
+**Plans**: TBD
+
 ---
 
 ## Progress Table
@@ -790,11 +810,12 @@ Plans:
 | 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete    | 2026-07-08 |
 | 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
 | 33. Emergency 10-Minute Slide Compression | 1/1 | Complete | 2026-07-13 |
+| 34. Speaking Script & Q&A Preparation | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 106 (99 prior milestones + 7 v5.2)
-- tracked requirements mapped: 106
+- tracked requirements total: 113 (106 prior milestones + 7 v5.3)
+- tracked requirements mapped: 113
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -913,3 +934,10 @@ Coverage map:
 - TIME-05 -> Phase 33
 - GDEMO-01 -> Phase 33
 - GDEMO-02 -> Phase 33
+- SCRIPT-01 -> Phase 34
+- SCRIPT-02 -> Phase 34
+- SCRIPT-03 -> Phase 34
+- QA-01 -> Phase 34
+- QA-02 -> Phase 34
+- QA-03 -> Phase 34
+- QA-04 -> Phase 34

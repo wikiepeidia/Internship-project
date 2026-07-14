@@ -543,26 +543,26 @@ Requirements for milestone v5.3. Emergency milestone — defense is 15 July 2026
 - [ ] **QA-03**: Q&A explicitly addresses the "does this look AI-generated" risk raised by the judge's informal preview — includes ready talking points if a judge questions authorship or understanding.
 - [ ] **QA-04**: Q&A is organized by topic/category for fast lookup during last-minute review and live reference.
 
-| SCRIPT-01 | Phase TBD | Pending |
-| SCRIPT-02 | Phase TBD | Pending |
-| SCRIPT-03 | Phase TBD | Pending |
-| QA-01 | Phase TBD | Pending |
-| QA-02 | Phase TBD | Pending |
-| QA-03 | Phase TBD | Pending |
-| QA-04 | Phase TBD | Pending |
+| SCRIPT-01 | Phase 34 | Planned |
+| SCRIPT-02 | Phase 34 | Planned |
+| SCRIPT-03 | Phase 34 | Planned |
+| QA-01 | Phase 34 | Planned |
+| QA-02 | Phase 34 | Planned |
+| QA-03 | Phase 34 | Planned |
+| QA-04 | Phase 34 | Planned |
 
 **Coverage (v5.3):**
 
 - tracked requirements: 7
-- mapped to phases: 0 (roadmap pending)
-- Unmapped: 7 ⚠️ (resolved during roadmap creation)
+- mapped to phases: 7
+- Unmapped: 0
 
 **Coverage (all milestones):**
 
 - tracked requirements: 113 total (106 prior milestones + 7 v5.3)
-- mapped to phases: 106
-- Unmapped: 7 (v5.3, pending roadmap)
+- mapped to phases: 113
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: 7 requirements defined (SCRIPT-01–03, QA-01–04), roadmap pending*
+*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: roadmap created — Phase 34 covers all 7 requirements (SCRIPT-01–03, QA-01–04)*

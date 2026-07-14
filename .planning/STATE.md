@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v5.3
 milestone_name: Slide Scripts & Q&A Preparation
 status: planning
-last_updated: "2026-07-14T01:58:24.688Z"
+last_updated: "2026-07-14T03:00:00.000Z"
 last_activity: 2026-07-14
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 34 - Speaking Script & Q&A Preparation (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-14 — Milestone v5.3 started
+Status: Roadmap created, ready for planning
+Last activity: 2026-07-14 — v5.3 roadmap created: Phase 34 defined, 7/7 v5.3 requirements mapped (SCRIPT-01-03, QA-01-04)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -85,12 +85,25 @@ Last activity: 2026-07-14 — Milestone v5.3 started
 - Phase 33 COMPLETE (2026-07-13): deck compressed 15->11 main frames (9->7 sections) via 4 merges (Motivation+WhyLocal, Evaluation+Confusion, Contributions+Future, Demo x2->x1); Architecture/Data/Model/References/ThankYou/Title confirmed byte-identical (git diff --exit-code hard gate); hidden 3-frame Beamer backup appendix wired via `\appendix` + `\insertmainframenumber` (footline denominator frozen at 11, verified live via pdftotext against the compiled PDF); title-slide date fixed 14->15 July 2026; GDEMO-01 satisfied via 33-RUN-PLAN.md's recording checklist (both scam + benign golden prompts) rather than editing the demo slide's static text, since the user will overlay a recorded video over that slide via a PDF editor afterward. Final TIME-05 estimate: ~535s (8:55), 65s under the 10:00 target — real rehearsal with a stopwatch is still the user's job.
 - Tooling note: GSD's generic `progress` query verb globs `*-PLAN.md` on disk to count plans, which false-matches deliverable filenames ending in "-PLAN.md" (e.g. `33-RUN-PLAN.md` was miscounted as a second plan for Phase 33 even though ROADMAP.md/`phase-plan-index` correctly show only one real plan, `33-01-PLAN.md`). Harmless cosmetic quirk, not fixed — future phases should avoid naming deliverable docs `*-PLAN.md` if this aggregate counter matters.
 - Tooling note: `Agent(isolation="worktree")` forks from `origin/HEAD`, not local `HEAD`. On a repo with unpushed local commits (this one hasn't pushed since PR #1 / commit 25ca41c), that fork base goes stale fast and executor agents correctly self-halt (exit 42) rather than commit against a stale base. `gsd_run query worktree.base-check` detects this (`shouldDegrade: true`) and the documented fix is to degrade to sequential execution for the affected run, or push to origin more often, or set `worktree.baseRef:"head"` in `.claude/settings.local.json`.
+- v5.3 roadmap (2026-07-14, emergency): single-phase roadmap — Phase 34 covers all 7 requirements (SCRIPT-01-03, QA-01-04) because the two deliverables (speaking-cue script, Q&A doc) are independent content with no file/state overlap but form one cohesive presenter-readiness goal; smallest-viable-phase-count directive applied — splitting into two phases was considered and rejected as unnecessary process overhead given the defense is tomorrow (2026-07-15).
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 106 (99 prior milestones + 7 v5.2)
-- mapped to phases: 106
+- tracked requirements: 113 (106 prior milestones + 7 v5.3)
+- mapped to phases: 113
 - Unmapped: 0
+
+### v5.3 Requirements at a Glance
+
+| Requirement | Phase | Description |
+| ----------- | ----- | ----------- |
+| SCRIPT-01 | 34 | Speaking cues for all 12 main slides, matching current content/order |
+| SCRIPT-02 | 34 | Cues fit each slide's allotted seconds from 33-RUN-PLAN.md's ~8:05 budget |
+| SCRIPT-03 | 34 | Cues are short spoken fragments/keywords, not full sentences to recite |
+| QA-01 | 34 | Q&A covers data pipeline, model adaptation, architecture/privacy, evaluation, limitations, design rationale |
+| QA-02 | 34 | Answers in plain first-person language with concrete numbers/reasoning |
+| QA-03 | 34 | Explicit talking points for "does this look AI-generated" / authorship challenges |
+| QA-04 | 34 | Q&A organized by topic for fast lookup during last-minute review |
 
 ### v5.2 Requirements at a Glance
 
@@ -183,9 +196,9 @@ Last activity: 2026-07-14 — Milestone v5.3 started
 
 ## Session Continuity
 
-**Last session:** 2026-07-13T15:40:00.000Z
-**Stopped at:** Phase 33 complete — all 3 tasks committed, deck compiles clean, 33-RUN-PLAN.md ready
-**Resume file:** .planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md
+**Last session:** 2026-07-14T03:00:00.000Z
+**Stopped at:** v5.3 roadmap created; Phase 34 (Speaking Script & Q&A Preparation) defined with 7/7 v5.3 requirements mapped, ready for planning
+**Resume file:** `.planning/ROADMAP.md` (Phase 34 detail section)
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -229,16 +242,15 @@ Last activity: 2026-07-14 — Milestone v5.3 started
 | 2026-07-02 | `260702-l0q` re-evaluate Phase 28 golden prompts | Complete. Legitimate bank OTP notices now render benign; final golden pair relocked as Vietcombank malicious-link scam 5/5 high-risk bank impersonation and VPBank Smart OTP benign 5/5 benign. |
 | 2026-07-02 | `260702-ldt` remove OTP sentence from scam golden prompt | Complete. No-OTP Vietcombank malicious-link scam relocked 5/5 as high-risk bank impersonation; VPBank Smart OTP benign stayed 5/5 benign. |
 | 2026-07-13 | v5.2 roadmap creation | Complete. Phase 33 defined (single phase, emergency milestone), 7/7 v5.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
+| 2026-07-14 | v5.3 roadmap creation | Complete. Phase 34 defined (single phase, emergency milestone), 7/7 v5.3 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 
 ## Operator Next Steps
 
-- v5.1 demo-readiness work is closed for the live-demo path.
-- **Phase 33 (Emergency 10-Minute Slide Compression) is COMPLETE** — deck compressed 15->11 frames, XeLaTeX compiles clean, all 7 v5.2 requirements delivered.
-- **Your turn:** open `documents/reports/latex/slides.pdf`, review it, then do a real stopwatch rehearsal — see `.planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md` for the baseline/final timing tables, the locked demo-in-slot decision, and (important) the exact golden-prompt text to actually use when you run or record the live demo (the slide's own printed sample text is illustrative-only and was deliberately left unchanged).
-- After compiling, overlay your recorded demo video onto the Live Demo slide via a PDF editor per the plan (D-10) — the frame's layout was kept simple/stable specifically for this.
-- Optional if time remains: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
+- v5.2 (Emergency 10-Minute Slide Compression) shipped 2026-07-14 — deck compressed 15->12 main frames (7 sections), XeLaTeX compiles clean, ~8:05 timing per `33-RUN-PLAN.md` (about 2 min under the 10:00 target). Real stopwatch rehearsal and the recorded-demo-video PDF overlay (D-10) are still the operator's own pending action items — see `.planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md`.
+- v5.3 roadmap is created: Phase 34 (Speaking Script & Q&A Preparation) covers all 7 requirements — talking-point speaking cues for all 12 slides timed to the ~8:05 budget, plus a topic-organized Q&A preparation document in plain first-person language with explicit authorship-challenge talking points.
+- **Extreme urgency: defense is 2026-07-15 (tomorrow).** Move straight to execution — `$gsd-plan-phase 34` to build the execution plan, then execute immediately. This is pure content-writing (markdown), no research or code needed.
 - Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
-- Next formal GSD step: `$gsd-complete-milestone v5.2` once you've reviewed the compiled PDF and rehearsed.
+- Next formal GSD step: `$gsd-plan-phase 34`, then `$gsd-complete-milestone v5.3` once the speaking script and Q&A doc are delivered and reviewed.
 
 ## Decisions
 
