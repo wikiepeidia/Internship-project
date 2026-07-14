@@ -59,7 +59,7 @@
 
 **Note:** Emergency milestone, defense is tomorrow (2026-07-15). Two independent, non-overlapping content deliverables — presenter speaking-cue script and Q&A preparation document — touch different files and share no state, but are bundled into a single phase per the smallest-viable-phase-count directive; expected to execute as parallel plans/tasks within one wave rather than as separate phases. Pure content-writing (markdown), not code — the locked thesis report and slide deck are not modified by this milestone.
 
-- [ ] **Phase 34: Speaking Script & Q&A Preparation** - Write talking-point speaking cues for all 12 defense slides (short spoken fragments, timed to the `33-RUN-PLAN.md` ~8:05 budget) and a topic-organized Q&A preparation document in plain first-person language, with explicit talking points for authorship/understanding challenges.
+- [x] **Phase 34: Speaking Script & Q&A Preparation** - Write talking-point speaking cues for all 12 defense slides (short spoken fragments, timed to the `33-RUN-PLAN.md` ~8:05 budget) and a topic-organized Q&A preparation document in plain first-person language, with explicit talking points for authorship/understanding challenges. (completed 2026-07-14)
 
 ## Phase Details
 
@@ -770,7 +770,11 @@ Plans:
 3. The Q&A document contains an explicit, ready-to-use set of talking points for "does this look/sound AI-generated" and authorship/understanding-challenge questions from judges.
 4. The presenter can locate any topic's answer within seconds during last-minute review — the document is organized with clear per-topic headers/lookup structure, not one undifferentiated block of prose.
 
-**Plans**: TBD
+**Plans**: 1/1 plan executed
+
+Plans:
+
+- [x] 34-01-PLAN.md (executed directly, no separate PLAN.md file — see 34-01-SUMMARY.md) -- Speaking script + Q&A prep for all 12 slides, both in documents/reports/supervisor/ (gitignored per project convention)
 
 ---
 
@@ -810,7 +814,7 @@ Plans:
 | 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete    | 2026-07-08 |
 | 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
 | 33. Emergency 10-Minute Slide Compression | 1/1 | Complete | 2026-07-13 |
-| 34. Speaking Script & Q&A Preparation | 0/TBD | Not started | - |
+| 34. Speaking Script & Q&A Preparation | 1/1 | Complete | 2026-07-14 |
 
 ## Coverage Validation
 

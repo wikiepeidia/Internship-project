@@ -31,10 +31,12 @@ progress:
 
 ## Current Position
 
-Phase: 34 - Speaking Script & Q&A Preparation (not started)
-Plan: —
-Status: Roadmap created, ready for planning
-Last activity: 2026-07-14 — v5.3 roadmap created: Phase 34 defined, 7/7 v5.3 requirements mapped (SCRIPT-01-03, QA-01-04)
+Phase: 34 - Speaking Script & Q&A Preparation (complete)
+Plan: 34-01 (complete)
+Status: Phase 34 shipped — speaking script + Q&A prep both written, milestone v5.3 done
+Last activity: 2026-07-14 — Phase 34 executed: 12-slide speaking cues + comprehensive Q&A doc, 7/7 v5.3 requirements complete
+
+Progress: [██████████] 100% (v5.3 milestone — single phase, done)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -86,6 +88,7 @@ Last activity: 2026-07-14 — v5.3 roadmap created: Phase 34 defined, 7/7 v5.3 r
 - Tooling note: GSD's generic `progress` query verb globs `*-PLAN.md` on disk to count plans, which false-matches deliverable filenames ending in "-PLAN.md" (e.g. `33-RUN-PLAN.md` was miscounted as a second plan for Phase 33 even though ROADMAP.md/`phase-plan-index` correctly show only one real plan, `33-01-PLAN.md`). Harmless cosmetic quirk, not fixed — future phases should avoid naming deliverable docs `*-PLAN.md` if this aggregate counter matters.
 - Tooling note: `Agent(isolation="worktree")` forks from `origin/HEAD`, not local `HEAD`. On a repo with unpushed local commits (this one hasn't pushed since PR #1 / commit 25ca41c), that fork base goes stale fast and executor agents correctly self-halt (exit 42) rather than commit against a stale base. `gsd_run query worktree.base-check` detects this (`shouldDegrade: true`) and the documented fix is to degrade to sequential execution for the affected run, or push to origin more often, or set `worktree.baseRef:"head"` in `.claude/settings.local.json`.
 - v5.3 roadmap (2026-07-14, emergency): single-phase roadmap — Phase 34 covers all 7 requirements (SCRIPT-01-03, QA-01-04) because the two deliverables (speaking-cue script, Q&A doc) are independent content with no file/state overlap but form one cohesive presenter-readiness goal; smallest-viable-phase-count directive applied — splitting into two phases was considered and rejected as unnecessary process overhead given the defense is tomorrow (2026-07-15).
+- Phase 34 COMPLETE (2026-07-14): executed directly (no discuss/research/plan-checker/executor-subagent pipeline — pure content-writing with no architectural ambiguity, given the deadline). Wrote `documents/reports/supervisor/defense_speaking_script.md` (12-slide talking-point cues summing to exactly 485s/8:05, matching 33-RUN-PLAN.md's TIME-05 table) and `documents/reports/supervisor/defense_qa_preparation.md` (9-section topic-organized Q&A: authorship/"AI-generated" defense, data governance incl. plain-language t-test explanation, QLoRA hyperparameters + NF4-vs-Q8_0 dual-quantization rationale, model selection pilot, recall-floor rationale, the task_scam 0.44->0.871 recall-recovery story, design rationale, quick-reference numbers table). Both files are gitignored per project convention (documents/reports/supervisor/ — confirmed via the pre-existing, never-committed mock_defense_script.md in the same directory); `.planning/phases/34-speaking-script-qa-preparation/34-01-SUMMARY.md` is the tracked record. Numbers verified against current locked chapters 03/05 and qlora_config.tex/dataset_statistics.tex — found and fixed a stale-number risk: the old June mock_defense_script.md cited macro F1 0.9553 vs. the current report's 0.9625.
 
 ### Requirement Coverage Snapshot
 
@@ -196,9 +199,9 @@ Last activity: 2026-07-14 — v5.3 roadmap created: Phase 34 defined, 7/7 v5.3 r
 
 ## Session Continuity
 
-**Last session:** 2026-07-14T03:00:00.000Z
-**Stopped at:** v5.3 roadmap created; Phase 34 (Speaking Script & Q&A Preparation) defined with 7/7 v5.3 requirements mapped, ready for planning
-**Resume file:** `.planning/ROADMAP.md` (Phase 34 detail section)
+**Last session:** 2026-07-14T04:00:00.000Z
+**Stopped at:** Phase 34 complete — speaking script and Q&A prep both written and verified, milestone v5.3 done
+**Resume file:** `documents/reports/supervisor/defense_qa_preparation.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -243,14 +246,20 @@ Last activity: 2026-07-14 — v5.3 roadmap created: Phase 34 defined, 7/7 v5.3 r
 | 2026-07-02 | `260702-ldt` remove OTP sentence from scam golden prompt | Complete. No-OTP Vietcombank malicious-link scam relocked 5/5 as high-risk bank impersonation; VPBank Smart OTP benign stayed 5/5 benign. |
 | 2026-07-13 | v5.2 roadmap creation | Complete. Phase 33 defined (single phase, emergency milestone), 7/7 v5.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-14 | v5.3 roadmap creation | Complete. Phase 34 defined (single phase, emergency milestone), 7/7 v5.3 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
+| 2026-07-14 | Phase 34 execution | Complete. Speaking script (12 slides, 8:05 timing) and Q&A prep (9 topic sections incl. AI-generated-authorship defense) written to documents/reports/supervisor/, all 7 v5.3 requirements delivered. |
 
 ## Operator Next Steps
 
-- v5.2 (Emergency 10-Minute Slide Compression) shipped 2026-07-14 — deck compressed 15->12 main frames (7 sections), XeLaTeX compiles clean, ~8:05 timing per `33-RUN-PLAN.md` (about 2 min under the 10:00 target). Real stopwatch rehearsal and the recorded-demo-video PDF overlay (D-10) are still the operator's own pending action items — see `.planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md`.
-- v5.3 roadmap is created: Phase 34 (Speaking Script & Q&A Preparation) covers all 7 requirements — talking-point speaking cues for all 12 slides timed to the ~8:05 budget, plus a topic-organized Q&A preparation document in plain first-person language with explicit authorship-challenge talking points.
-- **Extreme urgency: defense is 2026-07-15 (tomorrow).** Move straight to execution — `$gsd-plan-phase 34` to build the execution plan, then execute immediately. This is pure content-writing (markdown), no research or code needed.
+- **v5.2 and v5.3 are both shipped.** All planned emergency prep work for the 2026-07-15 defense is complete:
+  - v5.2: deck compressed 15->12 main frames (7 sections), XeLaTeX compiles clean, ~8:05 timing per `33-RUN-PLAN.md`.
+  - v5.3: `documents/reports/supervisor/defense_speaking_script.md` (12-slide talking-point cues) and `documents/reports/supervisor/defense_qa_preparation.md` (topic-organized Q&A, including a direct "does this look AI-generated" defense section) are written and verified against the current locked report.
+- **What's left is entirely the student's own action, not more GSD work:**
+  1. Read both `documents/reports/supervisor/defense_*.md` files fully at least once.
+  2. Do one full stopwatch rehearsal against the speaking script's timing table.
+  3. Overlay the recorded demo video onto the compiled `slides.pdf`'s Demo slide via a PDF editor (D-10, still pending).
+  4. Re-read Q&A Section 0 (AI-generated concern) and Section 5 (task_scam recall story) until they can be said conversationally, not read.
 - Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
-- Next formal GSD step: `$gsd-plan-phase 34`, then `$gsd-complete-milestone v5.3` once the speaking script and Q&A doc are delivered and reviewed.
+- Next formal GSD step (non-urgent, can wait until after the defense): `$gsd-complete-milestone v5.2` and `$gsd-complete-milestone v5.3` to archive both.
 
 ## Decisions
 

@@ -532,24 +532,26 @@ Requirements for milestone v5.3. Emergency milestone — defense is 15 July 2026
 
 ### Speaking Script
 
-- [ ] **SCRIPT-01**: Talking-point speaking cues exist for each of the 12 main slides (Title, Agenda, Motivation & Why Local, Architecture, Data, Model, Evaluation Results, Contributions & Future Work, Sample Output, Demo, Thank You, References), matching current slide content and order.
-- [ ] **SCRIPT-02**: Cues for each slide fit within that slide's allotted seconds from `33-RUN-PLAN.md`'s ~8:05 timing budget.
-- [ ] **SCRIPT-03**: Cues are phrased as short spoken fragments/keywords the presenter elaborates on live, not full sentences to memorize and recite verbatim.
+- [x] **SCRIPT-01**: Talking-point speaking cues exist for each of the 12 main slides (Title, Agenda, Motivation & Why Local, Architecture, Data, Model, Evaluation Results, Contributions & Future Work, Sample Output, Demo, Thank You, References), matching current slide content and order.
+- [x] **SCRIPT-02**: Cues for each slide fit within that slide's allotted seconds from `33-RUN-PLAN.md`'s ~8:05 timing budget.
+- [x] **SCRIPT-03**: Cues are phrased as short spoken fragments/keywords the presenter elaborates on live, not full sentences to memorize and recite verbatim.
 
 ### Q&A Preparation
 
-- [ ] **QA-01**: Q&A document covers all major report aspects: data pipeline/dataset, model adaptation (QLoRA/GGUF), architecture/privacy rationale, evaluation/metrics, limitations, and design-choice justifications (why local, why this model, why these threat classes).
-- [ ] **QA-02**: Each answer is written in plain, first-person, explainable language — concrete numbers and reasoning, not dense AI-polished prose — so the student can internalize and reproduce it in their own words.
-- [ ] **QA-03**: Q&A explicitly addresses the "does this look AI-generated" risk raised by the judge's informal preview — includes ready talking points if a judge questions authorship or understanding.
-- [ ] **QA-04**: Q&A is organized by topic/category for fast lookup during last-minute review and live reference.
+- [x] **QA-01**: Q&A document covers all major report aspects: data pipeline/dataset, model adaptation (QLoRA/GGUF), architecture/privacy rationale, evaluation/metrics, limitations, and design-choice justifications (why local, why this model, why these threat classes).
+- [x] **QA-02**: Each answer is written in plain, first-person, explainable language — concrete numbers and reasoning, not dense AI-polished prose — so the student can internalize and reproduce it in their own words.
+- [x] **QA-03**: Q&A explicitly addresses the "does this look AI-generated" risk raised by the judge's informal preview — includes ready talking points if a judge questions authorship or understanding.
+- [x] **QA-04**: Q&A is organized by topic/category for fast lookup during last-minute review and live reference.
 
-| SCRIPT-01 | Phase 34 | Planned |
-| SCRIPT-02 | Phase 34 | Planned |
-| SCRIPT-03 | Phase 34 | Planned |
-| QA-01 | Phase 34 | Planned |
-| QA-02 | Phase 34 | Planned |
-| QA-03 | Phase 34 | Planned |
-| QA-04 | Phase 34 | Planned |
+Deliverables: `documents/reports/supervisor/defense_speaking_script.md`, `documents/reports/supervisor/defense_qa_preparation.md` (both gitignored per project convention — see `.planning/phases/34-speaking-script-qa-preparation/34-01-SUMMARY.md` for the tracked record).
+
+| SCRIPT-01 | Phase 34 | Complete |
+| SCRIPT-02 | Phase 34 | Complete |
+| SCRIPT-03 | Phase 34 | Complete |
+| QA-01 | Phase 34 | Complete |
+| QA-02 | Phase 34 | Complete |
+| QA-03 | Phase 34 | Complete |
+| QA-04 | Phase 34 | Complete |
 
 **Coverage (v5.3):**
 
@@ -565,4 +567,4 @@ Requirements for milestone v5.3. Emergency milestone — defense is 15 July 2026
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: roadmap created — Phase 34 covers all 7 requirements (SCRIPT-01–03, QA-01–04)*
+*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: Phase 34 complete — all 7 requirements (SCRIPT-01–03, QA-01–04) delivered*
