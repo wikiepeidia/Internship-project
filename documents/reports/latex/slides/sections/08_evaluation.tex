@@ -1,29 +1,46 @@
-%% Slide 8: Evaluation Results
+%% Slide 8: Evaluation Results + Confusion Matrix (merged, Phase 33 D-03)
 \begin{frame}{Evaluation Results}
-  \framesubtitle{Internal Validation Split (254 Messages)}
-  \begin{center}
-    {\footnotesize
-    \setlength{\tabcolsep}{5pt}
-    \renewcommand{\arraystretch}{1.2}
-    \begin{tabular}{lcccc}
-      \toprule
-      \textbf{Class} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{n} \\
-      \midrule
-      Bank Impersonation  & 0.862 & 1.000 & 0.926 & 56  \\
-      Zalo Social Eng.    & 1.000 & 0.987 & 0.993 & 75  \\
-      Task Scam           & 1.000 & 0.871 & 0.931 & 62  \\
-      Benign              & 1.000 & 1.000 & 1.000 & 61  \\
-      \midrule
-      \textbf{Macro avg}  & \textbf{0.965} & \textbf{0.964} & \textbf{0.9625} & \textbf{254} \\
-      \bottomrule
-    \end{tabular}}
-  \end{center}
+  \framesubtitle{Metrics \& Confusion Matrix --- Internal Validation Split (254 Messages)}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      {\scriptsize\textbf{Per-class metrics:}}\\[2pt]
+      {\scriptsize
+      \setlength{\tabcolsep}{3pt}
+      \renewcommand{\arraystretch}{1.15}
+      \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Class} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{n} \\
+        \midrule
+        Bank Impersonation  & 0.862 & 1.000 & 0.926 & 56  \\
+        Zalo Social Eng.    & 1.000 & 0.987 & 0.993 & 75  \\
+        Task Scam           & 1.000 & 0.871 & 0.931 & 62  \\
+        Benign              & 1.000 & 1.000 & 1.000 & 61  \\
+        \midrule
+        \textbf{Macro avg}  & \textbf{0.965} & \textbf{0.964} & \textbf{0.9625} & \textbf{254} \\
+        \bottomrule
+      \end{tabular}}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      {\scriptsize\textbf{4-class confusion matrix:}}\\[2pt]
+      {\scriptsize
+      \setlength{\tabcolsep}{2.5pt}
+      \renewcommand{\arraystretch}{1.15}
+      \begin{tabular}{lcccc}
+        \toprule
+        \textbf{True\,/\,Pred.} & \textbf{Bank} & \textbf{Zalo} & \textbf{Task} & \textbf{Ben.} \\
+        \midrule
+        Bank Impersonation & \cellcolor{CVBLUE!15}\textbf{56} & 0 & 0 & 0 \\
+        Zalo Social Eng.   & 1 & \cellcolor{CVBLUE!15}\textbf{74} & 0 & 0 \\
+        Task Scam          & 8 & 0 & \cellcolor{CVBLUE!15}\textbf{54} & 0 \\
+        Benign             & 0 & 0 & 0 & \cellcolor{CVBLUE!15}\textbf{61} \\
+        \bottomrule
+      \end{tabular}}
+    \end{column}
+  \end{columns}
   \vspace{0.10cm}
-  \begin{itemize}\scriptsize
+  \begin{itemize}\footnotesize
     \item \textbf{Baseline (zero-shot):} macro F1\,=\,0.6702 \quad$\to$\quad \textbf{Fine-tuned:} macro F1\,=\,\textcolor{CVBLUE}{\textbf{0.9625}} \quad(\textbf{+0.2923})
-    \item \textbf{Lowest recall:} Task Scam (0.871) ---
-          bank-name + OTP phrasing overlaps class boundary.
-    \item \textbf{Key gain:} benign recall 0.344\,$\to$\,1.000; base model over-predicts threats.
+    \item \textbf{Lowest recall:} Task Scam (0.871) --- all 9 confusion-matrix errors are intra-scam (bank-name/OTP phrasing overlap); \textbf{zero} scam messages misclassified as benign.
     \item \textbf{Caution:} validation reuse and seed overlap prevent an independent-test claim.
   \end{itemize}
 \end{frame}
