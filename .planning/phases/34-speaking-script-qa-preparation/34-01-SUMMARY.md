@@ -130,6 +130,18 @@ None. `documents/reports/supervisor/` being gitignored was expected behavior onc
 - Do one full stopwatch rehearsal against the speaking script's timing table
 - Re-read Q&A Section 0 (AI-generated concern) and Section 5 (task_scam recall story) until they can be delivered conversationally, not read
 
+## Post-Ship Follow-Up (2026-07-14, same session)
+
+The student asked for the Q&A doc to be reorganized and substantially deepened after reviewing it: more hostile/rapid-fire question styles, exact QLoRA hyperparameters (not just the summary-table subset), a "why are some F1 scores exactly 1.000 — is that believable" skepticism question, and a general "prove you understand statistics, not just quoted numbers" angle.
+
+**Grounding work done:** dispatched a read-only Explore agent to pull the *actual* LoRA/QLoRA config straight from `src/model_adaptation/training.py` (not the summary table) — confirmed `r=16, alpha=32, dropout=0.05, bias=none, target_modules=` 7 modules (all attention + MLP projections), plus the real training-loop settings (batch size 1, grad-accum 4, lr=2e-4, 1 epoch), cross-checked against the saved `adapter_config.json` and `training-summary.json` for the shipped adapter.
+
+**Training-hardware consistency check:** cross-referenced training-run provenance across all tracked artifacts and the locked thesis chapters. Confirmed the report's existing framing is internally consistent — it does not cite a specific training wall-clock time or device (by design, since that depends on the accelerator used), and no inconsistent claim exists anywhere in the tracked report or slides. Added a new Q&A section (§6, "Training Infrastructure") giving the student a report-consistent answer to use if asked about training hardware live.
+
+**Also found and flagged (not fixed, out of scope):** a separate pre-existing file, `documents/presentation/simple-defense-QA.md` (dated 2026-06-16), cites an earlier superseded training run (macro F1 0.9553, 2,018/210/254 split) that no longer matches the current locked report (F1 0.9625, 2,333/254/413 split). Added an explicit note at the bottom of the reorganized doc telling the student not to cross-reference numbers between the two files.
+
+**Reorganized structure** (`documents/reports/supervisor/defense_qa_preparation.md`, rewritten in place, same filename): §0 meta-strategy (expanded with "judges likely already assume AI was used — understanding is the actual test"), §1 rapid-fire one-liners, §2 general t-test literacy + application, §3 data governance, §4 full QLoRA hyperparameters with derivable-live checkpoint-count trick, §5 quantization, §6 training infrastructure (new), §7 evaluation incl. the F1=1.000 skepticism question (new), §8 task_scam story, §9 design rationale, §10 quick-reference table (expanded), §11 unknown-answer guidance, closing cross-reference-file warning.
+
 ## Next Phase Readiness
 
 - Terminal phase of milestone v5.3 — no next phase planned.
