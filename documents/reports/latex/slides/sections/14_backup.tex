@@ -1,0 +1,83 @@
+%% Backup appendix (Phase 33 D-11) — 3 hidden Q&A-only frames, sit after \appendix in slides.tex.
+%% Preserves content trimmed during the Motivation+WhyLocal, Evaluation+Confusion, and
+%% Contributions+Future merges. Not counted toward the main-frame footline total
+%% (\insertmainframenumber freezes the denominator at 11).
+
+%% Backup 1: Motivation & Why Local — full pre-merge detail
+\begin{frame}[allowframebreaks]{Backup: Motivation \& Why Local --- Full Detail}
+  {\footnotesize\textbf{Original Problem bullets (pre-merge):}}
+  \begin{itemize}\footnotesize
+    \item Group-IB documented cloned bank-login pages distributed through SMS
+          to customers of major Vietnamese banks. {\scriptsize [Group-IB, 2022]}
+    \item Vietnam's information-security authority warned about bank-impersonation
+          messages exploiting biometric-verification procedures. {\scriptsize [AIS, 2024]}
+    \item Suspicious messages can include OTP codes, phone numbers, account details,
+          and urgent re-verification requests.
+    \item Sending this content to a cloud classifier creates additional transit,
+          retention, and provider-exposure risks.
+  \end{itemize}
+  \vspace{4pt}
+  {\footnotesize\textbf{Original Why-Local documented incidents (pre-merge):}}
+  \begin{itemize}\footnotesize
+    \setlength{\itemsep}{0.25em}
+    \item \textbf{OpenAI ChatGPT (March 2023):} Redis bug exposed chat history and payment details of ${\sim}1.2\%$ of active users.
+    \item \textbf{Samsung Semiconductor (2023):} Engineers pasted confidential chip design code into ChatGPT, triggering an internal investigation.
+  \end{itemize}
+  \vspace{4pt}
+  {\footnotesize\textbf{Original cloud API risk path (pre-merge, 3 steps):}}
+  \begin{itemize}\footnotesize
+    \setlength{\itemsep}{0.2em}
+    \item Text leaves device $\rightarrow$ cloud server
+    \item Provider logs may retain prompts
+    \item Provider breach or ToS training exposure
+  \end{itemize}
+  \vspace{4pt}
+  \begin{block}{Original Problem Statement (pre-merge)}
+    {\footnotesize This project develops an offline-first threat detector that returns a risk tier,
+    threat labels, and safety guidance without sending message text off-device.}
+  \end{block}
+  \begin{block}{Original Local Solution Statement (pre-merge)}
+    {\footnotesize User messages stay on-device; local inference removes transit, retention, and provider-breach exposure.}
+  \end{block}
+\end{frame}
+
+%% Backup 2: Evaluation & Confusion — full pre-merge detail
+\begin{frame}[allowframebreaks]{Backup: Evaluation \& Confusion --- Full Detail}
+  {\footnotesize\textbf{Original Evaluation Results bullets (pre-merge, 4 items):}}
+  \begin{itemize}\footnotesize
+    \item \textbf{Baseline (zero-shot):} macro F1\,=\,0.6702 \quad$\to$\quad \textbf{Fine-tuned:} macro F1\,=\,\textcolor{CVBLUE}{\textbf{0.9625}} \quad(\textbf{+0.2923})
+    \item \textbf{Lowest recall:} Task Scam (0.871) --- bank-name + OTP phrasing overlaps class boundary.
+    \item \textbf{Key gain:} benign recall 0.344\,$\to$\,1.000; base model over-predicts threats.
+    \item \textbf{Caution:} validation reuse and seed overlap prevent an independent-test claim.
+  \end{itemize}
+  \vspace{4pt}
+  {\footnotesize\textbf{Original Confusion Matrix error-pattern bullets (pre-merge, 4 items):}}
+  \begin{itemize}\footnotesize
+    \item \textbf{9 total errors} out of 254
+    \item All 9 are \textbf{intra-scam}: Task Scam or Zalo SE predicted as Bank Impersonation
+    \item \textbf{Zero} scam messages misclassified as benign
+    \item Cause: bank name + OTP phrasing overlaps across scam subtypes
+  \end{itemize}
+\end{frame}
+
+%% Backup 3: Contributions & Future — full pre-merge detail
+\begin{frame}[allowframebreaks]{Backup: Contributions \& Future --- Full Detail}
+  \begin{block}{Contributions (original, pre-merge)}
+    {\footnotesize
+    \begin{enumerate}
+      \item \textbf{Vietnamese phishing corpus:} 3,000 synthetic samples, 4 classes, with schema validation and documented leakage limits.
+      \item \textbf{Privacy-first local runtime:} \texttt{Qwen3-4B-Instruct} GGUF Q8\_0 via \texttt{llama.cpp}; ${\approx}24$\,s in the final laptop CLI verification; no cloud inference.
+      \item \textbf{Explainable decision layer:} grounded cue extraction + risk-tier labels in Vietnamese.
+      \item \textbf{Honest internal evaluation:} 254 validation samples; macro F1 = 0.9625; no independent-test claim.
+    \end{enumerate}}
+  \end{block}
+  {\footnotesize\textbf{Current limitations (original, pre-merge, 3 items):}}
+  \begin{itemize}\footnotesize
+    \item \textbf{Text-only:} image-based phishing (QR codes, forwarded screenshots) is not handled.
+    \item Vietnamese-only training data --- generalization to other languages is untested.
+    \item The 254-row result reuses validation data and includes seed overlap; the 413-row test split is unevaluated.
+  \end{itemize}
+  \begin{block}{Primary Future Direction (original, pre-merge)}
+    {\footnotesize Rebuild seed-group-disjoint splits and evaluate once on an untouched, human-labelled test set.}
+  \end{block}
+\end{frame}
