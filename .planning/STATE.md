@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v5.2
 milestone_name: — Emergency Slide Fix — 10-Minute Presentation
 current_phase: 33
-status: planning
-stopped_at: Phase 33 context gathered
-last_updated: "2026-07-13T12:53:27.457Z"
+status: complete
+stopped_at: Phase 33 complete — deck compiled clean, 33-RUN-PLAN.md written
+last_updated: "2026-07-13T15:40:00.000Z"
 last_activity: 2026-07-13
-last_activity_desc: "v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 requirements mapped (TIME-01-05, GDEMO-01-02)"
+last_activity_desc: "Phase 33 executed and verified: 15->11 frames, D-06 protected files untouched, XeLaTeX zero errors, 7/7 v5.2 requirements complete"
 progress:
-  total_phases: 15
-  completed_phases: 10
-  total_plans: 43
-  completed_plans: 40
-  percent: 67
+  total_phases: 16
+  completed_phases: 11
+  total_plans: 44
+  completed_plans: 41
+  percent: 93
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -34,10 +34,12 @@ progress:
 
 ## Current Position
 
-Phase: 33 - Emergency 10-Minute Slide Compression (not started)
-Plan: —
-Status: Roadmap created, ready for planning
-Last activity: 2026-07-13 — v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 requirements mapped (TIME-01-05, GDEMO-01-02)
+Phase: 33 - Emergency 10-Minute Slide Compression (complete)
+Plan: 33-01 (complete)
+Status: Phase 33 shipped — deck recompiled clean at 11 main frames, 33-RUN-PLAN.md ready for rehearsal
+Last activity: 2026-07-13 — Phase 33 executed: 4 frame merges, backup appendix wired, date fixed, 7/7 v5.2 requirements complete
+
+Progress: [██████████] 100% (v5.2 milestone — single phase, done)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -85,6 +87,9 @@ Last activity: 2026-07-13 — v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 r
 - The real live demo window during defense is only ~1 minute, so v5.1 adds GOLD-01/GOLD-02 (Phase 28): lock exactly 2 prompts (1 scam + 1 benign) proven correct across 5+ repeated runs each, and Phase 32's fallback recording/rehearsal narrows to those same 2 locked prompts (not the fuller 4-message threat-class set) so the fallback mirrors exactly what's shown live.
 - Phase 28 golden prompts were corrected after review: the final scam prompt is a no-OTP malicious-link Vietcombank fake-access alert, and the final benign prompt is a legitimate VPBank Smart OTP notice. Legitimate bank OTP notices without unsafe link/action cues should render `benign`; fake bank alerts with links, lock/urgent action, or unknown access pressure remain `bank_impersonation`.
 - v5.2 roadmap (2026-07-13, emergency): single-phase roadmap — Phase 33 covers all 7 requirements (TIME-01-05, GDEMO-01-02) because they are tightly coupled edits to the same slide deck (`documents/reports/latex/slides.tex`), not independent workstreams; splitting the timing audit from the content edits was considered and rejected as unnecessary process overhead given the emergency time pressure.
+- Phase 33 COMPLETE (2026-07-13): deck compressed 15->11 main frames (9->7 sections) via 4 merges (Motivation+WhyLocal, Evaluation+Confusion, Contributions+Future, Demo x2->x1); Architecture/Data/Model/References/ThankYou/Title confirmed byte-identical (git diff --exit-code hard gate); hidden 3-frame Beamer backup appendix wired via `\appendix` + `\insertmainframenumber` (footline denominator frozen at 11, verified live via pdftotext against the compiled PDF); title-slide date fixed 14->15 July 2026; GDEMO-01 satisfied via 33-RUN-PLAN.md's recording checklist (both scam + benign golden prompts) rather than editing the demo slide's static text, since the user will overlay a recorded video over that slide via a PDF editor afterward. Final TIME-05 estimate: ~535s (8:55), 65s under the 10:00 target — real rehearsal with a stopwatch is still the user's job.
+- Tooling note: GSD's generic `progress` query verb globs `*-PLAN.md` on disk to count plans, which false-matches deliverable filenames ending in "-PLAN.md" (e.g. `33-RUN-PLAN.md` was miscounted as a second plan for Phase 33 even though ROADMAP.md/`phase-plan-index` correctly show only one real plan, `33-01-PLAN.md`). Harmless cosmetic quirk, not fixed — future phases should avoid naming deliverable docs `*-PLAN.md` if this aggregate counter matters.
+- Tooling note: `Agent(isolation="worktree")` forks from `origin/HEAD`, not local `HEAD`. On a repo with unpushed local commits (this one hasn't pushed since PR #1 / commit 25ca41c), that fork base goes stale fast and executor agents correctly self-halt (exit 42) rather than commit against a stale base. `gsd_run query worktree.base-check` detects this (`shouldDegrade: true`) and the documented fix is to degrade to sequential execution for the affected run, or push to origin more often, or set `worktree.baseRef:"head"` in `.claude/settings.local.json`.
 
 ### Requirement Coverage Snapshot
 
@@ -183,9 +188,9 @@ Last activity: 2026-07-13 — v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 r
 
 ## Session Continuity
 
-**Last session:** 2026-07-13T12:53:27.446Z
-**Stopped at:** Phase 33 context gathered
-**Resume file:** .planning/phases/33-emergency-10-minute-slide-compression/33-CONTEXT.md
+**Last session:** 2026-07-13T15:40:00.000Z
+**Stopped at:** Phase 33 complete — all 3 tasks committed, deck compiles clean, 33-RUN-PLAN.md ready
+**Resume file:** .planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -233,11 +238,12 @@ Last activity: 2026-07-13 — v5.2 roadmap created: Phase 33 defined, 7/7 v5.2 r
 ## Operator Next Steps
 
 - v5.1 demo-readiness work is closed for the live-demo path.
-- v5.2 roadmap is created: Phase 33 (Emergency 10-Minute Slide Compression) covers all 7 requirements — timing audit, trim non-methodology sections, protect Architecture/Data/Model depth, land at ~10 slides, per-slide timing estimate, sync demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
-- Given the emergency window (defense 13-20 July 2026, today 2026-07-13), move straight to execution: `$gsd-plan-phase 33` to build the execution plan, then `$gsd-execute-phase 33` (or equivalent) to make the edits.
-- Optional if time remains after Phase 33: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
+- **Phase 33 (Emergency 10-Minute Slide Compression) is COMPLETE** — deck compressed 15->11 frames, XeLaTeX compiles clean, all 7 v5.2 requirements delivered.
+- **Your turn:** open `documents/reports/latex/slides.pdf`, review it, then do a real stopwatch rehearsal — see `.planning/phases/33-emergency-10-minute-slide-compression/33-RUN-PLAN.md` for the baseline/final timing tables, the locked demo-in-slot decision, and (important) the exact golden-prompt text to actually use when you run or record the live demo (the slide's own printed sample text is illustrative-only and was deliberately left unchanged).
+- After compiling, overlay your recorded demo video onto the Live Demo slide via a PDF editor per the plan (D-10) — the frame's layout was kept simple/stable specifically for this.
+- Optional if time remains: create fallback recording/screenshots and rehearse the pivot; these were accepted-risk gaps during Phase 32 closeout.
 - Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
-- Next formal GSD step: `$gsd-complete-milestone v5.2` once Phase 33 ships and the deck is rehearsal-verified at or under 10 minutes.
+- Next formal GSD step: `$gsd-complete-milestone v5.2` once you've reviewed the compiled PDF and rehearsed.
 
 ## Decisions
 

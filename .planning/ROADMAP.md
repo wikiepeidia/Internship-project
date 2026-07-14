@@ -53,7 +53,7 @@
 
 **Note:** Emergency milestone, single-phase by design — all 7 requirements are tightly coupled edits to the same slide deck (`documents/reports/latex/slides.tex`), not independent workstreams.
 
-- [ ] **Phase 33: Emergency 10-Minute Slide Compression** - Audit current slide/section timing, trim non-methodology sections while protecting Architecture/Data/Model depth, land at ~10 slides, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
+- [x] **Phase 33: Emergency 10-Minute Slide Compression** - Audit current slide/section timing, trim non-methodology sections while protecting Architecture/Data/Model depth, land at ~10 slides, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision. (completed 2026-07-13)
 
 ## Phase Details
 
@@ -746,11 +746,11 @@ Plans:
 4. A rough per-slide timing estimate (seconds/slide) exists and sums to at or under 10 minutes total, including whatever demo time was decided on, so the presenter can rehearse against the real limit.
 5. The demo section (`10_demo.tex`) references the exact 2 Phase-32 locked golden prompts (Vietcombank no-OTP malicious-link scam + VPBank Smart OTP benign notice) with no stale wording, and the demo-in-slot decision (1-minute reserved demo vs. cut-if-timing-doesn't-fit) is written into both the deck and the presenter's run plan.
 
-**Plans**: 1 plan
+**Plans**: 1/1 plan executed
 
 Plans:
 
-- [ ] 33-01-PLAN.md -- Compress 15->11 frames across 4 merges (Motivation+WhyLocal, Evaluation+Confusion, Contributions+Future, Demo), fix the defense date, wire a hidden backup appendix, XeLaTeX-verify, and write the presenter run plan (baseline+final timing, demo-in-slot decision, golden-prompt recording checklist)
+- [x] 33-01-PLAN.md -- Compress 15->11 frames across 4 merges (Motivation+WhyLocal, Evaluation+Confusion, Contributions+Future, Demo), fix the defense date, wire a hidden backup appendix, XeLaTeX-verify, and write the presenter run plan (baseline+final timing, demo-in-slot decision, golden-prompt recording checklist)
 
 ---
 
@@ -789,7 +789,7 @@ Plans:
 | 30. Latency Diagnosis and Targeted Fix | 2/2 | Complete    | 2026-07-06 |
 | 31. UI Quirks, Edge Cases and Regression Re-check | 3/3 | Complete    | 2026-07-08 |
 | 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
-| 33. Emergency 10-Minute Slide Compression | 0/1 | Planned | - |
+| 33. Emergency 10-Minute Slide Compression | 1/1 | Complete | 2026-07-13 |
 
 ## Coverage Validation
 

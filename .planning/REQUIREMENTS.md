@@ -495,24 +495,24 @@ Requirements for milestone v5.2. Compresses the defense slide deck to reliably f
 
 ### Timing & Trim
 
-- [ ] **TIME-01**: Presenter has a measured baseline of current slide/section count and an estimated total delivery time against the 10-minute target.
-- [ ] **TIME-02**: Non-methodology sections (title, agenda, problem, why-local, confusion matrix, contributions, future work, references, thank-you) are trimmed or merged to reclaim time.
-- [ ] **TIME-03**: Architecture, Data pipeline, and Model/Training sections retain their existing explanatory depth — no content cuts.
-- [ ] **TIME-04**: Final deck lands at or near ~10 slides while still covering problem, methodology, evaluation, and conclusion.
-- [ ] **TIME-05**: Presenter has a rough per-slide timing estimate (seconds/slide) to rehearse against the 10-minute limit.
+- [x] **TIME-01**: Presenter has a measured baseline of current slide/section count and an estimated total delivery time against the 10-minute target.
+- [x] **TIME-02**: Non-methodology sections (title, agenda, problem, why-local, confusion matrix, contributions, future work, references, thank-you) are trimmed or merged to reclaim time.
+- [x] **TIME-03**: Architecture, Data pipeline, and Model/Training sections retain their existing explanatory depth — no content cuts.
+- [x] **TIME-04**: Final deck lands at or near ~10 slides while still covering problem, methodology, evaluation, and conclusion.
+- [x] **TIME-05**: Presenter has a rough per-slide timing estimate (seconds/slide) to rehearse against the 10-minute limit.
 
 ### Demo Sync
 
-- [ ] **GDEMO-01**: Demo section of the slides references the 2 Phase-32 locked golden prompts (Vietcombank no-OTP scam + VPBank Smart OTP benign), not older/stale wording.
-- [ ] **GDEMO-02**: The demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit) is decided and reflected in both the deck and the presenter's run plan.
+- [x] **GDEMO-01**: Demo section of the slides references the 2 Phase-32 locked golden prompts (Vietcombank no-OTP scam + VPBank Smart OTP benign), not older/stale wording. (Delivered via the presenter run-plan's recording checklist rather than a slide-text edit — the static demo-slide text is deliberately unchanged because it will be covered by the user's own video overlay; see 33-CONTEXT.md D-07/D-08.)
+- [x] **GDEMO-02**: The demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit) is decided and reflected in both the deck and the presenter's run plan.
 
-| TIME-01 | Phase 33 | Planned |
-| TIME-02 | Phase 33 | Planned |
-| TIME-03 | Phase 33 | Planned |
-| TIME-04 | Phase 33 | Planned |
-| TIME-05 | Phase 33 | Planned |
-| GDEMO-01 | Phase 33 | Planned |
-| GDEMO-02 | Phase 33 | Planned |
+| TIME-01 | Phase 33 | Complete |
+| TIME-02 | Phase 33 | Complete |
+| TIME-03 | Phase 33 | Complete |
+| TIME-04 | Phase 33 | Complete |
+| TIME-05 | Phase 33 | Complete |
+| GDEMO-01 | Phase 33 | Complete |
+| GDEMO-02 | Phase 33 | Complete |
 
 **Coverage (v5.2):**
 
@@ -528,4 +528,4 @@ Requirements for milestone v5.2. Compresses the defense slide deck to reliably f
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: roadmap created — Phase 33 covers all 7 requirements (TIME-01–05, GDEMO-01–02)*
+*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: Phase 33 complete — all 7 requirements (TIME-01–05, GDEMO-01–02) delivered and verified*
