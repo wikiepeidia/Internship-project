@@ -526,6 +526,43 @@ Requirements for milestone v5.2. Compresses the defense slide deck to reliably f
 - mapped to phases: 106
 - Unmapped: 0
 
+## v5.3 Requirements — Slide Scripts & Q&A Preparation
+
+Requirements for milestone v5.3. Emergency milestone — defense is 15 July 2026 (tomorrow). Produces presenter support material only; the thesis report itself is locked and not modified.
+
+### Speaking Script
+
+- [ ] **SCRIPT-01**: Talking-point speaking cues exist for each of the 12 main slides (Title, Agenda, Motivation & Why Local, Architecture, Data, Model, Evaluation Results, Contributions & Future Work, Sample Output, Demo, Thank You, References), matching current slide content and order.
+- [ ] **SCRIPT-02**: Cues for each slide fit within that slide's allotted seconds from `33-RUN-PLAN.md`'s ~8:05 timing budget.
+- [ ] **SCRIPT-03**: Cues are phrased as short spoken fragments/keywords the presenter elaborates on live, not full sentences to memorize and recite verbatim.
+
+### Q&A Preparation
+
+- [ ] **QA-01**: Q&A document covers all major report aspects: data pipeline/dataset, model adaptation (QLoRA/GGUF), architecture/privacy rationale, evaluation/metrics, limitations, and design-choice justifications (why local, why this model, why these threat classes).
+- [ ] **QA-02**: Each answer is written in plain, first-person, explainable language — concrete numbers and reasoning, not dense AI-polished prose — so the student can internalize and reproduce it in their own words.
+- [ ] **QA-03**: Q&A explicitly addresses the "does this look AI-generated" risk raised by the judge's informal preview — includes ready talking points if a judge questions authorship or understanding.
+- [ ] **QA-04**: Q&A is organized by topic/category for fast lookup during last-minute review and live reference.
+
+| SCRIPT-01 | Phase TBD | Pending |
+| SCRIPT-02 | Phase TBD | Pending |
+| SCRIPT-03 | Phase TBD | Pending |
+| QA-01 | Phase TBD | Pending |
+| QA-02 | Phase TBD | Pending |
+| QA-03 | Phase TBD | Pending |
+| QA-04 | Phase TBD | Pending |
+
+**Coverage (v5.3):**
+
+- tracked requirements: 7
+- mapped to phases: 0 (roadmap pending)
+- Unmapped: 7 ⚠️ (resolved during roadmap creation)
+
+**Coverage (all milestones):**
+
+- tracked requirements: 113 total (106 prior milestones + 7 v5.3)
+- mapped to phases: 106
+- Unmapped: 7 (v5.3, pending roadmap)
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-13 — v5.2 Emergency Slide Fix: Phase 33 complete — all 7 requirements (TIME-01–05, GDEMO-01–02) delivered and verified*
+*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: 7 requirements defined (SCRIPT-01–03, QA-01–04), roadmap pending*
