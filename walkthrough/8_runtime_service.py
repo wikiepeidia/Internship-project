@@ -35,7 +35,15 @@ TEXT_ONLY_BOUNDARY_MESSAGE = (
 
 
 class RuntimeBoundaryError(Exception):
-    """Raised when the input violates the local runtime boundary."""
+    """
+    Raised when the input violates the local runtime boundary.
+    "Boundary" here means a DESIGN boundary of the system, not a bug —
+    this project deliberately only handles pasted text, never images/audio/
+    screenshots directly (no OCR, no speech-to-text pipeline). Raising a
+    typed exception (not just printing a warning) means this boundary is
+    enforced IN CODE, not just documented and hoped-for — every caller
+    (CLI, browser demo) is forced to handle this case explicitly.
+    """
 
     def __init__(self, message: str, steps: list[str] | None = None):
         super().__init__(message)
@@ -51,6 +59,14 @@ class RuntimeUnavailableError(Exception):
 
 
 def looks_like_non_text_payload(text: str) -> bool:
+    # A deliberately simple heuristic, not a full file-type sniffer: catches
+    # the OBVIOUS ways a non-text payload might end up here (a bare
+    # filename, a data: URI, or one of a few placeholder strings a upstream
+    # UI might substitute for an unsupported attachment) — this isn't meant
+    # to be airtight, it's a defense-in-depth check backing up the fact
+    # that the UI/CLI simply never offers an image/audio upload path in the
+    # first place. Three checks: file-extension suffix, data-URI prefix,
+    # and known placeholder strings.
     lowered = text.strip().casefold()
     if lowered.endswith((".png", ".jpg", ".jpeg", ".gif", ".wav", ".mp3")):
         return True
@@ -66,6 +82,25 @@ def _default_setup_steps() -> list[str]:
 
 
 def _build_backend_from_settings(settings: Settings) -> AnalyzerBackend:
+    """
+    Constructs whichever concrete AnalyzerBackend implementation matches
+    Settings — this is the ONE place backend selection happens. Three
+    possible backends, all implementing the same AnalyzerBackend interface
+    (so RuntimeService itself never needs to know or care which one it
+    has):
+      - "heuristic": HeuristicAnalyzer — pure regex/rule-based, no model at
+        all. Useful as a zero-dependency fallback/baseline.
+      - "gguf": GGUFAnalyzer (step 10) — the real fine-tuned model, running
+        locally via llama.cpp/llama-cpp-python, CPU-friendly.
+      - "accelerated": AcceleratedAnalyzer — a GPU-accelerated backend
+        variant for machines that have one available.
+    allowed_profiles double-checks BOTH that runtime_backend is a
+    recognized value AND that runtime_profile is a valid profile name FOR
+    that specific backend (e.g. "gguf-laptop" only makes sense under
+    backend="gguf") — catches a mismatched backend/profile combination in
+    Settings immediately at startup rather than failing confusingly deep
+    inside model loading.
+    """
     allowed_profiles = {
         "heuristic": {"heuristic"},
         "gguf": {
@@ -100,6 +135,58 @@ class RuntimeService:
     settings: Settings = field(default_factory=get_settings)
 
     def analyze_text(self, text: str, channel: ChannelName = "unknown") -> AnalysisResult:
+        """
+        THE REAL ORCHESTRATOR — every entry point into this project (CLI
+        `analyze`, the browser demo's POST /api/analyze) calls exactly this
+        one method, and NOTHING here is backend-specific. Read it top to
+        bottom as a sequence of GATES, each of which can stop the request
+        before it ever reaches a model:
+
+          GATE 1 — privacy: if raw-text persistence is somehow enabled in
+          settings, refuse outright. This check runs FIRST, before even
+          looking at the text, because it's a policy check about the
+          SYSTEM's configuration, not about this particular message.
+
+          GATE 2 — normalize, then check for emptiness. normalize_text is
+          the exact same function used back in step 1 on scraped seeds —
+          one shared normalizer for training data and live input, so the
+          model always sees text in the same canonical shape it was
+          trained on.
+
+          GATE 3 — the text-only boundary (looks_like_non_text_payload) —
+          this is the "no OCR, no screenshots" boundary enforced in code.
+
+          GATE 4 — minimum length — too-short text isn't reliably
+          classifiable, so it's rejected with a clear reason rather than
+          silently returning a low-confidence guess.
+
+          GATE 5 — backend readiness (doctor()) — and this is where
+          "fail closed" actually happens: if runtime_fail_closed is True
+          (the deployed default) and the backend reports NOT ready, this
+          refuses to even attempt analysis rather than risk a partial/
+          broken/misleading result. "Fail closed" is a deliberate security/
+          reliability posture, not an accident — better to clearly refuse
+          than to silently produce a wrong answer.
+
+          ONLY AFTER ALL FIVE GATES does this build an AnalysisRequest and
+          call self.backend.analyze(request) — the actual model call,
+          which for the GGUF backend leads into step 9/10.
+
+          Error handling around the backend call: RuntimeBoundaryError is
+          re-raised as-is (the backend can itself detect a boundary
+          violation, e.g. if a backend-specific check catches something
+          this service's own gates missed) — everything else gets wrapped
+          into a RuntimeUnavailableError with actionable setup guidance,
+          so a caller never has to deal with raw, backend-specific
+          exception types (a missing model file, a llama.cpp load error,
+          etc.) — they all surface through this one consistent error
+          shape.
+
+          Final step: cap the number of returned "top_cues" to
+          runtime_max_cues — a display/UX limit (avoid overwhelming a user
+          with dozens of flagged spans), applied here, AFTER grounding
+          already happened deeper in the backend, not a substitute for it.
+        """
         if self.settings.runtime_store_raw_text:
             raise RuntimeUnavailableError(
                 "Raw-text persistence must stay disabled for the local runtime.",
@@ -147,5 +234,12 @@ class RuntimeService:
 
 
 def build_default_runtime_service() -> RuntimeService:
+    # The one-line factory both the CLI (step 7) and the browser demo call
+    # — reads Settings, resolves the right backend via
+    # _build_backend_from_settings, and wires it into a RuntimeService.
+    # This is WHY the CLI and the browser UI are guaranteed to behave
+    # identically for the same input: they both start from this exact same
+    # construction path, there's no divergent "web version" of the
+    # analysis logic anywhere.
     settings = get_settings()
     return RuntimeService(backend=_build_backend_from_settings(settings), settings=settings)

@@ -40,10 +40,14 @@ GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 OPENAI_COMPATIBLE_JUDGE_KEY = "openai-compatible"
 JUDGE_PROGRESS_INTERVAL = 25
-JUDGE_MAX_TOKENS = 260
+JUDGE_MAX_TOKENS = 260   # judge only outputs 5 small integer scores + a short reason string — doesn't need a big budget like generation does
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
+    # Same defensive-parsing idea as generator.py's _load_json_payload
+    # (step 2) but simpler: the judge always returns ONE JSON object (not
+    # an array of records), so this only needs to find the outermost
+    # {...} span, after stripping an optional markdown code fence first.
     cleaned = text.strip()
     fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", cleaned, flags=re.DOTALL)
     if fenced:
@@ -56,7 +60,32 @@ def _extract_json_object(text: str) -> dict[str, Any]:
 
 
 class JudgeVerdict(BaseModel):
-    """Per-record judge scores and pass decision."""
+    """
+    Per-record judge scores and pass decision.
+
+    THE 5 CRITERIA, each scored 1-5 by the judge LLM (this is the exact
+    rubric — good to know cold if asked "what does quality judging actually
+    check"):
+      - realism: does this read like a real Vietnamese scam/legit message,
+        not generic/templated LLM prose?
+      - label_correctness: does the message content actually match its
+        assigned threat_class label?
+      - code_switch_naturalness: Vietnamese scam texts often mix in English
+        /numeric/brand tokens naturally (e.g. "OTP", "Zalo", bank names) —
+        does the mixing read naturally, not awkwardly inserted?
+      - risk_tier_correctness: does the assigned risk_tier (benign/
+        suspicious/high-risk) actually match how dangerous the message
+        content is?
+      - suspicious_span_accuracy: do the suspicious_spans genuinely appear
+        in and support the message (early echo of the same grounding
+        principle step 9's cue_span_is_grounded() enforces at runtime —
+        evidence has to be real, checked here even at DATA-GENERATION time,
+        not just at inference time)?
+    Field(ge=1, le=5) on every score is a Pydantic constraint — if the judge
+    model returns e.g. 0 or 7 (out of its stated 1-5 range), construction of
+    this object raises immediately rather than silently accepting a garbage
+    score.
+    """
 
     realism: int = Field(ge=1, le=5)
     label_correctness: int = Field(ge=1, le=5)
@@ -68,7 +97,13 @@ class JudgeVerdict(BaseModel):
 
 
 class QualityStats(BaseModel):
-    """Aggregated quality statistics for a judged batch."""
+    """
+    Aggregated quality statistics for a judged batch — this is the object
+    that ultimately feeds the pass-rate and per-criterion average numbers
+    reported in the thesis/report, and the population these per-record
+    scores are drawn from is what the report's t-test analysis runs over
+    (comparing score distributions, e.g. across providers or batches).
+    """
 
     total: int
     passed: int
@@ -97,6 +132,11 @@ class QualityJudge:
         self.openai_compatible_base_url = self.settings.openai_compatible_base_url.rstrip("/")
         self.openai_compatible_api_key = self.settings.openai_compatible_api_key
         self.openai_compatible_model = self.settings.openai_compatible_model
+        # judge_model: an optional FORCE override. Left None (the normal
+        # case), _select_judge_model below picks automatically based on
+        # which provider generated the record — that automatic cross-model
+        # selection is the whole point of this class, so this override
+        # exists mainly for testing/debugging a specific judge in isolation.
         self.judge_model = judge_model
         self.anthropic_client = anthropic_client
         self.http_client = http_client or httpx.Client(timeout=60)
@@ -104,6 +144,13 @@ class QualityJudge:
 
     def judge_record(self, record: dict[str, Any]) -> JudgeVerdict:
         """Judge a single dataset record and return its verdict."""
+        # build_judge_prompt hands the judge model everything about the
+        # record EXCEPT which provider generated it — the judge only ever
+        # sees the record's content (text/label/risk_tier/spans/
+        # explanation), never "this was written by Claude" or similar.
+        # That's what keeps the judging honest: it's scored purely on
+        # content quality, with no way to be biased for or against a
+        # particular generator.
         prompt = build_judge_prompt(
             record_text=record["text"],
             record_label=record["label"],
@@ -111,8 +158,22 @@ class QualityJudge:
             record_suspicious_spans=record.get("suspicious_spans", []),
             record_explanation=record["xai_explanation"],
         )
+        # THIS line is the "different model than the generator" guarantee
+        # in code: record.get("source") tells us WHICH provider produced
+        # this record (stamped back in _finalize_records, step 2), and
+        # _select_judge_model deliberately routes to a DIFFERENT provider
+        # for judging. This is the direct answer to "how do you know the
+        # judge isn't just rubber-stamping its own generation" — it
+        # structurally can't be judging its own output, by construction.
         model = self._select_judge_model(record.get("source"))
         result = _extract_json_object(self._call_judge(prompt, model))
+        # Pass threshold: ALL FIVE criteria must independently score >= 3
+        # (out of 5). Not an average — a single weak criterion (e.g.
+        # realism=5 but suspicious_span_accuracy=2) fails the whole record,
+        # even if the average would look fine. This is a conjunction
+        # (`all(...)`), a deliberately strict gate: a record that nails 4
+        # criteria but fabricates its evidence spans should NOT pass, and
+        # averaging would have let it slip through.
         pass_verdict = all(
             result.get(metric, 0) >= 3
             for metric in (
@@ -139,6 +200,11 @@ class QualityJudge:
         progress_callback: Callable[[str], None] | None = None,
     ) -> list[tuple[dict[str, Any], JudgeVerdict]]:
         """Judge a batch of records one by one."""
+        # Deliberately sequential (no thread pool here, unlike generator.py's
+        # parallel option) — judging is comparatively cheap per call
+        # (JUDGE_MAX_TOKENS=260, tiny compared to generation's ~1400-2200),
+        # so the added complexity of parallelizing wasn't worth it for this
+        # stage.
         judged: list[tuple[dict[str, Any], JudgeVerdict]] = []
         total = len(records)
         for index, record in enumerate(records, start=1):
@@ -157,6 +223,13 @@ class QualityJudge:
             judged = self.judge_batch(records)
         else:
             judged = self.judge_batch(records, progress_callback=progress_callback)
+        # Records that failed even ONE criterion (see pass_verdict logic
+        # above) are simply excluded here — they don't get "fixed" or
+        # retried, just dropped from the corpus that continues on to
+        # splitter.py (step 4). Failed records + verdicts still count
+        # toward QualityStats though, so the reported pass_rate reflects
+        # the TRUE fraction of generated output that was usable, not just
+        # the fraction that made it to the final dataset.
         passed_records = [record for record, verdict in judged if verdict.pass_verdict]
         verdicts = [verdict for _, verdict in judged]
         stats = QualityStats(
@@ -184,6 +257,21 @@ class QualityJudge:
         return bool(self.openai_compatible_base_url and self.openai_compatible_model)
 
     def _select_judge_model(self, source: str | None) -> str:
+        """
+        THE CROSS-MODEL ROUTING TABLE. Read this as: "if the record was
+        generated BY provider X, judge it with a DIFFERENT provider Y."
+        Claude-generated → judged by Gemini (if available). Gemini- or
+        OpenRouter-generated → judged by Claude. The openai-compatible
+        source similarly prefers whichever of Gemini/Claude is available
+        rather than re-using the same self-hosted endpoint that generated
+        it. The trailing fallback block (checked only if none of the
+        source-specific rules matched or were available) just picks
+        whatever's configured, in a fixed preference order — this only
+        gets hit in edge cases like an unrecognized `source` value, and
+        even then it still tries hard to prefer Gemini/Claude over an
+        openai-compatible judge, since those two are the "real" judge
+        options this project is designed around.
+        """
         if self.judge_model:
             return self.judge_model
         if source == "synthetic_claude" and self.gemini_session.is_configured():
@@ -205,6 +293,11 @@ class QualityJudge:
         raise ValueError("No judge API key configured")
 
     def _call_judge(self, prompt: str, model: str) -> str:
+        # temperature=0.3 here (not generation's 0.7/0.9) — judging wants
+        # consistent, repeatable scoring, not creative variety. Still not
+        # 0.0 (fully deterministic) because a little slack is intentionally
+        # left for the judge to weigh borderline cases, rather than being
+        # rigidly literal.
         if model == GEMINI_MODEL and self.gemini_session.is_configured():
             try:
                 response = self.gemini_session.post_generate_content(
@@ -218,6 +311,10 @@ class QualityJudge:
                     response.raise_for_status()
                 return response.json()["candidates"][0]["content"]["parts"][0]["text"]
             except httpx.HTTPError:
+                # Gemini judge unreachable — fall back to Claude rather
+                # than fail the whole judging pass, but ONLY if a Claude
+                # credential actually exists; otherwise let the error
+                # surface (nothing left to fall back to).
                 if self.anthropic_client is None and not self.anthropic_key:
                     raise
                 return self._call_judge(prompt, CLAUDE_MODEL)
@@ -229,6 +326,9 @@ class QualityJudge:
             )
             return response.content[0].text
         if model == CLAUDE_MODEL and self.anthropic_client is None and self.anthropic_key:
+            # Same lazy-client-construction pattern as generator.py's
+            # _call_claude — build the SDK client only the first time it's
+            # actually needed.
             if anthropic is None:
                 raise ValueError("No judge API key configured")
             self.anthropic_client = anthropic.Anthropic(api_key=self.anthropic_key)
