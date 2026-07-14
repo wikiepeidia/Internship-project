@@ -142,6 +142,20 @@ The student asked for the Q&A doc to be reorganized and substantially deepened a
 
 **Reorganized structure** (`documents/reports/supervisor/defense_qa_preparation.md`, rewritten in place, same filename): §0 meta-strategy (expanded with "judges likely already assume AI was used — understanding is the actual test"), §1 rapid-fire one-liners, §2 general t-test literacy + application, §3 data governance, §4 full QLoRA hyperparameters with derivable-live checkpoint-count trick, §5 quantization, §6 training infrastructure (new), §7 evaluation incl. the F1=1.000 skepticism question (new), §8 task_scam story, §9 design rationale, §10 quick-reference table (expanded), §11 unknown-answer guidance, closing cross-reference-file warning.
 
+## Second Post-Ship Follow-Up (2026-07-14, same session)
+
+Student shared a cautionary tale: a different team at this school was destroyed in defense when judges asked code-navigation questions ("how do nodes connect, what algorithm, walk me through execution") that nobody on the team could answer without live full-text search — the judge explicitly called that out as proof the code wasn't theirs, and separately criticized the team for having unexplainable "RAG knowledge base" terminology in their report. Asked to anticipate every question of this shape for this project.
+
+Dispatched a read-only Explore agent to trace the actual runtime, data-pipeline, and training execution paths at file/function/line-number precision (not documentation, actual imports and call chains), and to definitively confirm or deny any RAG/vector-store/knowledge-base usage.
+
+**Key findings, source-verified:**
+- The "grounded cues" mechanism — the closest analog to "how do nodes connect" — is a plain case-insensitive substring check (`cue_span_is_grounded()` in `src/runtime/analyzers/local_model.py`): the model claims an evidence span, code verifies it's literally present in the input text, ungrounded spans are dropped. A separate hand-written regex rule catalog (`src/runtime/analyzers/rules.py`) provides an independent safety-floor that can force the risk tier upward regardless of the model's own output.
+- **No RAG, no vector store, no external knowledge base at inference time anywhere in `src/`** — confirmed by full grep. The only embedding usage in the whole codebase is offline, in dataset cross-split deduplication (`src/data_pipeline/processing/dedup.py`), never at analyze-time. This directly and pre-emptively defuses the exact question type that damaged the other team.
+- Traced the full request path (cli.py -> service.py -> local_model.py -> gguf.py -> render.py), the data pipeline (scraper -> generator -> quality_judge -> splitter/dedup -> manifest), and the training pipeline (pilot -> training.py -> convert.py) at file/function granularity.
+- Flagged one environment caveat: this exact OneDrive checkout has no local model-registry.json/`.gguf` file (they live off-repo on a separate drive via `.env` override, by design, per established project convention already verified working in Phases 28-32) — noted in the new doc so the student isn't confused if a bare `doctor` check fails outside the launcher scripts.
+
+**New deliverable:** `documents/reports/supervisor/defense_code_navigation.md` (gitignored, same convention) — a drillable code-fluency document structured around the four exact question types that sank the other team, each mapped to this project's real, verified answer, plus an explicit "how to correctly say 'show me the code' without live-searching" rule and a list of the ~10 files the student should be able to open by name, cold.
+
 ## Next Phase Readiness
 
 - Terminal phase of milestone v5.3 — no next phase planned.
