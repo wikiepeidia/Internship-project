@@ -9,17 +9,19 @@
           \item \textbf{Vietnamese phishing corpus:} 3,000 synthetic samples, 4 classes
           \item \textbf{Privacy-first local runtime:} Qwen3-4B GGUF via \texttt{llama.cpp}, ${\approx}24$\,s, no cloud
           \item \textbf{Explainable decisions:} grounded cues + risk-tier labels
-          \item \textbf{Honest evaluation:} 254 samples, macro F1 = 0.9625
+          \item \textbf{Evaluation:} 254 samples, macro F1 = 0.9625
         \end{enumerate}}
       \end{block}
     \end{column}
     \begin{column}{0.46\textwidth}
-      {\footnotesize\textbf{Limitations}}\\[2pt]
-      \begin{itemize}\footnotesize
-        \item Text-only; Vietnamese-only training data
-        \item Validation reuse; 413-row test split unevaluated
-      \end{itemize}
-      \vspace{2pt}
+      \begin{alertblock}{Limitations}
+        {\footnotesize
+        \begin{itemize}
+          \item Text-only; Vietnamese-only training data
+          \item Validation reuse; 413-row test split unevaluated
+        \end{itemize}}
+      \end{alertblock}
+      \vspace{6pt}
       \begin{block}{Future Direction}
         {\footnotesize Seed-disjoint splits, evaluated once on an untouched, human-labelled test set.}
       \end{block}
