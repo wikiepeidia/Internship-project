@@ -1,7 +1,10 @@
-%% Backup appendix (Phase 33 D-11) — 3 hidden Q&A-only frames, sit after \appendix in slides.tex.
+%% Backup appendix (Phase 33 D-11) — 4 hidden Q&A-only frames, sit after \appendix in slides.tex.
 %% Preserves content trimmed during the Motivation+WhyLocal, Evaluation+Confusion, and
-%% Contributions+Future merges. Not counted toward the main-frame footline total
-%% (\insertmainframenumber freezes the denominator at 11).
+%% Contributions+Future merges, plus the Demo video-placeholder frame (2026-07-14: cut
+%% from the timed main flow — demo live in Q&A instead if asked; Sample Output went back
+%% to the main flow the same day, see slides/sections/10_demo.tex). Not counted toward
+%% the main-frame footline total (Beamer's built-in \insertmainframenumber, auto-frozen
+%% at \appendix — no manual denominator to maintain here).
 
 %% Backup 1: Motivation & Why Local — full pre-merge detail
 \begin{frame}[allowframebreaks]{Backup: Motivation \& Why Local --- Full Detail}
@@ -48,7 +51,7 @@
     \item \textbf{Baseline (zero-shot):} macro F1\,=\,0.6702 \quad$\to$\quad \textbf{Fine-tuned:} macro F1\,=\,\textcolor{CVBLUE}{\textbf{0.9625}} \quad(\textbf{+0.2923})
     \item \textbf{Lowest recall:} Task Scam (0.871) --- bank-name + OTP phrasing overlaps class boundary.
     \item \textbf{Key gain:} benign recall 0.344\,$\to$\,1.000; base model over-predicts threats.
-    \item \textbf{Caution:} validation reuse and seed overlap prevent an independent-test claim.
+    \item \textbf{Caution:} the reported 254 rows are the trainer validation split; seed overlap with training limits the generalization claim, and the 413-row test split remains unevaluated.
   \end{itemize}
   \vspace{4pt}
   {\footnotesize\textbf{Original Confusion Matrix error-pattern bullets (pre-merge, 4 items):}}
@@ -80,4 +83,18 @@
   \begin{block}{Primary Future Direction (original, pre-merge)}
     {\footnotesize Rebuild seed-group-disjoint splits and evaluate once on an untouched, human-labelled test set.}
   \end{block}
+\end{frame}
+
+%% Backup 4: Demo (cut from the timed main flow, 2026-07-14 — not called "Live" since
+%% the shown demo is a recorded video pasted in via PDF editor, not performed live.
+%% If a judge asks for a demo, do it live in Q&A instead — see GDEMO-01 golden prompts
+%% in 33-RUN-PLAN.md. Deliberately minimal/mostly blank so the video overlay has room.)
+\begin{frame}{Demo}
+  \vfill
+  \begin{center}
+    {\Huge\bfseries\color{CVBLUE} Demo}\\[16pt]
+    {\large \texttt{vnphish analyze}}\\[8pt]
+    {\normalsize\color{black!60} Vietnamese phishing message \textrightarrow{} local inference \textrightarrow{} structured output}
+  \end{center}
+  \vfill
 \end{frame}
