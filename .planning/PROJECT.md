@@ -26,9 +26,8 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Compress the defense slide deck to reliably fit a 10-minute presentation slot, without cutting Architecture/Data/Model methodology depth.
-- [ ] Sync the defense slides to the final demo script (2 locked golden prompts) and Phase 32 readiness caveats.
-- [ ] Decide and lock the demo-in-slot approach (1-minute reserved demo vs. cutting the demo if timing doesn't fit).
+- [ ] Write talking-point speaking cues for all 12 defense slides, matching the ~8:05 timing budget.
+- [ ] Write a Q&A preparation document covering all report aspects (data, model, architecture, evaluation, limitations, design rationale) in plain, explainable language — directly addressing a judge's informal feedback that the report reads as AI-generated.
 
 ### Out of Scope
 
@@ -61,18 +60,31 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v5.2 Emergency Slide Fix — 10-Minute Presentation
+## Current Milestone: v5.3 Slide Scripts & Q&A Preparation
 
-**Goal:** Compress and fix the defense slide deck so it reliably fits a 10-minute presentation slot, without cutting the depth of the Architecture, Data, and Model/Training methodology sections.
+**Goal:** Give the presenter talking-point speaking cues for all 12 defense slides and a comprehensive Q&A preparation document covering every aspect of the report, so they can explain the work confidently and in their own words during the live defense on 15 July 2026 — directly addressing a judge's informal feedback that the report reads as AI-generated. Emergency milestone: defense is tomorrow.
 
 **Target features:**
 
-- Slide count/timing audit: measure current section/slide count and estimate delivery time against the 10-minute target (~10 slides guideline, 1 minute reserved for the demo)
-- Trim/merge non-methodology sections (title, agenda, problem, why-local, confusion matrix, contributions, future work, references, thank-you) to reclaim time
-- Keep Architecture, Data pipeline, and Model/Training sections' content and depth intact — no cuts there
-- Sync remaining demo-related slide content to the Phase 32 locked golden prompts (scam + benign)
-- Decide and lock the demo-in-slot approach: 1-minute reserved demo vs. cutting the demo if timing doesn't fit
-- Rough per-slide timing estimate so the presenter can rehearse against the real 10-minute limit
+- Talking-point speaking cues for each of the 12 main slides (matching the Phase 33 trimmed deck and its ~8:05 timing budget) — short spoken fragments the presenter elaborates on, not full sentences to recite
+- Q&A preparation document covering data pipeline/dataset, model adaptation (QLoRA/GGUF), architecture/privacy rationale, evaluation/metrics, limitations, and design-choice justifications
+- Answers phrased in plain, first-person, explainable language the student can internalize and reproduce in their own words — not dense AI-polished prose
+- Explicit coverage of the "does this sound AI-generated" risk: talking points ready if a judge questions authorship, backed by answers that demonstrate genuine command of specific numbers and concrete reasoning
+- Q&A organized by topic for fast lookup during last-minute review
+
+**Note:** The thesis report itself is LOCKED (v5.0) and is not modified by this milestone — this is presentation support material only.
+
+## Completed Milestone: v5.2 Emergency Slide Fix — 10-Minute Presentation
+
+**Closed:** 2026-07-14
+
+**Delivered:**
+
+- Phase 33: defense deck compressed from 15 to 12 main frames (7 sections) via targeted merges — Architecture/Data/Model sections kept fully intact, verified byte-identical
+- Hidden 3-frame Beamer backup appendix preserving trimmed detail for Q&A, footline denominator frozen via `\insertmainframenumber`
+- Title-slide date corrected to 15 July 2026; XeLaTeX compiles clean
+- Sample Output and Demo split into separate frames (neither framed as "live" — the demo is a recorded video pasted in afterward)
+- `33-RUN-PLAN.md`: baseline vs. final timing (~8:05, ~2 min margin under the 10:00 target), locked demo-in-slot decision, and both golden prompts (scam + benign) for the live demo/recording
 
 ## Completed Milestone: v5.1 Demo Verification & Presentation Readiness
 
@@ -144,7 +156,8 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
 - v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk.
-- v5.2 (started 2026-07-13, emergency): the 15-section slide deck is too long for the 10-minute defense slot. Scope is compress/trim to ~10 slides while keeping Architecture/Data/Model methodology depth intact, sync the demo slide to the 2 locked golden prompts, and lock the demo-in-slot decision.
+- v5.2 complete (2026-07-13/14): deck compressed 15->12 frames, Architecture/Data/Model untouched, XeLaTeX clean, demo split into Sample Output + Demo frames, timing at ~8:05 (2 min margin).
+- v5.3 (started 2026-07-14, emergency — defense is 2026-07-15, tomorrow): a judge who informally previewed the report said it reads as AI-generated. Scope is talking-point speaking cues for all 12 slides plus a Q&A preparation document covering every report aspect in plain, explainable language, so the presenter can defend the work in their own words. Report itself stays locked/unmodified.
 
 ## Evolution
 
@@ -166,4 +179,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-13 after starting v5.2 emergency slide-fix milestone
+Last updated: 2026-07-14 after starting v5.3 emergency slide-scripts and Q&A-prep milestone

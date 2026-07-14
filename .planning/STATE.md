@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.2
-milestone_name: — Emergency Slide Fix — 10-Minute Presentation
-current_phase: 33
-status: complete
-stopped_at: Phase 33 complete — deck compiled clean, 33-RUN-PLAN.md written
-last_updated: "2026-07-13T15:40:00.000Z"
-last_activity: 2026-07-13
-last_activity_desc: "Phase 33 executed and verified: 15->11 frames, D-06 protected files untouched, XeLaTeX zero errors, 7/7 v5.2 requirements complete"
+milestone: v5.3
+milestone_name: Slide Scripts & Q&A Preparation
+status: planning
+last_updated: "2026-07-14T01:58:24.688Z"
+last_activity: 2026-07-14
 progress:
-  total_phases: 16
-  completed_phases: 11
-  total_plans: 44
-  completed_plans: 41
-  percent: 93
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -21,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v5.2 (emergency) — compress the defense slide deck so it reliably fits the 10-minute presentation slot within the 13-20 July 2026 defense window, without cutting Architecture/Data/Model methodology depth; sync the demo slide to the 2 Phase-32 locked golden prompts (scam + benign); lock the demo-in-slot decision. Single-phase milestone (Phase 33) — all 7 requirements are tightly coupled edits to the same slide deck.
+- Current milestone focus: v5.3 (emergency, defense is 2026-07-15 — tomorrow) — write talking-point speaking cues for all 12 defense slides (matching the Phase 33 deck and its ~8:05 timing budget) and a Q&A preparation document covering every report aspect in plain, explainable language, so the presenter can defend the work in their own words. Directly responds to a judge's informal feedback that the report reads as AI-generated. Report itself stays locked/unmodified.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -34,12 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: 33 - Emergency 10-Minute Slide Compression (complete)
-Plan: 33-01 (complete)
-Status: Phase 33 shipped — deck recompiled clean at 11 main frames, 33-RUN-PLAN.md ready for rehearsal
-Last activity: 2026-07-13 — Phase 33 executed: 4 frame merges, backup appendix wired, date fixed, 7/7 v5.2 requirements complete
-
-Progress: [██████████] 100% (v5.2 milestone — single phase, done)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-14 — Milestone v5.3 started
 
 ## Performance Metrics (Baseline Targets)
 
