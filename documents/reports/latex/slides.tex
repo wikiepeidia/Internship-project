@@ -41,7 +41,7 @@
     \end{beamercolorbox}%
     \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
       \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
-      \insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+      \insertframenumber{} / \insertmainframenumber\hspace*{2ex}
     \end{beamercolorbox}%
   }%
   \vskip0pt%
@@ -66,7 +66,7 @@
 \subtitle{Bachelor Thesis Defense}
 \author[Internship Bachelor]{Phạm Thế Minh \\ {\small Student ID: 23BI14279}}
 \institute[USTH]{University of Science and Technology of Hanoi (USTH) \\ {\footnotesize\mdseries Supervisors: Nguyễn Việt Anh \quad|\quad Giang Anh Tuấn}}
-\date{14 July 2026}
+\date{15 July 2026}
 
 %% ── No animations (D-15, handout-compatible) ────────────────
 \setbeamercovered{invisible}
@@ -78,36 +78,32 @@
 \input{slides/sections/01_title.tex}
 \input{slides/sections/02_agenda.tex}
 
-\section{1. Motivation}
+\section{1. Motivation \& Why Local}
 \input{slides/sections/03_problem.tex}
 
-\section{2. Why Local?}
-\input{slides/sections/06_why_local.tex}
-
-\section{3. Training Pipeline}
+\section{2. Training Pipeline}
 \input{slides/sections/04_architecture.tex}
 
-\section{4. Data Pipeline}
+\section{3. Data Pipeline}
 \input{slides/sections/05_data.tex}
 
-\section{5. Model Training}
+\section{4. Model Training}
 \input{slides/sections/07_model.tex}
 
-\section{6. Limitations}
-\input{slides/sections/12_future.tex}
-
-\section{7. Evaluation Results}
+\section{5. Evaluation Results}
 \input{slides/sections/08_evaluation.tex}
-\input{slides/sections/09_confusion.tex}
 
-\section{8. Conclusion}
+\section{6. Conclusion}
 \input{slides/sections/11_contributions.tex}
 
-\section{9. Demo}
+\section{7. Demo}
 \input{slides/sections/10_demo.tex}
 
 \input{slides/sections/15_thankyou.tex}
 
 \input{slides/sections/13_references.tex}
+
+\appendix
+\input{slides/sections/14_backup.tex}
 
 \end{document}
