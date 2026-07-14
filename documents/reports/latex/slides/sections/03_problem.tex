@@ -1,35 +1,26 @@
-%% Slide 3: Motivation & Why Local (merged, Phase 33 D-02)
+%% Slide 3: Motivation & Why Local (merged, Phase 33 D-02; text trimmed Phase 33 follow-up per user review)
 \begin{frame}{Motivation: Vietnamese Phishing \& Why Local Inference}
   \framesubtitle{The Problem \& the Privacy-First Approach}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
       {\footnotesize\textbf{The problem}}\\[2pt]
       \begin{itemize}\footnotesize
-        \item Group-IB documented cloned bank-login pages distributed through SMS
-              to customers of major Vietnamese banks {\scriptsize [Group-IB, 2022]};
-              Vietnam's information-security authority separately warned about
-              bank-impersonation messages exploiting biometric-verification
-              procedures {\scriptsize [AIS, 2024]}.
-        \item Suspicious messages can include OTP codes, phone numbers, and account
-              details --- sending this content to a cloud classifier adds transit,
-              retention, and provider-exposure risk.
+        \item Cloned bank-login pages spread via SMS {\scriptsize [Group-IB, 2022]}
+        \item Biometric-verification impersonation warnings {\scriptsize [AIS, 2024]}
+        \item OTP/account details in messages $\to$ cloud classifiers add exposure risk
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
       {\footnotesize\textbf{Why local}}\\[2pt]
       \begin{itemize}\footnotesize
-        \item \textbf{OpenAI ChatGPT (Mar.\ 2023):} a Redis bug exposed chat history
-              and payment details of ${\sim}1.2\%$ of active users; \textbf{Samsung
-              Semiconductor (2023):} engineers pasted confidential chip design code
-              into ChatGPT, triggering an internal investigation.
-        \item Cloud risk path: text leaves device $\rightarrow$ cloud server $\rightarrow$
-              provider logs may retain prompts $\rightarrow$ breach or ToS training exposure.
+        \item \textbf{OpenAI (Mar.\ 2023):} Redis bug, ${\sim}1.2\%$ of users exposed
+        \item \textbf{Samsung (2023):} confidential code pasted into ChatGPT
+        \item Cloud path: device $\to$ server $\to$ retained/breached prompts
       \end{itemize}
     \end{column}
   \end{columns}
   \vfill
-  \begin{block}{Problem \& Local-First Solution}
-    {\footnotesize This project builds an offline-first threat detector that returns a
-    risk tier, threat labels, and safety guidance without sending message text off-device.}
+  \begin{block}{Local-First Solution}
+    {\footnotesize Offline-first detector: risk tier + threat labels + safety guidance --- text never leaves the device.}
   \end{block}
 \end{frame}
