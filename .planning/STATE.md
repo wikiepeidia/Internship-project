@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v5.3
 milestone_name: Slide Scripts & Q&A Preparation
-status: planning
-last_updated: "2026-07-14T03:00:00.000Z"
-last_activity: 2026-07-14
+status: complete
+last_updated: "2026-07-15T12:00:00.000Z"
+last_activity: 2026-07-15
 progress:
   total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 100
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -31,12 +31,12 @@ progress:
 
 ## Current Position
 
-Phase: 34 - Speaking Script & Q&A Preparation (complete)
-Plan: 34-01 (complete)
-Status: Phase 34 shipped — speaking script + Q&A prep both written, milestone v5.3 done
-Last activity: 2026-07-14 — Phase 34 executed: 12-slide speaking cues + comprehensive Q&A doc, 7/7 v5.3 requirements complete
+Phase: none active — v5.2 and v5.3 both archived, defense held and complete
+Plan: none active
+Status: DEFENSE HELD 2026-07-15. v5.2 and v5.3 milestones archived (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). Slides are now LOCKED — no further slide edits planned. Next milestone is a report revision, blocked on the student supplying the actual judge transcripts/notes — not yet scoped.
+Last activity: 2026-07-15 — milestone archival + defense outcome capture. Judges requested a report revision (see Accumulated Context below for the specific gaps raised live).
 
-Progress: [██████████] 100% (v5.3 milestone — single phase, done)
+Progress: [██████████] 100% (v5.2 + v5.3 both shipped and archived; no milestone currently active)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -89,6 +89,9 @@ Progress: [██████████] 100% (v5.3 milestone — single phase
 - Tooling note: `Agent(isolation="worktree")` forks from `origin/HEAD`, not local `HEAD`. On a repo with unpushed local commits (this one hasn't pushed since PR #1 / commit 25ca41c), that fork base goes stale fast and executor agents correctly self-halt (exit 42) rather than commit against a stale base. `gsd_run query worktree.base-check` detects this (`shouldDegrade: true`) and the documented fix is to degrade to sequential execution for the affected run, or push to origin more often, or set `worktree.baseRef:"head"` in `.claude/settings.local.json`.
 - v5.3 roadmap (2026-07-14, emergency): single-phase roadmap — Phase 34 covers all 7 requirements (SCRIPT-01-03, QA-01-04) because the two deliverables (speaking-cue script, Q&A doc) are independent content with no file/state overlap but form one cohesive presenter-readiness goal; smallest-viable-phase-count directive applied — splitting into two phases was considered and rejected as unnecessary process overhead given the defense is tomorrow (2026-07-15).
 - Phase 34 COMPLETE (2026-07-14): executed directly (no discuss/research/plan-checker/executor-subagent pipeline — pure content-writing with no architectural ambiguity, given the deadline). Wrote `documents/reports/supervisor/defense_speaking_script.md` (12-slide talking-point cues summing to exactly 485s/8:05, matching 33-RUN-PLAN.md's TIME-05 table) and `documents/reports/supervisor/defense_qa_preparation.md` (9-section topic-organized Q&A: authorship/"AI-generated" defense, data governance incl. plain-language t-test explanation, QLoRA hyperparameters + NF4-vs-Q8_0 dual-quantization rationale, model selection pilot, recall-floor rationale, the task_scam 0.44->0.871 recall-recovery story, design rationale, quick-reference numbers table). Both files are gitignored per project convention (documents/reports/supervisor/ — confirmed via the pre-existing, never-committed mock_defense_script.md in the same directory); `.planning/phases/34-speaking-script-qa-preparation/34-01-SUMMARY.md` is the tracked record. Numbers verified against current locked chapters 03/05 and qlora_config.tex/dataset_statistics.tex — found and fixed a stale-number risk: the old June mock_defense_script.md cited macro F1 0.9553 vs. the current report's 0.9625.
+- NOTE: `defense_speaking_script.md`, `defense_qa_preparation.md`, and `defense_code_navigation.md` actually live at the **repo root**, not under `documents/reports/supervisor/` as originally written above — confirmed via `.gitignore` (lines ~290-294) during later same-milestone work. All three are gitignored at the root. A fourth root-level file, `defense_walkthrough.md`, and a fifth, `defense_qa2.md`, were added later in the same milestone tail (see next entry) — same gitignore treatment.
+- v5.3 tail-end work, same-day and next-day (2026-07-14/15, untracked as formal phases, executed directly given the deadline — full detail in `.planning/milestones/v5.3-SUMMARY.md`): extensive slide iteration (Demo section cut to backup then Sample Output reinstated to main flow; Sample Output's input/output swapped to the real, live-verified golden scam prompt run, catching and fixing 2 real XeLaTeX rendering bugs — `listings`-package Vietnamese diacritic scrambling under XeLaTeX, and DejaVu Sans missing CJK bracket glyphs; a full report-vs-slides numeric audit that found and fixed one real model-name inconsistency; Evaluation Results "Caution" bullet and Contributions "Validation reuse" jargon both cut per user review). `defense-walkthrough` branch merged into `main`; all 10 numbered code-walkthrough files given heavy teaching-style comments; `walkthrough/data/` added with SHA-256-verified copies of the actual final datasets. Two new root-level prep docs written: `defense_walkthrough.md` (slide-anchored Q&A companion, deep on Slides 5-6, iteratively simplified in real time under pressure) and `defense_qa2.md` (live in-the-room judge-behavior notes captured during the actual defense).
+- **DEFENSE HELD 2026-07-15 — COMPLETE.** Judge feedback captured for the next milestone: report quality acknowledged as good but criticized as short ("bare minimum pages"); a specific gap raised live — the exact threat-class labels used during training could not be found in the report; a judge explicitly requested revision ("if you did the report, i hope you revise it"); judges repeatedly cross-checked "did you include this in the report" across multiple topics, confirming report/slide/artifact traceability is a real scoring axis for this panel. **Decision: slides are now LOCKED — no further slide edits planned.** The next milestone is a report revision, deliberately not yet scoped — waiting on the student to supply the actual judge transcripts/notes rather than guessing at scope from a rough real-time summary.
 
 ### Requirement Coverage Snapshot
 
@@ -199,9 +202,9 @@ Progress: [██████████] 100% (v5.3 milestone — single phase
 
 ## Session Continuity
 
-**Last session:** 2026-07-14T04:00:00.000Z
-**Stopped at:** Phase 34 complete — speaking script and Q&A prep both written and verified, milestone v5.3 done
-**Resume file:** `documents/reports/supervisor/defense_qa_preparation.md`
+**Last session:** 2026-07-15T12:00:00.000Z
+**Stopped at:** Defense held and complete. v5.2 and v5.3 archived to `.planning/milestones/`. Slides LOCKED. Next milestone (report revision) intentionally not yet scoped — waiting on the student to supply the actual judge transcripts/notes.
+**Resume file:** `.planning/PROJECT.md` (Current State section) — once transcripts are provided, run `/gsd-new-milestone` to scope the report revision.
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -247,19 +250,17 @@ Progress: [██████████] 100% (v5.3 milestone — single phase
 | 2026-07-13 | v5.2 roadmap creation | Complete. Phase 33 defined (single phase, emergency milestone), 7/7 v5.2 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-14 | v5.3 roadmap creation | Complete. Phase 34 defined (single phase, emergency milestone), 7/7 v5.3 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-14 | Phase 34 execution | Complete. Speaking script (12 slides, 8:05 timing) and Q&A prep (9 topic sections incl. AI-generated-authorship defense) written to documents/reports/supervisor/, all 7 v5.3 requirements delivered. |
+| 2026-07-15 | v5.2 + v5.3 milestone completion/archival | Complete. Defense held 2026-07-15. Both milestones archived to `.planning/milestones/v5.2-SUMMARY.md` and `v5.3-SUMMARY.md`. Judge feedback captured (missing training-label documentation, report too short, revision requested). Slides LOCKED. Next milestone (report revision) intentionally unscoped, pending student-supplied transcripts. |
 
 ## Operator Next Steps
 
-- **v5.2 and v5.3 are both shipped.** All planned emergency prep work for the 2026-07-15 defense is complete:
-  - v5.2: deck compressed 15->12 main frames (7 sections), XeLaTeX compiles clean, ~8:05 timing per `33-RUN-PLAN.md`.
-  - v5.3: `documents/reports/supervisor/defense_speaking_script.md` (12-slide talking-point cues) and `documents/reports/supervisor/defense_qa_preparation.md` (topic-organized Q&A, including a direct "does this look AI-generated" defense section) are written and verified against the current locked report.
-- **What's left is entirely the student's own action, not more GSD work:**
-  1. Read both `documents/reports/supervisor/defense_*.md` files fully at least once.
-  2. Do one full stopwatch rehearsal against the speaking script's timing table.
-  3. Overlay the recorded demo video onto the compiled `slides.pdf`'s Demo slide via a PDF editor (D-10, still pending).
-  4. Re-read Q&A Section 0 (AI-generated concern) and Section 5 (task_scam recall story) until they can be said conversationally, not read.
-- Use `scripts\START_DEMO_UI.bat` for the live demo and keep `scripts\START_TEXT_ANALYZE.bat` available as a terminal backup.
-- Next formal GSD step (non-urgent, can wait until after the defense): `$gsd-complete-milestone v5.2` and `$gsd-complete-milestone v5.3` to archive both.
+- **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
+- **Next milestone: Report Revision — BLOCKED, do not start scoping yet.** The student will supply the actual judge transcripts/notes from the defense; wait for those before running `/gsd-new-milestone` for the revision. Known gaps already flagged live by judges (to weigh once transcripts arrive, not to act on prematurely):
+  1. The exact threat-class labels used during training are apparently not findable in the report — this needs an explicit, locatable section (likely Methodology or Data chapter), not just implied by table headers.
+  2. Report judged "good but short" — page-count/depth gap, department minimum is being read as bare-minimum.
+  3. Judges want a revision generally, and repeatedly checked "is this in the report" across topics — the revision should bias toward making claims traceable/locatable in the text itself, not just true.
+  4. Whatever tone the revision lands on, keep it consistent throughout — don't let voice drift chapter to chapter (this is the "lock the tone" instruction from the room).
+- Reference material already in place for the revision milestone once it starts: the full report-vs-slides numeric audit from v5.3's tail end, `defense_qa_preparation.md`/`defense_walkthrough.md`'s accumulated Q&A (many of these answers are candidate content for the report itself, since judges asked them live), and `documents/reports/latex/EVIDENCE_MAP.md`/`WRITING_GUARDRAILS.md` from Phase 8.
 
 ## Decisions
 

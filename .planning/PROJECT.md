@@ -20,14 +20,15 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Milestone v3.0 complete and closed (2026-06-18): supervisor comments addressed — literature review added (20+ new citations), baseline Qwen3.5-4B comparison run added, synthetic-data-percentage stated explicitly, page count brought to department target.
 - Milestone v4.0 complete and closed (2026-06-19/20): pre-print academic review passed (20 findings fixed) — thesis print-ready at 33 pages, 36 citations, 24 abbreviations, zero compile errors.
 - Milestone v5.0 complete and closed (2026-06-20): final audit pass — report LOCKED for print.
+- Milestone v5.2 complete and closed (2026-07-13): defense deck compressed 15->12 main frames, Architecture/Data/Model methodology depth untouched, XeLaTeX compiles clean, demo synced to locked golden prompts.
+- Milestone v5.3 complete and closed (2026-07-15, defense day): speaking script + Q&A preparation written for the defense; substantial additional slide iteration and live-rehearsal material followed in the same milestone tail (see `.planning/milestones/v5.3-SUMMARY.md`). Defense held 2026-07-15 — complete.
 - Phase 28 complete and corrected (2026-07-02): dev-machine baseline diagnostics passed; the final golden demo prompts are a no-OTP malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice, each locked through five stable real web-demo runs; the corrected warm-latency baseline is `22705.562 ms` for Phase 30 comparison.
 - Phase 31 complete and verified (2026-07-08): the browser edge-case matrix (empty/very-long/malformed/mixed-language) and rapid double-submit race are covered by an automated real-demo verifier with `overall_pass: true`; the double-submit controller-ownership race was fixed in `demo.js`; `vnphish analyze` vs `vnphish demo` CLI confusion is resolved via clearer help text and two double-click Windows launchers; golden prompts remain stable 5/5 scam and 5/5 benign after the fix, with no backend/template regressions.
 - Phase 32 closed for demo-focused defense readiness (2026-07-09): the final `scripts/START_DEMO_UI.bat` launcher passed a fresh-process browser dry-run with both locked golden prompts (`high-risk`/`bank_impersonation` scam and `benign` OTP notice), doctor remains READY, and 30 focused runtime/UI tests passed. Fallback recording, screenshot sequence, and pivot rehearsal were not supplied or verified; they are documented as accepted-risk skips because the operator scoped defense readiness mostly to the live demo. Slide sync remains a separate near-term presentation task.
 
 ### Active
 
-- [ ] Write talking-point speaking cues for all 12 defense slides, matching the ~8:05 timing budget.
-- [ ] Write a Q&A preparation document covering all report aspects (data, model, architecture, evaluation, limitations, design rationale) in plain, explainable language — directly addressing a judge's informal feedback that the report reads as AI-generated.
+- Nothing active. Defense held 2026-07-15; slides are LOCKED. Next milestone (report revision) is deliberately unscoped — waiting on the student to supply the actual judge transcripts/notes before running `/gsd-new-milestone`. See Current State below for the specific gaps judges raised live.
 
 ### Out of Scope
 
@@ -60,19 +61,29 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v5.3 Slide Scripts & Q&A Preparation
+## Current Milestone: none — awaiting report-revision scope
 
-**Goal:** Give the presenter talking-point speaking cues for all 12 defense slides and a comprehensive Q&A preparation document covering every aspect of the report, so they can explain the work confidently and in their own words during the live defense on 15 July 2026 — directly addressing a judge's informal feedback that the report reads as AI-generated. Emergency milestone: defense is tomorrow.
+Defense held 2026-07-15 and is complete. No milestone is currently active. The next milestone is a report revision, but it is deliberately **not yet scoped**: the student will supply the actual judge transcripts/notes from the defense, and scoping will happen from that real material rather than a rough real-time summary. Run `/gsd-new-milestone` once transcripts are available.
 
-**Target features:**
+Known gaps judges raised live, to weigh once transcripts arrive (not acted on yet):
+1. The exact threat-class labels used during training could not be located in the report by a judge — needs an explicit, findable section, not just implied by table headers.
+2. Report judged "good but short" — a page-count/depth gap against department expectations.
+3. A judge directly asked for a revision; judges repeatedly cross-checked "is this in the report" across many topics — bias the revision toward making claims locatable in the text, not just true.
+4. Keep tone consistent across the revision — don't let voice drift chapter to chapter ("lock the tone").
 
-- Talking-point speaking cues for each of the 12 main slides (matching the Phase 33 trimmed deck and its ~8:05 timing budget) — short spoken fragments the presenter elaborates on, not full sentences to recite
-- Q&A preparation document covering data pipeline/dataset, model adaptation (QLoRA/GGUF), architecture/privacy rationale, evaluation/metrics, limitations, and design-choice justifications
-- Answers phrased in plain, first-person, explainable language the student can internalize and reproduce in their own words — not dense AI-polished prose
-- Explicit coverage of the "does this sound AI-generated" risk: talking points ready if a judge questions authorship, backed by answers that demonstrate genuine command of specific numbers and concrete reasoning
-- Q&A organized by topic for fast lookup during last-minute review
+## Completed Milestone: v5.3 Slide Scripts & Q&A Preparation
 
-**Note:** The thesis report itself is LOCKED (v5.0) and is not modified by this milestone — this is presentation support material only.
+**Closed:** 2026-07-15 (defense day)
+
+**Delivered:**
+
+- Phase 34: talking-point speaking cues for all main defense slides and a topic-organized Q&A preparation document, both in plain first-person language — directly addressing a judge's informal "reads as AI-generated" feedback
+- Substantial same-milestone tail-end iteration (untracked as formal phases, given the deadline): Demo section cut to backup then Sample Output reinstated to the main flow; Sample Output's input/output swapped to the real, live-verified golden scam prompt run (catching and fixing 2 real XeLaTeX rendering bugs along the way); a full report-vs-slides numeric audit that found and fixed one real model-name inconsistency; Evaluation Results and Contributions slides trimmed of jargon/unexplainable bullets per live review
+- `defense-walkthrough` branch merged into `main`; all 10 numbered code-walkthrough files given heavy teaching-style comments; `walkthrough/data/` added with SHA-256-verified copies of the real final datasets
+- Two new root-level prep docs: `defense_walkthrough.md` (slide-anchored Q&A companion) and `defense_qa2.md` (live in-the-room judge-behavior notes captured during the actual defense)
+- Full detail: `.planning/milestones/v5.3-SUMMARY.md`
+
+**Defense outcome:** held 2026-07-15, complete. See "Current Milestone" above for judge feedback driving the next milestone.
 
 ## Completed Milestone: v5.2 Emergency Slide Fix — 10-Minute Presentation
 
@@ -156,8 +167,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - All phases across milestones v1.0–v5.0 are complete and closed.
 - Thesis report is print-ready and LOCKED (33 pages, 36 citations, 24 abbreviations, zero compile errors).
 - v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk.
-- v5.2 complete (2026-07-13/14): deck compressed 15->12 frames, Architecture/Data/Model untouched, XeLaTeX clean, demo split into Sample Output + Demo frames, timing at ~8:05 (2 min margin).
-- v5.3 (started 2026-07-14, emergency — defense is 2026-07-15, tomorrow): a judge who informally previewed the report said it reads as AI-generated. Scope is talking-point speaking cues for all 12 slides plus a Q&A preparation document covering every report aspect in plain, explainable language, so the presenter can defend the work in their own words. Report itself stays locked/unmodified.
+- v5.2 complete (2026-07-13): deck compressed 15->12 frames, Architecture/Data/Model untouched, XeLaTeX clean, demo split into Sample Output + Demo frames, timing at ~8:05 (2 min margin).
+- v5.3 complete (2026-07-14/15): speaking script + Q&A prep written, followed by extensive same-milestone slide iteration and live-rehearsal material (see `.planning/milestones/v5.3-SUMMARY.md`).
+- **DEFENSE HELD 2026-07-15 — COMPLETE.** Slides are now LOCKED, no further edits planned. Judges requested a report revision — flagged gaps: exact training threat-class labels not locatable in the report text, report judged "good but short" (page-count/depth), and a general push to make claims traceable back to the report rather than only true. Next milestone is this report revision, intentionally unscoped pending the student's actual defense transcripts — do not guess at scope from this summary alone.
 
 ## Evolution
 
@@ -179,4 +191,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-14 after starting v5.3 emergency slide-scripts and Q&A-prep milestone
+Last updated: 2026-07-15 after the defense — v5.2 and v5.3 both archived, slides locked, next milestone (report revision) pending student-supplied transcripts
