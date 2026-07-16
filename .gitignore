@@ -5,6 +5,7 @@ __pycache__/
 .github/gsd-file-manifest.json
 # C extensions
 *.so
+walkthrough/
 .github/agents 
 .github/get-shit-done
 .github/skills
@@ -293,3 +294,4 @@ defense_qa_preparation.md
 defense_walkthrough.md
 defense_speaking_script.md
 TEST_DEMO.md
+defense_qa2.md

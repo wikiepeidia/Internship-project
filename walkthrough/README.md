@@ -1,6 +1,6 @@
 # Defense Walkthrough — Numbered Story Order
 
-This folder exists for one reason: so you can navigate the codebase live, in front of judges, **by opening files in order by name** — no full-text search, no grep. See `documents/reports/supervisor/defense_code_navigation.md` for the full rationale (a different team got destroyed in defense over exactly this).
+This folder exists for one reason: so you can navigate the codebase live, in front of judges, **by opening files in order by name** — no full-text search, no grep. See `defense_code_navigation.md` (repo root) for the full rationale (a different team got destroyed in defense over exactly this).
 
 **These are not a second implementation.** Each file is a byte-for-byte copy of the real source, with one header comment block added on top pointing back to the canonical `src/...` path it came from. If a judge asks "is this the real code," open the header — it says exactly where the original lives, and you can open that file too to show they match.
 
@@ -23,12 +23,19 @@ This folder exists for one reason: so you can navigate the codebase live, in fro
 
 Files 1-4 are the data pipeline. Files 5-6 are training. Files 7-10 are the runtime — read these four together to answer "walk me through what happens when I submit a message."
 
+## `data/` — the actual final datasets
+
+Byte-for-byte copies of the real seed/train/val/test files, checksum-verified against the evidence manifest — not samples, not regenerated. See `data/README.md` for what's in each file, including a live-verifiable "show me" command for the seed-overlap limitation. If a judge asks to see the data itself rather than just the code, this is where you go.
+
 ## How to use this during the defense
 
 Open by filename (`Ctrl+P` in VS Code, type e.g. `9_prompt`), not by searching for a keyword. If a judge wants to see the *real* location, the header comment at the top of every file names it exactly.
 
 ## Companion documents
 
-- `documents/reports/supervisor/defense_code_navigation.md` — the drilling guide: the four question types that sank a different team's defense, mapped to this project's real answers.
-- `documents/reports/supervisor/defense_qa_preparation.md` — full Q&A prep, numbers, and design rationale.
-- `documents/reports/supervisor/defense_speaking_script.md` — slide-by-slide talking points.
+All at the repo root, not under `documents/`:
+
+- `defense_walkthrough.md` — **slide-by-slide** Q&A prep — anticipated questions anchored to exactly what's visible on each slide, for when a judge says "go to slide 5." Start here for rehearsal.
+- `defense_code_navigation.md` — the drilling guide: the four question types that sank a different team's defense, mapped to this project's real answers.
+- `defense_qa_preparation.md` — full Q&A prep organized by *topic* (data pipeline, QLoRA, evaluation...), numbers, and design rationale.
+- `defense_speaking_script.md` — slide-by-slide talking points and timing (note: slide order in this file needs a re-check against the current deck before rehearsing timing).

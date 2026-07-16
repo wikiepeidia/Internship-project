@@ -3,30 +3,66 @@
 %% grounding the evaluation numbers before the deck wraps up. Not "live" — see the
 %% separate Demo frame in slides/sections/14_backup.tex for the video placeholder,
 %% which stayed cut from the timed flow.)
+%% 2026-07-14, same day: input text swapped to the ACTUAL locked golden scam prompt
+%% (GDEMO-01 in defense_speaking_script.md / scripts/verify_golden_prompts.py) instead
+%% of a separate illustrative example, and the "System output" box replaced with the
+%% real output of `vnphish analyze` run live against that exact prompt — not invented.
+%% Verified deterministic (temperature=0.0): two live runs produced byte-identical
+%% output. Note the 3 grounded cues below all quote real substrings of the input text
+%% (case-insensitively grounded per `cue_span_is_grounded()`), but the model returned
+%% them as a plain span list rather than per-span reasons for this particular prompt —
+%% so the per-cue "reason" text is intentionally omitted here rather than shown 3x
+%% identical (the raw CLI output repeats the same generic decision-summary sentence
+%% as each cue's "reason," which is real behavior but reads as broken/redundant on a
+%% slide — dropped for presentation only, not altered or invented).
+%%
+%% TWO DISPLAY-ONLY (not content) fixes applied after a render check, both because of
+%% real XeLaTeX/`listings` rendering bugs, not because the underlying data changed:
+%% 1. The literal golden prompt starts with full-width brackets "【VIETCOMBANK】"
+%%    (U+3010/U+3011) — DejaVu Sans has no glyph for these, they rendered as a blank
+%%    tofu box. Displayed here as plain "[VIETCOMBANK]" instead; the bracket style is
+%%    a cosmetic bank-SMS-sender-tag convention, doesn't affect grounding/labels/risk
+%%    tier at all. The real prompt text sent to the model (and used if re-run live)
+%%    still has the full-width brackets — only the SLIDE's rendering differs.
+%% 2. The real "Next steps" output has full Vietnamese diacritics. An earlier attempt
+%%    put that text inside a `listings` environment under XeLaTeX, which scrambled the
+%%    diacritic character order into garbage (a real, reproducible `listings`+UTF-8
+%%    combining-mark bug) — fixed by dropping `listings` for this box entirely and
+%%    using a plain \ttfamily minipage instead (same mechanism the Input box on the
+%%    left already used successfully). Diacritics kept ON PURPOSE, not just for
+%%    fidelity: correct, fluent Vietnamese output (not a fallback to ASCII/English or
+%%    garbled text) is itself evidence the Q8_0 quantization preserves enough
+%%    precision to hold the model's Vietnamese generation quality — worth being able
+%%    to point at directly if asked "why 8-bit and not something smaller."
 \begin{frame}[fragile]{Sample Output}
   \framesubtitle{Vietnamese Phishing Message --- Structured Output}
   \begin{columns}[T]
-    \column{0.36\textwidth}
-      {\small\textbf{Input (SMS channel):}\\[5pt]
-      \textit{``Tài khoản Vietcombank của bạn đã bị
-      hạn chế. Vui lòng xác minh và mở khoá
-      bằng cách nhập mã OTP đã gửi đến
-      số điện thoại của bạn.''}\\[8pt]
+    \column{0.38\textwidth}
+      {\footnotesize\textbf{Input (SMS channel):}\\[5pt]
+      \textit{``[VIETCOMBANK] Tai khoan cua ban vua
+      bi truy cap tu thiet bi la luc 03:47 SA.
+      Neu ko phai ban, bam vao link de khoa
+      ngay: \url{http://vcb-secure-alert.net/lock?id=9182736}
+      hoac goi 1800.9999 (mien phi).''}\\[8pt]
       {\footnotesize Channel: \texttt{sms}}}
-    \column{0.64\textwidth}
-      {\footnotesize\textbf{System output:}}
-\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single,
-  framesep=3pt,breaklines=true,columns=fullflexible]
-Structured decision from sms local runtime.
-Risk tier: High risk
-Threat labels: Bank impersonation, Task scam
-Grounded cues:
-- "ma OTP" - Yeu cau ma xac thuc ...
-- "mo khoa" - Dan nguoi dung ...
-Next steps:
-- Khong gui OTP cho bat ky ai qua Zalo
-- Lien he Vietcombank: 1900 54 54 26
-- Kiem tra giao dich tren ung dung ngan hang
-\end{lstlisting}
+    \column{0.62\textwidth}
+      {\footnotesize\textbf{System output:}}\\[3pt]
+      \begin{center}
+      \fbox{\begin{minipage}{0.96\linewidth}
+      \ttfamily\scriptsize\raggedright
+      Structured decision from sms local runtime.\\
+      Risk tier: High risk\\
+      Threat labels: Bank impersonation\\
+      Grounded cues:\\
+      - "tai khoan cua ban vua bi truy cap"\\
+      - "\url{http://vcb-secure-alert.net/lock?id=9182736}"\\
+      - "1800.9999"\\
+      Next steps:\\
+      {\normalfont\scriptsize
+      - Không truy cập link hoặc gọi số điện thoại trong tin nhắn này.\\
+      - Gọi trực tiếp đến số điện thoại chính thức của Vietcombank để xác minh.\\
+      - Kiểm tra lại lịch sử đăng nhập tài khoản qua ứng dụng chính thức của ngân hàng.}
+      \end{minipage}}
+      \end{center}
   \end{columns}
 \end{frame}
