@@ -4,7 +4,11 @@
 The scientific objective of this internship was to build and evaluate a
 local-first Vietnamese financial phishing detection pipeline that preserves
 user privacy by avoiding cloud inference while providing understandable,
-evidence-linked explanations. The strategy combined four steps executed in
+evidence-linked explanations. At its core, this is a supervised multi-class
+text classification objective: each input message is assigned exactly one
+label from a fixed four-class taxonomy, and the model is trained against a
+ground-truth label on every training example (Section~\ref{sec:problem-statement}
+states this formally). The strategy combined four steps executed in
 sequence: constructing a reproducible labelled dataset from Vietnamese
 cybercrime alerts and synthetic generation; delivering a text-only local
 runtime with a stable offline inference path; adapting an open local model
