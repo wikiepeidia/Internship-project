@@ -1,155 +1,152 @@
 # Project Research Summary
 
-**Project:** Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection — v5.1 "Demo Verification & Presentation Readiness" milestone
-**Domain:** Pre-defense hardening/verification of an existing, working local Python (`wsgiref`) + vanilla-JS demo, backed by offline GGUF/llama.cpp CPU inference
-**Researched:** 2026-07-02
+**Project:** Vietnamese scam-detection thesis — v6.0 Report Revision
+**Domain:** Academic thesis defense-response revision (NLP/ML methodology writing, not software development)
+**Researched:** 2026-07-21
 **Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-This is not a build-from-scratch milestone — it is a **verification and hardening pass** on an already-working product, with a live, unrepeatable thesis defense as the deadline (window opens 2026-07-13, ~11 days out). All four research agents independently converged on the same posture: the stack is frozen, the architecture is sound and already instrument-friendly, and the actual risk is not "what to build" but "does what already works on the dev machine still work, unattended, offline, on the exact presentation laptop, in front of a committee, with no do-overs." The single most concrete, already-confirmed finding across all four files is that `src/runtime/demo_assets/index.html` loads Be Vietnam Pro from Google Fonts over the network — a live, disprovable contradiction of the demo's own "local-first, no cloud" pitch, discoverable by any committee member who opens DevTools.
+The defense transcript shows one root failure repeated in six shapes: the report never made its own methodology *explicit and findable*, so the judges could not verify content that in fact exists and is technically sound. The judge asked "how do you label them" roughly ten times and was never pointed to a locatable answer; asked why classification uses a generative QLoRA-tuned decoder instead of an encoder + classification head and got no written justification; asked why Qwen instead of PhoBERT and received a weak, contradicted live answer (English extension, when the judge correctly noted the stated scope is Vietnamese); flagged that confusion-matrix and train/val/test counts don't reconcile across report/slides; and, compounding all of this, invoked the supervisor because the writing style read as AI-generated with no counterbalancing evidence of ownership. None of these are code or methodology defects — the underlying pipeline (label-conditioned synthetic generation, QLoRA fine-tuning, structured JSON output) is legitimate and well-precedented in the literature. The problem is entirely that the report doesn't say so, anywhere, explicitly.
 
-The recommended approach is almost entirely non-code: pin the exact already-validated dependency versions (`llama-cpp-python==0.3.23`, not the newer `0.3.32` that a fresh install would silently resolve to), reuse existing zero-install diagnostics (`vnphish doctor`, browser DevTools Network tab, `llama_cpp` verbose timings) before writing any new tooling, and treat every fix as an "additive, external, non-shipped" change (scripts/, .bat launchers, self-hosted fonts) rather than touching `src/runtime/service.py` or the `/api/analyze` wire contract. The build order that emerges from combining ARCHITECTURE.md and PITFALLS.md is: cheapest zero-code diagnostics first (doctor, CLI pass, DevTools), then environment-parity verification (the highest-risk unknown, since the presentation laptop's drive letters, OneDrive sync state, and `.env/.env` discovery have never been tested), then targeted fixes only where verification proves a real problem, then fallback recording last.
+Research across all four files converges on the same fix pattern: this is a **documentation and evidentiary-writing task**, not a research or redesign task. Four research threads each supply the citable vocabulary and structure needed to close a specific transcript gap: (1) STACK.md supplies the academic terminology ("generative classification," "verbalizer," "instruction-based classification") and direct precedent papers proving generative-decoder classification without a classification head is a named, legitimate, chosen paradigm — not a workaround. (2) FEATURES.md supplies the standard "Dataset Construction and Labeling Methodology" section structure (per Datasheets for Datasets) and the "condition-on-label" precedent that directly answers "how do you label them." (3) ARCHITECTURE.md supplies a rigorous, honest Qwen-vs-PhoBERT comparison grounded in task shape (structured multi-field generation vs. PhoBERT's encoder-only, non-generative limits), replacing the weak live "English extension" answer with the correct primary argument. (4) PITFALLS.md supplies the meta-strategy: fix content and traceability, not tone — the judge explicitly said AI-assisted drafting is acceptable if genuine understanding can be demonstrated evidentially (schema tables, worked examples, specific pipeline detail, cross-document numeric consistency).
 
-Key risks, ranked: (1) environment drift between dev machine and presentation laptop — off-repo model paths, git-ignored `.env/.env`, OneDrive sync interference, and absolute Windows drive-letter paths are all invisible in code review and untested outside the dev machine; (2) the rehearsed "~13s" latency figure is a *warm* number only — cold mmap page-cache, Windows Defender first-touch scanning, and battery/power-plan throttling can all silently blow past it on presentation day; (3) the offline claim has a real, already-identified leak (Google Fonts CDN); (4) no fallback has been recorded or rehearsed yet, and recording it too early (before fixes land) creates its own staleness risk. None of these require new technology — they require disciplined, sequenced verification on the actual hardware that will be used live.
+The key risk to manage during revision is scope creep into unneeded rewriting: the existing report voice and already-strong sections (e.g., privacy/cloud-leakage motivation) should not be touched, per the student's own constraint (`WRITING_GUARDRAILS.md`) and per the pitfalls research's explicit warning that padding already-good sections reads as evasive, not thorough. The revision should be laser-targeted at the six documented transcript gaps, written with maximum specificity and citation density, and paired with a numeric consistency audit (confusion matrix vs. split counts) that removes the strongest actual evidence the judges had for "fabricated/borrowed work."
 
 ## Key Findings
 
-### Recommended Stack
+### Recommended Stack (Academic Terminology & Framing)
 
-The stack is deliberately **not changing** for this milestone. Every recommendation is either already installed, stdlib, or a small dev-only addition with zero runtime footprint. The core move is defensive pinning: exact-pin `llama-cpp-python==0.3.23` (the version the ~13s latency and chat-template behavior were actually validated against) rather than leaving `pyproject.toml`'s `>=0.3` open-ended, since upstream `0.3.32` (released 2026-06-29, four days before this research) includes chat-template and KV-cache changes that could silently alter output on a fresh install days before the defense.
+STACK.md establishes that generative/instruction-based classification (the judge's exact objection — "why not add a classification head to QLoRA") is a real, named, actively-studied paradigm, not an improvised justification. The umbrella terms to use in the new subsection are **"generative classification"** and **"instruction-based (text-generation) classification with a verbalizer,"** explicitly contrasted with the judge's expected "embedding-based classification-head" approach.
 
-**Core technologies (pin, don't add):**
-- `llama-cpp-python==0.3.23` — exact pin; GGUF CPU inference backend already validated against this version's behavior.
-- CPython 3.13.13 (or nearest 3.13.x) — matches dev environment; verify a prebuilt wheel (not source build) installs on the presentation laptop.
-- `wsgiref.simple_server` (stdlib) — already the shipped server; single-threaded/synchronous, not worth changing this close to the defense.
-- Playwright `==1.60.0` (already installed) — the only tool in the stack that can drive a real browser and catch DOM/JS "UI quirks" that the existing `wsgiref`-environ unit test structurally cannot see.
+**Core terminology/precedent to cite:**
+- Text-to-text classification / classification-as-generation (Raffel et al., T5, 2020) — foundational framing for emitting labels as generated tokens.
+- Verbalizer (Schick & Schütze, PET, 2021; Liu et al. survey, 2023) — the named mechanism by which free-text output collapses onto a fixed label set; this is what makes the label field genuine classification without extra layers.
+- Embedding-based vs. instruction-based comparison (Yousefiramandi & Cooney, 2025, arXiv:2512.12677) — directly compares the *exact two architectures* the judge was asking about on the same causal LLM base, treating both as legitimate.
+- Domain-analogous precedent: phishing-detection small-LLM generative classification (Lin et al., 2025) and a Korean phishing framework producing the same output shape (label + tactic + evidence span) as this thesis (Electronics, 2026).
+- Joint label+explanation generation is *more faithful* than a two-stage predict-then-explain pipeline (Narang et al., WT5, 2020) — the strongest available citation for why label + evidence + recommendation are generated together in one forward pass rather than split across a head and a separate explainer.
 
-**Supporting dev-only additions:** `psutil==7.2.2` (pin explicitly — currently only arrives transitively via the unused `train` extra, so it will be *absent* on a laptop that only runs the documented `[dev,runtime]` install), `py-spy` (only if built-in `llama_cpp` verbose timings don't explain the latency), and non-Python tools: browser DevTools Network tab, Windows power plan settings, OBS Studio (offline, free, GPL) for fallback recording.
+**Bottom line:** QLoRA does not need "additional layers" for classification because the classification signal is supplied by the training objective (next-token loss on the label field), and the fixed vocabulary of class strings the model reproduces *is* the verbalizer. This is the precise, citable rebuttal to the judge's core question.
 
-### Expected Features
+### Expected Methodology Content (Dataset & Labeling Section)
 
-FEATURES.md frames this as a verification checklist, not a feature backlog — the "features" are hardening actions, each mapped to real code inspected directly in the repo (`src/runtime/cli.py`, `demo.py`, `doctor.py`).
+FEATURES.md identifies the single highest-value fix: a new, explicitly-named **"Dataset Construction and Labeling Methodology"** subsection, structured per the Datasheets for Datasets framework (Gebru et al., 2018), the field's standard reference for dataset documentation.
 
-**Must have (table stakes, P1, due before 13 July):**
-- `vnphish doctor` passing on the **actual presentation laptop**, not the dev machine.
-- Full functional pass across all in-scope threat classes + one benign message.
-- Network-isolation pass (Wi-Fi/Ethernet off) confirming identical behavior and zero external requests.
-- Edge-case pass: empty input, very long paste, malformed/off-topic/mixed-language text, no raw crash or hang.
-- Latency measured and quantified (cold vs. warm) with a one-line presenter narration ready.
-- CLI entrypoint disambiguation (`analyze` vs `demo`) — help-text/launcher fix, not a restructure.
-- Concurrency/double-submit check confirming the existing `AbortController` fetch-guard still works.
-- Recorded video + screenshots of each threat-class result, stored in two local locations.
+**Must include (directly responsive to transcript gaps):**
+- Explicit problem-framing sentence before any data discussion: "This is a supervised multi-class text classification problem with 4 classes: [list]" — the judge's #1 complaint ("we are missing... the Goal: Supervised classification").
+- Class taxonomy with definitions and boundary notes between adjacent classes.
+- Full JSON schema shown as a real example record (listing) plus a field-by-field table, with the `label` field's role explicitly called out ("the ground-truth training class assigned at generation time").
+- **Label assignment methodology, stated plainly**: labels are assigned *at generation time* via label-conditioned prompts (each record is generated *for* a target class), not via a separate post-hoc labeling pass. This is the precise, direct answer to "how do you label them," asked ~10 times and never answered.
+- Citable precedent for this exact mechanism: ZeroGen (Ye et al., EMNLP 2022) and "Condition on the Label" (arXiv:2407.12813, 2024) — both establish label-conditioned synthetic generation as standard, recommended practice, not an ad hoc shortcut.
+- Provenance (NCSC seed %), generation pipeline, quality-control/judge-gate pass counts, class distribution table, train/val/test split methodology (with an explicit note that val/test don't need the same generation-time label assumption as training — directly answers the judge's "for val/test you dont need but for training you need it" line), and a crisp SHA-256 integrity sentence.
+- A first-person worked-example walkthrough of one record end-to-end — cheap to write, highest defense-proofing value, since this is literally what the judge demanded live and the student could not produce fast enough.
 
-**Should have (differentiators):** a memorized narration script for the latency number, a pre-selected rehearsed input set doubling as both QA and live-demo script, a visible "doctor output shown first" credibility beat, a private incident-response card.
+**Defer:** page-count as a target. The transcript's "~14 substantive pages" complaint is a symptom of missing content, not a padding target — closing the six named gaps should organically add 3–5+ pages; adding unrelated material to hit a number is explicitly flagged as counterproductive.
 
-**Explicitly defer (v2+/out of scope for this milestone):** any UI redesign, CLI subcommand restructuring, swapping `wsgiref` for a production WSGI server, model-level latency re-engineering (requantizing, changing runtime profile), new telemetry/logging. All four research files independently flag these as tempting-but-risky scope creep this close to the defense.
+### Architecture Approach (Qwen vs. PhoBERT)
 
-### Architecture Approach
+ARCHITECTURE.md establishes the correct, honest, task-shape-driven justification for choosing Qwen — replacing the live "English extension" answer, which the judge directly and correctly undermined.
 
-No new `src/` package is warranted. The existing architecture (CLI + `wsgiref` demo -> `RuntimeService` -> pluggable `AnalyzerBackend` -> local GGUF artifact) already has clean seams for non-invasive verification: a thin outer WSGI timing wrapper (zero contract risk, confirmed safe because `demo.py` never returns streaming/generator responses), client-side `performance.now()` around the existing `fetch` call, and `vnphish doctor` as an already-built, zero-network readiness probe that should be used, not duplicated.
+**Primary argument (task shape, not language):** The task requires jointly producing (1) a risk tier, (2) a 4-class label, (3) grounded extractive evidence spans, and (4) free-form recommendation text — a combined classification + span-extraction + generation task. PhoBERT is a pure encoder (RoBERTa-based, masked-LM pretraining, no decoder, cannot generate text at all); it can produce (1)–(2) well via a classification head but has no native mechanism for (3) or (4). Vietnamese NLP literature's own answer to "classification + evidence + generation" is to couple *two separate models* (an extractive encoder + a BART-based generator, e.g. RExC); Qwen unifies this into one model, one forward pass, one JSON schema, with fields conditioned on each other by construction.
 
-**Major components:**
-1. `RuntimeService` — normalize -> boundary checks -> `backend.doctor()` -> `backend.analyze()` orchestration; the layer to time to separate normalize/validate cost from model-inference cost.
-2. `GGUFAnalyzer` — loads and caches `llama_cpp.Llama` (`n_gpu_layers=0`, `n_ctx=512`, no explicit `n_threads`); the primary latency suspect and the component to leave untouched unless verification proves a specific, targeted tuning change helps.
-3. `Settings` (pydantic-settings) — resolves `.env/.env` **relative to current working directory**; the single highest-risk portability integration point, since a wrong launch CWD silently falls back to repo-relative model paths instead of the real off-repo model root.
-4. `DemoApp`/`demo.js` — the presentation-layer surface; safe to instrument client-side since it isn't part of the frozen backend contract, but any prompt/template edit risks re-breaking already-fixed `data-slot`/context-window budget issues.
+**Secondary/supporting argument (multilingual):** Qwen3 is pretrained on ~36T tokens across 119 languages (incl. Vietnamese and English) in a shared representation space; PhoBERT's tokenizer and 20GB corpus are Vietnamese-only, requiring a wholesale second model/stack to extend to English. This is legitimate but should be explicitly subordinated to the task-shape argument — presenting it as primary is what got the live answer discredited.
 
-### Critical Pitfalls
+**Honest limitation to state, not hide:** generative structured output's field *assembly* (e.g., evidence-to-label linking) is implicit in decoding rather than architecturally guaranteed, a documented weakness class; the report should acknowledge this rather than overclaim.
 
-1. **Environment drift (dev machine vs. presentation laptop)** — off-repo absolute model paths, git-ignored `.env/.env`, OneDrive sync interference, and possible drive-letter reassignment are all invisible in code review. Avoid by running a full cold-clone dry run and requiring a clean `vnphish doctor READY` on the *actual* presentation laptop at least 48 hours out, plus a same-morning recheck.
-2. **Cold-start timing doesn't match the rehearsed "~13s" figure** — that number is warm-only; mmap cold page cache, Windows Defender first-touch scanning of a multi-GB GGUF file, and a post-reboot state can blow past it. Avoid by rehearsing a true cold-boot-to-first-answer run, adding a Defender exclusion if policy allows, and pre-warming once before the committee arrives.
-3. **Hardcoded internet dependency contradicts the "local-first" claim** — Google Fonts CDN links in `index.html` are a confirmed, already-found leak. Avoid by self-hosting the `.woff2` files and grepping all demo assets for any other `http(s)://` reference.
-4. **Power plan/battery throttling silently changes CPU inference speed** — a CPU-bound workload on Balanced/Battery Saver runs visibly slower than rehearsed. Avoid by forcing High Performance, staying on AC, and rehearsing at least once unplugged at realistic battery level.
-5. **Unrehearsed or stale fallback** — a fallback recorded early goes stale after later UI/latency fixes, and a fallback that's never been exercised under simulated failure isn't actually verified. Avoid by recording last (after freeze), keeping two formats (video + screenshots), and rehearsing the live-to-fallback pivot at least once.
+### Critical Pitfalls (Revision-Process Risks)
+
+1. **Locatability over existence.** The judges' core failure mode was not "work wasn't done" but "evidence of the work wasn't a named, findable section." Every fix must be an explicit, labeled subsection — not something inferable from code or appendices.
+2. **Missing explicit problem formalization** let the entire "is this even classification?" line of questioning start. Fix: one early, explicit paragraph stating task type, input/output space, and the 4-class label set, before any architecture discussion.
+3. **Unjustified architectural choice reads as either not having considered alternatives or not understanding your own design.** Fix: explicit comparative-rationale subsections (classification-head alternative; PhoBERT alternative) with concrete tradeoffs, not just description of what was built.
+4. **Cross-document numeric inconsistency (confusion matrix vs. split counts) functions as a fabrication tell even when work is genuine**, because it's exactly what a copy-pasted-without-understanding error looks like. This must be audited and reconciled — state train/val/test counts once, consistently, referenced everywhere else.
+5. **The burden of proof for "did you do this yourself" is evidentiary, not stylistic.** The judge explicitly said AI-assisted drafting is acceptable *if* genuine understanding can be demonstrated. Do not change tone/register — add traceable artifacts (schema tables, real example records, pipeline-specific detail only the author would know, first-person worked examples, explicit rejected-alternatives reasoning). Padding already-strong sections is counterproductive and reads as evasive.
 
 ## Implications for Roadmap
 
-Based on combined research, the roadmap for this milestone should be structured as a **strictly sequenced verification pipeline**, not parallel feature phases — dependencies are real (you cannot meaningfully edge-case-test before `doctor` passes; you cannot record a trustworthy fallback before functional verification is green). ARCHITECTURE.md's "Suggested Build Order" and PITFALLS.md's "Pitfall-to-Verification-Category Mapping" independently converge on the same four verification categories already named in PROJECT.md: **Functional, Offline/portability, Edge-case, Fallback**.
+This is a **report-revision milestone**, not a software build. "Phases" below are revision work packages, sequenced by dependency and by directly answering the transcript's ordering of complaints.
 
-### Phase 1: Baseline Readiness & Zero-Code Diagnostics
-**Rationale:** Cheapest, zero-risk, zero-code checks first — establishes whether the reported issues are even reproducible before any tooling is built.
-**Delivers:** `vnphish doctor` run and confirmed on dev machine; CLI functional pass (`vnphish analyze`) across all threat classes + benign + edge cases in isolation from the web layer; browser DevTools Network-tab latency read.
-**Addresses:** FEATURES.md's P1 items — doctor pass, functional pass, latency measurement (first pass).
-**Avoids:** Pitfall 8 (CLI entrypoint confusion) surfaces here naturally; Pitfall 2 (cold-start) is *not* fully addressed yet — this phase is warm-path only.
+### Phase 1: Problem Framing & Structural Fixes
+**Rationale:** The judge's very first complaint ("we are missing... the Goal: Supervised classification") is what let every downstream question spiral. Cheap, load-bearing, should exist before other new content references it.
+**Delivers:** An explicit, early "Problem Formalization" subsection: task type, input/output space, the 4-class taxonomy named and briefly defined.
+**Addresses:** FEATURES.md components #1 (problem framing) and #2 (class taxonomy).
+**Avoids:** PITFALLS.md #2 (missing problem formalization).
 
-### Phase 2: Environment Parity & Offline Verification (on the actual presentation laptop)
-**Rationale:** This is the highest-risk unknown per PITFALLS.md (Pitfall 1) and must not be left until days before the defense — it is the step most likely to surface a "worked on my machine" surprise.
-**Delivers:** Fresh `pip install -e .[dev,runtime]` on the real presentation laptop or an equivalent clean profile; explicit OS-level env vars for `MODEL_ARTIFACT_ROOT`/`MODEL_REGISTRY_PATH` (not relying on CWD-relative `.env/.env` discovery); `vnphish doctor` -> `vnphish demo` -> `vnphish analyze` all green with network disabled; Google Fonts self-hosted and grep-verified as the only remaining offline leak.
-**Uses:** Stack elements — pinned `llama-cpp-python==0.3.23`, `psutil` for CPU/RAM sampling during the pass.
-**Implements:** `Settings`/filesystem integration boundary verification from ARCHITECTURE.md.
-**Avoids:** Pitfall 1 (environment drift), Pitfall 3 (hardcoded Google Fonts dependency), Pitfall 9 (sleep/lock/update interruptions — set alongside this pass).
+### Phase 2: Architecture Rationale (QLoRA-as-Classification & Qwen-vs-PhoBERT)
+**Rationale:** Both architecture questions were asked live and unanswered in text; they share one underlying argument (unified generation vs. coupled/bolted-on mechanisms), so should be written together.
+**Delivers:** Two new subsections — "Why Generative Classification, Not a Classification Head" and "Why Qwen, Not PhoBERT" (task-shape as primary argument, multilingual as secondary, honest tradeoff table).
+**Uses:** STACK.md citation set (verbalizer, T5, Yousefiramandi & Cooney, WT5) and ARCHITECTURE.md's task-shape comparison and tradeoff table.
+**Avoids:** PITFALLS.md #3 and the live contradiction (English-extension answer undermined by Vietnamese-only scope).
 
-### Phase 3: Latency Diagnosis & Targeted Fix (only if needed)
-**Rationale:** Per ARCHITECTURE.md's Anti-Pattern 3 and STACK.md's ordering, diagnose before tuning — a blind tuning pass without first separating cold-load from per-request generation cost can make things worse.
-**Delivers:** Cold-boot-to-first-answer timing (not just warm), `llama_cpp` verbose-timing breakdown or `scripts/verify_latency.py` if the built-in timings don't explain the gap, and — only if a specific, measured bottleneck is found — one targeted change (e.g., explicit `n_threads` on the actual laptop's physical core count), re-measured before/after.
-**Addresses:** FEATURES.md's "Fix known demo latency/performance issue" active item, without violating the anti-feature "deep model-level latency optimization."
-**Avoids:** Pitfall 2 (cold-start timing mismatch), Pitfall 4 (power plan/battery throttling) — both must be measured here on AC and on battery.
+### Phase 3: Dataset Construction and Labeling Methodology
+**Rationale:** The single most-repeated transcript gap (~10 times) and most directly tied to the "did you use ChatGPT" accusation. Depends on Phase 1's taxonomy and benefits from Phase 2's terminology.
+**Delivers:** New subsection per FEATURES.md's 9-part structure: problem/taxonomy pointers, provenance/generation pipeline, full JSON schema listing + field table, explicit "labels assigned at generation time" statement with ZeroGen/condition-on-label citations, quality-control gate description, class distribution table, train/val/test split methodology (with val/test vs. train label-necessity distinction stated explicitly), SHA-256 integrity sentence, and a first-person worked-example walkthrough.
+**Addresses:** PITFALLS.md #1 (locatability) directly.
 
-### Phase 4: UI Quirks, Edge Cases & Regression Re-check
-**Rationale:** Any UI/prompt fix is itself a regression risk (Pitfall 6) against the already-tuned `n_ctx=512` budget and `data-slot` template contract — this phase must run *after* any fixes from Phases 1-3, not before.
-**Delivers:** Full edge-case matrix re-run (empty, very long, malformed, mixed-language) after every fix; rapid double-submit / concurrency re-test confirming the `AbortController` guard is intact; `tests/runtime` suite green; CLI entrypoint disambiguation shipped (help text or `.bat` launchers, not a restructure).
-**Addresses:** FEATURES.md's edge-case pass, concurrency check, CLI disambiguation, "fix any UI quirks" active item.
-**Avoids:** Pitfall 6 (late fixes breaking context budget/templates), Pitfall 7 (`wsgiref` single-threaded re-entrancy).
-
-### Phase 5: Fallback Recording & Full Dry Rehearsal
-**Rationale:** Must come last — recording before the fix list is frozen guarantees a stale fallback (Pitfall 5); this phase validates everything above holds end-to-end under real defense-day conditions.
-**Delivers:** OBS-recorded full successful run (one message per threat class + benign) plus a static screenshot sequence as a degradation-resistant secondary fallback; a rehearsed live-to-fallback failure pivot; a full cold-boot dry rehearsal on the actual presentation laptop using the final launchers.
-**Addresses:** FEATURES.md's "prepare a fallback" active item.
-**Avoids:** Pitfall 5 (unrehearsed/stale fallback) directly; reinforces Pitfall 1 and 2 by rehearsing under real cold-boot/laptop conditions one final time.
+### Phase 4: Consistency Audit & Ownership-Evidence Pass
+**Rationale:** Must come last — audits numbers across all sections (including new ones) and adds evidentiary/ownership content that references material now in place.
+**Delivers:** (a) Reconciled confusion-matrix and train/val/test counts stated once and referenced consistently across report, tables, and slides; (b) short error-analysis subsection with 2–3 concrete worked misclassification examples; (c) verification that new content matches `WRITING_GUARDRAILS.md` voice and does not touch/pad already-strong sections.
+**Avoids:** PITFALLS.md #4 and the anti-pattern of padding working sections.
 
 ### Phase Ordering Rationale
 
-- Dependency chain is real and confirmed in FEATURES.md's dependency graph: doctor pass gates functional verification, which gates edge-case and offline passes, which gate the fallback recording. Skipping ahead (e.g., recording a fallback before functional verification is settled) produces exactly the stale-fallback pitfall research flagged.
-- Grouping by architecture pattern: Phases 1 and 3 both reuse the "measure before touching code" pattern from ARCHITECTURE.md (DevTools first, then built-in verbose timings, then `py-spy` only as a last resort) — this ordering is itself a research-derived recommendation, not an arbitrary grouping.
-- This order front-loads the cheapest/zero-risk diagnostics and pushes any code change to the point where it's proven necessary, consistent with the "code freeze days before the defense" principle that every FEATURES.md and PITFALLS.md source independently corroborates.
+- Phase 1 before all others: every later phase's writing implicitly assumes the reader already knows "this is supervised 4-class classification."
+- Phase 2 before Phase 3: the labeling section reads more rigorously once the verbalizer/generative-classification vocabulary is already established.
+- Phase 4 last by necessity: it audits and cross-references everything written or already present; ownership-evidence content is most credible once the substantive gaps it reinforces already exist.
+- This ordering mirrors the transcript's own sequence of escalating judge frustration (classification framing → architecture choice → labeling → "show me the dataset" → numeric inconsistency → AI-authorship accusation).
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 2 (Environment Parity):** OneDrive sync behavior, drive-letter stability across reboots, and Windows Defender exclusion policy at the actual defense venue are environment-specific unknowns not fully resolved by this research pass — flag for `--research-phase` if the presentation laptop's specific configuration is still undecided when planning begins.
-- **Phase 3 (Latency Diagnosis):** the "first bottleneck" hypothesis (`n_threads`/`n_gpu_layers` tuning) is MEDIUM confidence (community-sourced, not yet benchmarked on the actual presentation laptop) — worth a short research-phase pass if initial diagnosis doesn't clearly point to CPU generation cost.
+Needs additional verification during execution (not literature research):
+- **Phase 2:** Verify the specific Qwen-vs-PhoBERT technical claims (e.g., code-switched Vietnamese-English handling) against what is actually true for this project's data before writing — flagged explicitly in ARCHITECTURE.md as unverified.
+- **Phase 4:** Requires pulling actual numbers from existing eval artifacts/code (confusion matrix, split counts) — empirical verification, not literature research.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Baseline Readiness):** fully documented, zero-code, uses tools already built into the repo (`doctor`, existing CLI, DevTools).
-- **Phase 4 (UI Quirks/Regression):** standard regression-testing discipline against an already-understood template/context-budget constraint; no new research needed.
-- **Phase 5 (Fallback Recording):** OBS Studio usage and recording discipline are well-documented, low-risk, standard practice.
+Standard patterns, research already sufficient:
+- **Phase 1:** Well-established, uncontested convention; no further research needed.
+- **Phase 3:** Structure, citations, and precedent are fully resolved in FEATURES.md — ready to write directly.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH (codebase-grounded) / MEDIUM (latency-tuning claims) | Installed versions and defaults confirmed by direct introspection in this environment; external `n_threads`/mmap-tuning claims are WebSearch-derived community consensus, not yet benchmarked on the actual presentation laptop. |
-| Features | MEDIUM | No single canonical "thesis demo checklist" source exists; triangulated across conference-demo lore, air-gapped-deployment QA practice, and direct repo inspection of actual CLI/server code (HIGH confidence for the code-grounded parts). |
-| Architecture | HIGH (source-read) / MEDIUM (perf-tuning external claims) | Based on direct reading of `src/runtime/*` and `tests/runtime/*`; llama.cpp CPU-scaling and WSGI-middleware-pattern claims are MEDIUM (external, cross-checked but not locally benchmarked). |
-| Pitfalls | MEDIUM-HIGH | Several findings (Google Fonts CDN leak, single-threaded `wsgiref`, CWD-relative `.env` resolution) are directly verified against this repo's source (HIGH); OS/hardware behavior (mmap cold-cache, Defender scanning, power-plan throttling) is corroborated by multiple external sources but not yet locally measured on the specific presentation laptop (MEDIUM). |
+| Stack (terminology/precedent) | MEDIUM-HIGH | All claims traced to arXiv/peer-reviewed sources; not Context7-curated docs, but every citation is checkable and several were directly fetched and read in full. |
+| Features (methodology-section content) | MEDIUM | Structural checklist corroborated by a canonical reference (Datasheets for Datasets) plus multiple synthetic-data-generation papers; length-calibration guidance is LOW (generic web advice). |
+| Architecture (Qwen vs. PhoBERT) | MEDIUM-HIGH | Cross-checked against arXiv papers, official PhoBERT repo/paper, and Qwen3 technical report (primary sources); one comparison source flagged as not like-for-like, used only as directional color. |
+| Pitfalls (revision-process risks) | MEDIUM-HIGH | Grounded directly in the actual defense transcript (primary source); general academic-integrity guidance cross-checked against multiple sources but not USTH-specific policy. |
 
 **Overall confidence:** MEDIUM-HIGH
 
 ### Gaps to Address
 
-- **Presentation laptop identity/specs unknown at research time:** core count, drive letters, OneDrive sync state, and Windows Defender policy on the actual machine are all unresolved — Phase 2 must establish these as ground truth before any latency-tuning decision (Phase 3) is finalized.
-- **True cold-boot latency has never been measured:** every existing timing figure (the "~13s") is a warm number from the dev machine. This is a hard gap, not just a confidence caveat — it must be closed empirically in Phase 3, not assumed from research alone.
-- **Backup laptop status is unresolved:** PITFALLS.md's recovery-strategy table assumes a "charged spare laptop with identical `.env`/model setup" as the highest-value mitigation for laptop failure, but whether such a spare exists/is provisioned was not confirmed by any research file — flag for the user/planning stage.
-- **`llama-cpp-python==0.3.32` upgrade path:** if a specific bug in `0.3.23` is later found to block the defense, STACK.md notes the changelog for `0.3.32` was summarized via WebSearch, not directly diffed — treat any upgrade decision as needing its own verification pass, not a drop-in swap.
+- **Project-specific verification of Qwen-vs-PhoBERT claims** (e.g., actual code-switched Vietnamese-English text presence) — confirm against real data before finalizing Phase 2 text.
+- **Actual numeric reconciliation of confusion matrix vs. train/val/test counts** was not performed by research agents (out of scope) — must happen during Phase 4 by inspecting real eval artifacts/code.
+- **USTH-specific thesis-length/formatting policy** not found (only generic guidance, LOW confidence) — check separately if an institutional requirement exists.
+- **Supervisor/department revision requirements** — confirm current institutional deadline/requirements are captured in `.planning/PROJECT.md` before treating this research as complete scope guidance.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase inspection across all four research files: `src/runtime/cli.py`, `src/runtime/demo.py`, `src/runtime/service.py`, `src/runtime/doctor.py`, `src/runtime/analyzers/gguf.py`, `src/runtime/analyzers/local_model.py`, `src/config/settings.py`, `src/runtime/demo_assets/{index.html,demo.js}`, `tests/runtime/*.py`, `pyproject.toml`.
-- `.planning/PROJECT.md` and `.planning/STATE.md` — milestone scope, known active issues, off-repo model path rationale, prior latency/context-window tuning history.
-- Installed package version/behavior confirmed via `pip show`/`pip list` and `inspect.signature(llama_cpp.Llama.__init__)` in this exact dev environment.
+- `documents/Transcript defense.md` — ground truth for every gap identified.
+- Raffel et al. (2020), T5, JMLR 21(140).
+- Schick & Schütze (2021), PET, EACL.
+- Gebru et al. (2018), "Datasheets for Datasets," arXiv:1803.09010.
+- PhoBERT (VinAI, EMNLP 2020 Findings) and official GitHub repo.
+- Qwen3 Technical Report (arXiv:2505.09388) and QwenLM/Qwen3 GitHub.
+- BARTpho (arXiv:2109.09701).
 
 ### Secondary (MEDIUM confidence)
-- [llama-cpp-python Changelog / PyPI](https://llama-cpp-python.readthedocs.io/en/stable/changelog/) — confirmed latest release `0.3.32` vs. installed `0.3.23`.
-- [Diagnosing Latency in llama-cpp-python Wrapper — GitHub Discussion #2073](https://github.com/abetlen/llama-cpp-python/discussions/2073) and [Optimal parameters for parallel inference — Discussion #18308](https://github.com/ggml-org/llama.cpp/discussions/18308) — CPU thread-scaling and Python/C++ boundary overhead guidance.
-- [llama.cpp mmap cold-start behavior](https://markaicode.com/architecture/llamacpp-architecture/) and [Windows Defender real-time protection slowing first file access](https://learn.microsoft.com/en-us/answers/questions/2732424/windows-defender-real-time-protection-service-slow) — corroborate the cold-start/first-touch-scan pitfall.
-- [Windows power plan / battery saver CPU throttling](https://www.xda-developers.com/your-windows-power-plan-is-probably-wrong/) and [Google Fonts offline dependency issues](https://medium.com/@bogdanpshonyak/using-google-fonts-offline-b327467e0999) — corroborate power and offline pitfalls respectively.
-- [How to Appease the Demo Gods](http://www2.rdrop.com/~paulmck/DemoGods/), [Virtual Thesis Defense recording practice](https://jaan.io/virtual-thesis-defense-recording-zoom-presentation/) — live-demo and academic-defense fallback/rehearsal discipline.
+- Yousefiramandi & Cooney (2025), arXiv:2512.12677.
+- Narang et al. (2020), WT5, arXiv:2004.14546.
+- Ye et al. (2022), ZeroGen, EMNLP.
+- "Data Generation using LLMs for Text Classification," arXiv:2407.12813.
+- "Garbage In, Garbage Out?", arXiv:1912.08320 / arXiv:2107.02278.
+- "A Culturally Aware LLM Framework for Analyzing Social Engineering Tactics in Korean Phishing Messages," Electronics 15(10), 2196 (2026).
+- Editorial-policy/AI-assisted-writing ethics reviews (PMC12170296, PMC12007126, openpraxis.org/10.55982/openpraxis.16.1.654).
 
 ### Tertiary (LOW confidence)
-- General SaaS/conference demo-checklist blog posts (ShareFable, Steve Clayton, Guy Kawasaki) — used only to triangulate table-stakes verification actions, not as primary evidence.
+- General bachelor-thesis length guidance (non-institution-specific).
+- GPT-3.5-turbo vs. PhoBERT comparison (Springer chapter) — not like-for-like.
+- LaTeX `lstlisting`/JSON listing convention — standard/uncontested.
 
 ---
-*Research completed: 2026-07-02*
+*Research completed: 2026-07-21*
 *Ready for roadmap: yes*
