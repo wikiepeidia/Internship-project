@@ -606,19 +606,19 @@ Requirements for milestone v6.0. Defense held 2026-07-15; judges requested a rev
 
 | Requirement | Phase | Status |
 | ----------- | ----- | ------ |
-| FRAME-01 | Phase 35 | Pending |
-| ARCH-01 | Phase 35 | Pending |
-| ARCH-02 | Phase 35 | Pending |
-| LABEL-01 | Phase 36 | Pending |
-| LABEL-02 | Phase 36 | Pending |
-| LABEL-03 | Phase 36 | Pending |
-| LABEL-04 | Phase 36 | Pending |
-| AUDIT-01 | Phase 37 | Pending |
-| AUDIT-02 | Phase 37 | Pending |
-| AUDIT-03 | Phase 37 | Pending |
-| CITE-01 | Phase 37 | Pending |
-| CITE-02 | Phase 37 | Pending |
-| VOICE-01 | Phase 37 | Pending |
+| FRAME-01 | Phase 35 | Complete |
+| ARCH-01 | Phase 35 | Complete |
+| ARCH-02 | Phase 35 | Complete |
+| LABEL-01 | Phase 36 | Complete |
+| LABEL-02 | Phase 36 | Complete |
+| LABEL-03 | Phase 36 | Complete |
+| LABEL-04 | Phase 36 | Complete |
+| AUDIT-01 | Phase 37 | Complete (verified consistent, no edit needed) |
+| AUDIT-02 | Phase 37 | Complete |
+| AUDIT-03 | Phase 37 | Complete (verified already explicit, no edit needed) |
+| CITE-01 | Phase 37 | Complete |
+| CITE-02 | Phase 37 | Complete (audited, no corrections needed) |
+| VOICE-01 | Phase 37 | Complete |
 
 **Coverage (v6.0):**
 
@@ -634,4 +634,4 @@ Requirements for milestone v6.0. Defense held 2026-07-15; judges requested a rev
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-21 — v6.0 Report Revision: 13 requirements defined (FRAME-01, ARCH-01–02, LABEL-01–04, AUDIT-01–03, CITE-01–02, VOICE-01), mapped to Phases 35-37 in ROADMAP.md*
+*Last updated: 2026-07-21 — v6.0 Report Revision: all 13 requirements delivered across Phases 35-37. Report recompiles clean (XeLaTeX x3 + BibTeX, zero errors, zero undefined references), 34 pages.*

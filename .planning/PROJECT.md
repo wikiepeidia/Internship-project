@@ -25,16 +25,11 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Phase 28 complete and corrected (2026-07-02): dev-machine baseline diagnostics passed; the final golden demo prompts are a no-OTP malicious-link Vietcombank scam and a legitimate VPBank Smart OTP benign notice, each locked through five stable real web-demo runs; the corrected warm-latency baseline is `22705.562 ms` for Phase 30 comparison.
 - Phase 31 complete and verified (2026-07-08): the browser edge-case matrix (empty/very-long/malformed/mixed-language) and rapid double-submit race are covered by an automated real-demo verifier with `overall_pass: true`; the double-submit controller-ownership race was fixed in `demo.js`; `vnphish analyze` vs `vnphish demo` CLI confusion is resolved via clearer help text and two double-click Windows launchers; golden prompts remain stable 5/5 scam and 5/5 benign after the fix, with no backend/template regressions.
 - Phase 32 closed for demo-focused defense readiness (2026-07-09): the final `scripts/START_DEMO_UI.bat` launcher passed a fresh-process browser dry-run with both locked golden prompts (`high-risk`/`bank_impersonation` scam and `benign` OTP notice), doctor remains READY, and 30 focused runtime/UI tests passed. Fallback recording, screenshot sequence, and pivot rehearsal were not supplied or verified; they are documented as accepted-risk skips because the operator scoped defense readiness mostly to the live demo. Slide sync remains a separate near-term presentation task.
+- Milestone v6.0 complete and closed (2026-07-21): report revision closing the defense's dataset-labeling gap — explicit JSON schema/label-field section, generative-classification (verbalizer) architecture rationale, honest Qwen-vs-PhoBERT comparison, concrete error analysis, and a full consistency/citation audit, all within the report's existing voice.
 
 ### Active
 
-- [ ] Add an explicit, unmissable dataset-labeling section: JSON schema, the `label` field, a concrete example record, and that labels are assigned at generation time (not a manual post-hoc pass).
-- [ ] State the classification problem framing explicitly and early (supervised multi-class classification, 4 classes).
-- [ ] Add architectural justification: why generative QLoRA fine-tuning instead of a classic encoder + classification-head.
-- [ ] Add an explicit "why Qwen, not PhoBERT" comparison section.
-- [ ] Genuine content-depth expansion via the sections above — not padding.
-- [ ] Audit and resolve the confusion-matrix / test-vs-validation count inconsistency a judge flagged.
-- [ ] Confirm the SHA-256/manifest-integrity rationale is crisp and explicit in the report text.
+(none — awaiting next milestone scope)
 
 ### Out of Scope
 
@@ -67,21 +62,18 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: v6.0 Report Revision
+## Completed Milestone: v6.0 Report Revision
 
-**Goal:** Revise the thesis report to close the specific gaps judges raised live in the defense (`documents/Transcript defense.md`), without changing the report's existing tone/voice — a sudden stylistic shift between the defended version and the revision would itself read as confirmation of AI authorship, which is exactly the accusation being defended against. This is content addition and clarity work within the existing voice, not a rewrite. Written revision only — no second oral defense expected.
+**Closed:** 2026-07-21
 
-**Target features (from transcript analysis):**
+**Delivered:**
 
-- An explicit, unmissable section documenting how training labels work: the JSON record schema, the `label` field, a concrete example record, and — critically — that labels are assigned AT GENERATION TIME (each synthetic example is generated FOR a target class) rather than via a separate manual post-hoc labeling pass. This was asked roughly ten different ways in the defense and the student could not answer or locate it; it's the single most damaging gap and the direct trigger for the "did you use ChatGPT" line of questioning.
-- Explicit early problem-framing as supervised multi-class classification (4 classes) — currently implicit/inferred rather than stated.
-- Architectural justification: why QLoRA fine-tuning a generative decoder-only LLM for structured output, instead of a classic encoder + classification-head architecture. A judge working in NLP found this genuinely unclear.
-- Explicit "why Qwen, not PhoBERT" comparison — currently entirely absent from the report.
-- Genuine content-depth expansion — judges independently called the report short (~14 pages excluding front matter/conclusion by one judge's count); the fix is real substance in the new/expanded sections above, not padding.
-- Audit and fix of a reported confusion-matrix / test-vs-validation count inconsistency the judge flagged (transcript is unclear on specifics — needs investigation against the actual current report tables, including a check for any stale leftover binary-classification content from the earlier Phase 20 binary re-run that might be contradicting the current 4-class 254/413 numbers).
-- Confirm the SHA-256/manifest-integrity rationale reads clearly in text (answered fine live, worth a crisp explicit sentence in the report itself).
+- Phase 35: explicit early problem-framing (Chapter I) stating the core task is supervised 4-class text classification; a new Chapter III paragraph explaining generative classification via a verbalizer (T5/PET/WT5-grounded) as the reason a decoder-emitted label was used instead of a classification head; an honest Qwen-vs-PhoBERT comparison acknowledging PhoBERT's real strengths while explaining the multi-field output requirement that ruled it out. 5 new verified BibTeX entries added.
+- Phase 36: a new record-schema table naming all 7 dataset fields with the `label` field's ground-truth role stated explicitly — the exact thing judges said they couldn't find; an explicit statement (with citation) that labels are assigned at generation time via class-conditioned generation, not a manual post-hoc pass; a real record from the validation split walked through field by field; explicit training-vs-validation/test distinction for how the label field is used.
+- Phase 37: split/confusion-matrix counts audited across every table and found already fully consistent; a new error-analysis subsection naming the actual 9 misclassified validation rows and showing the errors trace to a genuine class-boundary overlap in the synthetic corpus, not random model confusion; citation and tone audits passed with no corrections needed.
+- Full detail: `.planning/milestones/v6.0-SUMMARY.md`
 
-**Explicit constraint:** tone/voice must stay as close to the original as possible throughout. Reuse the existing `WRITING_GUARDRAILS.md` (Phase 8) rather than establishing new tone rules.
+**Verification:** full safe compile sequence (XeLaTeX x3 + BibTeX) after each phase and at close — zero errors, zero undefined references, 34 pages.
 
 ## Completed Milestone: v5.3 Slide Scripts & Q&A Preparation
 
@@ -181,7 +173,8 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - v5.1 demo readiness is closed for the live-demo path: Phase 28 locked the no-OTP scam + benign OTP prompts; Phase 29 verified the presentation-laptop environment, offline behavior, and portability; Phase 30 diagnosed latency with no fix needed; Phase 31 closed with the UI edge-case matrix green, the double-submit race fixed, and CLI entrypoint confusion resolved via help text and launchers; Phase 32 confirmed the final launcher-backed demo path and documented fallback-media gaps as accepted risk.
 - v5.2 complete (2026-07-13): deck compressed 15->12 frames, Architecture/Data/Model untouched, XeLaTeX clean, demo split into Sample Output + Demo frames, timing at ~8:05 (2 min margin).
 - v5.3 complete (2026-07-14/15): speaking script + Q&A prep written, followed by extensive same-milestone slide iteration and live-rehearsal material (see `.planning/milestones/v5.3-SUMMARY.md`).
-- **DEFENSE HELD 2026-07-15 — COMPLETE.** Slides are now LOCKED, no further edits planned. Judges requested a report revision — flagged gaps: exact training threat-class labels not locatable in the report text, report judged "good but short" (page-count/depth), and a general push to make claims traceable back to the report rather than only true. Next milestone is this report revision, intentionally unscoped pending the student's actual defense transcripts — do not guess at scope from this summary alone.
+- **DEFENSE HELD 2026-07-15 — COMPLETE.** Slides are now LOCKED, no further edits planned.
+- v6.0 complete (2026-07-21): report revision closing all judge-raised gaps (label-mechanism visibility, problem framing, architecture rationale, error analysis, citation/tone audit). Report recompiles clean at 34 pages. No next milestone scoped yet.
 
 ## Evolution
 
@@ -203,4 +196,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-15 after starting v6.0 Report Revision (transcript analyzed, target features scoped)
+Last updated: 2026-07-21 after completing v6.0 Report Revision (all 13 requirements delivered, Phases 35-37, report compiles clean)

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Report Revision
-status: planning
-last_updated: "2026-07-21T07:27:28.855Z"
+status: complete
+last_updated: "2026-07-21T00:00:00.000Z"
 last_activity: 2026-07-21
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: 35 (Problem Framing & Architecture Rationale) — not started
-Plan: — (roadmap created, no PLAN.md yet)
-Status: Roadmap created; ready for `/gsd-discuss-phase 35` or `/gsd-plan-phase 35`
-Last activity: 2026-07-21 — v6.0 ROADMAP.md created (Phases 35-37, 13/13 requirements mapped)
+Phase: 37 (Consistency Audit & Citation Verification) — complete
+Plan: — (executed directly, no discuss/research/plan-checker pipeline — content-writing with no architectural ambiguity, per the user's "go, autonomous, all phases" instruction)
+Status: v6.0 Report Revision COMPLETE. All 13 requirements delivered across Phases 35-37. Report recompiles clean (XeLaTeX x3 + BibTeX, zero errors, zero undefined refs), 34 pages. See `.planning/milestones/v6.0-SUMMARY.md`.
+Last activity: 2026-07-21 — Phase 37 committed; milestone closed
 
 ## Performance Metrics (Baseline Targets)
 
@@ -89,7 +89,8 @@ Last activity: 2026-07-21 — v6.0 ROADMAP.md created (Phases 35-37, 13/13 requi
 - Phase 34 COMPLETE (2026-07-14): executed directly (no discuss/research/plan-checker/executor-subagent pipeline — pure content-writing with no architectural ambiguity, given the deadline). Wrote `documents/reports/supervisor/defense_speaking_script.md` (12-slide talking-point cues summing to exactly 485s/8:05, matching 33-RUN-PLAN.md's TIME-05 table) and `documents/reports/supervisor/defense_qa_preparation.md` (9-section topic-organized Q&A: authorship/"AI-generated" defense, data governance incl. plain-language t-test explanation, QLoRA hyperparameters + NF4-vs-Q8_0 dual-quantization rationale, model selection pilot, recall-floor rationale, the task_scam 0.44->0.871 recall-recovery story, design rationale, quick-reference numbers table). Both files are gitignored per project convention (documents/reports/supervisor/ — confirmed via the pre-existing, never-committed mock_defense_script.md in the same directory); `.planning/phases/34-speaking-script-qa-preparation/34-01-SUMMARY.md` is the tracked record. Numbers verified against current locked chapters 03/05 and qlora_config.tex/dataset_statistics.tex — found and fixed a stale-number risk: the old June mock_defense_script.md cited macro F1 0.9553 vs. the current report's 0.9625.
 - NOTE: `defense_speaking_script.md`, `defense_qa_preparation.md`, and `defense_code_navigation.md` actually live at the **repo root**, not under `documents/reports/supervisor/` as originally written above — confirmed via `.gitignore` (lines ~290-294) during later same-milestone work. All three are gitignored at the root. A fourth root-level file, `defense_walkthrough.md`, and a fifth, `defense_qa2.md`, were added later in the same milestone tail (see next entry) — same gitignore treatment.
 - v5.3 tail-end work, same-day and next-day (2026-07-14/15, untracked as formal phases, executed directly given the deadline — full detail in `.planning/milestones/v5.3-SUMMARY.md`): extensive slide iteration (Demo section cut to backup then Sample Output reinstated to main flow; Sample Output's input/output swapped to the real, live-verified golden scam prompt run, catching and fixing 2 real XeLaTeX rendering bugs — `listings`-package Vietnamese diacritic scrambling under XeLaTeX, and DejaVu Sans missing CJK bracket glyphs; a full report-vs-slides numeric audit that found and fixed one real model-name inconsistency; Evaluation Results "Caution" bullet and Contributions "Validation reuse" jargon both cut per user review). `defense-walkthrough` branch merged into `main`; all 10 numbered code-walkthrough files given heavy teaching-style comments; `walkthrough/data/` added with SHA-256-verified copies of the actual final datasets. Two new root-level prep docs written: `defense_walkthrough.md` (slide-anchored Q&A companion, deep on Slides 5-6, iteratively simplified in real time under pressure) and `defense_qa2.md` (live in-the-room judge-behavior notes captured during the actual defense).
-- **DEFENSE HELD 2026-07-15 — COMPLETE.** Judge feedback captured for the next milestone: report quality acknowledged as good but criticized as short ("bare minimum pages"); a specific gap raised live — the exact threat-class labels used during training could not be found in the report; a judge explicitly requested revision ("if you did the report, i hope you revise it"); judges repeatedly cross-checked "did you include this in the report" across multiple topics, confirming report/slide/artifact traceability is a real scoring axis for this panel. **Decision: slides are now LOCKED — no further slide edits planned.** The next milestone is a report revision, deliberately not yet scoped — waiting on the student to supply the actual judge transcripts/notes rather than guessing at scope from a rough real-time summary.
+- **DEFENSE HELD 2026-07-15 — COMPLETE.** Judge feedback captured for the next milestone: report quality acknowledged as good but criticized as short ("bare minimum pages"); a specific gap raised live — the exact threat-class labels used during training could not be found in the report; a judge explicitly requested revision ("if you did the report, i hope you revise it"); judges repeatedly cross-checked "did you include this in the report" across multiple topics, confirming report/slide/artifact traceability is a real scoring axis for this panel. **Decision: slides are now LOCKED — no further slide edits planned.**
+- **v6.0 REPORT REVISION COMPLETE (2026-07-21).** All 13 requirements delivered across Phases 35-37, executed directly and autonomously per the user's explicit "go, autonomous, all phases" instruction (no discuss/research/plan-checker/executor-subagent pipeline — pure content-writing against a well-understood gap list). Phase 35: explicit problem-framing (Ch1) + generative-classification/verbalizer architecture rationale + honest Qwen-vs-PhoBERT comparison (Ch3), 5 new WebSearch-verified BibTeX entries. Phase 36: full 7-field record-schema table naming the `label` field explicitly, label-conditioned-generation statement with citation, a real record from the validation split walked through field by field, explicit training-vs-val/test label-use distinction. Phase 37: split/confusion-matrix counts audited and found already consistent everywhere (no fix needed); new error-analysis subsection naming the actual 9 misclassified validation rows (pulled from `data/eval/eval-results-qlora.json` + `data/splits/recovered-balanced/val.jsonl`, not invented) showing a genuine class-boundary overlap (bank-notice phrasing generated under `task_scam`/`zalo_social_engineering` targets); SHA-256 sentence confirmed already crisp; citation and `WRITING_GUARDRAILS.md` tone audits both passed clean. Full safe compile sequence run after every phase and at close: zero errors, zero undefined refs, 34 pages. Full detail: `.planning/milestones/v6.0-SUMMARY.md`. No next milestone scoped yet.
 
 ### Requirement Coverage Snapshot
 
@@ -218,9 +219,9 @@ Last activity: 2026-07-21 — v6.0 ROADMAP.md created (Phases 35-37, 13/13 requi
 
 ## Session Continuity
 
-**Last session:** 2026-07-21T07:27:28.855Z
-**Stopped at:** v6.0 ROADMAP.md created — Phases 35-37 defined, 13/13 requirements mapped, coverage validated. No phase execution has started.
-**Resume file:** `.planning/ROADMAP.md` (Phase 35 detail section) — run `/gsd-discuss-phase 35` or `/gsd-plan-phase 35` to begin.
+**Last session:** 2026-07-21
+**Stopped at:** v6.0 Report Revision COMPLETE — Phases 35, 36, 37 all executed and committed, all 13 requirements delivered, report recompiles clean at 34 pages. No next milestone scoped.
+**Resume file:** `.planning/milestones/v6.0-SUMMARY.md` — no open work; awaiting new milestone scope from the user.
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -268,17 +269,13 @@ Last activity: 2026-07-21 — v6.0 ROADMAP.md created (Phases 35-37, 13/13 requi
 | 2026-07-14 | Phase 34 execution | Complete. Speaking script (12 slides, 8:05 timing) and Q&A prep (9 topic sections incl. AI-generated-authorship defense) written to documents/reports/supervisor/, all 7 v5.3 requirements delivered. |
 | 2026-07-15 | v5.2 + v5.3 milestone completion/archival | Complete. Defense held 2026-07-15. Both milestones archived to `.planning/milestones/v5.2-SUMMARY.md` and `v5.3-SUMMARY.md`. Judge feedback captured (missing training-label documentation, report too short, revision requested). Slides LOCKED. Next milestone (report revision) intentionally unscoped, pending student-supplied transcripts. |
 | 2026-07-21 | v6.0 roadmap creation | Complete. Phases 35-37 defined (Problem Framing & Architecture Rationale; Dataset Construction & Labeling Methodology; Consistency Audit & Citation Verification), 13/13 v6.0 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
+| 2026-07-21 | v6.0 Phases 35-37 execution | Complete. All 13 requirements delivered directly (autonomous execution per user instruction). Report compiles clean, 34 pages. Milestone archived to `.planning/milestones/v6.0-SUMMARY.md`. |
 
 ## Operator Next Steps
 
 - **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
-- **v6.0 Report Revision roadmap is now created** (2026-07-21): 3 phases, 13/13 requirements mapped, sequenced by dependency order (framing/architecture must exist before the labeling section references its terminology; the audit/citation pass runs last because it checks everything written before it).
-  - Phase 35: Problem Framing & Architecture Rationale (FRAME-01, ARCH-01, ARCH-02)
-  - Phase 36: Dataset Construction & Labeling Methodology (LABEL-01–04)
-  - Phase 37: Consistency Audit & Citation Verification (AUDIT-01–03, CITE-01–02, VOICE-01)
-- Next step: `/gsd-discuss-phase 35` (or `/gsd-plan-phase 35` if context is already clear) to start Phase 35.
-- Hard constraint carried into every phase: tone/voice must stay as close to the original as possible — reuse `WRITING_GUARDRAILS.md` (Phase 8) rather than inventing new tone rules; already-strong existing sections must not be touched or padded.
-- Reference material already in place for this milestone: the full report-vs-slides numeric audit from v5.3's tail end, `defense_qa_preparation.md`/`defense_walkthrough.md`'s accumulated Q&A (many of these answers are candidate content for the report itself, since judges asked them live), `documents/Transcript defense.md` (ground truth for every gap), `.planning/research/SUMMARY.md` (citation vocabulary and precedent papers), and `documents/reports/latex/EVIDENCE_MAP.md`/`WRITING_GUARDRAILS.md` from Phase 8.
+- **v6.0 Report Revision COMPLETE (2026-07-21).** All 13 requirements delivered across Phases 35-37; report recompiles clean at 34 pages. Archived to `.planning/milestones/v6.0-SUMMARY.md`.
+- No milestone currently active. Recommended next steps for the operator, not yet requested: (a) proofread the new prose one more time in the compiled PDF before any resubmission, (b) if a formal re-defense or written resubmission deadline exists, confirm it and start a new milestone scoped to that; otherwise no further action is required from this workflow.
 
 ## Decisions
 
