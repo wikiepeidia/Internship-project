@@ -1,0 +1,31 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  sbox/.style={draw=black!45, fill=black!5, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  gbox/.style={draw=CVBLUE!70!black, fill=CVBLUE!12, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  jbox/.style={draw=orange!70!black, fill=orange!10, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  obox/.style={draw=green!55!black, fill=green!8, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  arr/.style={->, >=stealth, thick, black!50}
+]
+
+\node[sbox] (seed)  at ( 0.0, 0) {tinnhiemmang.vn\\Seeds};
+\node[gbox] (gen)   at ( 4.0, 0) {claude-3-5-haiku\\Class-Conditioned\\Generation};
+\node[jbox] (judge) at ( 8.0, 0) {Pydantic Schema\\+ LLM Judge};
+\node[obox] (out)   at (12.0, 0) {JSONL Output\\3{,}000 Rows};
+
+\draw[arr] (seed) -- (gen);
+\draw[arr] (gen)  -- (judge);
+\draw[arr] (judge) -- (out);
+
+\node[font=\scriptsize, text=black!45, below=0.15cm of seed]  {NCSC cybercrime alerts};
+\node[font=\scriptsize, text=black!45, below=0.15cm of gen, align=center]   {invoked once per\\target class};
+\node[font=\scriptsize, text=black!45, below=0.15cm of judge] {structure + sampled semantics};
+\node[font=\scriptsize, text=black!45, below=0.15cm of out]   {4 threat classes};
+\end{tikzpicture}
+\caption{Dataset construction pipeline. Generation is invoked once per target class, so the \texttt{label} field is set at generation time rather than by a separate annotation pass (Section~\ref{sec:quality-check}).}
+\label{fig:data-pipeline}
+\end{figure}

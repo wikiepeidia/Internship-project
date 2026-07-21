@@ -127,6 +127,27 @@ S.~Nwaiwu, ``Parameter-efficient fine-tuning for low-resource text
   classification: A comparative study of {LoRA}, {IA3}, and {ReFT},'' {\em
   Frontiers in Big Data}, 2025.
 
+\bibitem{raffel2020t5}
+C.~Raffel, N.~Shazeer, A.~Roberts, K.~Lee, S.~Narang, M.~Matena, Y.~Zhou,
+  W.~Li, and P.~J. Liu, ``Exploring the limits of transfer learning with a
+  unified {Text-to-Text} transformer,'' {\em Journal of Machine Learning
+  Research}, vol.~21, no.~140, pp.~1--67, 2020.
+
+\bibitem{schick2021pet}
+T.~Schick and H.~Sch{\"u}tze, ``Exploiting cloze questions for few-shot text
+  classification and natural language inference,'' in {\em Proceedings of EACL
+  2021}, 2021.
+
+\bibitem{narang2020wt5}
+S.~Narang, C.~Raffel, K.~Lee, A.~Roberts, N.~Fiedel, and K.~Malkan, ``{WT5}?!
+  training {Text-to-Text} models to explain their predictions,'' {\em arXiv
+  preprint arXiv:2004.14546}, 2020.
+
+\bibitem{yousefiramandi2025finetuning}
+A.~Yousefiramandi and C.~Cooney, ``Fine-tuning causal {LLMs} for text
+  classification: Embedding-based vs. instruction-based approaches,'' {\em
+  arXiv preprint arXiv:2512.12677}, 2025.
+
 \bibitem{kaddour2023synthetic}
 J.~Kaddour and Q.~Liu, ``Synthetic data generation in low-resource settings via
   fine-tuning of large language models,'' {\em arXiv preprint
@@ -172,27 +193,6 @@ A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
 N.~L. Tran, D.~M. Le, and D.~Q. Nguyen, ``{BARTpho}: Pre-trained
   sequence-to-sequence models for {Vietnamese},'' {\em arXiv preprint
   arXiv:2109.09701}, 2021.
-
-\bibitem{yousefiramandi2025finetuning}
-A.~Yousefiramandi and C.~Cooney, ``Fine-tuning causal {LLMs} for text
-  classification: Embedding-based vs. instruction-based approaches,'' {\em
-  arXiv preprint arXiv:2512.12677}, 2025.
-
-\bibitem{schick2021pet}
-T.~Schick and H.~Sch{\"u}tze, ``Exploiting cloze questions for few-shot text
-  classification and natural language inference,'' in {\em Proceedings of EACL
-  2021}, 2021.
-
-\bibitem{raffel2020t5}
-C.~Raffel, N.~Shazeer, A.~Roberts, K.~Lee, S.~Narang, M.~Matena, Y.~Zhou,
-  W.~Li, and P.~J. Liu, ``Exploring the limits of transfer learning with a
-  unified {Text-to-Text} transformer,'' {\em Journal of Machine Learning
-  Research}, vol.~21, no.~140, pp.~1--67, 2020.
-
-\bibitem{narang2020wt5}
-S.~Narang, C.~Raffel, K.~Lee, A.~Roberts, N.~Fiedel, and K.~Malkan, ``{WT5}?!
-  training {Text-to-Text} models to explain their predictions,'' {\em arXiv
-  preprint arXiv:2004.14546}, 2020.
 
 \bibitem{gerganov2023llamacpp}
 G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++}.''
