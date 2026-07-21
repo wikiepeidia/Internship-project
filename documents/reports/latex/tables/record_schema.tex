@@ -1,0 +1,19 @@
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{L{2.6cm}L{9.4cm}}
+\toprule
+\textbf{Field} & \textbf{Role} \\
+\midrule
+\texttt{text}              & Raw message text, natural Vietnamese with common code-switching. \\
+\texttt{label}             & \textbf{Ground-truth class} for the classification task: one of \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Set during generation (see below), not added afterward. \\
+\texttt{risk\_tier}        & Severity judgment (\texttt{benign}, \texttt{suspicious}, \texttt{high-risk}), produced independently of \texttt{label} rather than derived from it. \\
+\texttt{suspicious\_spans} & Exact substrings of \texttt{text} that support the label (URLs, phone numbers, urgency phrases). \\
+\texttt{xai\_explanation}  & Free-text justification for the label, used as training signal for the explanation output. \\
+\texttt{source}            & Provenance tag (e.g.\ \texttt{ncsc\_seed}, \texttt{synthetic\_claude}). \\
+\texttt{seed\_id}          & Link back to the originating seed record, used for split governance. \\
+\bottomrule
+\end{tabular}
+\caption{Fields of a single dataset record, enforced by the Pydantic schema gate described above.}
+\label{tab:record-schema}
+\end{table}

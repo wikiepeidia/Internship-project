@@ -24,6 +24,20 @@ The dataset was assembled from seed records collected on \textit{tinnhiemmang.vn
 
 \noindent This corpus supports model development and internal validation; it is not presented as a substitute for a real-world, human-labeled benchmark. Each build is tied to versioned manifests with SHA-256 content hashes so that evaluation results can be traced to the exact dataset snapshot used.
 
+\noindent\textbf{Record schema:} Table~\ref{tab:record-schema} lists the seven fields of a single dataset record. The \texttt{label} field is the ground-truth class for the classification task defined in Section~\ref{sec:problem-statement}. It is present on every one of the 3{,}000 rows, and it is the value the model is trained to reproduce.
+
+\input{tables/record_schema}
+
+The label is not added by a separate human or automated annotation pass after generation; it is set at generation time. The generation pipeline is invoked once per target class, with an explicit instruction to produce examples of that class, and the resulting record's \texttt{label} field is set to match the class it was generated for. This is the same label-conditioned synthetic-generation approach used for controllable dataset construction elsewhere in the literature \cite{li2024datageneration}. The LLM-based judge pass described below (Section~\ref{sec:quality-check}) then checks a sample of these generation-time labels for correctness; it does not assign them.
+
+\noindent\textbf{Worked example:} one record from the corpus, in full:
+\begin{quote}\small\itshape
+``Alo [Minh] ơi, đây là tài khoản mới của tao, đt cũ bị mất r nên lập acc mới. Tao đang kẹt tiền gấp lắm, mày có thể chuyển giúp tao 2 triệu ko? Tao sẽ trả lại sau. Chuyển vào STK: 0381927465 Ngân hàng Vietcombank, tên: NGUYEN VAN MINH. Cần gấp nha, tao đang ko có cash mà phải đóng tiền nhà tối nay. Thanks mày nhiều!''
+\end{quote}
+Its \texttt{label} is \texttt{task\_scam}: the message impersonates a friend writing from a supposedly new account and asks for an urgent transfer, which is the task-scam pattern rather than a bank notice. Its \texttt{risk\_tier} is \texttt{high-risk}, a severity judgment made independently of the label, from the same urgency and payment-request content. Its \texttt{suspicious\_spans} pick out the exact substrings that support the label --- the new-account framing, the urgency phrasing, the transfer request, and the bank account number --- and its \texttt{xai\_explanation} states in one sentence why those spans point to this class rather than another. All four fields are produced together, from the same generation pass, for the same target class.
+
+The training role of \texttt{label} differs from its role at validation and test time. During training, the label is part of the target sequence used for the causal language-model objective described later in this chapter: the model is trained on the message together with the correct label, evidence spans, and explanation. At validation and test time, the label is withheld from what the model receives. The model generates a label from the message text alone, and only afterward is the record's true \texttt{label} value used, to score that generated output --- this is exactly how the confusion matrix (Table~\ref{tab:confusion-matrix}) and per-class metrics reported later in this document are produced.
+
 \label{sec:quality-check}
 An LLM-based quality-judge pass reviewed 100 generated examples in two batches of 50 (the first scored by \texttt{claude-3-5-haiku}, the second by \texttt{Qwen2.5-7B-Instruct} to reduce single-judge bias). Ninety-four passed inspection. The combined average realism score was 4.43 out of 5 ($t = 8.7$, $p < 0.0001$, one-sample $t$-test against $H_0\colon \mu \leq 4.0$) and the average label-correctness score was 4.92 out of 5 ($t = 53.2$, $p < 0.0001$). Both scores reject the null hypothesis at $\alpha = 0.001$. This automated review reduces the risk of low-quality rows entering the training split but is not a substitute for independent human annotation.
 
