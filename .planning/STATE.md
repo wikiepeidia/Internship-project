@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-21T07:27:28.855Z"
 last_activity: 2026-07-21
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-21 — Milestone v6.0 started
+Phase: 35 (Problem Framing & Architecture Rationale) — not started
+Plan: — (roadmap created, no PLAN.md yet)
+Status: Roadmap created; ready for `/gsd-discuss-phase 35` or `/gsd-plan-phase 35`
+Last activity: 2026-07-21 — v6.0 ROADMAP.md created (Phases 35-37, 13/13 requirements mapped)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -93,9 +93,27 @@ Last activity: 2026-07-21 — Milestone v6.0 started
 
 ### Requirement Coverage Snapshot
 
-- tracked requirements: 113 (106 prior milestones + 7 v5.3)
-- mapped to phases: 113
+- tracked requirements: 126 (113 prior milestones + 13 v6.0)
+- mapped to phases: 126
 - Unmapped: 0
+
+### v6.0 Requirements at a Glance
+
+| Requirement | Phase | Description |
+| ----------- | ----- | ----------- |
+| FRAME-01 | 35 | Explicit early statement: supervised multi-class classification, 4-class taxonomy |
+| ARCH-01 | 35 | Why generative structured output (QLoRA decoder) instead of classification head |
+| ARCH-02 | 35 | Honest Qwen-vs-PhoBERT comparison, task-shape as primary argument |
+| LABEL-01 | 36 | Full JSON schema (example record + field table), `label` field role named |
+| LABEL-02 | 36 | Labels assigned at generation time (label-conditioned), with citation |
+| LABEL-03 | 36 | First-person worked-example walkthrough of one full record |
+| LABEL-04 | 36 | Why training needs the label field but val/test framing differs |
+| AUDIT-01 | 37 | Confusion-matrix / split counts reconciled to one source of truth |
+| AUDIT-02 | 37 | Error-analysis subsection with 2-3 worked misclassification examples |
+| AUDIT-03 | 37 | SHA-256/manifest-integrity rationale as a crisp explicit sentence |
+| CITE-01 | 37 | Every new academic claim has a verified BibTeX entry + `\cite{}` |
+| CITE-02 | 37 | Existing citations in touched sections spot-checked for accuracy |
+| VOICE-01 | 37 | New content matches existing register; untouched sections not padded |
 
 ### v5.3 Requirements at a Glance
 
@@ -200,9 +218,9 @@ Last activity: 2026-07-21 — Milestone v6.0 started
 
 ## Session Continuity
 
-**Last session:** 2026-07-15T12:00:00.000Z
-**Stopped at:** Defense held and complete. v5.2 and v5.3 archived to `.planning/milestones/`. Slides LOCKED. Next milestone (report revision) intentionally not yet scoped — waiting on the student to supply the actual judge transcripts/notes.
-**Resume file:** `.planning/PROJECT.md` (Current State section) — once transcripts are provided, run `/gsd-new-milestone` to scope the report revision.
+**Last session:** 2026-07-21T07:27:28.855Z
+**Stopped at:** v6.0 ROADMAP.md created — Phases 35-37 defined, 13/13 requirements mapped, coverage validated. No phase execution has started.
+**Resume file:** `.planning/ROADMAP.md` (Phase 35 detail section) — run `/gsd-discuss-phase 35` or `/gsd-plan-phase 35` to begin.
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -249,16 +267,18 @@ Last activity: 2026-07-21 — Milestone v6.0 started
 | 2026-07-14 | v5.3 roadmap creation | Complete. Phase 34 defined (single phase, emergency milestone), 7/7 v5.3 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-14 | Phase 34 execution | Complete. Speaking script (12 slides, 8:05 timing) and Q&A prep (9 topic sections incl. AI-generated-authorship defense) written to documents/reports/supervisor/, all 7 v5.3 requirements delivered. |
 | 2026-07-15 | v5.2 + v5.3 milestone completion/archival | Complete. Defense held 2026-07-15. Both milestones archived to `.planning/milestones/v5.2-SUMMARY.md` and `v5.3-SUMMARY.md`. Judge feedback captured (missing training-label documentation, report too short, revision requested). Slides LOCKED. Next milestone (report revision) intentionally unscoped, pending student-supplied transcripts. |
+| 2026-07-21 | v6.0 roadmap creation | Complete. Phases 35-37 defined (Problem Framing & Architecture Rationale; Dataset Construction & Labeling Methodology; Consistency Audit & Citation Verification), 13/13 v6.0 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 
 ## Operator Next Steps
 
 - **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
-- **Next milestone: Report Revision — BLOCKED, do not start scoping yet.** The student will supply the actual judge transcripts/notes from the defense; wait for those before running `/gsd-new-milestone` for the revision. Known gaps already flagged live by judges (to weigh once transcripts arrive, not to act on prematurely):
-  1. The exact threat-class labels used during training are apparently not findable in the report — this needs an explicit, locatable section (likely Methodology or Data chapter), not just implied by table headers.
-  2. Report judged "good but short" — page-count/depth gap, department minimum is being read as bare-minimum.
-  3. Judges want a revision generally, and repeatedly checked "is this in the report" across topics — the revision should bias toward making claims traceable/locatable in the text itself, not just true.
-  4. Whatever tone the revision lands on, keep it consistent throughout — don't let voice drift chapter to chapter (this is the "lock the tone" instruction from the room).
-- Reference material already in place for the revision milestone once it starts: the full report-vs-slides numeric audit from v5.3's tail end, `defense_qa_preparation.md`/`defense_walkthrough.md`'s accumulated Q&A (many of these answers are candidate content for the report itself, since judges asked them live), and `documents/reports/latex/EVIDENCE_MAP.md`/`WRITING_GUARDRAILS.md` from Phase 8.
+- **v6.0 Report Revision roadmap is now created** (2026-07-21): 3 phases, 13/13 requirements mapped, sequenced by dependency order (framing/architecture must exist before the labeling section references its terminology; the audit/citation pass runs last because it checks everything written before it).
+  - Phase 35: Problem Framing & Architecture Rationale (FRAME-01, ARCH-01, ARCH-02)
+  - Phase 36: Dataset Construction & Labeling Methodology (LABEL-01–04)
+  - Phase 37: Consistency Audit & Citation Verification (AUDIT-01–03, CITE-01–02, VOICE-01)
+- Next step: `/gsd-discuss-phase 35` (or `/gsd-plan-phase 35` if context is already clear) to start Phase 35.
+- Hard constraint carried into every phase: tone/voice must stay as close to the original as possible — reuse `WRITING_GUARDRAILS.md` (Phase 8) rather than inventing new tone rules; already-strong existing sections must not be touched or padded.
+- Reference material already in place for this milestone: the full report-vs-slides numeric audit from v5.3's tail end, `defense_qa_preparation.md`/`defense_walkthrough.md`'s accumulated Q&A (many of these answers are candidate content for the report itself, since judges asked them live), `documents/Transcript defense.md` (ground truth for every gap), `.planning/research/SUMMARY.md` (citation vocabulary and precedent papers), and `documents/reports/latex/EVIDENCE_MAP.md`/`WRITING_GUARDRAILS.md` from Phase 8.
 
 ## Decisions
 

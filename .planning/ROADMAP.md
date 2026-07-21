@@ -61,6 +61,14 @@
 
 - [x] **Phase 34: Speaking Script & Q&A Preparation** - Write talking-point speaking cues for all 12 defense slides (short spoken fragments, timed to the `33-RUN-PLAN.md` ~8:05 budget) and a topic-organized Q&A preparation document in plain first-person language, with explicit talking points for authorship/understanding challenges. (completed 2026-07-14)
 
+### v6.0 — Report Revision (target: written revision only, no second oral defense)
+
+**Note:** Content-addition/clarity revision within the report's existing voice — not a rewrite. Closes six defense-transcript gaps in dependency order: problem framing (must exist before architecture text references it) -> architecture rationale (establishes verbalizer/generative-classification vocabulary the labeling section reuses) -> dataset/labeling methodology (single most-repeated transcript gap) -> consistency audit and citation verification (audits everything written, so runs last). Slides are LOCKED and out of scope; this milestone touches the thesis report only.
+
+- [ ] **Phase 35: Problem Framing & Architecture Rationale** - State the classification problem explicitly and justify the generative-classification architecture (QLoRA decoder vs. classification head; Qwen vs. PhoBERT).
+- [ ] **Phase 36: Dataset Construction & Labeling Methodology** - Add the explicit, unmissable labeling section: JSON schema, generation-time label assignment, worked example, train-vs-val/test label distinction.
+- [ ] **Phase 37: Consistency Audit & Citation Verification** - Reconcile all confusion-matrix/split counts against real evaluation artifacts, add error-analysis examples, verify citations, and confirm voice/scope guardrails hold.
+
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
@@ -778,6 +786,56 @@ Plans:
 
 ---
 
+## Milestone v6.0: Report Revision (Phases 35-37) (Phase Details)
+
+**Milestone Goal:** Close the specific gaps judges raised live in the defense (`documents/Transcript defense.md`) through targeted content additions to the LaTeX thesis report -- problem framing, architecture rationale, dataset/labeling methodology, and a numeric-consistency plus citation audit -- without shifting the report's existing tone/voice. Slides are LOCKED; this milestone touches the thesis report only (primarily `documents/reports/latex/chapters/03_methodology_and_system_design.tex` and `appendices.tex`, plus `references.bib`). Written revision only -- no second oral defense expected.
+
+### Phase 35: Problem Framing & Architecture Rationale
+
+**Goal**: The report explicitly states the classification problem framing and honestly justifies the architectural choices (generative decoder vs. classification head; Qwen vs. PhoBERT) before any system/data detail -- closing the "why not a classification head" and "why Qwen not PhoBERT" gaps raised live.
+**Depends on**: Phase 34 (prior milestone closed; first phase of v6.0)
+**Requirements**: FRAME-01, ARCH-01, ARCH-02
+**Success Criteria** (what must be TRUE):
+
+1. An early, named subsection (appearing before architecture/data discussion in the methodology chapter) explicitly states the task is supervised multi-class text classification with the 4 named classes.
+2. A named subsection ("Why Generative Classification, Not a Classification Head" or equivalent) explains classification via generative structured output using the verbalizer/generative-classification framing, backed by at least one real citation.
+3. A named subsection presents an honest Qwen-vs-PhoBERT comparison: task-shape (multi-field structured generation) as the primary argument, multilingual extension as secondary, and PhoBERT's genuine strengths (Vietnamese-specialized, strong single-label classification) acknowledged rather than dismissed.
+4. The report compiles clean with XeLaTeX (zero errors) after these additions, and no unrelated existing section's wording is altered.
+
+**Plans**: TBD
+
+### Phase 36: Dataset Construction & Labeling Methodology
+
+**Goal**: An explicit, unmissable section documents exactly how training labels work end-to-end -- closing the single most-repeated defense gap (asked roughly ten different ways, never answered).
+**Depends on**: Phase 35 (reuses the verbalizer/generative-classification terminology established there)
+**Requirements**: LABEL-01, LABEL-02, LABEL-03, LABEL-04
+**Success Criteria** (what must be TRUE):
+
+1. A named "Dataset Construction and Labeling Methodology" subsection shows a full example JSON record plus a field-by-field table, with the `label` field's role explicitly named as the ground-truth training class.
+2. The subsection explicitly states labels are assigned at generation time (label-conditioned synthetic generation -- each record generated for a target class) rather than a post-hoc manual labeling pass, supported by a real citation.
+3. A first-person worked-example walkthrough traces one full record end-to-end (seed input through generation prompt to labeled output).
+4. The subsection explicitly distinguishes why the label field is required for training but not for the validation/test framing.
+5. The report compiles clean with XeLaTeX (zero errors) after these additions.
+
+**Plans**: TBD
+
+### Phase 37: Consistency Audit & Citation Verification
+
+**Goal**: Every number in the report reconciles to one source of truth, every new claim introduced by this revision is properly cited, and the whole revision reads in the report's original voice without touching or padding already-strong sections -- closing the numeric-inconsistency and authorship-suspicion gaps.
+**Depends on**: Phase 36 (audits the newly added content plus pre-existing numbers)
+**Requirements**: AUDIT-01, AUDIT-02, AUDIT-03, CITE-01, CITE-02, VOICE-01
+**Success Criteria** (what must be TRUE):
+
+1. Confusion-matrix and train/val/test split counts are reconciled against the real evaluation artifacts and read identically everywhere they appear in the report (body text, tables, appendix), including a check for any stale binary-classification leftovers from the earlier Phase 20 binary re-run.
+2. A short error-analysis subsection exists with 2-3 concrete worked misclassification examples drawn from the actual confusion matrix (task_scam + zalo -> bank_impersonation errors).
+3. A crisp, explicit sentence states the SHA-256/manifest-integrity rationale in the report body text.
+4. Every new academic claim introduced across Phases 35-36 has a verified BibTeX entry in `references.bib` and a `\cite{}` in text; existing citations in sections touched by this revision are spot-checked for accuracy.
+5. A side-by-side comparison of new vs. pre-existing prose shows consistent register (no vocabulary/tone shift); sections unrelated to a named gap remain untouched; the full report compiles clean with XeLaTeX (zero errors).
+
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -815,11 +873,14 @@ Plans:
 | 32. Fallback Recording and Full Dry Rehearsal | 1/1 | Complete    | 2026-07-09 |
 | 33. Emergency 10-Minute Slide Compression | 1/1 | Complete | 2026-07-13 |
 | 34. Speaking Script & Q&A Preparation | 1/1 | Complete | 2026-07-14 |
+| 35. Problem Framing & Architecture Rationale | 0/TBD | Not started | - |
+| 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
+| 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 113 (106 prior milestones + 7 v5.3)
-- tracked requirements mapped: 113
+- tracked requirements total: 126 (113 prior milestones + 13 v6.0)
+- tracked requirements mapped: 126
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -945,3 +1006,16 @@ Coverage map:
 - QA-02 -> Phase 34
 - QA-03 -> Phase 34
 - QA-04 -> Phase 34
+- FRAME-01 -> Phase 35
+- ARCH-01 -> Phase 35
+- ARCH-02 -> Phase 35
+- LABEL-01 -> Phase 36
+- LABEL-02 -> Phase 36
+- LABEL-03 -> Phase 36
+- LABEL-04 -> Phase 36
+- AUDIT-01 -> Phase 37
+- AUDIT-02 -> Phase 37
+- AUDIT-03 -> Phase 37
+- CITE-01 -> Phase 37
+- CITE-02 -> Phase 37
+- VOICE-01 -> Phase 37
