@@ -28,7 +28,13 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- Nothing active. Defense held 2026-07-15; slides are LOCKED. Next milestone (report revision) is deliberately unscoped — waiting on the student to supply the actual judge transcripts/notes before running `/gsd-new-milestone`. See Current State below for the specific gaps judges raised live.
+- [ ] Add an explicit, unmissable dataset-labeling section: JSON schema, the `label` field, a concrete example record, and that labels are assigned at generation time (not a manual post-hoc pass).
+- [ ] State the classification problem framing explicitly and early (supervised multi-class classification, 4 classes).
+- [ ] Add architectural justification: why generative QLoRA fine-tuning instead of a classic encoder + classification-head.
+- [ ] Add an explicit "why Qwen, not PhoBERT" comparison section.
+- [ ] Genuine content-depth expansion via the sections above — not padding.
+- [ ] Audit and resolve the confusion-matrix / test-vs-validation count inconsistency a judge flagged.
+- [ ] Confirm the SHA-256/manifest-integrity rationale is crisp and explicit in the report text.
 
 ### Out of Scope
 
@@ -61,15 +67,21 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 
-## Current Milestone: none — awaiting report-revision scope
+## Current Milestone: v6.0 Report Revision
 
-Defense held 2026-07-15 and is complete. No milestone is currently active. The next milestone is a report revision, but it is deliberately **not yet scoped**: the student will supply the actual judge transcripts/notes from the defense, and scoping will happen from that real material rather than a rough real-time summary. Run `/gsd-new-milestone` once transcripts are available.
+**Goal:** Revise the thesis report to close the specific gaps judges raised live in the defense (`documents/Transcript defense.md`), without changing the report's existing tone/voice — a sudden stylistic shift between the defended version and the revision would itself read as confirmation of AI authorship, which is exactly the accusation being defended against. This is content addition and clarity work within the existing voice, not a rewrite. Written revision only — no second oral defense expected.
 
-Known gaps judges raised live, to weigh once transcripts arrive (not acted on yet):
-1. The exact threat-class labels used during training could not be located in the report by a judge — needs an explicit, findable section, not just implied by table headers.
-2. Report judged "good but short" — a page-count/depth gap against department expectations.
-3. A judge directly asked for a revision; judges repeatedly cross-checked "is this in the report" across many topics — bias the revision toward making claims locatable in the text, not just true.
-4. Keep tone consistent across the revision — don't let voice drift chapter to chapter ("lock the tone").
+**Target features (from transcript analysis):**
+
+- An explicit, unmissable section documenting how training labels work: the JSON record schema, the `label` field, a concrete example record, and — critically — that labels are assigned AT GENERATION TIME (each synthetic example is generated FOR a target class) rather than via a separate manual post-hoc labeling pass. This was asked roughly ten different ways in the defense and the student could not answer or locate it; it's the single most damaging gap and the direct trigger for the "did you use ChatGPT" line of questioning.
+- Explicit early problem-framing as supervised multi-class classification (4 classes) — currently implicit/inferred rather than stated.
+- Architectural justification: why QLoRA fine-tuning a generative decoder-only LLM for structured output, instead of a classic encoder + classification-head architecture. A judge working in NLP found this genuinely unclear.
+- Explicit "why Qwen, not PhoBERT" comparison — currently entirely absent from the report.
+- Genuine content-depth expansion — judges independently called the report short (~14 pages excluding front matter/conclusion by one judge's count); the fix is real substance in the new/expanded sections above, not padding.
+- Audit and fix of a reported confusion-matrix / test-vs-validation count inconsistency the judge flagged (transcript is unclear on specifics — needs investigation against the actual current report tables, including a check for any stale leftover binary-classification content from the earlier Phase 20 binary re-run that might be contradicting the current 4-class 254/413 numbers).
+- Confirm the SHA-256/manifest-integrity rationale reads clearly in text (answered fine live, worth a crisp explicit sentence in the report itself).
+
+**Explicit constraint:** tone/voice must stay as close to the original as possible throughout. Reuse the existing `WRITING_GUARDRAILS.md` (Phase 8) rather than establishing new tone rules.
 
 ## Completed Milestone: v5.3 Slide Scripts & Q&A Preparation
 
@@ -191,4 +203,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-07-15 after the defense — v5.2 and v5.3 both archived, slides locked, next milestone (report revision) pending student-supplied transcripts
+Last updated: 2026-07-15 after starting v6.0 Report Revision (transcript analyzed, target features scoped)

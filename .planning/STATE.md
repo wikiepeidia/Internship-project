@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.3
-milestone_name: Slide Scripts & Q&A Preparation
-status: complete
-last_updated: "2026-07-15T12:00:00.000Z"
-last_activity: 2026-07-15
+milestone: v6.0
+milestone_name: Report Revision
+status: planning
+last_updated: "2026-07-21T07:27:28.855Z"
+last_activity: 2026-07-21
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v5.3 (emergency, defense is 2026-07-15 — tomorrow) — write talking-point speaking cues for all 12 defense slides (matching the Phase 33 deck and its ~8:05 timing budget) and a Q&A preparation document covering every report aspect in plain, explainable language, so the presenter can defend the work in their own words. Directly responds to a judge's informal feedback that the report reads as AI-generated. Report itself stays locked/unmodified.
+- Current milestone focus: v6.0 Report Revision — close the specific gaps judges raised live in the defense (`documents/Transcript defense.md`): an explicit dataset-labeling section (JSON schema, `label` field, generation-time assignment), explicit classification problem framing, architectural justification for generative QLoRA vs. classic encoder+classification-head, a "why Qwen not PhoBERT" comparison, genuine content-depth expansion, and a fix for a flagged confusion-matrix/test-count inconsistency. Written revision only, no second oral defense. Tone/voice must stay as close to the original as possible — a sudden style shift would itself read as confirming AI authorship, which is the exact accusation this revision is addressing.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -31,12 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: none active — v5.2 and v5.3 both archived, defense held and complete
-Plan: none active
-Status: DEFENSE HELD 2026-07-15. v5.2 and v5.3 milestones archived (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). Slides are now LOCKED — no further slide edits planned. Next milestone is a report revision, blocked on the student supplying the actual judge transcripts/notes — not yet scoped.
-Last activity: 2026-07-15 — milestone archival + defense outcome capture. Judges requested a report revision (see Accumulated Context below for the specific gaps raised live).
-
-Progress: [██████████] 100% (v5.2 + v5.3 both shipped and archived; no milestone currently active)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-21 — Milestone v6.0 started
 
 ## Performance Metrics (Baseline Targets)
 
