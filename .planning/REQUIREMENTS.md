@@ -565,6 +565,43 @@ Deliverables: `documents/reports/supervisor/defense_speaking_script.md`, `docume
 - mapped to phases: 113
 - Unmapped: 0
 
+## v6.0 Requirements — Report Revision
+
+Requirements for milestone v6.0. Defense held 2026-07-15; judges requested a revision (`documents/Transcript defense.md`). This is content-addition/clarity work within the report's existing voice — not a rewrite. The dominant, most-repeated transcript gap (~10 phrasings) was that the training-label mechanism could not be located or explained live; that gap, more than tone, triggered the AI-authorship suspicion. Slides are LOCKED and out of scope; this milestone touches the thesis report only.
+
+### Problem Framing
+
+- [ ] **FRAME-01**: Report explicitly states early (before methodology/architecture discussion) that this is a supervised multi-class text classification problem with a named 4-class taxonomy.
+
+### Architecture Justification
+
+- [ ] **ARCH-01**: Report explains why classification is achieved via generative structured output (a QLoRA-tuned decoder emitting a label field) rather than an encoder + classification head, using the "generative classification" / verbalizer framing established in research.
+- [ ] **ARCH-02**: Report includes an honest Qwen-vs-PhoBERT comparison — task-shape (multi-field structured generation: label + evidence + recommendation) as the primary argument, multilingual extension as secondary, PhoBERT's genuine strengths (Vietnamese-specialized, strong at single-label classification) acknowledged rather than dismissed.
+
+### Dataset & Labeling Methodology
+
+- [ ] **LABEL-01**: Report shows the full JSON record schema (an example record + field-by-field breakdown), with the `label` field's role explicitly named.
+- [ ] **LABEL-02**: Report explicitly states labels are assigned at generation time (label-conditioned synthetic generation), not via a separate manual post-hoc labeling pass, with supporting citation.
+- [ ] **LABEL-03**: Report includes a first-person worked-example walkthrough of one full record, end to end.
+- [ ] **LABEL-04**: Report explicitly distinguishes why training requires the label field while validation/test framing differs.
+
+### Consistency & Evidence Audit
+
+- [ ] **AUDIT-01**: All confusion-matrix and train/val/test split counts are reconciled to one consistent source of truth, referenced identically everywhere they appear in the report (body text, tables, appendix).
+- [ ] **AUDIT-02**: Report includes a short error-analysis subsection with 2-3 concrete worked misclassification examples drawn from the actual confusion matrix (the 8 task-scam + 1 Zalo → bank-impersonation errors).
+- [ ] **AUDIT-03**: The SHA-256/manifest-integrity rationale is stated as a crisp, explicit sentence in the report text, not just implied.
+
+### Citation Integration
+
+- [ ] **CITE-01**: Every new academic claim introduced by this revision (generative-classification/verbalizer framing, label-conditioned-generation precedent, Qwen-vs-PhoBERT comparison points) has a real, verified BibTeX entry in `references.bib` and a proper `\cite{}` in text — no bare claims.
+- [ ] **CITE-02**: Existing citations in sections touched by this revision are checked for accuracy/completeness (light audit, not a full bibliography rewrite).
+
+### Tone & Scope Guardrails
+
+- [ ] **VOICE-01**: New content matches the existing report's plain, direct register — no inflated/thesaurus vocabulary, no invented terminology for its own sake. Reads as honestly closing real gaps, not as a defensive rewrite. Already-strong existing sections are left untouched, not padded.
+
+**Explicit non-goal:** page-count is not a target pursued independently — closing the gaps above should organically add genuine depth; content unrelated to a named gap is out of scope.
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-14 — v5.3 Slide Scripts & Q&A Preparation: Phase 34 complete — all 7 requirements (SCRIPT-01–03, QA-01–04) delivered*
+*Last updated: 2026-07-21 — v6.0 Report Revision: 13 requirements defined (FRAME-01, ARCH-01–02, LABEL-01–04, AUDIT-01–03, CITE-01–02, VOICE-01), pending roadmap*
