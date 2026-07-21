@@ -33,6 +33,16 @@ N.~Nguyen, T.~Phan, D.-V. Nguyen, and K.~Nguyen, ``{ViSoBERT}: A pre-trained
   language model for {Vietnamese} social media text processing,'' in {\em
   Proceedings of EMNLP 2023}, 2023.
 
+\bibitem{tran2022phobertcnn}
+K.~Q. Tran, A.~T. Nguyen, P.~G. Hoang, C.~D. Luu, T.-H. Do, and K.~V. Nguyen,
+  ``{Vietnamese} hate and offensive detection using {PhoBERT-CNN} and social
+  media streaming data,'' {\em Neural Computing and Applications}, 2022.
+
+\bibitem{nguyen2025fakeads}
+D.~Nguyen, T.~T. Nguyen, and C.~V. Nguyen, ``Fake advertisements detection
+  using automated multimodal learning: A case study for {Vietnamese} real
+  estate data,'' {\em arXiv preprint arXiv:2501.10848}, 2025.
+
 \bibitem{patel2024evaluating}
 H.~Patel, U.~Rehman, and F.~Iqbal, ``Evaluating the efficacy of large language
   models in identifying phishing attempts,'' in {\em 16th International
@@ -62,6 +72,12 @@ M.~A. Uddin and I.~H. Sarker, ``An explainable transformer-based model for
 Y.~Xue, E.~Spero, Y.~S. Koh, and G.~Russello, ``{MultiPhishGuard}: An
   explainable and adaptive multi-agent {LLM} system for phishing email
   detection,'' {\em arXiv preprint arXiv:2505.23803}, 2025.
+
+\bibitem{hossain2025scambaiting}
+I.~Hossain, S.~Puppala, M.~J. Alam, and S.~Talukder, ``{AI-in-the-Loop}:
+  Privacy preserving real-time scam detection and conversational scambaiting by
+  leveraging {LLMs} and federated learning,'' {\em arXiv preprint
+  arXiv:2509.05362}, 2025.
 
 \bibitem{nist2026privacyframework}
 {National Institute of Standards and Technology}, ``Privacy framework.''

@@ -22,6 +22,26 @@ external model registry are not included in the repository. The small
 final-evidence manifest records the artifact path, byte size, and SHA-256
 identifier so that the deployed file can be checked without committing it.
 
+\noindent\textbf{Reproducing the reported pipeline:} the same commands used to produce the artifacts cited throughout this thesis are:
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Step} & \textbf{Command} \\
+\midrule
+Check training readiness & \texttt{python -m src.model\_adaptation.cli doctor} \\
+Run QLoRA adaptation & \texttt{python -m src.model\_adaptation.cli train} \\
+Export to GGUF & \texttt{python -m src.model\_adaptation.cli convert} \\
+Run held-out evaluation & \texttt{python -m src.model\_adaptation.cli evaluate-release-split} \\
+Check runtime readiness & \texttt{vnphish doctor} \\
+Analyze one message & \texttt{vnphish analyze} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Each command accepts flags for artifact paths, hyperparameters, and evaluation split location; the defaults reproduce the reported run. This table is intentionally a list of real, runnable commands rather than a narrative description, so the pipeline can be checked directly against the repository rather than taken on the strength of this document alone.
+
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
