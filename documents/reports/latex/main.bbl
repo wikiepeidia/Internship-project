@@ -43,6 +43,12 @@ D.~Nguyen, T.~T. Nguyen, and C.~V. Nguyen, ``Fake advertisements detection
   using automated multimodal learning: A case study for {Vietnamese} real
   estate data,'' {\em arXiv preprint arXiv:2501.10848}, 2025.
 
+\bibitem{trannguyen2026vnsms}
+N.~T.~T. Tran, ``{Vietnamese} {SMS} phishing dataset.''
+  \url{https://huggingface.co/datasets/trannguyenthaituan/vietnamese_sms_phishing_dataset},
+  2026.
+\newblock Hugging Face dataset repository, CC BY 4.0, accessed 2026-08-06.
+
 \bibitem{patel2024evaluating}
 H.~Patel, U.~Rehman, and F.~Iqbal, ``Evaluating the efficacy of large language
   models in identifying phishing attempts,'' in {\em 16th International
