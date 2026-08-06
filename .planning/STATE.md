@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Report Revision
 status: complete
-last_updated: "2026-07-21T00:00:00.000Z"
-last_activity: 2026-07-21
+last_updated: "2026-08-06T15:31:00.000Z"
+last_activity: 2026-08-06
 progress:
   total_phases: 3
   completed_phases: 3
@@ -34,7 +34,7 @@ progress:
 Phase: 37 (Consistency Audit & Citation Verification) — complete
 Plan: — (executed directly, no discuss/research/plan-checker pipeline — content-writing with no architectural ambiguity, per the user's "go, autonomous, all phases" instruction)
 Status: v6.0 Report Revision COMPLETE. All 13 requirements delivered across Phases 35-37. Report recompiles clean (XeLaTeX x3 + BibTeX, zero errors, zero undefined refs), 34 pages. See `.planning/milestones/v6.0-SUMMARY.md`.
-Last activity: 2026-07-21 — Phase 37 committed; milestone closed
+Last activity: 2026-08-06 — Completed quick task 260806-ubr: audited and acquired crawlable real Vietnamese scam data with explicit provenance and claim boundaries
 
 ## Performance Metrics (Baseline Targets)
 
@@ -270,6 +270,7 @@ Last activity: 2026-07-21 — Phase 37 committed; milestone closed
 | 2026-07-15 | v5.2 + v5.3 milestone completion/archival | Complete. Defense held 2026-07-15. Both milestones archived to `.planning/milestones/v5.2-SUMMARY.md` and `v5.3-SUMMARY.md`. Judge feedback captured (missing training-label documentation, report too short, revision requested). Slides LOCKED. Next milestone (report revision) intentionally unscoped, pending student-supplied transcripts. |
 | 2026-07-21 | v6.0 roadmap creation | Complete. Phases 35-37 defined (Problem Framing & Architecture Rationale; Dataset Construction & Labeling Methodology; Consistency Audit & Citation Verification), 13/13 v6.0 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-21 | v6.0 Phases 35-37 execution | Complete. All 13 requirements delivered directly (autonomous execution per user instruction). Report compiles clean, 34 pages. Milestone archived to `.planning/milestones/v6.0-SUMMARY.md`. |
+| 2026-08-06 | `260806-ubr` audit and acquire crawlable real Vietnamese scam data | Complete. Audited 23 endpoints across 8 source families and froze 94 net-new unlabeled real-public records (44 publisher-asserted message examples plus 50 PhishVN indicators); 51 focused tests and offline manifest verification passed. Implementation commit `4b7613c`; [artifacts](./quick/260806-ubr-audit-and-acquire-crawlable-real-vietnam/). |
 
 ## Operator Next Steps
 
