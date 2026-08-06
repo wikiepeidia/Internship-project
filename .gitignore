@@ -5,6 +5,7 @@ __pycache__/
 .github/gsd-file-manifest.json
 # C extensions
 *.so
+\documents/references
 walkthrough/
 .github/agents 
 .github/get-shit-done
