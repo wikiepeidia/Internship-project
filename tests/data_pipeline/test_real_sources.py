@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from pathlib import Path
+import zipfile
 
 import pytest
 from pydantic import ValidationError
@@ -103,8 +105,10 @@ def test_provenanced_record_requires_real_origin_null_hint_and_matching_hash() -
     assert record.raw_label_hint is None
     assert len(record.content_sha256) == 64
 
-    with pytest.raises(ValidationError):
-        _record().model_copy(update={"raw_label_hint": "bank_impersonation"})
+    bad_hint = record.model_dump()
+    bad_hint["raw_label_hint"] = "bank_impersonation"
+    with pytest.raises(ValidationError, match="raw_label_hint"):
+        ProvenancedSeedRecord.model_validate(bad_hint)
 
     payload = record.model_dump()
     payload["content_sha256"] = "0" * 64
@@ -325,6 +329,49 @@ def test_huggingface_csv_adapter_filters_rows_caps_and_redacts() -> None:
     assert stats.raw_items == 3
     assert stats.extracted_candidate_rows == 2
     assert stats.stop_reason == "record_cap"
+
+
+def test_mendeley_zip_adapter_reads_only_pinned_member_and_indicator_rows() -> None:
+    csv_body = (
+        "id,url,label,tier\n"
+        "VN-1,https://phish.example/login,phishing,gold\n"
+        "VN-2,https://safe.example/,benign,gold\n"
+    ).encode()
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w") as archive:
+        archive.writestr("data/dataset_url.csv", csv_body)
+        archive.writestr("data/splits/url_train.csv", csv_body)
+    archive_bytes = archive_buffer.getvalue()
+    policy = _policy(
+        source_id="phishvn-v2-open",
+        canonical_url="https://data.mendeley.com/datasets/b97hxbxtpd/2",
+        download_url="https://data.mendeley.com/public-files/datasets/b97hxbxtpd/file_downloaded",
+        allowed_hosts=("data.mendeley.com",),
+        adapter="mendeley_zip_csv",
+        archive_member="data/dataset_url.csv",
+        text_field="url",
+        native_id_field="id",
+        include_field="label",
+        include_values=("phishing",),
+        record_unit="threat_indicator",
+        expected_download_bytes=len(archive_bytes),
+        expected_download_sha256=hashlib.sha256(archive_bytes).hexdigest(),
+    )
+    client = BoundedHttpClient(
+        allowed_hosts=policy.allowed_hosts,
+        session=_Session({policy.download_url: _Response(policy.download_url, archive_bytes)}),
+        delay_min=0,
+        delay_max=0,
+    )
+
+    records, stats = collect_source(policy, client=client, max_records=50)
+
+    assert len(records) == 1
+    assert records[0].record_unit == "threat_indicator"
+    assert records[0].text == "https://phish.example/login"
+    assert records[0].native_id == "VN-1"
+    assert stats.raw_items == 2
+    assert stats.extracted_candidate_rows == 1
 
 
 @pytest.mark.parametrize("field,value", [
