@@ -157,6 +157,28 @@ def test_repair_evidence_spans_drops_row_when_all_spans_unrecoverable():
     assert repair_evidence_spans(record) is None
 
 
+def test_repair_evidence_spans_keeps_row_that_originally_had_zero_spans():
+    """A row that never had suspicious_spans (e.g. benign, per
+    DatasetRecord.suspicious_spans's schema default_factory=list) must NOT
+    be treated as an unrecoverable-evidence row. Regression test for a real
+    bug found during 38-02 full-scale execution: the original repair loop
+    conflated "originally empty" with "became empty after repair", which
+    would have silently dropped all 750 benign rows (each begins with
+    suspicious_spans=[] since a benign message has no suspicious evidence).
+    """
+    record = _make_record(
+        seed_id="seed-benign",
+        text="Cam on ban da lien he. Don hang cua ban da duoc xac nhan thanh cong.",
+        label="benign",
+        spans=[],
+    )
+
+    repaired = repair_evidence_spans(record)
+
+    assert repaired is not None
+    assert repaired["suspicious_spans"] == []
+
+
 def test_repair_all_evidence_spans_drops_unrecoverable_row_and_counts_it():
     good_record = _make_record(
         seed_id="seed-good",
@@ -179,6 +201,53 @@ def test_repair_all_evidence_spans_drops_unrecoverable_row_and_counts_it():
 
 
 # --- Task 1: enforce_seed_cap -------------------------------------------------
+
+
+def test_enforce_seed_cap_before_snapshot_uses_original_total_not_shrinking_total():
+    """Regression test for a real bug found during 38-02 full-scale execution:
+    when multiple seed_ids are over cap_pct, the SECOND (and later) over-cap
+    seed's `seed_concentration_before` must reflect its share against the
+    ORIGINAL pre-any-trim total, not an intermediate total already shrunk by
+    trimming the first over-cap seed. Otherwise a seed_id that was genuinely
+    ~11.9% of the original pool gets misreported as ~14%+ once the dominant
+    seed's rows are already removed from the denominator.
+    """
+    records: list[dict[str, Any]] = []
+    # Dominant seed: 40% of a 100-row corpus (over cap).
+    for row_index in range(40):
+        records.append(
+            _make_record(
+                seed_id="seed-dominant",
+                text=f"Tin nhan seed thong tri dong {row_index} noi dung rieng biet a",
+            )
+        )
+    # Second seed: 12% of the ORIGINAL 100-row corpus (also over the 8% cap
+    # even before any trimming happens).
+    for row_index in range(12):
+        records.append(
+            _make_record(
+                seed_id="seed-second",
+                text=f"Tin nhan seed thu hai dong {row_index} noi dung rieng biet b",
+            )
+        )
+    # Remaining 48 rows spread across many small, under-cap seed groups.
+    for seed_index in range(24):
+        for row_index in range(2):
+            records.append(
+                _make_record(
+                    seed_id=f"seed-small-{seed_index}",
+                    text=f"Tin nhan nho seed {seed_index} dong {row_index} c",
+                )
+            )
+
+    assert len(records) == 100
+
+    _, stats = enforce_seed_cap(records, cap_pct=0.08)
+
+    assert stats["seed_concentration_before"]["seed-dominant"] == pytest.approx(0.40)
+    # Must reflect the ORIGINAL 100-row total (12/100 = 0.12), not a total
+    # already shrunk by the dominant seed's trim.
+    assert stats["seed_concentration_before"]["seed-second"] == pytest.approx(0.12)
 
 
 def test_enforce_seed_cap_trims_over_cap_seed_using_lexical_dedup(monkeypatch):

@@ -57,13 +57,20 @@ def repair_evidence_spans(record: dict[str, Any]) -> dict[str, Any] | None:
     - A span with only a case-insensitive match in text is re-extracted to
       the exact-cased substring found in text.
     - A span with no match in text even case-insensitively is dropped.
-    - If zero spans survive, the row is dropped entirely (returns None) —
-      an empty span list is never returned for a surviving row.
+    - If the record ORIGINALLY had one or more spans and zero survive
+      repair, the row is dropped entirely (returns None) — this is the
+      "unrecoverable evidence" case DATA-06 targets.
+    - If the record ORIGINALLY had zero spans (e.g. a `benign` row, where
+      `suspicious_spans` legitimately defaults to `[]` per
+      `DatasetRecord.suspicious_spans`'s schema default), the row is kept
+      unchanged with its empty span list — this is not an invalid-span row,
+      it never had evidence spans to repair.
     """
     text = record["text"]
+    original_spans = record.get("suspicious_spans", [])
     repaired_spans: list[str] = []
 
-    for span in record.get("suspicious_spans", []):
+    for span in original_spans:
         if span in text:
             repaired_spans.append(span)
             continue
@@ -72,7 +79,7 @@ def repair_evidence_spans(record: dict[str, Any]) -> dict[str, Any] | None:
             repaired_spans.append(text[index : index + len(span)])
         # else: unrecoverable, drop this individual span
 
-    if not repaired_spans:
+    if original_spans and not repaired_spans:
         return None
 
     repaired = dict(record)
@@ -117,9 +124,28 @@ def enforce_seed_cap(
     within that group, orders the deduped survivors deterministically via
     _stable_bucket, and truncates to cap_pct * current_total. Repeats until
     no seed_id exceeds cap_pct.
+
+    seed_concentration_before records each over-cap seed_id's share against
+    the ORIGINAL (pre-any-trim) total whenever that seed was already over
+    cap_pct at the start — matching the real, reportable "how skewed was
+    this seed before any repair work" figure (e.g. the real 24.41%/11.90%
+    pooled measurements in 38-RESEARCH.md), not an intermediate value
+    already deflated/inflated by earlier seeds' trims. A seed that only
+    crosses cap_pct later, purely because trimming other seeds shrank the
+    denominator, records its share at first-detection time instead (there is
+    no earlier "true" over-cap share to report for that seed).
     """
     current: list[dict[str, Any]] = list(records)
+    initial_total = len(current)
     seed_concentration_before: dict[str, float] = {}
+    if initial_total:
+        initial_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for record in current:
+            initial_groups[record["seed_id"]].append(record)
+        for seed_id, group in initial_groups.items():
+            share = len(group) / initial_total
+            if share > cap_pct:
+                seed_concentration_before[seed_id] = share
     rows_dropped_seed_cap = 0
 
     while True:
@@ -280,12 +306,22 @@ def build_repair_manifest(
 def _compute_split_class_counts(
     splits: dict[str, list[dict[str, Any]]],
 ) -> dict[str, dict[str, int]]:
+    """Per-split, per-class row counts, always reporting all four labels.
+
+    A label with zero surviving rows in a given split (e.g. a label whose
+    entire seed-group population collapses to a single seed_id after
+    capping, forcing group-integrity-preserving assignment to place it in
+    only one split) is recorded explicitly as 0 rather than omitted — the
+    manifest must be able to answer "how many rows of label X are in split
+    Y" for all four labels in every split, even when the honest answer is
+    zero.
+    """
     counts: dict[str, dict[str, int]] = {}
     for split_name, split_records in splits.items():
-        split_counts: dict[str, int] = defaultdict(int)
+        split_counts: dict[str, int] = {label: 0 for label in _LABELS}
         for record in split_records:
             split_counts[record["label"]] += 1
-        counts[split_name] = dict(split_counts)
+        counts[split_name] = split_counts
     return counts
 
 
