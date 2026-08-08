@@ -632,6 +632,73 @@ Requirements for milestone v6.0. Defense held 2026-07-15; judges requested a rev
 - mapped to phases: 126
 - Unmapped: 0
 
+## v7.0 Requirements — Retake Redemption
+
+Requirements for milestone v7.0. After an F grade, the goal is a full retake defense (~2026-10-07, Wave 2) rebuilt on genuine, hard-to-fake evidence — not another polish pass. The defense transcript's most damaging complaint wasn't tone, it was that nothing proved the student did the work (no training graph, uniformly "succeeded" data/eval story, code that reads as scaffolded).
+
+### Data Repair
+
+- [ ] **DATA-04**: Corpus pooled (3,000 + 413 reserved rows), repaired, and re-split by seed-group hash (not row-level) — no `seed_id` may cross a split boundary.
+- [ ] **DATA-05**: Seed concentration measurably reduced and capped at a stated, justified threshold (currently one seed = 25% of the corpus).
+- [ ] **DATA-06**: Zero rows with invalid evidence spans (currently 131) — repaired in place where fixable, dropped only where not.
+- [ ] **DATA-07**: Split ratio locked (80/10/10 proposed) and recorded in a manifest with per-split class distribution.
+- [ ] **DATA-08**: The genuine `task_scam` 0.44→0.871 recovery story restored into the report as an evidenced iteration narrative.
+
+### Independent Quality Re-Judge
+
+- [ ] **JUDGE-01**: Full repaired corpus judged by an independent third model family via `.planning/codex-judge-instructions.md`, producing a joinable structured result file.
+- [ ] **JUDGE-02**: Manual 100-example human check completed by a Vietnamese-fluent reviewer, results captured for report inclusion.
+- [ ] **JUDGE-03**: T-test removed from the report; replaced with descriptive quality stats plus the manual-check results.
+
+### Real Multi-Model Training Evidence
+
+- [ ] **TRAIN-01**: Real LoRA (non-quantized) fine-tune on the repaired corpus, full logged training curve saved as a real artifact.
+- [ ] **TRAIN-02**: Fresh real QLoRA fine-tune on the same repaired corpus, same logging discipline.
+- [ ] **TRAIN-03**: LoRA vs. QLoRA compared side-by-side (loss curves, final metrics, hardware footprint) in the report.
+- [ ] **TRAIN-04**: Real PhoBERT classification-head baseline trained on the repaired corpus, logged training curve.
+- [ ] **TRAIN-05**: PhoBERT vs. Qwen/QLoRA compared with real measured numbers, reported honestly regardless of outcome.
+- [ ] **TRAIN-06**: All new graphs sourced from saved training logs (not illustrative placeholders) in report and slides.
+
+### Held-Out Evaluation Discipline
+
+- [ ] **EVAL-08**: The re-split test partition evaluated exactly once, after all three models are finalized, under identical conditions.
+- [ ] **EVAL-09**: Final held-out results for all three models reported plainly, including any case where PhoBERT or LoRA outscores the deployed system.
+
+### Report Overhaul
+
+- [ ] **REPORT-03**: `WRITING_GUARDRAILS_REPORT.md` derived from a real passed-student reference report once obtained.
+- [ ] **REPORT-04**: Each chapter rewritten from student-drafted passages; Claude tightens grammar only, never restructures voice.
+- [ ] **REPORT-05**: SHA-256 explanation reworded for tone only (kept, not removed) — matches the corrected, simple explanation already agreed.
+- [ ] **REPORT-06**: New content (training graphs, PhoBERT comparison, recovery story, repair methodology) integrated into the right chapters.
+
+### Slide Overhaul
+
+- [ ] **SLIDE-08**: Deck restructured around real pipeline stages (get data → train → GGUF → eval).
+- [ ] **SLIDE-09**: Progressive `\pause` reveals added per slide.
+- [ ] **SLIDE-10**: New real graphs embedded in the relevant slides.
+- [ ] **SLIDE-11**: Deck comes off LOCKED status for this milestone; prior locked deck archived for reference.
+
+### Code Cleanup / Defense Prep
+
+- [ ] **CODE-01**: Guided file-by-file walkthrough covering every major module; AI-style verbose docstrings/comments removed.
+- [ ] **CODE-02**: Student writes their own replacement comments per file — a real defense cheatsheet, not cosmetic cleanup.
+- [ ] **CODE-03**: SHA-256/manifest-integrity concept explicitly covered in the walkthrough (confirmed live-defense gap).
+- [ ] **CODE-04**: Sequenced last, immediately before the retake.
+
+**Out of scope:** adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); chasing a specific page count as a goal; treating a PhoBERT/LoRA win over the deployed system as a problem to explain away.
+
+**Coverage (v7.0):**
+
+- tracked requirements: 28
+- mapped to phases: 0 (roadmap not yet created)
+- Unmapped: 28
+
+**Coverage (all milestones):**
+
+- tracked requirements: 154 total (126 prior milestones + 28 v7.0)
+- mapped to phases: 126
+- Unmapped: 28 (v7.0, pending roadmap)
+
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-07-21 — v6.0 Report Revision: all 13 requirements delivered across Phases 35-37. Report recompiles clean (XeLaTeX x3 + BibTeX, zero errors, zero undefined references), 34 pages.*
+*Last updated: 2026-08-08 — v7.0 Retake Redemption: 28 requirements defined across data repair, independent quality re-judge, multi-model training evidence, held-out evaluation discipline, report overhaul, slide overhaul, and code-cleanup/defense-prep categories. Roadmap not yet created — user will run planning separately.*
