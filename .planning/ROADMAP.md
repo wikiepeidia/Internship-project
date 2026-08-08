@@ -69,6 +69,18 @@
 - [ ] **Phase 36: Dataset Construction & Labeling Methodology** - Add the explicit, unmissable labeling section: JSON schema, generation-time label assignment, worked example, train-vs-val/test label distinction.
 - [ ] **Phase 37: Consistency Audit & Citation Verification** - Reconcile all confusion-matrix/split counts against real evaluation artifacts, add error-analysis examples, verify citations, and confirm voice/scope guardrails hold.
 
+### v7.0 — Retake Redemption (target: retake defense ~2026-10-07, Wave 2)
+
+**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically-voiced report, defense-ready code) rather than another polish pass. Real sequencing dependencies, not phase-number order alone, govern execution: data repair must complete and be verified before the independent quality re-judge and before any of the three training runs; the quality re-judge (Codex-based, independent third model family) and the three training runs both depend only on the repaired corpus, not on each other, so they can proceed in either order or in parallel — both are intended to land inside the ~1-month Codex CLI access window (expires ~2026-09-06, one month from 2026-08-06); the held-out evaluation phase depends on all three trainings finishing, since it evaluates them together exactly once on the reserved test split; the report overhaul and slide overhaul both depend on that training/evaluation evidence and can run in parallel with each other (report is additionally gated on a pending external reference-report artifact — see Phase 42); code cleanup is sequenced last, immediately before the retake defense, so it reflects the final repaired data and training code.
+
+- [ ] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split.
+- [ ] **Phase 39: Independent Quality Re-Judge** - Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex) plus a genuine manual 100-example human check; retire the t-test.
+- [ ] **Phase 40: Multi-Model Training Evidence** - Train and log real LoRA, QLoRA, and PhoBERT runs on the repaired corpus, producing genuine loss curves and side-by-side comparisons.
+- [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
+- [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
+- [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
+- [ ] **Phase 44: Code Cleanup & Defense Prep** - Guided file-by-file walkthrough where the student writes their own replacement comments, covering SHA-256/manifest-integrity explicitly; sequenced last, right before the retake.
+
 ## Phase Details
 
 ### Phase 1: Data Foundation and Split Governance
@@ -836,6 +848,114 @@ Plans:
 
 ---
 
+## Milestone v7.0: Retake Redemption (Phases 38-44) (Phase Details)
+
+**Milestone Goal:** After an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2) on genuine, hard-to-fake evidence rather than another polish pass. Repair the corpus's structural bugs against concrete gates, independently re-judge it (Codex + manual human check), train and honestly compare real LoRA/QLoRA/PhoBERT models, evaluate the reserved test split exactly once across all three, overhaul the report (voice-gated on a real reference report) and slides around the real evidence, and close with a guided code-cleanup pass that doubles as the student's own defense cheatsheet.
+
+### Phase 38: Corpus Repair & Split Governance
+
+**Goal**: The synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) are repaired and re-split by seed-group hash against concrete, checkable acceptance gates, giving all downstream re-judging, training, and evaluation work a trustworthy foundation instead of open-ended cleanup.
+**Depends on**: Phase 37 (prior milestone closed; first phase of v7.0)
+**Requirements**: DATA-04, DATA-05, DATA-06, DATA-07, DATA-08
+**Success Criteria** (what must be TRUE):
+
+1. The pooled corpus (3,000 + 413 reserved rows) is re-split by seed-group hash, and a verification pass confirms zero `seed_id` values appear in more than one of `train.jsonl`/`val.jsonl`/`test.jsonl`.
+2. The largest single seed's share of the corpus is measurably reduced from the prior ~25% to a stated, justified cap, with the before/after percentage recorded in a manifest.
+3. Zero rows in the final corpus have invalid evidence spans (repaired in place where fixable, dropped only where not) — down from the prior 131.
+4. A manifest file records the locked 80/10/10 split ratio and per-split, per-class row counts for all four labels (`bank_impersonation`, `zalo_social_engineering`, `task_scam`, `benign`).
+5. A drafted `task_scam` 0.44→0.871 recovery narrative exists, grounded in the real Phase 7a evidence artifacts (not invented), ready for the Report Overhaul phase to place in the right chapter.
+
+**Plans**: TBD
+
+### Phase 39: Independent Quality Re-Judge
+
+**Goal**: The repaired corpus is independently verified for quality by a third model family and a genuine human reviewer, replacing the retired t-test with descriptive stats that can withstand defense scrutiny.
+**Depends on**: Phase 38
+**Requirements**: JUDGE-01, JUDGE-02, JUDGE-03
+**Success Criteria** (what must be TRUE):
+
+1. A joinable structured result file (`data/processed/codex-judge-pass.jsonl`, per `.planning/codex-judge-instructions.md`) exists covering every row of the repaired corpus, with `row_index`/`seed_id` fields that join back to the source rows.
+2. A documented manual 100-example human check exists, completed by a Vietnamese-fluent reviewer, with a per-example pass/fail record and a summary suitable for direct report citation.
+3. The report's t-test section is removed and replaced with plain descriptive quality stats (pass rate, per-dimension averages from the Codex judge) plus the manual-check results.
+
+**Plans**: TBD
+
+### Phase 40: Multi-Model Training Evidence
+
+**Goal**: Three real, independently trained models exist with genuine logged training curves — answering "why QLoRA and not just LoRA" and "why Qwen and not PhoBERT" with measured data instead of literature citation.
+**Depends on**: Phase 38 (parallel-capable with Phase 39 — training does not depend on the quality re-judge finishing first)
+**Requirements**: TRAIN-01, TRAIN-02, TRAIN-03, TRAIN-04, TRAIN-05, TRAIN-06
+**Success Criteria** (what must be TRUE):
+
+1. A real (non-quantized) LoRA fine-tune on the repaired corpus completes on A100 compute, and a saved loss-vs-step training log/artifact exists at a stated path.
+2. A fresh real QLoRA fine-tune on the same repaired corpus completes with the same logging discipline, and a saved loss-vs-step training log/artifact exists at a stated path.
+3. A side-by-side LoRA-vs-QLoRA comparison (overlaid or paired loss curves, final metrics, hardware/VRAM footprint) is produced directly from the two real logs.
+4. A real PhoBERT classification-head baseline trains on the repaired corpus, and a saved loss-vs-step (or loss-vs-epoch) training curve artifact exists at a stated path.
+5. A PhoBERT-vs-Qwen/QLoRA comparison exists with real measured numbers, reported honestly regardless of which model scores higher.
+6. Every graph produced in this phase traces to a saved training log file checked into or referenced from the repo — none are hand-drawn or illustrative placeholders.
+
+**Plans**: TBD
+
+### Phase 41: Held-Out Evaluation Discipline
+
+**Goal**: The reserved, untouched test split is evaluated exactly once, after all three models are finalized, producing one honest final three-way comparison.
+**Depends on**: Phase 40 (all three trainings must be complete — this phase evaluates them together, once)
+**Requirements**: EVAL-08, EVAL-09
+**Success Criteria** (what must be TRUE):
+
+1. The re-split test partition from Phase 38's manifest is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
+2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for all three models plainly, including an explicit, unhedged statement if PhoBERT or LoRA outscores the deployed QLoRA system on any metric.
+
+**Plans**: TBD
+
+### Phase 42: Report Overhaul
+
+**Goal**: The thesis report is rewritten chapter by chapter in the student's own authentic voice, now grounded in the real training evidence, restored recovery story, and repair methodology produced above.
+**Depends on**: Phase 41
+
+**Gating note:** REPORT-03 requires a real passed-student reference report the user is sourcing externally, and `WRITING_GUARDRAILS_REPORT.md` must be derived from that real artifact. A human should confirm the reference report has actually arrived before this phase's chapter-rewrite work begins — do not start REPORT-03/04 against a placeholder or a guessed guardrails file.
+
+**Requirements**: REPORT-03, REPORT-04, REPORT-05, REPORT-06
+**Success Criteria** (what must be TRUE):
+
+1. `WRITING_GUARDRAILS_REPORT.md` exists and is derived from an actual, obtained reference report — not written from assumption.
+2. Each rewritten chapter traces back to a student-drafted passage that was only tightened for grammar; a draft-vs-final comparison shows structure and word choice remain the student's own.
+3. The SHA-256/manifest-integrity explanation is present in the reworded (not removed) text, matching the previously agreed plain-language explanation.
+4. The new training graphs (Phase 40), the PhoBERT/held-out comparison (Phase 40/41), the restored `task_scam` recovery story (Phase 38), and the repair methodology (Phase 38) each appear in a specific, correct chapter — none dumped in an appendix.
+5. The report compiles clean with XeLaTeX (zero errors) after the chapter rewrite.
+
+**Plans**: TBD
+
+### Phase 43: Slide Overhaul
+
+**Goal**: The defense deck is rebuilt around the real pipeline stages with real graphs and progressive reveals, coming off LOCKED status for this milestone only.
+**Depends on**: Phase 41 (same evidence base as Phase 42; the two phases do not depend on each other and can run in parallel or in either order)
+**Requirements**: SLIDE-08, SLIDE-09, SLIDE-10, SLIDE-11
+**Success Criteria** (what must be TRUE):
+
+1. The deck's section structure follows the real pipeline stages: get data → train → GGUF → eval.
+2. Slides covering the training and evaluation results use progressive `\pause` reveals rather than exposing all content at once.
+3. The real LoRA/QLoRA/PhoBERT graphs from Phase 40/41 (not illustrative placeholders) are embedded in the relevant slides.
+4. The prior LOCKED deck is archived (dated backup file or branch) and the new deck compiles clean with XeLaTeX, with LOCKED status explicitly and only lifted for this milestone.
+
+**Plans**: TBD
+
+### Phase 44: Code Cleanup & Defense Prep
+
+**Goal**: A guided, file-by-file walkthrough leaves the codebase with genuine student-written comments — a real defense cheatsheet, not cosmetic cleanup — with the SHA-256/manifest-integrity concept explicitly covered, sequenced immediately before the retake so it reflects the final repaired data and training code.
+**Depends on**: Phase 42, Phase 43 (must reflect the final repaired data/training code and the finished report/slide evidence; sequenced last by design, immediately before the retake defense)
+**Requirements**: CODE-01, CODE-02, CODE-03, CODE-04
+**Success Criteria** (what must be TRUE):
+
+1. Every major module has been walked through file-by-file, with prior AI-style verbose docstrings/comments identified and removed.
+2. Each walked-through file has replacement comments written by the student in their own words, reviewable as a genuine per-file cheatsheet.
+3. At least one walkthrough entry explicitly covers the SHA-256/manifest-integrity concept, closing the confirmed live-defense gap.
+4. This phase's work is the last committed activity in the milestone, landing after Phase 42/43 completion and immediately before the retake defense date (~2026-10-07).
+
+**Plans**: TBD
+
+---
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -876,11 +996,18 @@ Plans:
 | 35. Problem Framing & Architecture Rationale | 0/TBD | Not started | - |
 | 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
+| 38. Corpus Repair and Split Governance | 0/TBD | Not started | - |
+| 39. Independent Quality Re-Judge | 0/TBD | Not started | - |
+| 40. Multi-Model Training Evidence | 0/TBD | Not started | - |
+| 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
+| 42. Report Overhaul | 0/TBD | Not started | - |
+| 43. Slide Overhaul | 0/TBD | Not started | - |
+| 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 126 (113 prior milestones + 13 v6.0)
-- tracked requirements mapped: 126
+- tracked requirements total: 154 (126 prior milestones + 28 v7.0)
+- tracked requirements mapped: 154
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -1019,3 +1146,31 @@ Coverage map:
 - CITE-01 -> Phase 37
 - CITE-02 -> Phase 37
 - VOICE-01 -> Phase 37
+- DATA-04 -> Phase 38
+- DATA-05 -> Phase 38
+- DATA-06 -> Phase 38
+- DATA-07 -> Phase 38
+- DATA-08 -> Phase 38
+- JUDGE-01 -> Phase 39
+- JUDGE-02 -> Phase 39
+- JUDGE-03 -> Phase 39
+- TRAIN-01 -> Phase 40
+- TRAIN-02 -> Phase 40
+- TRAIN-03 -> Phase 40
+- TRAIN-04 -> Phase 40
+- TRAIN-05 -> Phase 40
+- TRAIN-06 -> Phase 40
+- EVAL-08 -> Phase 41
+- EVAL-09 -> Phase 41
+- REPORT-03 -> Phase 42
+- REPORT-04 -> Phase 42
+- REPORT-05 -> Phase 42
+- REPORT-06 -> Phase 42
+- SLIDE-08 -> Phase 43
+- SLIDE-09 -> Phase 43
+- SLIDE-10 -> Phase 43
+- SLIDE-11 -> Phase 43
+- CODE-01 -> Phase 44
+- CODE-02 -> Phase 44
+- CODE-03 -> Phase 44
+- CODE-04 -> Phase 44

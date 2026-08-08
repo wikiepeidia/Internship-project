@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 38 (Corpus Repair & Split Governance) — not yet started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-08 — Milestone v7.0 started
+Status: ROADMAP.md created (Phases 38-44, 28/28 v7.0 requirements mapped); ready for phase planning
+Last activity: 2026-08-08 — v7.0 ROADMAP.md created
 
 ## Performance Metrics (Baseline Targets)
 

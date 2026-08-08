@@ -687,18 +687,51 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 **Out of scope:** adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); chasing a specific page count as a goal; treating a PhoBERT/LoRA win over the deployed system as a problem to explain away.
 
+## v7.0 Traceability
+
+| Requirement | Phase | Status |
+| ----------- | ----- | ------ |
+| DATA-04 | Phase 38 | Pending |
+| DATA-05 | Phase 38 | Pending |
+| DATA-06 | Phase 38 | Pending |
+| DATA-07 | Phase 38 | Pending |
+| DATA-08 | Phase 38 | Pending |
+| JUDGE-01 | Phase 39 | Pending |
+| JUDGE-02 | Phase 39 | Pending |
+| JUDGE-03 | Phase 39 | Pending |
+| TRAIN-01 | Phase 40 | Pending |
+| TRAIN-02 | Phase 40 | Pending |
+| TRAIN-03 | Phase 40 | Pending |
+| TRAIN-04 | Phase 40 | Pending |
+| TRAIN-05 | Phase 40 | Pending |
+| TRAIN-06 | Phase 40 | Pending |
+| EVAL-08 | Phase 41 | Pending |
+| EVAL-09 | Phase 41 | Pending |
+| REPORT-03 | Phase 42 | Pending |
+| REPORT-04 | Phase 42 | Pending |
+| REPORT-05 | Phase 42 | Pending |
+| REPORT-06 | Phase 42 | Pending |
+| SLIDE-08 | Phase 43 | Pending |
+| SLIDE-09 | Phase 43 | Pending |
+| SLIDE-10 | Phase 43 | Pending |
+| SLIDE-11 | Phase 43 | Pending |
+| CODE-01 | Phase 44 | Pending |
+| CODE-02 | Phase 44 | Pending |
+| CODE-03 | Phase 44 | Pending |
+| CODE-04 | Phase 44 | Pending |
+
 **Coverage (v7.0):**
 
 - tracked requirements: 28
-- mapped to phases: 0 (roadmap not yet created)
-- Unmapped: 28
+- mapped to phases: 28
+- Unmapped: 0
 
 **Coverage (all milestones):**
 
 - tracked requirements: 154 total (126 prior milestones + 28 v7.0)
-- mapped to phases: 126
-- Unmapped: 28 (v7.0, pending roadmap)
+- mapped to phases: 154
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-08-08 — v7.0 Retake Redemption: 28 requirements defined across data repair, independent quality re-judge, multi-model training evidence, held-out evaluation discipline, report overhaul, slide overhaul, and code-cleanup/defense-prep categories. Roadmap not yet created — user will run planning separately.*
+*Last updated: 2026-08-08 — v7.0 Retake Redemption ROADMAP.md created: Phases 38-44 defined (Corpus Repair & Split Governance, Independent Quality Re-Judge, Multi-Model Training Evidence, Held-Out Evaluation Discipline, Report Overhaul, Slide Overhaul, Code Cleanup & Defense Prep); 28/28 v7.0 requirements mapped, 0 unmapped.*
