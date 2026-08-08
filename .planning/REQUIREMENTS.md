@@ -691,11 +691,11 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 | Requirement | Phase | Status |
 | ----------- | ----- | ------ |
-| DATA-04 | Phase 38 | Pending |
-| DATA-05 | Phase 38 | Pending |
-| DATA-06 | Phase 38 | Pending |
-| DATA-07 | Phase 38 | Pending |
-| DATA-08 | Phase 38 | Pending |
+| DATA-04 | Phase 38 | Complete (v3, post-260808-otp) |
+| DATA-05 | Phase 38 | Complete (v3, post-260808-otp) |
+| DATA-06 | Phase 38 | Complete (v3, post-260808-otp) |
+| DATA-07 | Phase 38 | Complete (v3, post-260808-otp) |
+| DATA-08 | Phase 38 | Complete |
 | JUDGE-01 | Phase 39 | Pending |
 | JUDGE-02 | Phase 39 | Pending |
 | JUDGE-03 | Phase 39 | Pending |
