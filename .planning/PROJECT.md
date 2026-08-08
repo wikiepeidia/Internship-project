@@ -30,7 +30,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 ### Active
 
 - [ ] Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates.
-- [ ] Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex), plus a genuine manual 100-example human check.
+- [ ] Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family: `.planning/codex-judge-instructions.md` is the ready-to-paste Codex CLI spec (batched, structured JSONL output, joinable back to source rows via `row_index`/`seed_id`) — plus a genuine manual 100-example human check.
 - [ ] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
 - [ ] Train and graph a real LoRA vs. QLoRA comparison on the repaired corpus.
