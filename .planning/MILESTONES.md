@@ -62,3 +62,22 @@ Full detail: `.planning/milestones/v5.2-SUMMARY.md`
 Full detail: `.planning/milestones/v5.3-SUMMARY.md`
 
 ---
+
+## v6.0 Report Revision (Shipped: 2026-08-06)
+
+**Status:** Complete
+
+**Phases completed:** 3 phases (35-37), executed directly (no discuss/research/plan-checker pipeline — content-writing against a well-understood gap list), plus substantial same-milestone follow-on work driven by direct defense-transcript re-reading and adversarial self-review.
+
+**Key accomplishments:**
+
+- Closed the judges' most-repeated live complaint: explicit problem framing (supervised 4-class classification, stated in both Ch1 and Ch2/Objectives), a full record-schema table naming the `label` field, and a worked example showing labels are assigned at generation time
+- Architecture rationale added: generative classification via a verbalizer vs. a classification head (citing T5/PET/WT5), and an honest Qwen-vs-PhoBERT comparison
+- Consistency audit (confusion matrix/split counts found already correct), concrete error analysis on the real 9 misclassified rows, and a citation/tone audit
+- Adversarial re-read as a skeptical NLP judge surfaced and fixed real remaining gaps: quality-judge self-judging circularity (disclosed with real per-batch numbers, not flattering ones), runtime malformed-output handling, why training stopped at one epoch, an expanded Threats-to-Validity section, and a new Ethical Considerations section
+- Real-data due diligence: quantified the actual seed source (74 total tinnhiemmang.vn advisories, 67 already captured), and independently verified (self-reproduced, not cited secondhand) that a candidate public Vietnamese SMS dataset has 25.3% train/test leakage — documented and not adopted
+- Report grew from 34 to 38 pages across the milestone, entirely through closing named gaps, not padding
+
+Full detail: `.planning/milestones/v6.0-SUMMARY.md`
+
+---
