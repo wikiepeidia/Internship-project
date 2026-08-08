@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v6.0
-milestone_name: Report Revision
-status: complete
-last_updated: "2026-08-06T15:31:00.000Z"
-last_activity: 2026-08-06
+milestone: v7.0
+milestone_name: Retake Redemption
+status: planning
+last_updated: "2026-08-08T06:38:29.692Z"
+last_activity: 2026-08-08
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -18,7 +18,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v6.0 Report Revision — close the specific gaps judges raised live in the defense (`documents/Transcript defense.md`): an explicit dataset-labeling section (JSON schema, `label` field, generation-time assignment), explicit classification problem framing, architectural justification for generative QLoRA vs. classic encoder+classification-head, a "why Qwen not PhoBERT" comparison, genuine content-depth expansion, and a fix for a flagged confusion-matrix/test-count inconsistency. Written revision only, no second oral defense. Tone/voice must stay as close to the original as possible — a sudden style shift would itself read as confirming AI authorship, which is the exact accusation this revision is addressing.
+- Current milestone focus: v7.0 Retake Redemption — after an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2). Repair the synthetic corpus's structural bugs against concrete acceptance gates; re-judge it with an independent third model family (Codex) plus a genuine manual 100-example human check; restore the real task_scam 0.44→0.871 recovery story into the report; train and graph real LoRA-vs-QLoRA and PhoBERT-vs-Qwen comparisons (any result reported honestly, not chased toward a "win"); reserve the 413-row test split for one final use across all three models; overhaul the report in an authentic USTH-student voice (gated on a pending reference report) and the slides around real pipeline stages; finish with guided code-comment cleanup as defense-prep. Data-fix + all three retrains inside the ~1-month Codex access window; report/slides/code-cleanup after.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -31,10 +31,10 @@ progress:
 
 ## Current Position
 
-Phase: 37 (Consistency Audit & Citation Verification) — complete
-Plan: — (executed directly, no discuss/research/plan-checker pipeline — content-writing with no architectural ambiguity, per the user's "go, autonomous, all phases" instruction)
-Status: v6.0 Report Revision COMPLETE. All 13 requirements delivered across Phases 35-37. Report recompiles clean (XeLaTeX x3 + BibTeX, zero errors, zero undefined refs), 34 pages. See `.planning/milestones/v6.0-SUMMARY.md`.
-Last activity: 2026-08-06 — Completed quick task 260806-ubr: audited and acquired crawlable real Vietnamese scam data with explicit provenance and claim boundaries
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-08 — Milestone v7.0 started
 
 ## Performance Metrics (Baseline Targets)
 
