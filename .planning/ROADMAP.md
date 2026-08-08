@@ -881,11 +881,11 @@ Plans:
 2. A documented manual 100-example human check exists, completed by a Vietnamese-fluent reviewer, with a per-example pass/fail record and a summary suitable for direct report citation.
 3. The report's t-test section is removed and replaced with plain descriptive quality stats (pass rate, per-dimension averages from the Codex judge) plus the manual-check results.
 
-**Plans**: 1 plan (Wave-1 tooling only -- the actual Codex judge run is an external human step; see 39-01-PLAN.md's Handoff section for the follow-up work this unblocks)
+**Plans**: 1/1 plans executed
 
 Plans:
 
-- [ ] 39-01-PLAN.md -- Codex judge-output merge/validation tool and stratified 100-row manual-review-sheet generator, proven against realistic fixtures
+- [x] 39-01-PLAN.md -- Codex judge-output merge/validation tool and stratified 100-row manual-review-sheet generator, proven against realistic fixtures
 
 ### Phase 40: Multi-Model Training Evidence
 
@@ -1004,7 +1004,7 @@ Plans:
 | 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
-| 39. Independent Quality Re-Judge | 0/TBD | Not started | - |
+| 39. Independent Quality Re-Judge | 1/1 | In Progress|  |
 | 40. Multi-Model Training Evidence | 0/TBD | Not started | - |
 | 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
