@@ -881,7 +881,11 @@ Plans:
 2. A documented manual 100-example human check exists, completed by a Vietnamese-fluent reviewer, with a per-example pass/fail record and a summary suitable for direct report citation.
 3. The report's t-test section is removed and replaced with plain descriptive quality stats (pass rate, per-dimension averages from the Codex judge) plus the manual-check results.
 
-**Plans**: TBD
+**Plans**: 1 plan (Wave-1 tooling only -- the actual Codex judge run is an external human step; see 39-01-PLAN.md's Handoff section for the follow-up work this unblocks)
+
+Plans:
+
+- [ ] 39-01-PLAN.md -- Codex judge-output merge/validation tool and stratified 100-row manual-review-sheet generator, proven against realistic fixtures
 
 ### Phase 40: Multi-Model Training Evidence
 
