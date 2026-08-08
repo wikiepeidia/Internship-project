@@ -167,6 +167,15 @@ None - no external service configuration required. Pure offline Python module, n
 - The module correctly avoids `split_dataset()`'s underdiverse-label record-level fallback (38-RESEARCH.md Pitfall 4) by implementing its own group-integrity-preserving greedy stratification from scratch.
 - No blockers. Plan 38-02 can proceed directly to running `main()` at full scale and validating the real cap/leakage/span-validity numbers cited in 38-RESEARCH.md (two over-cap seeds, 171 total bad-span rows).
 
+## Self-Check: PASSED
+
+- FOUND: `src/data_pipeline/repair_corpus_split_governance.py`
+- FOUND: `tests/data_pipeline/test_repair_corpus_split_governance.py`
+- FOUND commit: `3290d4d` (feat: pipeline module + tests)
+- FOUND commit: `202125e` (docs: this summary)
+- All 12 tests in `tests/data_pipeline/test_repair_corpus_split_governance.py` pass.
+- Full `tests/data_pipeline/` suite (141 tests) passes — no regressions.
+
 ---
 *Phase: 38-corpus-repair-split-governance*
 *Completed: 2026-08-08*
