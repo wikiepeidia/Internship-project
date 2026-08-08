@@ -38,7 +38,7 @@ progress:
 Phase: 38 (Corpus Repair & Split Governance) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-08-08 — Phase 38 execution started
+Last activity: 2026-08-08 — Completed quick task 260808-otp: leakage-safe Zalo replacement and v3 corpus rebuild
 
 ## Performance Metrics (Baseline Targets)
 
@@ -275,6 +275,7 @@ Last activity: 2026-08-08 — Phase 38 execution started
 | 2026-07-21 | v6.0 roadmap creation | Complete. Phases 35-37 defined (Problem Framing & Architecture Rationale; Dataset Construction & Labeling Methodology; Consistency Audit & Citation Verification), 13/13 v6.0 requirements mapped, ROADMAP.md, STATE.md, and REQUIREMENTS.md updated. |
 | 2026-07-21 | v6.0 Phases 35-37 execution | Complete. All 13 requirements delivered directly (autonomous execution per user instruction). Report compiles clean, 34 pages. Milestone archived to `.planning/milestones/v6.0-SUMMARY.md`. |
 | 2026-08-06 | `260806-ubr` audit and acquire crawlable real Vietnamese scam data | Complete. Audited 23 endpoints across 8 source families and froze 94 net-new unlabeled real-public records (44 publisher-asserted message examples plus 50 PhishVN indicators); 51 focused tests and offline manifest verification passed. Implementation commit `4b7613c`; [artifacts](./quick/260806-ubr-audit-and-acquire-crawlable-real-vietnam/). |
+| 2026-08-08 | `260808-otp` generate leakage-safe Zalo replacement data | Complete. Generated 300 provider-free rows across 60 independent seed groups, rebuilt the 2,421-row v3 corpus with Zalo support `190/40/70`, eliminated cross-split seed/span/normalized/0.95-lexical leakage, and passed 161 data-pipeline tests. Implementation commits `db74e66` and `8b5336c`; [artifacts](./quick/260808-otp-generate-a-leakage-safe-replacement-data/). |
 
 ## Operator Next Steps
 
