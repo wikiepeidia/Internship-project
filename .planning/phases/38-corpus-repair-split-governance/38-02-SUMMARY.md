@@ -105,6 +105,8 @@ status: complete
 
 # Phase 38 Plan 2: Full-Scale Corpus Repair Execution & Recovery Narrative Summary
 
+> **⚠ Superseded by v3.** The corpus produced here (`phase38-corpus-repaired-v2`) is documented below exactly as it was at completion, including the zero-zalo-support limitation this plan explicitly accepted as correct-but-honest. Quick task `260808-otp` (2026-08-08, same day) closed that gap at the root: 300 offline Codex-authored `zalo_social_engineering` rows across 60 independent seed lineages replaced the single dominant seed, and the pipeline was re-run producing `data/splits/phase38-corpus-repaired-v3/{train,val,test}.jsonl` — the same 5 acceptance gates re-verified, plus a newly-found 14-row cross-split near-duplicate leak (0.95 lexical threshold) closed with a new dedup pass. **`v3` is the corpus Phase 39/40/41 should consume, not `v2`.** v2 files are left in place, untouched, as the historical record — see `.planning/quick/260808-otp-generate-a-leakage-safe-replacement-data/260808-otp-SUMMARY.md` for the full v3 audit.
+
 **Ran the Plan 38-01 pipeline against the real 3,413-row pooled corpus, found and fixed two real bugs invisible to unit-test fixtures (an empty-vs-unrecoverable-spans conflation that would have destroyed all 750 benign rows, and a seed-cap "before" snapshot computed against a shrinking rather than original total), then proved all five Phase 38 acceptance gates against the actual written output and drafted the evidence-cited task_scam recovery narrative.**
 
 ## Performance
