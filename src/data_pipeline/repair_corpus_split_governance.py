@@ -532,17 +532,33 @@ def main() -> None:
         description="Pool, repair, cap, split, and manifest the Phase 38 corpus."
     )
     parser.add_argument(
-        "--input-main", type=Path, default=Path("data/synthetic/recovered-balanced.jsonl")
+        "--input-main",
+        type=Path,
+        default=Path("data/backup/pre-260808-consolidation/synthetic/recovered-balanced.jsonl"),
     )
     parser.add_argument(
-        "--input-reserved", type=Path, default=Path("data/splits/recovered-balanced/test.jsonl")
+        "--input-reserved",
+        type=Path,
+        default=Path(
+            "data/backup/pre-260808-consolidation/splits/recovered-balanced/test.jsonl"
+        ),
     )
     parser.add_argument("--replacement-input", type=Path)
     parser.add_argument("--replacement-label", choices=_LABELS)
+    parser.add_argument("--output-dir", type=Path, default=Path("data/splits"))
+    parser.add_argument("--version-tag", type=str, default="phase38-corpus-repaired-v3")
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("data/splits/phase38-corpus-repaired-v2")
+        "--manifest-path",
+        type=Path,
+        default=Path("data/manifests/manifest.json"),
+        help=(
+            "Where to write the manifest. Defaults to the single canonical "
+            "data/manifests/manifest.json — version_tag is still recorded "
+            "inside the manifest's own content, so this filename does not "
+            "need to change between runs unless you deliberately want a "
+            "second, separately-named manifest kept side by side."
+        ),
     )
-    parser.add_argument("--version-tag", type=str, default="phase38-corpus-repaired-v2")
     parser.add_argument("--cap-pct", type=float, default=0.08)
     parser.add_argument("--split-ratios", type=str, default="0.8,0.1,0.1")
     args = parser.parse_args()
@@ -583,7 +599,7 @@ def main() -> None:
         args.output_dir, args.version_tag, split_class_counts, repair_stats
     )
 
-    manifest_path = Path("data/manifests") / f"manifest-{args.version_tag}.json"
+    manifest_path = args.manifest_path
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_manifest = manifest_path.with_suffix(manifest_path.suffix + ".tmp")
     with temporary_manifest.open("w", encoding="utf-8", newline="\n") as handle:

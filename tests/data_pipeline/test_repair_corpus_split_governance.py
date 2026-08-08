@@ -21,8 +21,13 @@ from src.data_pipeline.repair_corpus_split_governance import (
 from src.data_pipeline.schemas import ManifestEntry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REAL_MAIN_CORPUS = REPO_ROOT / "data" / "synthetic" / "recovered-balanced.jsonl"
-REAL_RESERVED_TEST = REPO_ROOT / "data" / "splits" / "recovered-balanced" / "test.jsonl"
+# The original pre-repair sources were consolidated out of the live data/ tree
+# (260808-otp data-directory cleanup) into data/backup/ — these tests read the
+# retained backup copies, which are byte-identical to what repair_corpus_split_governance
+# actually pooled when it built the current data/splits/{train,val,test}.jsonl.
+_BACKUP_ROOT = REPO_ROOT / "data" / "backup" / "pre-260808-consolidation"
+REAL_MAIN_CORPUS = _BACKUP_ROOT / "synthetic" / "recovered-balanced.jsonl"
+REAL_RESERVED_TEST = _BACKUP_ROOT / "splits" / "recovered-balanced" / "test.jsonl"
 
 
 def _make_record(

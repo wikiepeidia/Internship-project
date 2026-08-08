@@ -9,14 +9,17 @@ facts about files on disk.
 
 Regenerate the fixture output before running these tests (idempotent, reads
 only from the two original locked input files, never from its own prior
-output):
+output). The original inputs and the v2 predecessor were relocated out of the
+live data/ tree during the 260808-otp data-directory consolidation — they are
+byte-identical, just moved under data/backup/pre-260808-consolidation/ so the
+live tree only ever shows the current train/val/test:
 
     python -m src.data_pipeline.repair_corpus_split_governance \
-        --input-main data/synthetic/recovered-balanced.jsonl \
-        --input-reserved data/splits/recovered-balanced/test.jsonl \
-        --replacement-input data/synthetic/zalo-social-engineering-codex-2026-08-08.jsonl \
+        --input-main data/backup/pre-260808-consolidation/synthetic/recovered-balanced.jsonl \
+        --input-reserved data/backup/pre-260808-consolidation/splits/recovered-balanced/test.jsonl \
+        --replacement-input data/backup/pre-260808-consolidation/synthetic/zalo-social-engineering-codex-2026-08-08.jsonl \
         --replacement-label zalo_social_engineering \
-        --output-dir data/splits/phase38-corpus-repaired-v3 \
+        --output-dir data/splits \
         --version-tag phase38-corpus-repaired-v3 \
         --cap-pct 0.08 --split-ratios 0.8,0.1,0.1
 """
@@ -36,13 +39,14 @@ from src.data_pipeline.processing.normalizer import normalize_text
 from src.data_pipeline.schemas import DatasetRecord
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SPLITS_DIR = REPO_ROOT / "data" / "splits" / "phase38-corpus-repaired-v3"
-MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest-phase38-corpus-repaired-v3.json"
-ORIGINAL_MAIN_CORPUS = REPO_ROOT / "data" / "synthetic" / "recovered-balanced.jsonl"
-ORIGINAL_RESERVED_TEST = REPO_ROOT / "data" / "splits" / "recovered-balanced" / "test.jsonl"
-REPLACEMENT_CORPUS = REPO_ROOT / "data" / "synthetic" / "zalo-social-engineering-codex-2026-08-08.jsonl"
-V2_SPLITS_DIR = REPO_ROOT / "data" / "splits" / "phase38-corpus-repaired-v2"
-V2_MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest-phase38-corpus-repaired-v2.json"
+_BACKUP_ROOT = REPO_ROOT / "data" / "backup" / "pre-260808-consolidation"
+SPLITS_DIR = REPO_ROOT / "data" / "splits"
+MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest.json"
+ORIGINAL_MAIN_CORPUS = _BACKUP_ROOT / "synthetic" / "recovered-balanced.jsonl"
+ORIGINAL_RESERVED_TEST = _BACKUP_ROOT / "splits" / "recovered-balanced" / "test.jsonl"
+REPLACEMENT_CORPUS = _BACKUP_ROOT / "synthetic" / "zalo-social-engineering-codex-2026-08-08.jsonl"
+V2_SPLITS_DIR = _BACKUP_ROOT / "splits" / "phase38-corpus-repaired-v2"
+V2_MANIFEST_PATH = _BACKUP_ROOT / "manifests" / "manifest-phase38-corpus-repaired-v2.json"
 
 SPLIT_NAMES = ("train", "val", "test")
 ALL_LABELS = ("bank_impersonation", "zalo_social_engineering", "task_scam", "benign")
@@ -230,8 +234,8 @@ def test_original_and_v2_backup_files_are_byte_unchanged():
     with ORIGINAL_RESERVED_TEST.open(encoding="utf-8") as handle:
         reserved_lines = sum(1 for line in handle if line.strip())
 
-    assert main_lines == 3000, "data/synthetic/recovered-balanced.jsonl must remain 3,000 rows"
-    assert reserved_lines == 413, "data/splits/recovered-balanced/test.jsonl must remain 413 rows"
+    assert main_lines == 3000, "backed-up recovered-balanced.jsonl must remain 3,000 rows"
+    assert reserved_lines == 413, "backed-up recovered-balanced/test.jsonl must remain 413 rows"
     for path, expected_sha256 in LOCKED_HASHES.items():
         assert path.exists()
         assert hashlib.sha256(path.read_bytes()).hexdigest() == expected_sha256

@@ -1,8 +1,6 @@
 # Codex CLI instructions: independent LLM-judge pass on the repaired corpus
 
-Paste this whole file into Codex CLI as your instructions. Point it at the
-corpus file once the data-repair phase produces it (placeholder path below —
-swap in the real one when it exists).
+Paste this whole file into Codex CLI as your instructions.
 
 ## Task
 
@@ -14,12 +12,17 @@ are NOT generating new data and NOT deciding whether the row belongs in
 training — you are scoring it, independently, the same way a second
 reviewer would.
 
-**Input file:** `data/synthetic/recovered-balanced.jsonl` (replace with the
-repaired corpus filename once that phase is done — do not run this against
-the pre-repair file for the final report numbers, only for early spot-checks
-if useful).
+**Input files (judge all three, in this order):**
 
-**Do not modify the input file. Do not write anything into `data/synthetic/`,
+- `data/splits/train.jsonl`
+- `data/splits/val.jsonl`
+- `data/splits/test.jsonl`
+
+This is the final, repaired, leakage-safe corpus (Phase 38 + the same-day
+zalo-replacement fix) — the current, only version. There is no older/pre-repair
+file to worry about avoiding; the live `data/` tree only ever holds this one.
+
+**Do not modify any input file. Do not write anything into `data/synthetic/`,
 `data/processed/`, or `data/splits/`.** Your only output is the judge-results
 file described below.
 
@@ -57,13 +60,16 @@ Append one JSON line per row to `data/processed/codex-judge-pass.jsonl`,
 using this exact shape:
 
 ```json
-{"row_index": 0, "seed_id": "seed_157ce0adb043", "realism": 4, "label_correctness": 5, "code_switch_naturalness": 4, "risk_tier_correctness": 5, "suspicious_span_accuracy": 4, "pass": true, "reason": "short reason, max 18 words"}
+{"split": "train", "row_index": 0, "seed_id": "seed_157ce0adb043", "realism": 4, "label_correctness": 5, "code_switch_naturalness": 4, "risk_tier_correctness": 5, "suspicious_span_accuracy": 4, "pass": true, "reason": "short reason, max 18 words"}
 ```
 
-- `row_index`: the row's 0-based line number in the input file — this is how
-  results get joined back to the source rows later, so it must be exact.
+- `split`: which of the three files this row came from (`"train"`, `"val"`,
+  or `"test"`) — required now that there are three input files, not one.
+- `row_index`: the row's 0-based line number within that specific split file
+  — this is how results get joined back to the source rows later, so
+  `split` + `row_index` together must be exact and unambiguous.
 - `seed_id`: copy directly from the row (for cross-checking against seed-group
-  grouping during the split-repair work).
+  grouping).
 - Keep `reason` short — one sentence max, plain language, no padding.
 
 ## After each batch
