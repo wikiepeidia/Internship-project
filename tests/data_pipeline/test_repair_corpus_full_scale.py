@@ -1,7 +1,7 @@
 """Full-scale acceptance-gate tests for Phase 38 (Corpus Repair & Split
 Governance) Plan 02.
 
-These tests read the REAL, final written output of a full 3,413-row
+These tests read the REAL, final written output rebuilt from the 3,413-row
 production run of `src.data_pipeline.repair_corpus_split_governance.main()`
 against the actual corpus files — not mocks, not the 38-01 unit-test
 fixtures — and prove DATA-04 through DATA-07 as independently checkable
@@ -14,39 +14,47 @@ output):
     python -m src.data_pipeline.repair_corpus_split_governance \
         --input-main data/synthetic/recovered-balanced.jsonl \
         --input-reserved data/splits/recovered-balanced/test.jsonl \
-        --output-dir data/splits/phase38-corpus-repaired-v2 \
-        --version-tag phase38-corpus-repaired-v2 \
+        --replacement-input data/synthetic/zalo-social-engineering-codex-2026-08-08.jsonl \
+        --replacement-label zalo_social_engineering \
+        --output-dir data/splits/phase38-corpus-repaired-v3 \
+        --version-tag phase38-corpus-repaired-v3 \
         --cap-pct 0.08 --split-ratios 0.8,0.1,0.1
 """
 
 from __future__ import annotations
 
 import json
+import hashlib
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from src.data_pipeline.processing.dedup import fuzz
+from src.data_pipeline.processing.normalizer import normalize_text
+from src.data_pipeline.schemas import DatasetRecord
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SPLITS_DIR = REPO_ROOT / "data" / "splits" / "phase38-corpus-repaired-v2"
-MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest-phase38-corpus-repaired-v2.json"
+SPLITS_DIR = REPO_ROOT / "data" / "splits" / "phase38-corpus-repaired-v3"
+MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest-phase38-corpus-repaired-v3.json"
 ORIGINAL_MAIN_CORPUS = REPO_ROOT / "data" / "synthetic" / "recovered-balanced.jsonl"
 ORIGINAL_RESERVED_TEST = REPO_ROOT / "data" / "splits" / "recovered-balanced" / "test.jsonl"
+REPLACEMENT_CORPUS = REPO_ROOT / "data" / "synthetic" / "zalo-social-engineering-codex-2026-08-08.jsonl"
+V2_SPLITS_DIR = REPO_ROOT / "data" / "splits" / "phase38-corpus-repaired-v2"
+V2_MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest-phase38-corpus-repaired-v2.json"
 
 SPLIT_NAMES = ("train", "val", "test")
 ALL_LABELS = ("bank_impersonation", "zalo_social_engineering", "task_scam", "benign")
 
-# The one seed_id whose entire population (825 of 825 pre-repair rows, across
-# BOTH original input files) traces to a single seed_id — a pre-existing
-# data-generation defect discovered during this plan's full-scale run, not
-# something the repair/cap/split pipeline can manufacture diversity for.
-# Group-integrity-preserving splitting (the phase's primary, locked DATA-04
-# requirement) forces this seed's ~196 surviving rows into exactly one
-# split, so `zalo_social_engineering` is expected to have zero support in
-# whichever splits do not receive that seed. See 38-02-SUMMARY.md
-# "Deviations from Plan" for full detail.
-SINGLE_SEED_LABEL = "zalo_social_engineering"
+LOCKED_HASHES = {
+    ORIGINAL_MAIN_CORPUS: "009af0d2b298c25705e26830a5a7abb9e4aad34e69b1ab84a363d97030beafad",
+    ORIGINAL_RESERVED_TEST: "371ac104ab6910d5e37db994672c1b6fcd9879317cb260ced7f3332b0d24a94e",
+    V2_SPLITS_DIR / "train.jsonl": "3f8b286005a5440f43d2e23f7abfd4ada28824e28751d7de030358fa6b56e1b1",
+    V2_SPLITS_DIR / "val.jsonl": "afd304528be0aadaf1d19b95d68b0c49c3fa0b07976ebcd4de1dfdb1c8cb62f1",
+    V2_SPLITS_DIR / "test.jsonl": "f2b570bf6480fb34e1b23c8ac32074f3b504560a9862b22b593425a8d4b78797",
+    V2_MANIFEST_PATH: "f0a11f60152c28052e103e8984eae2a6bcde9e886ae7a9e345a0659f6dae8048",
+}
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -88,7 +96,7 @@ def test_zero_seed_id_crosses_split_boundary(split_records):
         assert seeds, f"{name} split has zero seed_ids — fixture likely not regenerated"
 
 
-# --- Gate 2: DATA-05 both over-cap seeds reduced below 8%, before/after recorded --
+# --- Gate 2: DATA-05 every seed remains below 8% -----------------------------
 
 
 def test_seed_concentration_capped_and_before_after_recorded(split_records, manifest):
@@ -105,10 +113,19 @@ def test_seed_concentration_capped_and_before_after_recorded(split_records, mani
     before = repair_stats["seed_concentration_before"]
     after = repair_stats["seed_concentration_after"]
 
-    assert before["seed_1a4f7d4d7c53"] == pytest.approx(0.2441, abs=0.001)
-    assert before["seed_157ce0adb043"] == pytest.approx(0.1190, abs=0.001)
-    assert after["seed_1a4f7d4d7c53"] <= 0.08 + 1e-9
-    assert after["seed_157ce0adb043"] <= 0.08 + 1e-9
+    assert before
+    assert set(after) == set(before)
+    assert all(share <= 0.08 + 1e-9 for share in after.values())
+
+    assert repair_stats["source_rows_pooled"] == 3413
+    assert repair_stats["old_zalo_rows_removed"] == 825
+    assert repair_stats["replacement_rows_added"] == 300
+    assert repair_stats["replacement_unique_seed_count"] == 60
+    assert repair_stats["external_api_call_count"] == 0
+    provenance = repair_stats["generation_provenance"]
+    assert provenance["authoring_runtime"] == "gpt-5.6-sol-codex-session"
+    assert provenance["schema_source"] == "synthetic_openai_compatible"
+    assert provenance["external_api_calls"] == 0
 
 
 # --- Gate 3: DATA-06 zero invalid evidence spans ------------------------------
@@ -123,6 +140,24 @@ def test_zero_invalid_evidence_spans(split_records):
                     violations.append((split_name, record["seed_id"], span))
 
     assert violations == [], f"{len(violations)} invalid (non-exact-substring) spans found: {violations[:5]}"
+
+
+def test_no_normalized_or_lexical_duplicates_cross_split_boundaries(split_records):
+    normalized = {
+        name: [normalize_text(record["text"]).casefold() for record in records]
+        for name, records in split_records.items()
+    }
+    for left_name, right_name in (("train", "val"), ("train", "test"), ("val", "test")):
+        assert set(normalized[left_name]).isdisjoint(normalized[right_name])
+        violations = [
+            (left_index, right_index)
+            for left_index, left in enumerate(normalized[left_name])
+            for right_index, right in enumerate(normalized[right_name])
+            if fuzz.ratio(left, right) / 100.0 >= 0.95
+        ]
+        assert violations == [], (
+            f"{left_name}/{right_name} contains lexical near-duplicate pairs: {violations[:5]}"
+        )
 
 
 # --- Gate 4: DATA-07 manifest records 80/10/10 ratio + per-split per-class counts --
@@ -155,61 +190,41 @@ def test_manifest_records_split_ratio_and_full_per_class_distribution(manifest):
     assert test_ratio == pytest.approx(0.1, abs=0.01)
 
 
-def test_three_of_four_labels_have_non_zero_support_in_every_split(manifest):
-    """The literal, strongest form of DATA-07 ("non-zero counts for all four
-    labels in every split") is achievable for three of the four labels.
-
-    `zalo_social_engineering` is the documented exception: see
-    SINGLE_SEED_LABEL and 38-02-SUMMARY.md "Deviations from Plan" for the
-    full, evidence-verified root cause (its entire pre-repair population of
-    825 rows across both original input files traces to exactly one
-    seed_id, so group-integrity-preserving splitting can only place it in
-    one split). This test locks in that every OTHER label achieves full
-    per-split support, so any future regression that also zeroes out a
-    label with real seed diversity is caught.
-    """
-    dist = manifest["split_class_distribution"]
-    labels_with_full_support = [label for label in ALL_LABELS if label != SINGLE_SEED_LABEL]
-
     for split_name in SPLIT_NAMES:
-        for label in labels_with_full_support:
+        path = SPLITS_DIR / f"{split_name}.jsonl"
+        entry = base_files[f"{split_name}.jsonl"]
+        assert entry["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+        assert entry["records"] == len(_read_jsonl(path))
+        assert entry["bytes"] == path.stat().st_size
+
+
+def test_all_labels_have_non_zero_support_in_every_split(manifest):
+    dist = manifest["split_class_distribution"]
+    for split_name in SPLIT_NAMES:
+        for label in ALL_LABELS:
             assert dist[split_name][label] > 0, (
-                f"{split_name}/{label} has zero rows — expected non-zero support "
-                f"for every label except the documented {SINGLE_SEED_LABEL} exception"
+                f"{split_name}/{label} has zero rows despite adequate independent seed groups"
             )
 
 
-def test_single_seed_label_zero_support_is_the_documented_known_exception(split_records, manifest):
-    """Confirms the `zalo_social_engineering` zero-support gap in val/test is
-    exactly the known, root-caused, single-seed-group limitation — not a
-    wider or different failure than documented.
-    """
-    dist = manifest["split_class_distribution"]
-
-    # Exactly one split carries 100% of the single-seed label's rows; the
-    # other two splits have zero, by construction of group-integrity split
-    # assignment on a single atomic seed group.
-    supporting_splits = [name for name in SPLIT_NAMES if dist[name][SINGLE_SEED_LABEL] > 0]
-    assert len(supporting_splits) == 1, (
-        f"expected exactly one split to carry all {SINGLE_SEED_LABEL} rows, "
-        f"got {supporting_splits}"
-    )
-
-    # Root-cause confirmation: every zalo_social_engineering row across all
-    # three splits shares the same single seed_id.
-    zalo_seed_ids = {
-        record["seed_id"]
-        for records in split_records.values()
-        for record in records
-        if record["label"] == SINGLE_SEED_LABEL
-    }
-    assert zalo_seed_ids == {"seed_1a4f7d4d7c53"}
+def test_zalo_support_and_lineage_floors(split_records):
+    row_floors = {"train": 150, "val": 25, "test": 25}
+    for split_name, floor in row_floors.items():
+        zalo_rows = [
+            record
+            for record in split_records[split_name]
+            if record["label"] == "zalo_social_engineering"
+        ]
+        assert len(zalo_rows) >= floor
+        seed_ids = {record["seed_id"] for record in zalo_rows}
+        if split_name in {"val", "test"}:
+            assert len(seed_ids) >= 5
 
 
 # --- Gate 5: backup preservation ---------------------------------------------
 
 
-def test_original_backup_files_unchanged():
+def test_original_and_v2_backup_files_are_byte_unchanged():
     with ORIGINAL_MAIN_CORPUS.open(encoding="utf-8") as handle:
         main_lines = sum(1 for line in handle if line.strip())
     with ORIGINAL_RESERVED_TEST.open(encoding="utf-8") as handle:
@@ -217,6 +232,13 @@ def test_original_backup_files_unchanged():
 
     assert main_lines == 3000, "data/synthetic/recovered-balanced.jsonl must remain 3,000 rows"
     assert reserved_lines == 413, "data/splits/recovered-balanced/test.jsonl must remain 413 rows"
+    for path, expected_sha256 in LOCKED_HASHES.items():
+        assert path.exists()
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected_sha256
+
+    replacement_rows = _read_jsonl(REPLACEMENT_CORPUS)
+    assert len(replacement_rows) == 300
+    assert len({record["seed_id"] for record in replacement_rows}) == 60
 
 
 # --- Cross-cutting: every DatasetRecord field survives the pipeline ----------
@@ -228,3 +250,4 @@ def test_every_written_row_has_required_schema_fields(split_records):
         for record in records:
             assert required_fields <= set(record.keys())
             assert record["label"] in ALL_LABELS
+            DatasetRecord.model_validate(record)

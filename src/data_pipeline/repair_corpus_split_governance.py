@@ -20,7 +20,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from src.data_pipeline.generation.zalo_codex_recovery import BUILD_METADATA
+from src.data_pipeline.processing.dedup import fuzz
 from src.data_pipeline.processing.dedup import lexical_dedup
+from src.data_pipeline.processing.normalizer import normalize_text
 from src.data_pipeline.processing.splitter import _stable_bucket
 from src.data_pipeline.schemas import DatasetRecord
 from src.data_pipeline.versioning.manifest import build_manifest
@@ -48,6 +51,115 @@ def pool_records(paths: list[Path]) -> list[dict[str, Any]]:
                     continue
                 records.append(json.loads(stripped))
     return records
+
+
+def _normalized_text(text: str) -> str:
+    return normalize_text(text).casefold()
+
+
+def validate_replacement_records(
+    records: list[dict[str, Any]],
+    replacement_label: str,
+) -> list[dict[str, Any]]:
+    """Validate a replacement completely before the original pool is changed."""
+    if not records:
+        raise ValueError("replacement input is empty")
+
+    validated: list[dict[str, Any]] = []
+    normalized_texts: list[str] = []
+    seen_normalized: set[str] = set()
+    for index, record in enumerate(records):
+        try:
+            payload = DatasetRecord.model_validate(record).model_dump()
+        except Exception as exc:
+            raise ValueError(f"replacement row {index} is not schema-valid: {exc}") from exc
+        if payload["label"] != replacement_label:
+            raise ValueError(
+                f"replacement row {index} has label {payload['label']!r}, expected {replacement_label!r}"
+            )
+        if payload["source"] != BUILD_METADATA["schema_source"]:
+            raise ValueError(
+                f"replacement row {index} has source {payload['source']!r}, "
+                f"expected {BUILD_METADATA['schema_source']!r}"
+            )
+        if not payload["suspicious_spans"] or any(
+            not span or span not in payload["text"] for span in payload["suspicious_spans"]
+        ):
+            raise ValueError(f"replacement row {index} has an invalid evidence span")
+
+        normalized = _normalized_text(payload["text"])
+        if normalized in seen_normalized:
+            raise ValueError(f"replacement row {index} duplicates normalized text")
+        seen_normalized.add(normalized)
+        normalized_texts.append(normalized)
+        validated.append(payload)
+
+    for left_index, left in enumerate(normalized_texts):
+        for right_index in range(left_index + 1, len(normalized_texts)):
+            ratio = fuzz.ratio(left, normalized_texts[right_index]) / 100.0
+            if ratio >= 0.95:
+                raise ValueError(
+                    f"replacement rows {left_index} and {right_index} are lexical near-duplicates "
+                    f"({ratio:.3f})"
+                )
+
+    unique_seeds = {record["seed_id"] for record in validated}
+    if len(unique_seeds) < 3:
+        raise ValueError("replacement must contain at least three distinct seed groups")
+    return validated
+
+
+def replace_label_records(
+    pooled: list[dict[str, Any]],
+    replacement: list[dict[str, Any]],
+    replacement_label: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Atomically remove one old label population and append its replacement."""
+    validated = validate_replacement_records(replacement, replacement_label)
+    retained = [record for record in pooled if record.get("label") != replacement_label]
+    removed_count = len(pooled) - len(retained)
+    if removed_count == 0:
+        raise ValueError(f"source pool has no rows for replacement label {replacement_label!r}")
+
+    retained_normalized = [_normalized_text(record["text"]) for record in retained]
+    for replacement_index, record in enumerate(validated):
+        candidate = _normalized_text(record["text"])
+        for retained_index, existing in enumerate(retained_normalized):
+            if fuzz.ratio(candidate, existing) / 100.0 >= 0.95:
+                raise ValueError(
+                    "replacement row "
+                    f"{replacement_index} duplicates retained row {retained_index} at the lexical threshold"
+                )
+
+    unique_seed_count = len({record["seed_id"] for record in validated})
+    stats = {
+        "source_rows_pooled": len(pooled),
+        "replacement_label": replacement_label,
+        "old_label_rows_removed": removed_count,
+        "replacement_rows_added": len(validated),
+        "replacement_unique_seed_count": unique_seed_count,
+        "generation_provenance": dict(BUILD_METADATA),
+        "external_api_call_count": 0,
+    }
+    if replacement_label == "zalo_social_engineering":
+        stats["old_zalo_rows_removed"] = removed_count
+    return retained + validated, stats
+
+
+def deduplicate_normalized_records(
+    records: list[dict[str, Any]],
+    threshold: float = 0.95,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Drop global normalized exact/lexical duplicates before splitting."""
+    survivors: list[dict[str, Any]] = []
+    survivor_texts: list[str] = []
+    for record in records:
+        normalized = _normalized_text(record["text"])
+        if any(fuzz.ratio(normalized, seen) / 100.0 >= threshold for seen in survivor_texts):
+            continue
+        survivors.append(record)
+        survivor_texts.append(normalized)
+    return survivors, {"rows_dropped_global_lexical_duplicate": len(records) - len(survivors)}
 
 
 def repair_evidence_spans(record: dict[str, Any]) -> dict[str, Any] | None:
@@ -280,7 +392,61 @@ def assign_stratified_group_split(
         for label, count in group_label_counts.items():
             running_class_counts[best_split][label] += count
 
+    _ensure_label_support(assignments, seed_groups, ratios, salt)
     return assignments
+
+
+def _ensure_label_support(
+    assignments: dict[str, str],
+    seed_groups: dict[str, list[dict[str, Any]]],
+    ratios: tuple[float, float, float],
+    salt: str,
+) -> None:
+    """Move whole groups only when an adequately diverse label is absent.
+
+    The main greedy pass normally provides support naturally.  This bounded
+    repair makes that property explicit without ever falling back to row-level
+    splitting.  Candidate moves must leave every label in the donor split.
+    """
+    split_names = ("train", "val", "test")
+    active_splits = [name for name, ratio in zip(split_names, ratios, strict=True) if ratio > 0]
+    labels = sorted({record["label"] for rows in seed_groups.values() for record in rows})
+    labels_by_seed = {
+        seed_id: {record["label"] for record in rows} for seed_id, rows in seed_groups.items()
+    }
+
+    for label in labels:
+        label_seeds = [seed_id for seed_id, group_labels in labels_by_seed.items() if label in group_labels]
+        if len(label_seeds) < len(active_splits):
+            continue
+
+        for missing_split in active_splits:
+            if any(assignments[seed_id] == missing_split for seed_id in label_seeds):
+                continue
+
+            candidates: list[str] = []
+            for seed_id in label_seeds:
+                donor = assignments[seed_id]
+                donor_seed_ids = [sid for sid, split_name in assignments.items() if split_name == donor]
+                if all(
+                    any(other != seed_id and other_label in labels_by_seed[other] for other in donor_seed_ids)
+                    for other_label in labels_by_seed[seed_id]
+                ):
+                    candidates.append(seed_id)
+
+            if not candidates:
+                raise ValueError(
+                    f"cannot provide whole-seed support for {label!r} in {missing_split!r}"
+                )
+            selected = min(
+                candidates,
+                key=lambda seed_id: (
+                    len(seed_groups[seed_id]),
+                    _stable_bucket(seed_id, f"{salt}:label-support:{label}:{missing_split}"),
+                    seed_id,
+                ),
+            )
+            assignments[selected] = missing_split
 
 
 def build_repair_manifest(
@@ -325,6 +491,39 @@ def _compute_split_class_counts(
     return counts
 
 
+def _write_splits_atomically(
+    output_dir: Path,
+    splits: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Validate every row first, then replace all versioned split files."""
+    validated_splits = {
+        split_name: [DatasetRecord.model_validate(record).model_dump() for record in records]
+        for split_name, records in splits.items()
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    temporary_paths: dict[str, Path] = {}
+    for split_name, records in validated_splits.items():
+        temporary = output_dir / f".{split_name}.jsonl.tmp"
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            for record in records:
+                handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        temporary_paths[split_name] = temporary
+    for split_name, temporary in temporary_paths.items():
+        temporary.replace(output_dir / f"{split_name}.jsonl")
+
+
+def _parse_split_ratios(value: str) -> tuple[float, float, float]:
+    try:
+        ratios = tuple(float(part) for part in value.split(","))
+    except ValueError as exc:
+        raise ValueError("split ratios must be three comma-separated numbers") from exc
+    if len(ratios) != 3 or any(ratio < 0 for ratio in ratios):
+        raise ValueError("split ratios must contain exactly three non-negative values")
+    if abs(sum(ratios) - 1.0) > 1e-9:
+        raise ValueError("split ratios must sum to 1.0")
+    return ratios  # type: ignore[return-value]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Pool, repair, cap, split, and manifest the Phase 38 corpus."
@@ -335,6 +534,8 @@ def main() -> None:
     parser.add_argument(
         "--input-reserved", type=Path, default=Path("data/splits/recovered-balanced/test.jsonl")
     )
+    parser.add_argument("--replacement-input", type=Path)
+    parser.add_argument("--replacement-label", choices=_LABELS)
     parser.add_argument(
         "--output-dir", type=Path, default=Path("data/splits/phase38-corpus-repaired-v2")
     )
@@ -343,11 +544,27 @@ def main() -> None:
     parser.add_argument("--split-ratios", type=str, default="0.8,0.1,0.1")
     args = parser.parse_args()
 
-    ratios_list = [float(part) for part in args.split_ratios.split(",")]
-    ratios: tuple[float, float, float] = (ratios_list[0], ratios_list[1], ratios_list[2])
+    if (args.replacement_input is None) != (args.replacement_label is None):
+        parser.error("--replacement-input and --replacement-label must be supplied together")
+    try:
+        ratios = _parse_split_ratios(args.split_ratios)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     pooled = pool_records([args.input_main, args.input_reserved])
-    repaired, repair_stats = repair_all_evidence_spans(pooled)
+    effective_pool = pooled
+    replacement_stats: dict[str, Any] = {}
+    if args.replacement_input is not None and args.replacement_label is not None:
+        replacement = pool_records([args.replacement_input])
+        effective_pool, replacement_stats = replace_label_records(
+            pooled, replacement, args.replacement_label
+        )
+
+    repaired, repair_stats = repair_all_evidence_spans(effective_pool)
+    repair_stats.update(replacement_stats)
+    if args.replacement_input is not None:
+        repaired, dedup_stats = deduplicate_normalized_records(repaired, threshold=0.95)
+        repair_stats.update(dedup_stats)
     capped, cap_stats = enforce_seed_cap(repaired, cap_pct=args.cap_pct)
     repair_stats.update(cap_stats)
 
@@ -357,13 +574,7 @@ def main() -> None:
     for record in capped:
         splits[assignments[record["seed_id"]]].append(record)
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    for split_name, split_records in splits.items():
-        output_path = args.output_dir / f"{split_name}.jsonl"
-        with output_path.open("w", encoding="utf-8") as handle:
-            for record in split_records:
-                validated = DatasetRecord.model_validate(record)
-                handle.write(validated.model_dump_json() + "\n")
+    _write_splits_atomically(args.output_dir, splits)
 
     split_class_counts = _compute_split_class_counts(splits)
     manifest_payload = build_repair_manifest(
@@ -372,8 +583,11 @@ def main() -> None:
 
     manifest_path = Path("data/manifests") / f"manifest-{args.version_tag}.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with manifest_path.open("w", encoding="utf-8") as handle:
+    temporary_manifest = manifest_path.with_suffix(manifest_path.suffix + ".tmp")
+    with temporary_manifest.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(manifest_payload, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
+    temporary_manifest.replace(manifest_path)
 
     print(f"Pooled {repair_stats['rows_pooled']} rows")
     print(f"Span-repaired {repair_stats['rows_span_repaired']} rows")
