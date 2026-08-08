@@ -4,17 +4,17 @@ milestone: v7.0
 milestone_name: Retake Redemption
 current_phase: 38
 current_phase_name: Corpus Repair & Split Governance
-status: executing
-stopped_at: Completed 38-01-PLAN.md
-last_updated: "2026-08-08T10:21:24.062Z"
+status: verifying
+stopped_at: Completed 38-02-PLAN.md
+last_updated: "2026-08-08T10:40:15.576Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 38 execution started
 progress:
   total_phases: 27
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 53
-  completed_plans: 47
-  percent: 67
+  completed_plans: 48
+  percent: 70
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -37,7 +37,7 @@ progress:
 
 Phase: 38 (Corpus Repair & Split Governance) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-08 — Phase 38 execution started
 
 ## Performance Metrics (Baseline Targets)
@@ -223,8 +223,8 @@ Last activity: 2026-08-08 — Phase 38 execution started
 
 ## Session Continuity
 
-**Last session:** 2026-08-08T10:21:24.031Z
-**Stopped at:** Completed 38-01-PLAN.md
+**Last session:** 2026-08-08T10:40:15.550Z
+**Stopped at:** Completed 38-02-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -295,9 +295,11 @@ Last activity: 2026-08-08 — Phase 38 execution started
 - [Phase 32]: Phase 32 automated proof uses a fresh-process START_DEMO_UI.bat dry-run as evidence, while FB-01/FB-02/FB-03 and strict literal cold-boot acceptance remain human verification items; do not claim OS power-cycle coverage from the fresh-process run.
 - [Phase 32]: User scoped final defense readiness mostly to the live demo on 2026-07-09; fallback recording, screenshot sequence, and pivot rehearsal were closed as accepted-risk dispositions, while the final launcher dry-run passed both locked golden prompts.
 - [Phase 38]: build_repair_manifest() calls build_manifest() only (not save_manifest()); enforce_seed_cap() has no salt param (matches plan's exact signature); assign_stratified_group_split() targets the corpus's observed class mix, not a hardcoded 25% per class
+- [Phase 38]: Fixed repair_evidence_spans() to only drop rows with originally-non-empty spans that became unrecoverable (was dropping all 750 legitimately-empty benign rows); fixed enforce_seed_cap() before-snapshot to use the pre-trim total (was 14.25% instead of real 11.90% for seed_157ce0adb043); manifest now explicitly records all 4 labels per split including zero. zalo_social_engineering's entire 825-row population traces to a single seed_id, so val/test have zero support for that class by design (group integrity preserved per locked CONTEXT.md decision) — a genuine limitation for Phase 39/40 to know about.
 
 ## Performance Metrics
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 38 P01 | 42min | 2 tasks | 2 files |
+| Phase 38 P02 | 14min | 2 tasks | 4 files |

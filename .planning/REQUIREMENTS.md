@@ -638,11 +638,11 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Data Repair
 
-- [ ] **DATA-04**: Corpus pooled (3,000 + 413 reserved rows), repaired, and re-split by seed-group hash (not row-level) — no `seed_id` may cross a split boundary.
-- [ ] **DATA-05**: Seed concentration measurably reduced and capped at a stated, justified threshold (currently one seed = 25% of the corpus).
-- [ ] **DATA-06**: Zero rows with invalid evidence spans (currently 131) — repaired in place where fixable, dropped only where not.
-- [ ] **DATA-07**: Split ratio locked (80/10/10 proposed) and recorded in a manifest with per-split class distribution.
-- [ ] **DATA-08**: The genuine `task_scam` 0.44→0.871 recovery story restored into the report as an evidenced iteration narrative.
+- [x] **DATA-04**: Corpus pooled (3,000 + 413 reserved rows), repaired, and re-split by seed-group hash (not row-level) — no `seed_id` may cross a split boundary.
+- [x] **DATA-05**: Seed concentration measurably reduced and capped at a stated, justified threshold (currently one seed = 25% of the corpus).
+- [x] **DATA-06**: Zero rows with invalid evidence spans (currently 131) — repaired in place where fixable, dropped only where not.
+- [x] **DATA-07**: Split ratio locked (80/10/10 proposed) and recorded in a manifest with per-split class distribution.
+- [x] **DATA-08**: The genuine `task_scam` 0.44→0.871 recovery story restored into the report as an evidenced iteration narrative.
 
 ### Independent Quality Re-Judge
 
