@@ -82,10 +82,13 @@ def validate_replacement_records(
                 f"replacement row {index} has source {payload['source']!r}, "
                 f"expected {BUILD_METADATA['schema_source']!r}"
             )
-        if not payload["suspicious_spans"] or any(
-            not span or span not in payload["text"] for span in payload["suspicious_spans"]
-        ):
-            raise ValueError(f"replacement row {index} has an invalid evidence span")
+        if payload["suspicious_spans"]:
+            if any(not span or span not in payload["text"] for span in payload["suspicious_spans"]):
+                raise ValueError(f"replacement row {index} has an invalid evidence span")
+        elif replacement_label != "benign":
+            raise ValueError(
+                f"replacement row {index} has no suspicious_spans; only 'benign' rows may have an empty span list"
+            )
 
         normalized = _normalized_text(payload["text"])
         if normalized in seen_normalized:
@@ -562,9 +565,8 @@ def main() -> None:
 
     repaired, repair_stats = repair_all_evidence_spans(effective_pool)
     repair_stats.update(replacement_stats)
-    if args.replacement_input is not None:
-        repaired, dedup_stats = deduplicate_normalized_records(repaired, threshold=0.95)
-        repair_stats.update(dedup_stats)
+    repaired, dedup_stats = deduplicate_normalized_records(repaired, threshold=0.95)
+    repair_stats.update(dedup_stats)
     capped, cap_stats = enforce_seed_cap(repaired, cap_pct=args.cap_pct)
     repair_stats.update(cap_stats)
 
