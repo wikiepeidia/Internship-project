@@ -73,7 +73,7 @@
 
 **Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically-voiced report, defense-ready code) rather than another polish pass. Real sequencing dependencies, not phase-number order alone, govern execution: data repair must complete and be verified before the independent quality re-judge and before any of the three training runs; the quality re-judge (Codex-based, independent third model family) and the three training runs both depend only on the repaired corpus, not on each other, so they can proceed in either order or in parallel — both are intended to land inside the ~1-month Codex CLI access window (expires ~2026-09-06, one month from 2026-08-06); the held-out evaluation phase depends on all three trainings finishing, since it evaluates them together exactly once on the reserved test split; the report overhaul and slide overhaul both depend on that training/evaluation evidence and can run in parallel with each other (report is additionally gated on a pending external reference-report artifact — see Phase 42); code cleanup is sequenced last, immediately before the retake defense, so it reflects the final repaired data and training code.
 
-- [ ] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split.
+- [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [ ] **Phase 39: Independent Quality Re-Judge** - Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex) plus a genuine manual 100-example human check; retire the t-test.
 - [ ] **Phase 40: Multi-Model Training Evidence** - Train and log real LoRA, QLoRA, and PhoBERT runs on the repaired corpus, producing genuine loss curves and side-by-side comparisons.
 - [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
@@ -999,7 +999,7 @@ Plans:
 | 35. Problem Framing & Architecture Rationale | 0/TBD | Not started | - |
 | 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
-| 38. Corpus Repair and Split Governance | 2/2 | In Progress|  |
+| 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
 | 39. Independent Quality Re-Judge | 0/TBD | Not started | - |
 | 40. Multi-Model Training Evidence | 0/TBD | Not started | - |
 | 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
