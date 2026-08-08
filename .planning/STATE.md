@@ -2,15 +2,19 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Retake Redemption
-status: planning
-last_updated: "2026-08-08T06:38:29.692Z"
+current_phase: 38
+current_phase_name: Corpus Repair & Split Governance
+status: executing
+stopped_at: Completed 38-01-PLAN.md
+last_updated: "2026-08-08T10:21:24.062Z"
 last_activity: 2026-08-08
+last_activity_desc: Phase 38 execution started
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 27
+  completed_phases: 18
+  total_plans: 53
+  completed_plans: 47
+  percent: 67
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -31,10 +35,10 @@ progress:
 
 ## Current Position
 
-Phase: Phase 38 (Corpus Repair & Split Governance) — not yet started
-Plan: —
-Status: ROADMAP.md created (Phases 38-44, 28/28 v7.0 requirements mapped); ready for phase planning
-Last activity: 2026-08-08 — v7.0 ROADMAP.md created
+Phase: 38 (Corpus Repair & Split Governance) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-08-08 — Phase 38 execution started
 
 ## Performance Metrics (Baseline Targets)
 
@@ -219,9 +223,9 @@ Last activity: 2026-08-08 — v7.0 ROADMAP.md created
 
 ## Session Continuity
 
-**Last session:** 2026-07-21
-**Stopped at:** v6.0 Report Revision COMPLETE — Phases 35, 36, 37 all executed and committed, all 13 requirements delivered, report recompiles clean at 34 pages. No next milestone scoped.
-**Resume file:** `.planning/milestones/v6.0-SUMMARY.md` — no open work; awaiting new milestone scope from the user.
+**Last session:** 2026-08-08T10:21:24.031Z
+**Stopped at:** Completed 38-01-PLAN.md
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -290,3 +294,10 @@ Last activity: 2026-08-08 — v7.0 ROADMAP.md created
 - [Phase 31]: Fixed demo.js double-submit controller-ownership race via request-local AbortController scoping, even though the verifier's final-state-only assertions already reported pass, because code trace confirmed a real transient race matching Pitfall 2
 - [Phase 32]: Phase 32 automated proof uses a fresh-process START_DEMO_UI.bat dry-run as evidence, while FB-01/FB-02/FB-03 and strict literal cold-boot acceptance remain human verification items; do not claim OS power-cycle coverage from the fresh-process run.
 - [Phase 32]: User scoped final defense readiness mostly to the live demo on 2026-07-09; fallback recording, screenshot sequence, and pivot rehearsal were closed as accepted-risk dispositions, while the final launcher dry-run passed both locked golden prompts.
+- [Phase 38]: build_repair_manifest() calls build_manifest() only (not save_manifest()); enforce_seed_cap() has no salt param (matches plan's exact signature); assign_stratified_group_split() targets the corpus's observed class mix, not a hardcoded 25% per class
+
+## Performance Metrics
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 38 P01 | 42min | 2 tasks | 2 files |

@@ -865,7 +865,10 @@ Plans:
 4. A manifest file records the locked 80/10/10 split ratio and per-split, per-class row counts for all four labels (`bank_impersonation`, `zalo_social_engineering`, `task_scam`, `benign`).
 5. A drafted `task_scam` 0.44→0.871 recovery narrative exists, grounded in the real Phase 7a evidence artifacts (not invented), ready for the Report Overhaul phase to place in the right chapter.
 
-**Plans**: TBD
+**Plans**: 1/2 plans executed
+
+- [x] 38-01-PLAN.md
+- [ ] 38-02-PLAN.md
 
 ### Phase 39: Independent Quality Re-Judge
 
@@ -996,7 +999,7 @@ Plans:
 | 35. Problem Framing & Architecture Rationale | 0/TBD | Not started | - |
 | 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
-| 38. Corpus Repair and Split Governance | 0/TBD | Not started | - |
+| 38. Corpus Repair and Split Governance | 1/2 | In Progress|  |
 | 39. Independent Quality Re-Judge | 0/TBD | Not started | - |
 | 40. Multi-Model Training Evidence | 0/TBD | Not started | - |
 | 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
