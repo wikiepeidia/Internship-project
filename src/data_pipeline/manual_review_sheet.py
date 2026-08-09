@@ -86,6 +86,14 @@ def _format_spans(spans: list[str]) -> str:
     return "[" + ", ".join(spans) + "]"
 
 
+def _format_blockquote(text: str) -> str:
+    """Render text as a Markdown blockquote, prefixing every line with
+    '> ' -- a bare '> {text}' breaks the moment text contains an embedded
+    newline (confirmed present in 57/2421 real corpus rows), since anything
+    after the first line falls out of the blockquote."""
+    return "\n".join(f"> {line}" for line in text.splitlines()) or ">"
+
+
 def _render_example(index: int, total: int, row: dict[str, Any]) -> str:
     verdict_label = "PASS" if row["judge_pass"] else "FAIL"
     scores = ", ".join(f"{dim}={row[dim]}" for dim in _DIMENSIONS)
@@ -93,7 +101,7 @@ def _render_example(index: int, total: int, row: dict[str, Any]) -> str:
         f"## Example {index}/{total} -- split={row['split']} row_index={row['row_index']} "
         f"seed_id={row['seed_id']}",
         "",
-        f"> {row['text']}",
+        _format_blockquote(row["text"]),
         "",
         f"- **Label:** {row['label']}",
         f"- **Risk tier:** {row['risk_tier']}",
@@ -154,13 +162,46 @@ def write_review_sheet(
     temp_path.replace(output_path)
 
 
+_REQUIRED_MERGED_KEYS = (
+    "split",
+    "row_index",
+    "seed_id",
+    "text",
+    "label",
+    "risk_tier",
+    "xai_explanation",
+    "judge_pass",
+    "judge_reason",
+    *_DIMENSIONS,
+)
+
+
 def _load_merged(path: Path) -> list[dict[str, Any]]:
+    """Read and validate judge_merge.py's merged-row output.
+
+    Fails loudly with the 1-based line number and the missing key(s) rather
+    than deferring to a bare KeyError deep inside sheet rendering.
+    """
     rows: list[dict[str, Any]] = []
     with Path(path).open("r", encoding="utf-8") as handle:
-        for line in handle:
+        for line_number, line in enumerate(handle, start=1):
             stripped = line.strip()
-            if stripped:
-                rows.append(json.loads(stripped))
+            if not stripped:
+                continue
+            try:
+                row = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"{path} line {line_number} is not valid JSON: {exc}"
+                ) from exc
+            missing = [key for key in _REQUIRED_MERGED_KEYS if key not in row]
+            if missing:
+                raise ValueError(
+                    f"{path} line {line_number} is missing required key(s) {missing} "
+                    "-- is this really judge_merge.py's merged output, not raw "
+                    "split/judge-results input?"
+                )
+            rows.append(row)
     return rows
 
 

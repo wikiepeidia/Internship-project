@@ -229,7 +229,7 @@ def test_merge_judge_results_raises_on_missing_row_index():
     ]
     judge_results = [CodexJudgeResult.model_validate(line) for line in lines]
 
-    with pytest.raises(ValueError, match=r"train.*missing row_index\(es\) \[2\]"):
+    with pytest.raises(ValueError, match=r"train.*missing row_index\(es\) \(first 20: \[2\]\)"):
         merge_judge_results(judge_results, source_splits)
 
 
@@ -247,7 +247,7 @@ def test_merge_judge_results_raises_on_duplicate_row_index():
     ]
     judge_results = [CodexJudgeResult.model_validate(line) for line in lines]
 
-    with pytest.raises(ValueError, match=r"train.*duplicate row_index\(es\) \[1\]"):
+    with pytest.raises(ValueError, match=r"train.*duplicate row_index\(es\) \(first 20: \[1\]\)"):
         merge_judge_results(judge_results, source_splits)
 
 
@@ -345,6 +345,18 @@ def test_end_to_end_tracer_round_trips_through_disk(tmp_path):
 
     read_back_summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert read_back_summary == stats
+
+
+def test_load_source_splits_raises_actionable_error_on_missing_split_file(tmp_path):
+    splits_dir = tmp_path / "splits"
+    source_splits = _fixture_source_splits()
+    for split_name, rows in source_splits.items():
+        if split_name == "test":
+            continue  # simulate test.jsonl not written yet
+        _write_jsonl(splits_dir / f"{split_name}.jsonl", rows)
+
+    with pytest.raises(FileNotFoundError, match=r"test\.jsonl does not exist"):
+        load_source_splits(splits_dir)
 
 
 # --- main() fail-closed guard ----------------------------------------------

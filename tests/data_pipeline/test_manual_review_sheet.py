@@ -6,11 +6,18 @@ shaped exactly like judge_merge.py's merge_judge_results() output.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
 
-from src.data_pipeline.manual_review_sheet import select_stratified_sample, write_review_sheet
+import pytest
+
+from src.data_pipeline.manual_review_sheet import (
+    _load_merged,
+    select_stratified_sample,
+    write_review_sheet,
+)
 
 _DIMENSIONS = (
     "realism",
@@ -143,6 +150,55 @@ def test_write_review_sheet_renders_one_section_per_row(tmp_path: Path):
         assert row["judge_reason"] in content
         verdict_label = "PASS" if row["judge_pass"] else "FAIL"
         assert f"Codex judge verdict:** {verdict_label}" in content
+
+
+def test_write_review_sheet_preserves_embedded_newlines_in_blockquote(tmp_path: Path):
+    merged = [
+        _merged_row(
+            "train", 0, True, text="Dong thu nhat.\nDong thu hai.\nDong thu ba."
+        )
+    ]
+    sample, composition = select_stratified_sample(merged, sample_size=10)
+    output_path = tmp_path / "review-sheet.md"
+
+    write_review_sheet(sample, composition, output_path)
+
+    content = output_path.read_text(encoding="utf-8")
+    assert "> Dong thu nhat." in content
+    assert "> Dong thu hai." in content
+    assert "> Dong thu ba." in content
+
+
+# --- _load_merged ------------------------------------------------------------
+
+
+def test_load_merged_raises_on_missing_required_key(tmp_path: Path):
+    row = _merged_row("train", 0, True)
+    del row["judge_reason"]
+    path = tmp_path / "merged.jsonl"
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"line 1.*judge_reason"):
+        _load_merged(path)
+
+
+def test_load_merged_raises_on_malformed_json(tmp_path: Path):
+    path = tmp_path / "merged.jsonl"
+    path.write_text("{not valid json\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"line 1.*not valid JSON"):
+        _load_merged(path)
+
+
+def test_load_merged_accepts_well_formed_rows(tmp_path: Path):
+    row = _merged_row("train", 0, True)
+    path = tmp_path / "merged.jsonl"
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    rows = _load_merged(path)
+
+    assert len(rows) == 1
+    assert rows[0]["seed_id"] == row["seed_id"]
 
 
 # --- end-to-end --------------------------------------------------------------

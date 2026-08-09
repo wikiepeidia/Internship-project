@@ -40,7 +40,7 @@ class CodexJudgeResult(BaseModel):
     """One judge-scored row, matching
     .planning/codex-judge-instructions.md's output schema exactly."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     split: Literal["train", "val", "test"]
     row_index: int = Field(ge=0)
@@ -51,7 +51,7 @@ class CodexJudgeResult(BaseModel):
     risk_tier_correctness: int = Field(ge=1, le=5)
     suspicious_span_accuracy: int = Field(ge=1, le=5)
     judge_pass: bool = Field(alias="pass")
-    reason: str
+    reason: str = Field(min_length=1)
 
 
 def load_judge_results(path: Path) -> list[CodexJudgeResult]:
@@ -93,6 +93,12 @@ def load_source_splits(splits_dir: Path) -> dict[str, list[dict[str, Any]]]:
     for split_name in _SPLIT_NAMES:
         rows: list[dict[str, Any]] = []
         split_path = splits_dir / f"{split_name}.jsonl"
+        if not split_path.exists():
+            raise FileNotFoundError(
+                f"{split_path} does not exist. Expected all three of "
+                f"{splits_dir}/{{train,val,test}}.jsonl -- if the corpus was "
+                "moved or renamed, pass the right --splits-dir."
+            )
         with split_path.open("r", encoding="utf-8") as handle:
             for line in handle:
                 stripped = line.strip()
@@ -135,13 +141,24 @@ def merge_judge_results(
         if missing or duplicates or unexpected:
             problems = []
             if missing:
-                problems.append(f"missing row_index(es) {missing}")
+                problems.append(
+                    f"{len(missing)} missing row_index(es) (first 20: {missing[:20]})"
+                )
             if duplicates:
-                problems.append(f"duplicate row_index(es) {duplicates}")
+                problems.append(
+                    f"{len(duplicates)} duplicate row_index(es) (first 20: {duplicates[:20]}) "
+                    "-- if Codex restarted numbering at 0 for each 50-100-row batch instead of "
+                    "continuing from the previous batch, this is why: row_index must be the "
+                    "0-based line number within the WHOLE split file, not within a batch"
+                )
             if unexpected:
-                problems.append(f"row_index(es) with no matching source row {unexpected}")
+                problems.append(
+                    f"{len(unexpected)} row_index(es) with no matching source row "
+                    f"(first 20: {unexpected[:20]})"
+                )
             raise ValueError(
-                f"split {split_name!r} judge-results row_index coverage is incomplete: "
+                f"split {split_name!r} judge-results row_index coverage is incomplete "
+                f"({len(actual_indices)} judged / {len(expected_indices)} expected): "
                 + "; ".join(problems)
             )
 
@@ -150,15 +167,26 @@ def merge_judge_results(
             "judge_rows": len(by_split[split_name]),
         }
 
+        seed_mismatches: list[str] = []
         for row_index in sorted(actual_indices):
             result = by_split[split_name][row_index]
             source_row = source_rows[row_index]
             if result.seed_id != source_row["seed_id"]:
-                raise ValueError(
-                    f"split {split_name!r} row_index {row_index}: judge seed_id "
-                    f"{result.seed_id!r} does not match source seed_id "
-                    f"{source_row['seed_id']!r}"
+                seed_mismatches.append(
+                    f"row_index {row_index}: judge seed_id {result.seed_id!r} != "
+                    f"source seed_id {source_row['seed_id']!r}"
                 )
+        if seed_mismatches:
+            preview = "; ".join(seed_mismatches[:20])
+            more = f" (+{len(seed_mismatches) - 20} more)" if len(seed_mismatches) > 20 else ""
+            raise ValueError(
+                f"split {split_name!r} has {len(seed_mismatches)} seed_id mismatch(es): "
+                f"{preview}{more}"
+            )
+
+        for row_index in sorted(actual_indices):
+            result = by_split[split_name][row_index]
+            source_row = source_rows[row_index]
             scores = {dim: getattr(result, dim) for dim in _SCORE_DIMENSIONS}
             merged.append(
                 {
