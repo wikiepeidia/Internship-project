@@ -38,7 +38,7 @@ progress:
 Phase: 39 (Independent Quality Re-Judge) — EXECUTING
 Plan: 1 of 1
 Status: Phase complete — ready for verification
-Last activity: 2026-08-08 — Phase 39 execution started
+Last activity: 2026-08-09 — Completed quick task 260809-j21: generate Codex task-scam risk-tier repair judgments
 
 ## Performance Metrics (Baseline Targets)
 
@@ -276,6 +276,7 @@ Last activity: 2026-08-08 — Phase 39 execution started
 | 2026-07-21 | v6.0 Phases 35-37 execution | Complete. All 13 requirements delivered directly (autonomous execution per user instruction). Report compiles clean, 34 pages. Milestone archived to `.planning/milestones/v6.0-SUMMARY.md`. |
 | 2026-08-06 | `260806-ubr` audit and acquire crawlable real Vietnamese scam data | Complete. Audited 23 endpoints across 8 source families and froze 94 net-new unlabeled real-public records (44 publisher-asserted message examples plus 50 PhishVN indicators); 51 focused tests and offline manifest verification passed. Implementation commit `4b7613c`; [artifacts](./quick/260806-ubr-audit-and-acquire-crawlable-real-vietnam/). |
 | 2026-08-08 | `260808-otp` generate leakage-safe Zalo replacement data | Complete. Generated 300 provider-free rows across 60 independent seed groups, rebuilt the 2,421-row v3 corpus with Zalo support `190/40/70`, eliminated cross-split seed/span/normalized/0.95-lexical leakage, and passed 161 data-pipeline tests. Implementation commits `db74e66` and `8b5336c`; [artifacts](./quick/260808-otp-generate-a-leakage-safe-replacement-data/). |
+| 2026-08-09 | `260809-j21` generate Codex task-scam risk-tier repair judgments | Complete. Produced 187 ordered judgments: 184 `suspicious` → `high-risk`, 3 kept `suspicious`; 14 focused tests and non-mutating temporary-copy application passed with all locked hashes unchanged and no live merge; [artifacts](./quick/260809-j21-generate-codex-task-scam-risk-tier-repai/). |
 
 ## Operator Next Steps
 
