@@ -23,9 +23,10 @@ was dropped entirely -- see the manifest for which).
 Instructions: for each example below, read the message text and the Codex judge's verdict, then mark Your verdict as PASS or FAIL based on your own independent read of whether the row is genuinely realistic Vietnamese text with a correctly matching label and risk tier -- not whether you agree with Codex's stated reason. Add any observations in the blank Notes field.
 
 ---
+
 ## Example 1/100 -- split=test row_index=33 seed_id=seed_5efd416f05fd
 
-> Thông báo từ VietcomBank: Tài khoản của bạn vừa đăng nhập từ thiết bị lạ tại Úc. Nếu không phải bạn, hãy xác minh ngay tại: http://vietcom-bank-secure.net/xacminh để tránh bị khóa tài khoản trong 24h. Liên hệ CSKH: 1800.9999.88
+> Thông báo từ VietcomBank: Tài khoản của bạn vừa đăng nhập từ thiết bị lạ tại Úc. Nếu không phải bạn, hãy xác minh ngay tại: <http://vietcom-bank-secure.net/xacminh> để tránh bị khóa tài khoản trong 24h. Liên hệ CSKH: 1800.9999.88
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -34,9 +35,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Đăng nhập tại Úc và trang giả tạo cảnh báo high-risk rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -51,9 +52,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=3, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Nhóm hỗ trợ MB giả dụ remote máy, dù không trực tiếp xưng ngân hàng.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ok] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -68,9 +69,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Yêu cầu mua trước để hoàn tiền và hoa hồng là high-risk; spans chỉ giữ link và Zalo.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -85,15 +86,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Placeholder makes this synthetic; span omits the pay-first cue requiring high-risk.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 5/100 -- split=test row_index=116 seed_id=seed_5efd416f05fd
 
-> Chào bạn, mình là đại diện của Binance. Bạn đăng ký qua link của mình sẽ nhận được hoa hồng 5% từ mỗi giao dịch. Link: https://binancefake.com/signup. Đóng phí 100k để xác minh tài khoản. Rất mong hợp tác!
+> Chào bạn, mình là đại diện của Binance. Bạn đăng ký qua link của mình sẽ nhận được hoa hồng 5% từ mỗi giao dịch. Link: <https://binancefake.com/signup>. Đóng phí 100k để xác minh tài khoản. Rất mong hợp tác!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -102,9 +103,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Placeholder makes this synthetic; pay-first task warrants high-risk rather than suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [okok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -119,9 +120,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Khoản tiền đến và kiểm tra ứng dụng là benign.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -136,9 +137,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Routine notification is benign; assigned suspicious tier is too high.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -153,9 +154,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Mã xác minh giao dịch trong app là thông báo benign.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -170,9 +171,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Biên nhận chuyển tiền và số dư hoàn toàn benign.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -187,9 +188,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Cuộc gọi thúc đọc mã hoàn tiền trong năm phút là chiếm đoạt rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ ok] FAIL
 
-**Notes:** 
+**Notes:** this is not a scam message this is more like a crawled seed generic message
 
 ---
 
@@ -204,9 +205,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Liên kết đăng nhập ngân hàng để mở tiền bán là đánh cắp tài khoản.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ ok] FAIL
 
-**Notes:** 
+**Notes:** this is not a scam message (1st person telling+trash scam)
 
 ---
 
@@ -221,9 +222,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator meta-scaffold describes deception instead of presenting an authentic message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:** this is not a scam message this is more like a crawled seed
 
 ---
 
@@ -238,9 +239,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Giả bác sĩ thúc chuyển tiền thuốc vào tài khoản cá nhân là nguy hiểm.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:** this is not a scam message this is more like a crawled seed
 
 ---
 
@@ -255,15 +256,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator meta-scaffold describes deception instead of presenting an authentic message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:** this is not a scam message (1st person telling+trash scam)
 
 ---
 
 ## Example 15/100 -- split=train row_index=0 seed_id=seed_0dbd0f1e898c
 
-> VIETCOMBANK: Tai khoan cua ban vua bi truy cap tu thiet bi la. De bao ve account, xac thuc ngay qua link: http://vcb-secure-verify.net/login . Neu khong xac thuc trong 15 phut, Internet Banking se bi khoa. Lien he: 0934.872.651
+> VIETCOMBANK: Tai khoan cua ban vua bi truy cap tu thiet bi la. De bao ve account, xac thuc ngay qua link: <http://vcb-secure-verify.net/login> . Neu khong xac thuc trong 15 phut, Internet Banking se bi khoa. Lien he: 0934.872.651
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -272,15 +273,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Convincing urgent bank lure with natural mixing and precise malicious cues.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 16/100 -- split=train row_index=10 seed_id=seed_441f08e9ca28
 
-> MB BANK: Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47. Neu khong phai ban, click ngay: http://mbbank-secure-vn.net/xacnhan de khoa lenh. OTP se duoc gui sau khi xac thuc. LH: 1900.8888 (phim 2).
+> MB BANK: Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47. Neu khong phai ban, click ngay: <http://mbbank-secure-vn.net/xacnhan> de khoa lenh. OTP se duoc gui sau khi xac thuc. LH: 1900.8888 (phim 2).
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -289,15 +290,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Natural SMS-style impersonation with urgent hostile URL and exact supporting spans.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 17/100 -- split=train row_index=50 seed_id=seed_db9fb32e2681
 
-> VIETCOMBANK: Tai khoan cua ban vua co giao dich bat thuong 15,000,000 VND luc 02:47. Neu ban KHONG thuc hien giao dich nay, truy cap ngay http://vcb-secure-verify.net/xacnhan de khoa lenh hoac goi 1800.6868 (mien phi). OTP se het han sau 5 phut!
+> VIETCOMBANK: Tai khoan cua ban vua co giao dich bat thuong 15,000,000 VND luc 02:47. Neu ban KHONG thuc hien giao dich nay, truy cap ngay <http://vcb-secure-verify.net/xacnhan> de khoa lenh hoac goi 1800.6868 (mien phi). OTP se het han sau 5 phut!
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -306,9 +307,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Coherent high-risk transaction scare; all selected phrases are exact and salient.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -323,15 +324,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Natural abbreviated chat scam with malicious cancellation URL and immediate loss pressure.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ok] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 19/100 -- split=train row_index=96 seed_id=seed_c6c8772ac332
 
-> Xin chào anh/chị, em là Nguyễn Linh từ bộ phận Hỗ Trợ Khách Hàng BIDV. Hệ thống ghi nhận Internet Banking của anh/chị đang đăng nhập từ thiết bị lạ tại Hà Nội lúc 11:23 sáng nay. Để đảm bảo an toàn, anh/chị vui lòng xác nhận OTP được gửi về số điện thoại đăng ký và KHÔNG chia sẻ mã này với bất kỳ ai kể cả nhân viên ngân hàng nhé 😊. Nếu không phải anh/chị thực hiện, hãy bấm vào link sau để đóng băng tài khoản ngay: https://bidv-hotro-kh.com/freeze-account?id=8821 hoặc liên hệ hotline nội bộ 0903.221.887 để được hỗ trợ 24/7 ạ.
+> Xin chào anh/chị, em là Nguyễn Linh từ bộ phận Hỗ Trợ Khách Hàng BIDV. Hệ thống ghi nhận Internet Banking của anh/chị đang đăng nhập từ thiết bị lạ tại Hà Nội lúc 11:23 sáng nay. Để đảm bảo an toàn, anh/chị vui lòng xác nhận OTP được gửi về số điện thoại đăng ký và KHÔNG chia sẻ mã này với bất kỳ ai kể cả nhân viên ngân hàng nhé 😊. Nếu không phải anh/chị thực hiện, hãy bấm vào link sau để đóng băng tài khoản ngay: <https://bidv-hotro-kh.com/freeze-account?id=8821> hoặc liên hệ hotline nội bộ 0903.221.887 để được hỗ trợ 24/7 ạ.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -340,15 +341,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Sophisticated reassurance surrounds a hostile freeze link and fake internal support contact.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 20/100 -- split=train row_index=141 seed_id=seed_9d35f25f7d8b
 
-> ⚠️ MBBANK THÔNG BÁO: App MBBank của bạn sẽ bị khoá lúc 23:59 hôm nay do chưa cập nhật eKYC. Vào link sau để xác thực ngay, tránh bị gián đoạn dịch vụ: https://mbbank-ekyc-update.pages.dev/login — Cần hỗ trợ gọi 0398.XXX.XXX. Lưu ý: KHÔNG chia sẻ mã OTP hoặc account với bất kỳ ai kể cả nhân viên ngân hàng (đây là thông báo tự động).
+> ⚠️ MBBANK THÔNG BÁO: App MBBank của bạn sẽ bị khoá lúc 23:59 hôm nay do chưa cập nhật eKYC. Vào link sau để xác thực ngay, tránh bị gián đoạn dịch vụ: <https://mbbank-ekyc-update.pages.dev/login> — Cần hỗ trợ gọi 0398.XXX.XXX. Lưu ý: KHÔNG chia sẻ mã OTP hoặc account với bất kỳ ai kể cả nhân viên ngân hàng (đây là thông báo tự động).
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -357,15 +358,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Sophisticated eKYC lock notice pairs reassuring OTP advice with a malicious hosted page.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 21/100 -- split=train row_index=187 seed_id=seed_8226b8787914
 
-> Ngân hàng Vietcombank thông báo: Tài khoản của bạn cần xác minh, chứng minh nguồn thu nhập và tài chính trước 17h hôm nay. Vui lòng đăng nhập tại http://vietcombank-xacminh.net và cung cấp thông tin để tránh bị khóa tài khoản vĩnh viễn.
+> Ngân hàng Vietcombank thông báo: Tài khoản của bạn cần xác minh, chứng minh nguồn thu nhập và tài chính trước 17h hôm nay. Vui lòng đăng nhập tại <http://vietcombank-xacminh.net> và cung cấp thông tin để tránh bị khóa tài khoản vĩnh viễn.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -374,15 +375,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Plausible income-document harvesting lure with a fake site and permanent lock threat.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 22/100 -- split=train row_index=201 seed_id=seed_b6e080de275b
 
-> Thông báo khẩn từ Vietcombank: Tài khoản của quý khách vừa bị đăng nhập từ thiết bị lạ lúc 02:47. Nếu không phải bạn, hãy xác minh ngay tại http://vietc0mbank-secure.net/verify hoặc gọi 1800.xxxx. OTP sẽ được gửi sau khi bạn truy cập link.
+> Thông báo khẩn từ Vietcombank: Tài khoản của quý khách vừa bị đăng nhập từ thiết bị lạ lúc 02:47. Nếu không phải bạn, hãy xác minh ngay tại <http://vietc0mbank-secure.net/verify> hoặc gọi 1800.xxxx. OTP sẽ được gửi sau khi bạn truy cập link.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -391,9 +392,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Convincing typo-squatted verification lure with exact device and OTP cues.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -408,15 +409,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Bracketed placeholder formatting makes this read like generated text, not a real message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 24/100 -- split=train row_index=216 seed_id=seed_e5463bf1077a
 
-> Chị ơi, e là Linh, nhân viên VPBank. Tài khoản của chị đang có vấn đề về bảo mật. Chị vui lòng đăng nhập vào link dưới đây để thay đổi mật khẩu: https://vpbank-login.com. Nếu không, tài khoản sẽ bị khóa vĩnh viễn nha. Cảm ơn chị!
+> Chị ơi, e là Linh, nhân viên VPBank. Tài khoản của chị đang có vấn đề về bảo mật. Chị vui lòng đăng nhập vào link dưới đây để thay đổi mật khẩu: <https://vpbank-login.com>. Nếu không, tài khoản sẽ bị khóa vĩnh viễn nha. Cảm ơn chị!
 
 - **Label:** bank_impersonation
 - **Risk tier:** suspicious
@@ -425,15 +426,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Fake password-change login plus permanent-lock threat warrants high risk.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 25/100 -- split=train row_index=223 seed_id=seed_13f16cf56dbe
 
-> 【BIDV】 Chào anh/chị, tk của a/c có giao dịch chuyển 48.500.000đ lúc 22:14 hôm nay. Nếu k phải bạn thực hiện, bấm vào link sau để huỷ ngay: https://bidv-cancel-txn.com/huy?id=8821 — Smart OTP sẽ dc gửi về SĐT đăng ký. Xử lý trong 5 phút kẻo hết hạn nha!
+> 【BIDV】 Chào anh/chị, tk của a/c có giao dịch chuyển 48.500.000đ lúc 22:14 hôm nay. Nếu k phải bạn thực hiện, bấm vào link sau để huỷ ngay: <https://bidv-cancel-txn.com/huy?id=8821> — Smart OTP sẽ dc gửi về SĐT đăng ký. Xử lý trong 5 phút kẻo hết hạn nha!
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -442,9 +443,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Authentic-looking transfer alert uses hostile cancellation link and five-minute OTP pressure.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -461,7 +462,7 @@ Instructions: for each example below, read the message text and the Codex judge'
 
 **Your verdict:** [ ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -476,9 +477,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Bracketed placeholder formatting makes this read like generated text, not a real message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:** good message just the bracket is not ok
 
 ---
 
@@ -493,15 +494,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Authentic-looking urgent Smart OTP update directs users to a hostile domain.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 29/100 -- split=train row_index=332 seed_id=seed_b2c9477c611a
 
-> Bạn ơi, mình là CTV của Agribank đang hỗ trợ nâng cấp app mới. Tk của bạn cần xác minh lại để tránh bị đình chỉ dịch vụ. Bạn login vào link này nha: https://agribank-upgrade.info/dangnhap rồi nhập đầy đủ số tk + mật khẩu + mã Smart OTP là xong, k tốn quá 2 phút dc đâu 😊
+> Bạn ơi, mình là CTV của Agribank đang hỗ trợ nâng cấp app mới. Tk của bạn cần xác minh lại để tránh bị đình chỉ dịch vụ. Bạn login vào link này nha: <https://agribank-upgrade.info/dangnhap> rồi nhập đầy đủ số tk + mật khẩu + mã Smart OTP là xong, k tốn quá 2 phút dc đâu 😊
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -510,15 +511,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Natural fake collaborator explicitly harvests account, password, and Smart OTP.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 30/100 -- split=train row_index=378 seed_id=seed_db9fb32e2681
 
-> ACB: Phat hien login bat thuong vao account cua ban tu IP nuoc ngoai. De bao ve, ban can cap nhat lai mat khau qua link: http://acb-online.info/reset?id=8821 ngay bay gio. Ko lam se bi khoa vinh vien trong 24h.
+> ACB: Phat hien login bat thuong vao account cua ban tu IP nuoc ngoai. De bao ve, ban can cap nhat lai mat khau qua link: <http://acb-online.info/reset?id=8821> ngay bay gio. Ko lam se bi khoa vinh vien trong 24h.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -527,9 +528,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Credible foreign-login warning routes password reset through a hostile URL with permanent-lock pressure.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -544,9 +545,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=2
 - **Judge reason:** Contact-only spans miss the impersonation or paid-task lure that makes the message suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ ok] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -561,15 +562,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Credible task-scam recruitment with escalating pay and direct Zalo migration.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ok ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 33/100 -- split=train row_index=438 seed_id=seed_686d86ff091c
 
-> Xin chào, tớ là Mod của nhóm Shopee trên Facebook. Tớ cần người giúp mua sản phẩm và viết đánh giá 5 sao. Bạn sẽ được hoàn lại tiền mua hàng và nhận thêm 10% hoa hồng. Hãy đặt hàng qua link này: http://shopeebuyback.com/order. Liên hệ tớ qua Zalo 0123456789 nếu cần hỗ trợ. Cảm ơn bạn!
+> Xin chào, tớ là Mod của nhóm Shopee trên Facebook. Tớ cần người giúp mua sản phẩm và viết đánh giá 5 sao. Bạn sẽ được hoàn lại tiền mua hàng và nhận thêm 10% hoa hồng. Hãy đặt hàng qua link này: <http://shopeebuyback.com/order>. Liên hệ tớ qua Zalo 0123456789 nếu cần hỗ trợ. Cảm ơn bạn!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -578,9 +579,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=5
 - **Judge reason:** Sequential 0123456789 is an obvious placeholder, undermining real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -595,9 +596,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=2
 - **Judge reason:** Synthetic placeholder undermines realism; spans also omit the decisive unsafe action.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ ok] FAIL
 
-**Notes:** 
+**Notes:** good scam, but bad explaination
 
 ---
 
@@ -612,15 +613,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=4, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=2
 - **Judge reason:** Bracketed placeholder formatting makes this read like generated text, not a real message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**trash placeholder
 
 ---
 
 ## Example 36/100 -- split=train row_index=487 seed_id=seed_7a59dacb935f
 
-> Bạn ơi, mình đang cần người giúp đăng ký tài khoản trên Binance qua link này: http://fakebinance.com. Mỗi tài khoản đăng ký thành công, bạn sẽ nhận 5% hoa hồng. Liên hệ Telegram: @FakeCryptoBot để biết thêm chi tiết. Cơ hội tốt, nhanh tay nhé!
+> Bạn ơi, mình đang cần người giúp đăng ký tài khoản trên Binance qua link này: <http://fakebinance.com>. Mỗi tài khoản đăng ký thành công, bạn sẽ nhận 5% hoa hồng. Liên hệ Telegram: @FakeCryptoBot để biết thêm chi tiết. Cơ hội tốt, nhanh tay nhé!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -629,9 +630,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Literal fake naming exposes synthetic construction and undermines real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ok ] FAIL
 
-**Notes:** 
+**Notes:**"fake" is garbage
 
 ---
 
@@ -646,9 +647,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Bracketed placeholder formatting makes this read like generated text, not a real message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:** extremely short and generic, no real-world plausibility
 
 ---
 
@@ -663,9 +664,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Contact-only spans miss the impersonation or paid-task lure that makes the message suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:** terrible
 
 ---
 
@@ -680,9 +681,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Literal fake naming exposes synthetic construction and undermines real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x] FAIL
 
-**Notes:** 
+**Notes:** terrible scam message
 
 ---
 
@@ -697,9 +698,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=2, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=2
 - **Judge reason:** Synthetic placeholder undermines realism; spans also omit the decisive unsafe action.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**useless
 
 ---
 
@@ -714,15 +715,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=2
 - **Judge reason:** A 200k upgrade transfer is high risk; annotations omit the payment.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**too high number
 
 ---
 
 ## Example 42/100 -- split=train row_index=622 seed_id=seed_baafb1055e64
 
-> Chào bạn! Mình là admin của group TikTok lớn. Hiện tại, chúng tôi đang cần người like, follow, và comment trên các video. Mỗi task chỉ mất vài phút và bạn sẽ được trả 5k/ task. Nếu quan tâm, hãy click vào link này để đăng ký: http://tiktokjob.vn. Đừng bỏ lỡ cơ hội này, nha!
+> Chào bạn! Mình là admin của group TikTok lớn. Hiện tại, chúng tôi đang cần người like, follow, và comment trên các video. Mỗi task chỉ mất vài phút và bạn sẽ được trả 5k/ task. Nếu quan tâm, hãy click vào link này để đăng ký: <http://tiktokjob.vn>. Đừng bỏ lỡ cơ hội này, nha!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -731,15 +732,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Standard paid-engagement recruitment with a suspicious task registration site.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 43/100 -- split=train row_index=656 seed_id=seed_7d16b8e41bee
 
-> Chào bạn, mình là admin của nhóm Zalo về đầu tư tiền điện tử. Chúng tôi đang có chương trình khuyến mãi cho người mới đăng ký. Bạn chỉ cần đăng ký qua link này: http://crypto-offer.com/register và mời bạn bè tham gia, mỗi người bạn mời sẽ giúp bạn kiếm được 5% hoa hồng. Khi đạt 10 người, bạn sẽ nhận được 100k VND. Liên hệ mình qua Zalo 0123456789 nếu có thắc mắc nha!
+> Chào bạn, mình là admin của nhóm Zalo về đầu tư tiền điện tử. Chúng tôi đang có chương trình khuyến mãi cho người mới đăng ký. Bạn chỉ cần đăng ký qua link này: <http://crypto-offer.com/register> và mời bạn bè tham gia, mỗi người bạn mời sẽ giúp bạn kiếm được 5% hoa hồng. Khi đạt 10 người, bạn sẽ nhận được 100k VND. Liên hệ mình qua Zalo 0123456789 nếu có thắc mắc nha!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -748,15 +749,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=4, code_switch_naturalness=4, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Sequential 0123456789 is an obvious placeholder, undermining real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**terrible XAI explaination +generic
 
 ---
 
 ## Example 44/100 -- split=train row_index=664 seed_id=seed_d41d9b30081a
 
-> Xin chào, mình là quản lý của shop Shopee. Hiện tại shop đang cần người đánh giá sản phẩm. Bạn chỉ cần mua sản phẩm, đánh giá 5 sao và gửi hình chụp lại, sau đó shop sẽ hoàn tiền 100% và trả thêm 20k hoa hồng. Bạn quan tâm thì ib mình nha, link sản phẩm: http://shopee.vn/fake-product
+> Xin chào, mình là quản lý của shop Shopee. Hiện tại shop đang cần người đánh giá sản phẩm. Bạn chỉ cần mua sản phẩm, đánh giá 5 sao và gửi hình chụp lại, sau đó shop sẽ hoàn tiền 100% và trả thêm 20k hoa hồng. Bạn quan tâm thì ib mình nha, link sản phẩm: <http://shopee.vn/fake-product>
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -765,9 +766,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Literal fake naming exposes synthetic construction and undermines real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**people know no shop did this though
 
 ---
 
@@ -782,9 +783,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Các hành động, tiền công và số liên hệ đều là cue hữu ích.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**generic , not as "escalete"
 
 ---
 
@@ -799,9 +800,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=2
 - **Judge reason:** Contact-only spans miss the impersonation or paid-task lure that makes the message suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:** more like begging
 
 ---
 
@@ -816,15 +817,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Direct payment or credential request is high-risk; suspicious tier is too low.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
-
+**Notes:**
+garbage dataset and bad xai
 ---
 
 ## Example 48/100 -- split=train row_index=740 seed_id=seed_d41d9b30081a
 
-> Chào bạn, mình là bot từ Binance @binancejob. Bạn có thể đăng ký qua link: https://fakebinance.com và mời bạn bè tham gia. Mỗi lần mời thành công, bạn sẽ nhận được 10% hoa hồng. Gửi OTP để xác nhận tài khoản nha. Đừng quên chia sẻ link này cho bạn bè!
+> Chào bạn, mình là bot từ Binance @binancejob. Bạn có thể đăng ký qua link: <https://fakebinance.com> và mời bạn bè tham gia. Mỗi lần mời thành công, bạn sẽ nhận được 10% hoa hồng. Gửi OTP để xác nhận tài khoản nha. Đừng quên chia sẻ link này cho bạn bè!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -833,9 +834,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Direct payment or credential request is high-risk; suspicious tier is too low.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**bad xai, "gui OTP"is nonsense , here means you send otp not the bot send you OTP
 
 ---
 
@@ -850,9 +851,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Direct payment or credential request is high-risk; suspicious tier is too low.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:** goofy links+too low tier
 
 ---
 
@@ -867,9 +868,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=2
 - **Judge reason:** Direct payment or credential request is high-risk; suspicious tier is too low.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**too low tier
 
 ---
 
@@ -884,9 +885,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Tin báo có tiền vào tài khoản rõ ràng là benign.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -901,9 +902,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Chỉ là xác nhận giao dịch thành công, không đọc như suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -918,9 +919,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Xác nhận 500.000 VND không có yếu tố suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -935,9 +936,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Kích hoạt Internet Banking không thể hiện nguy cơ hay thúc ép.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**need better dataset though
 
 ---
 
@@ -952,9 +953,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Sequential 0123456789 is an obvious placeholder, undermining real-world plausibility.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**need a better number
 
 ---
 
@@ -969,9 +970,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Lịch nâng cấp Smart OTP cụ thể và không yêu cầu hành động nguy hiểm.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -986,9 +987,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** OTP cho ứng dụng Internet Banking là thông báo benign ngắn gọn.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [xx ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1003,9 +1004,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Thông tin số dư và hotline hỗ trợ đọc tự nhiên.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1020,9 +1021,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Số dư và lời khuyên kiểm tra thường xuyên đều an toàn.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1037,9 +1038,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Routine in-app OTP guidance is benign, so the suspicious tier is plainly wrong.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1054,9 +1055,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Ưu đãi thanh toán có thời hạn rõ và không dẫn ngoài.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1071,9 +1072,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator scaffold describes a scenario rather than an authentic Zalo message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1088,9 +1089,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator scaffold describes a scenario rather than an authentic Zalo message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1105,9 +1106,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator scaffold describes a scenario rather than an authentic Zalo message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1122,9 +1123,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator scaffold describes a scenario rather than an authentic Zalo message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1139,9 +1140,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Narrator scaffold describes a scenario rather than an authentic Zalo message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1156,9 +1157,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Kịch bản tình cảm và tiền cứu trợ hợp lý, dù câu mở đầu hơi khuôn.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1173,9 +1174,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Bối cảnh Zalo hợp lớp; cụm thuế là substring chính xác và liên quan.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**trash narrator message
 
 ---
 
@@ -1190,9 +1191,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Phiên đăng nhập được xác nhận qua kênh chính thức, đọc tự nhiên.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1207,9 +1208,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=5
 - **Judge reason:** Thông báo gia hạn và nhận thẻ tại chi nhánh đủ nhạy cảm để cảnh giác.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**TRASH dataset "agribank than men" is not a real greeting
 
 ---
 
@@ -1224,9 +1225,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Sao kê qua app hoặc website Agribank không đáng xếp suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1241,9 +1242,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=5
 - **Judge reason:** OTP hợp lệ, dù tier benign hơi thấp cho nội dung xác thực.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** x[x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1258,9 +1259,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=3, suspicious_span_accuracy=5
 - **Judge reason:** Đăng nhập từ thiết bị mới hợp lệ nhưng tier benign hơi nhẹ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1275,15 +1276,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Đăng ký Internet Banking là sự kiện đủ nhạy cảm để tier suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**should be beign
 
 ---
 
 ## Example 75/100 -- split=train row_index=1543 seed_id=seed_3f61921e9655
 
-> Kính gửi Quý khách hàng VPBank. Chúng tôi ghi nhận yêu cầu đổi số điện thoại đăng ký. Nếu KO phải bạn, hãy xác nhận ngay: http://vpbk-secure.xyz/cancel?id=VN2024 trước 30 phút nữa kẻo mất quyền truy cập ak.
+> Kính gửi Quý khách hàng VPBank. Chúng tôi ghi nhận yêu cầu đổi số điện thoại đăng ký. Nếu KO phải bạn, hãy xác nhận ngay: <http://vpbk-secure.xyz/cancel?id=VN2024> trước 30 phút nữa kẻo mất quyền truy cập ak.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -1292,40 +1293,43 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=4
 - **Judge reason:** Câu kết ak hơi gượng; link giả và hạn ba mươi phút vẫn rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 76/100 -- split=train row_index=1551 seed_id=seed_3f61921e9655
 
 > Chào anh/chị, em là Nguyễn Thị Hoa - nhân viên CSKH Techcombank. Hệ thống ghi nhận tk Internet Banking của anh/chị đang có giao dịch bất thường trị giá 45.000.000đ. Để xác minh và hoàn tiền, anh/chị vui lòng cung cấp:
+>
 > 1. Số thẻ
 > 2. OTP vừa nhận
 > 3. Mã Smart OTP
-> 
-> Nếu ko phản hồi trong 15 phút, giao dịch sẽ dc tự động duyệt. Liên hệ ngay qua link: https://techcom-hotro.pages.dev
+>
+> Nếu ko phản hồi trong 15 phút, giao dịch sẽ dc tự động duyệt. Liên hệ ngay qua link: <https://techcom-hotro.pages.dev>
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
 - **Suspicious spans:** [cung cấp:
+
 1. Số thẻ
 2. OTP vừa nhận
-3. Mã Smart OTP, https://techcom-hotro.pages.dev, ko phản hồi trong 15 phút, giao dịch sẽ dc tự động duyệt]
+3. Mã Smart OTP, <https://techcom-hotro.pages.dev>, ko phản hồi trong 15 phút, giao dịch sẽ dc tự động duyệt]
+
 - **XAI explanation:** Kẻ lừa đảo giả danh nhân viên CSKH Techcombank yêu cầu cung cấp đồng thời số thẻ, OTP và Smart OTP - ngân hàng thật KHÔNG BAO GIỜ yêu cầu thông tin này qua chat. Domain 'techcom-hotro.pages.dev' dùng dịch vụ hosting miễn phí Cloudflare Pages, không phải domain chính thức techcombank.com.vn. Chiến thuật tạo áp lực thời gian 15 phút là dấu hiệu điển hình của lừa đảo.
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Yêu cầu thẻ cùng hai loại OTP để hoàn tiền là phishing rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 77/100 -- split=train row_index=1561 seed_id=seed_3f61921e9655
 
-> Chào anh/chị, em là Nguyễn Linh từ bộ phận Chăm sóc Khách hàng Techcombank. Hệ thống chúng em ghi nhận Internet Banking của anh/chị có dấu hiệu bị truy cập trái phép từ IP nước ngoài lúc 03:47 sáng nay. Để bảo vệ tài khoản, anh/chị vui lòng xác minh danh tính qua link sau trong vòng 15 phút, nếu không hệ thống sẽ tự động tạm khóa: https://techcom-bank-verify.com/auth?token=TK99021. Anh/chị nhập Smart OTP và số thẻ để xác nhận nha. Xin cảm ơn!
+> Chào anh/chị, em là Nguyễn Linh từ bộ phận Chăm sóc Khách hàng Techcombank. Hệ thống chúng em ghi nhận Internet Banking của anh/chị có dấu hiệu bị truy cập trái phép từ IP nước ngoài lúc 03:47 sáng nay. Để bảo vệ tài khoản, anh/chị vui lòng xác minh danh tính qua link sau trong vòng 15 phút, nếu không hệ thống sẽ tự động tạm khóa: <https://techcom-bank-verify.com/auth?token=TK99021>. Anh/chị nhập Smart OTP và số thẻ để xác nhận nha. Xin cảm ơn!
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -1334,15 +1338,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Mạo danh CSKH, link giả, thẻ và Smart OTP đều chính xác.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 78/100 -- split=train row_index=1576 seed_id=seed_3f61921e9655
 
-> 【VIETCOMBANK】TK cua ban vua dang nhap tu thiet bi la. De bao mat, xac nhan ngay: http://vcb-secure-login.net/verify hoac goi 1800.9999. Ko xac nhan trong 15p TK se bi khoa!
+> 【VIETCOMBANK】TK cua ban vua dang nhap tu thiet bi la. De bao mat, xac nhan ngay: <http://vcb-secure-login.net/verify> hoac goi 1800.9999. Ko xac nhan trong 15p TK se bi khoa!
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -1351,15 +1355,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** SMS giả VCB với link, hotline lạ và hạn mười lăm phút.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 79/100 -- split=train row_index=1685 seed_id=seed_3f61921e9655
 
-> ⚠️ MBBANK THÔNG BÁO KHẨN: App MBBank của bạn cần cập nhật bảo mật bắt buộc trước 23:59 hôm nay. Nếu ko cập nhật, tài khoản sẽ bị hạn chế giao dịch. Tải bản cập nhật tại đây: https://mbbank-update-2024.pages.dev/download . Nhập Smart OTP để hoàn tất xác thực. Bỏ qua tin nhắn này nếu bạn đã cập nhật.
+> ⚠️ MBBANK THÔNG BÁO KHẨN: App MBBank của bạn cần cập nhật bảo mật bắt buộc trước 23:59 hôm nay. Nếu ko cập nhật, tài khoản sẽ bị hạn chế giao dịch. Tải bản cập nhật tại đây: <https://mbbank-update-2024.pages.dev/download> . Nhập Smart OTP để hoàn tất xác thực. Bỏ qua tin nhắn này nếu bạn đã cập nhật.
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -1368,22 +1372,22 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Trang tải giả và yêu cầu Smart OTP trước hạn tạo high-risk.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 80/100 -- split=train row_index=1690 seed_id=seed_3f61921e9655
 
 > Kính gửi Quý khách hàng của BIDV,
-> 
+>
 > Chúng tôi phát hiện thiết bị lạ vừa đăng nhập Smart OTP của bạn từ IP: 103.45.67.89 (Hà Nội). Nếu không phải bạn thực hiện, hãy truy cập ngay:
-> 
-> 🔗 https://bidv.com.vn-dangnhap-baomat.info/lock
-> 
+>
+> 🔗 <https://bidv.com.vn-dangnhap-baomat.info/lock>
+>
 > để khóa thiết bị và bảo vệ account. Sau 30 phút nếu không xác nhận, hệ thống sẽ tự động chuyển tiền theo lệnh đã đặt.
-> 
+>
 > Trân trọng,
 > Bộ phận An ninh mạng BIDV
 > Hotline: 1900.8877
@@ -1395,9 +1399,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=4
 - **Judge reason:** Logic tự chuyển tiền hơi dựng; tên miền giả và hotline bất thường vẫn rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1416,9 +1420,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=3
 - **Judge reason:** Đuôi ak hơi gượng; cảnh báo không chia sẻ OTP là span lành tính.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1433,9 +1437,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** CTV giả xin dữ liệu thẻ cùng OTP và dùng khan hiếm giả.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1449,16 +1453,16 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **XAI explanation:** Giả mạo HDBank với domain '.io' — không phải tên miền ngân hàng Việt Nam (.com.vn). Dùng số liệu cụ thể '5 lần' và countdown '10 phút' để tạo urgency tối đa. Tham số URL 'id=VN2024' tạo cảm giác cá nhân hóa.
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Login thất bại, tên miền io và hạn mười phút đúng phishing.
+x
+**Your verdict:** x[x ] PASS   [ ] FAIL
 
-**Your verdict:** [ ] PASS   [ ] FAIL
-
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 84/100 -- split=train row_index=1710 seed_id=seed_3f61921e9655
 
-> Chào anh/chị, em là Nguyễn Thị Lan - nhân viên CSKH Techcombank chi nhánh Hà Nội ạ. Hiện tại hệ thống ghi nhận tài khoản của anh/chị đang bị tạm khóa do phát hiện giao dịch đáng ngờ trị giá 47.500.000đ. Để mở khóa ngay, anh/chị vui lòng cung cấp: Số thẻ, ngày hết hạn, và mã OTP được gửi về SĐT đã đăng ký. Hoặc truy cập link xác thực: https://techcom-bank-vn.info/unlock-account để tự xử lý. Nếu không xác thực trong 15 phút tài khoản sẽ bị đóng băng vĩnh viễn. Xin cảm ơn anh/chị đã sử dụng dịch vụ Techcombank!
+> Chào anh/chị, em là Nguyễn Thị Lan - nhân viên CSKH Techcombank chi nhánh Hà Nội ạ. Hiện tại hệ thống ghi nhận tài khoản của anh/chị đang bị tạm khóa do phát hiện giao dịch đáng ngờ trị giá 47.500.000đ. Để mở khóa ngay, anh/chị vui lòng cung cấp: Số thẻ, ngày hết hạn, và mã OTP được gửi về SĐT đã đăng ký. Hoặc truy cập link xác thực: <https://techcom-bank-vn.info/unlock-account> để tự xử lý. Nếu không xác thực trong 15 phút tài khoản sẽ bị đóng băng vĩnh viễn. Xin cảm ơn anh/chị đã sử dụng dịch vụ Techcombank!
 
 - **Label:** bank_impersonation
 - **Risk tier:** high-risk
@@ -1467,9 +1471,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Persona Techcombank xin thẻ, OTP và dẫn URL giả trước hạn.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1484,9 +1488,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=2, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=4
 - **Judge reason:** Giả người thân xin viện phí không thuộc task; vài span có thể là yêu cầu thật.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1501,9 +1505,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=3, label_correctness=2, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Đe đuổi học hơi cường điệu; bản chất là acc phụ mạo danh xin tiền.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1520,7 +1524,7 @@ Instructions: for each example below, read the message text and the Codex judge'
 
 **Your verdict:** [ ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**good message
 
 ---
 
@@ -1535,9 +1539,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=2, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Acc Zalo mới xin viện phí là mạo danh xã hội.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**good
 
 ---
 
@@ -1552,9 +1556,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=2, code_switch_naturalness=3, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Ghi 2.5k rồi giải thích hai triệu rưỡi rất gượng; không có task.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**trash dataset
 
 ---
 
@@ -1569,9 +1573,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=2, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Tài khoản mới xin viện phí là mạo danh bạn bè, không task.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**scam good
 
 ---
 
@@ -1586,9 +1590,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=2, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Bạn ở nước ngoài xin cọc khách sạn thuộc social engineering.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**good scam
 
 ---
 
@@ -1603,9 +1607,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=4, label_correctness=2, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Giả mẹ dùng Zalo người khác xin viện phí là social engineering.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**good scam
 
 ---
 
@@ -1620,15 +1624,15 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=4, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Giao dịch lớn và trang nhập OTP hủy lệnh là high-risk rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ x] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Example 94/100 -- split=val row_index=89 seed_id=seed_af21a1369d7e
 
-> Xin chào, tôi là admin của nhóm Shopee trên Facebook. Chúng tôi đang tìm người để đánh giá 5 sao cho sản phẩm sau khi mua. Bạn sẽ được hoàn lại 100% tiền mua hàng và nhận thêm 20% hoa hồng. Hãy click vào link này để đặt hàng: http://fake-shop.com. Đặt hàng trước 12h hôm nay để nhận ưu đãi nha!
+> Xin chào, tôi là admin của nhóm Shopee trên Facebook. Chúng tôi đang tìm người để đánh giá 5 sao cho sản phẩm sau khi mua. Bạn sẽ được hoàn lại 100% tiền mua hàng và nhận thêm 20% hoa hồng. Hãy click vào link này để đặt hàng: <http://fake-shop.com>. Đặt hàng trước 12h hôm nay để nhận ưu đãi nha!
 
 - **Label:** task_scam
 - **Risk tier:** suspicious
@@ -1637,9 +1641,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Placeholder/fake token makes this synthetic rather than a real message.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1654,9 +1658,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=2, label_correctness=1, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge reason:** Placeholder makes this synthetic; phishing is mislabeled task scam and warrants high-risk.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**terrible dataset
 
 ---
 
@@ -1671,9 +1675,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=4, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=4, suspicious_span_accuracy=5
 - **Judge reason:** Vai mod, đơn ảo và thanh toán OTP đều liên quan trực tiếp.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:** seems to be re-fried dataset as above
 
 ---
 
@@ -1688,9 +1692,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** FAIL -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge reason:** Mời tải bản ứng dụng mới không thuộc tier suspicious.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [ x] FAIL
 
-**Notes:** 
+**Notes:**beign
 
 ---
 
@@ -1705,9 +1709,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=5, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** OTP đăng nhập có cảnh báo không chia sẻ và liên hệ khi lạ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [x ] PASS   [ ] FAIL
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1722,9 +1726,9 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Câu ghép gượng nhưng lệnh tiền công ty và hạn phút rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**narrator
 
 ---
 
@@ -1739,8 +1743,8 @@ Instructions: for each example below, read the message text and the Codex judge'
 - **Codex judge verdict:** PASS -- realism=3, label_correctness=5, code_switch_naturalness=5, risk_tier_correctness=5, suspicious_span_accuracy=5
 - **Judge reason:** Cấu trúc ghép nhưng QR thiết bị lạ và cuộc họp gấp rõ.
 
-**Your verdict:** [ ] PASS   [ ] FAIL
+**Your verdict:** [ ] PASS   [x ] FAIL
 
-**Notes:** 
+**Notes:**narrator
 
 ---
