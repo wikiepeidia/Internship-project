@@ -1,27 +1,15 @@
-"""One-off repair for the zalo_social_engineering narrator-scaffold defect
-(Phase 39, discovered via the independent Codex judge pass).
+"""Historical first-pass quote extraction for the Phase 39 Zalo defect.
 
-The 300-row zalo_social_engineering batch generated in the 260808-otp quick
-task wrapped every message in third-person narration ("Tin Zalo tu X:",
-"Mot tai khoan Zalo moi tu xung X nhan:", ...) around a quoted message,
-instead of presenting the message text directly like every other class in
-the corpus. The independent Codex judge flagged this systematically: 195/300
-rows failed outright on `realism` (score 2/5, "Narrator scaffold describes a
-scenario rather than an authentic Zalo message"), and manual inspection
-confirmed the pattern is present in all 300 rows, not just the failing ones.
+This helper records the mechanical repair originally applied after the judge
+found an outer narrator scaffold. Later full-corpus review proved that the
+quoted content itself was still third-person scenario prose, so quote removal
+was not a sufficient realism repair. The canonical fix is now
+``src.data_pipeline.reconstruct_zalo_direct_catalog``: it validates the exact
+legacy formulas and replaces them with locally authored direct messages.
 
-This module extracts the quoted message content (text between Vietnamese
-curly quotes, U+201C/U+201D) and replaces `text` with it, dropping the
-narrator scaffold. This is purely mechanical -- no new content is
-generated -- and was chosen over sending the batch back to Codex because it
-tested at 100% coverage (all 300 rows have extractable quotes) with zero
-existing suspicious_spans broken by the rewrite (verified against the real
-merged judge output before this module was written).
-
-Rows outside zalo_social_engineering, and any zalo row where extraction
-would fail or produce non-schema-valid text, are left untouched -- this
-module never silently drops a row; an unrepairable zalo row is reported and
-kept with its original text.
+The functions remain for audit reproducibility and their focused regression
+tests. They must not be treated as a way to produce the current canonical
+Zalo corpus.
 """
 
 from __future__ import annotations

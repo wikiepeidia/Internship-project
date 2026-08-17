@@ -1,10 +1,14 @@
-"""Materialize the locally authored Zalo recovery corpus without providers.
+"""Materialize the locally authored Zalo direct-message corpus without providers.
 
 This module intentionally has no provider setup path.  It feeds the static
 catalog's raw JSON-array-shaped rows through ``TieredGenerator``'s existing
 finalization method using an uninitialized instance, which reuses the exact
 label/risk/source/seed/schema behavior without reading settings, API keys, or
 creating an HTTP client.
+
+The 2026-08-17 content is a semantic reconstruction from the 60 frozen roots.
+It does not claim to recover any original direct wording from the defective
+2026-08-08 narrator catalog.
 """
 
 from __future__ import annotations
@@ -12,14 +16,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
 from src.data_pipeline.generation.generator import OPENAI_COMPATIBLE_SOURCE, TieredGenerator
+from src.data_pipeline.generation.zalo_direct_actions import DIRECT_ACTIONS
 from src.data_pipeline.generation.zalo_codex_catalog import (
     AUTHORING_RUNTIME,
     CATALOG_VERSION,
+    SEED_NAMESPACE_VERSION,
     SCENARIO_ROOTS,
     ScenarioRoot,
     raw_variants_for_root,
@@ -44,12 +51,30 @@ DATASET_FIELDS = {
 }
 BUILD_METADATA: dict[str, Any] = {
     "catalog_version": CATALOG_VERSION,
+    "seed_namespace_version": SEED_NAMESPACE_VERSION,
     "authoring_runtime": AUTHORING_RUNTIME,
     "provider_contract": "openai-compatible",
     "schema_source": OPENAI_COMPATIBLE_SOURCE,
-    "generation_mode": "offline-static-catalog",
+    "generation_mode": "offline-static-direct-catalog",
+    "wording_status": "new-semantic-reconstruction-not-verbatim-recovery",
     "external_api_calls": 0,
 }
+
+FORBIDDEN_MESSAGE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("narrator:recipient-was-told", re.compile(r"\b(?:người dùng|người nhận|ứng viên|hành khách|cư dân|chủ hộ|người lao động)\s+được\s+(?:báo|thông báo)\b", re.IGNORECASE)),
+    ("narrator:sender-says", re.compile(r"\b(?:người gửi|kẻ gửi)\s+(?:nói|tạo|phát|dùng|yêu cầu)\b", re.IGNORECASE)),
+    ("narrator:account-claims", re.compile(r"\b(?:một\s+)?tài khoản(?:\s+Zalo)?\s+(?:mới\s+)?tự xưng\b", re.IGNORECASE)),
+    ("narrator:outer-scaffold", re.compile(r"\b(?:tin Zalo từ|cuộc gọi Zalo chỉ|trong nhóm Zalo|được chép lại|tài khoản mang tên)\b", re.IGNORECASE)),
+    ("meta:self-disclosure", re.compile(r"\b(?:giả|kẻ lừa đảo|nạn nhân)\b", re.IGNORECASE)),
+    ("placeholder:brackets", re.compile(r"[\[\]{}<>]")),
+    ("broken:lowercase-action-after-period", re.compile(r"\.\s+(?:quét|chuyển|đặt|nộp|thanh toán|bật|đăng nhập|gửi|cài|tải|mở|cung cấp|điền|đóng|trả|góp|nhập)\b")),
+)
+FORBIDDEN_DIRECT_ACTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("analyst:unknown-target", re.compile(r"\b(?:lạ|không thuộc)\b", re.IGNORECASE)),
+    ("analyst:off-store", re.compile(r"\bngoài kho chính thức\b", re.IGNORECASE)),
+    ("third-person:support", re.compile(r"\bcho nhân viên hỗ trợ\b", re.IGNORECASE)),
+    ("third-person:personal-account", re.compile(r"\b(?:của người quen|của điều phối viên|của môi giới|tài khoản nhân viên)\b", re.IGNORECASE)),
+)
 
 
 class CatalogValidationError(ValueError):
@@ -60,7 +85,7 @@ def seed_record_for_root(root: ScenarioRoot) -> SeedRecord:
     """Build the immutable anchor used by the existing seed derivation."""
     return SeedRecord(
         text=f"Zalo semantic root: {root.anchor}",
-        source_url=f"urn:vnphish:{CATALOG_VERSION}:{root.anchor}",
+        source_url=f"urn:vnphish:{SEED_NAMESPACE_VERSION}:{root.anchor}",
         scrape_timestamp="2026-08-08T00:00:00Z",
         raw_label_hint=TARGET_LABEL,
     )
@@ -71,8 +96,8 @@ def _normalized_key(text: str) -> str:
 
 
 def _validate_root_catalog(roots: tuple[ScenarioRoot, ...]) -> None:
-    if len(roots) < MIN_ROOTS:
-        raise CatalogValidationError(f"catalog has {len(roots)} roots; need at least {MIN_ROOTS}")
+    if len(roots) != MIN_ROOTS:
+        raise CatalogValidationError(f"catalog has {len(roots)} roots; need exactly {MIN_ROOTS}")
 
     anchors = [root.anchor for root in roots]
     if len(set(anchors)) != len(anchors):
@@ -85,6 +110,35 @@ def _validate_root_catalog(roots: tuple[ScenarioRoot, ...]) -> None:
     for root in roots:
         if not root.anchor or not all(part.strip() for part in root.semantic_signature):
             raise CatalogValidationError(f"root {root.anchor!r} has an empty semantic dimension")
+    anchors = set(anchors)
+    if set(DIRECT_ACTIONS) != anchors:
+        raise CatalogValidationError("direct-action catalog does not exactly cover the 60 roots")
+    if len(set(DIRECT_ACTIONS.values())) != MIN_ROOTS:
+        raise CatalogValidationError("direct-action catalog must contain 60 distinct actions")
+    for anchor, action in DIRECT_ACTIONS.items():
+        if not action or action != action.strip() or action[0] != action[0].lower():
+            raise CatalogValidationError(f"root {anchor!r} has a malformed direct action")
+        for name, pattern in FORBIDDEN_DIRECT_ACTION_PATTERNS:
+            if pattern.search(action):
+                raise CatalogValidationError(
+                    f"root {anchor!r} direct action violates gate {name!r}: {action!r}"
+                )
+
+
+def validate_direct_message(text: str, *, root: ScenarioRoot | None = None) -> None:
+    """Reject narrator/meta prose, placeholders, and known legacy root wording."""
+    for name, pattern in FORBIDDEN_MESSAGE_PATTERNS:
+        if pattern.search(text):
+            raise CatalogValidationError(f"message violates direct-message gate {name!r}: {text!r}")
+
+    roots = (root,) if root is not None else SCENARIO_ROOTS
+    normalized = _normalized_key(text)
+    for candidate_root in roots:
+        relationship = _normalized_key(candidate_root.relationship)
+        if relationship and relationship in normalized:
+            raise CatalogValidationError(
+                f"message copies legacy narrator relationship for root {candidate_root.anchor!r}"
+            )
 
 
 def validate_records(
@@ -111,6 +165,7 @@ def validate_records(
             raise CatalogValidationError(f"row {index} has dishonest source {payload['source']!r}")
         if len(payload["xai_explanation"].strip()) < 20:
             raise CatalogValidationError(f"row {index} has a short explanation")
+        validate_direct_message(payload["text"])
         spans = payload["suspicious_spans"]
         if not spans or any(not span or span not in payload["text"] for span in spans):
             raise CatalogValidationError(f"row {index} has an invalid evidence span")
@@ -132,6 +187,15 @@ def validate_records(
                 )
 
     group_counts = Counter(record["seed_id"] for record in validated)
+    if (
+        min_seed_groups == MIN_ROOTS
+        and min_variants_per_group == MIN_VARIANTS_PER_ROOT
+        and (len(group_counts) != MIN_ROOTS or set(group_counts.values()) != {MIN_VARIANTS_PER_ROOT})
+    ):
+        raise CatalogValidationError(
+            f"catalog must contain exactly {MIN_ROOTS} seed groups x "
+            f"{MIN_VARIANTS_PER_ROOT} variants; got {dict(group_counts)}"
+        )
     if len(group_counts) < min_seed_groups:
         raise CatalogValidationError(
             f"corpus has {len(group_counts)} seed groups; need at least {min_seed_groups}"
@@ -152,12 +216,20 @@ def materialize_catalog(
 
     for root in roots:
         raw_records = raw_variants_for_root(root)
-        if len(raw_records) < MIN_VARIANTS_PER_ROOT:
+        if len(raw_records) != MIN_VARIANTS_PER_ROOT:
             raise CatalogValidationError(
-                f"root {root.anchor!r} has {len(raw_records)} variants; need {MIN_VARIANTS_PER_ROOT}"
+                f"root {root.anchor!r} has {len(raw_records)} variants; need exactly "
+                f"{MIN_VARIANTS_PER_ROOT}"
             )
         if any(raw.get("label") != TARGET_LABEL for raw in raw_records):
             raise CatalogValidationError(f"root {root.anchor!r} contains a wrong raw label")
+        for raw in raw_records:
+            validate_direct_message(raw["text"], root=root)
+            direct_action = DIRECT_ACTIONS[root.anchor]
+            if raw["text"].count(direct_action) != 1:
+                raise CatalogValidationError(
+                    f"root {root.anchor!r} variant must contain its direct action exactly once"
+                )
         seed = seed_record_for_root(root)
         records.extend(
             finalizer._finalize_records(
@@ -217,4 +289,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

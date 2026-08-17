@@ -3,8 +3,11 @@
 The catalog deliberately stores semantic roots rather than cosmetic prompts.
 Each root names the relationship, impersonated persona, pretext, manipulation
 mechanism, requested action, and likely consequence that define one lineage.
-The five renderings below are variants of that lineage and therefore always
-share one seed identifier when finalized by :mod:`zalo_codex_recovery`.
+The five direct-message renderings live in dedicated static catalog modules.
+They are new semantic reconstructions authored locally from each root, not
+claimed recoveries of wording that never existed. Variants of one lineage
+therefore always share one seed identifier when finalized by
+:mod:`zalo_codex_recovery`.
 """
 
 from __future__ import annotations
@@ -12,8 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.data_pipeline.generation.zalo_direct_actions import DIRECT_ACTIONS
+from src.data_pipeline.generation.zalo_direct_messages import DIRECT_MESSAGE_TEMPLATES
 
-CATALOG_VERSION = "zalo-codex-2026-08-08"
+
+CATALOG_VERSION = "zalo-codex-direct-2026-08-17"
+SEED_NAMESPACE_VERSION = "zalo-codex-2026-08-08"
 AUTHORING_RUNTIME = "gpt-5.6-sol-codex-session"
 
 
@@ -107,24 +114,30 @@ SCENARIO_ROOTS: tuple[ScenarioRoot, ...] = (
 
 
 def raw_variants_for_root(root: ScenarioRoot) -> list[dict[str, Any]]:
-    """Return five deliberately different message formats for one root."""
-    texts = (
-        f"Tin Zalo từ {root.persona}: “{root.relationship}. {root.pretext}. {root.requested_action}. {root.urgency}.”",
-        f"Một tài khoản Zalo mới tự xưng {root.persona} nhắn: “{root.relationship}.” Người này nói {root.mechanism}, sau đó yêu cầu “{root.requested_action}” và dặn “{root.urgency}”.",
-        f"Cuộc gọi Zalo chỉ kéo dài vài giây. {root.persona} gửi tiếp: “{root.pretext}. {root.relationship}. {root.requested_action}; {root.urgency}.”",
-        f"Trong nhóm Zalo, tài khoản mang tên {root.persona} đăng “{root.relationship}. {root.pretext}”. Tin nhắn riêng sau đó ghi “{root.requested_action}” và “{root.urgency}”.",
-        f"Tin nhắn thoại trên Zalo được chép lại: “{root.relationship}. Người gửi nói {root.mechanism}. {root.pretext}. {root.requested_action}. {root.urgency}.”",
+    """Return five explicitly authored direct messages for one semantic root."""
+    try:
+        templates = DIRECT_MESSAGE_TEMPLATES[root.anchor]
+    except KeyError as exc:
+        raise ValueError(f"no direct-message templates for root {root.anchor!r}") from exc
+
+    try:
+        direct_action = DIRECT_ACTIONS[root.anchor]
+    except KeyError as exc:
+        raise ValueError(f"no sender-natural direct action for root {root.anchor!r}") from exc
+
+    texts = tuple(
+        template.format(requested_action=direct_action) for template in templates
     )
     explanation = (
-        f"Tài khoản tự xưng {root.persona} lợi dụng việc {root.pretext.casefold()} và "
-        f"{root.mechanism} để yêu cầu {root.requested_action}, có thể dẫn đến {root.consequence}."
+        f"Tin nhắn tạo áp lực xử lý gấp và yêu cầu {direct_action}, "
+        f"có thể dẫn đến {root.consequence}."
     )
     return [
         {
             "text": text,
             "label": "zalo_social_engineering",
             "risk_tier": "high-risk",
-            "suspicious_spans": [root.requested_action],
+            "suspicious_spans": [direct_action],
             "xai_explanation": explanation,
         }
         for text in texts
