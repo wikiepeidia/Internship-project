@@ -38,7 +38,7 @@ progress:
 Phase: 39 (Independent Quality Re-Judge) — EXECUTING
 Plan: 1 of 1
 Status: Phase complete — ready for verification
-Last activity: 2026-08-09 — Completed quick task 260809-j21: generate Codex task-scam risk-tier repair judgments
+Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phase 39 Zalo data-quality correction
 
 ## Performance Metrics (Baseline Targets)
 
@@ -277,6 +277,7 @@ Last activity: 2026-08-09 — Completed quick task 260809-j21: generate Codex ta
 | 2026-08-06 | `260806-ubr` audit and acquire crawlable real Vietnamese scam data | Complete. Audited 23 endpoints across 8 source families and froze 94 net-new unlabeled real-public records (44 publisher-asserted message examples plus 50 PhishVN indicators); 51 focused tests and offline manifest verification passed. Implementation commit `4b7613c`; [artifacts](./quick/260806-ubr-audit-and-acquire-crawlable-real-vietnam/). |
 | 2026-08-08 | `260808-otp` generate leakage-safe Zalo replacement data | Complete. Generated 300 provider-free rows across 60 independent seed groups, rebuilt the 2,421-row v3 corpus with Zalo support `190/40/70`, eliminated cross-split seed/span/normalized/0.95-lexical leakage, and passed 161 data-pipeline tests. Implementation commits `db74e66` and `8b5336c`; [artifacts](./quick/260808-otp-generate-a-leakage-safe-replacement-data/). |
 | 2026-08-09 | `260809-j21` generate Codex task-scam risk-tier repair judgments | Complete. Produced 187 ordered judgments: 184 `suspicious` → `high-risk`, 3 kept `suspicious`; 14 focused tests and non-mutating temporary-copy application passed with all locked hashes unchanged and no live merge; [artifacts](./quick/260809-j21-generate-codex-task-scam-risk-tier-repai/). |
+| 2026-08-17 | `260817-ssd` document the Phase 39 Zalo data-quality correction | Complete. Recorded the manifest-backed detection-to-reconstruction chronology and added a Chapter III disclosure separating the corrected 2,403-row retraining snapshot from historical model results. Content commit `3b121e9`; [artifacts](./quick/260817-ssd-create-a-timestamped-phase-39-data-quali/). |
 
 ## Operator Next Steps
 
