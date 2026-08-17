@@ -75,7 +75,7 @@
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [ ] **Phase 39: Independent Quality Re-Judge** - Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex) plus a genuine manual 100-example human check; retire the t-test.
-- [ ] **Phase 40: Multi-Model Training Evidence** - Train and log real LoRA, QLoRA, and PhoBERT runs on the repaired corpus, producing genuine loss curves and side-by-side comparisons.
+- [ ] **Phase 40: Multi-Model Training Evidence** - Measure bounded RTX 5050 LoRA/QLoRA probes, then train fresh matched LoRA, QLoRA, and PhoBERT runs with auditable Colab logs and genuine curves.
 - [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
@@ -890,28 +890,31 @@ Plans:
 ### Phase 40: Multi-Model Training Evidence
 
 **Goal**: Three real, independently trained models exist with genuine logged training curves — answering "why QLoRA and not just LoRA" and "why Qwen and not PhoBERT" with measured data instead of literature citation.
-**Depends on**: Phase 38 (parallel-capable with Phase 39 — training does not depend on the quality re-judge finishing first)
+**Depends on**: Phase 39 (the final-corpus human check and the canonical 2,403-row manifest must be frozen before any training run)
 **Requirements**: TRAIN-01, TRAIN-02, TRAIN-03, TRAIN-04, TRAIN-05, TRAIN-06
 **Success Criteria** (what must be TRUE):
 
-1. A real (non-quantized) LoRA fine-tune on the repaired corpus completes on A100 compute, and a saved loss-vs-step training log/artifact exists at a stated path.
-2. A fresh real QLoRA fine-tune on the same repaired corpus completes with the same logging discipline, and a saved loss-vs-step training log/artifact exists at a stated path.
-3. A side-by-side LoRA-vs-QLoRA comparison (overlaid or paired loss curves, final metrics, hardware/VRAM footprint) is produced directly from the two real logs.
-4. A real PhoBERT classification-head baseline trains on the repaired corpus, and a saved loss-vs-step (or loss-vs-epoch) training curve artifact exists at a stated path.
-5. A PhoBERT-vs-Qwen/QLoRA comparison exists with real measured numbers, reported honestly regardless of which model scores higher.
-6. Every graph produced in this phase traces to a saved training log file checked into or referenced from the repo — none are hand-drawn or illustrative placeholders.
+1. The input contract is frozen to the canonical manifest: 1,900 training rows, 252 validation rows, and 251 held-out test rows. Phase 40 verifies the three split SHA-256 values before work begins and never reads the test rows for training, tuning, checkpoint selection, or graph generation.
+2. Bounded LoRA and QLoRA probes run on the RTX 5050 for 30–50 post-warm-up optimizer steps where the mode can start. They record the real outcome (success or genuine failure), median steady-state step time, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead. The local ETA is explicitly an extrapolation, and all probe adapters are discarded rather than resumed on Colab.
+3. Fresh full Qwen LoRA and QLoRA runs start from the same pinned base-model revision on the same Colab accelerator type where available. Dataset hashes/order, random seed, maximum sequence length, effective batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence are identical; base-weight quantization is the intended experimental difference. If the accelerator types differ, wall-clock speed is reported as hardware-confounded rather than as a direct algorithm comparison.
+4. QLoRA fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`; missing CUDA, `bitsandbytes`, or `BitsAndBytesConfig` must stop the run instead of silently producing ordinary LoRA.
+5. A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data. QLoRA is not applied to PhoBERT merely to create another quantized run.
+6. Side-by-side LoRA-vs-QLoRA and PhoBERT-vs-Qwen comparisons use training curves and validation metrics only in this phase, and report results honestly regardless of which model scores higher.
+7. Each run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. A Git commit identifier is not required in this bundle.
+8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
 **Plans**: TBD
 
 ### Phase 41: Held-Out Evaluation Discipline
 
-**Goal**: The reserved, untouched test split is evaluated exactly once, after all three models are finalized, producing one honest final three-way comparison.
+**Goal**: The reserved test split is evaluated exactly once, after all three models are finalized, producing one honest final three-way comparison before any optional all-data deployment fit.
 **Depends on**: Phase 40 (all three trainings must be complete — this phase evaluates them together, once)
 **Requirements**: EVAL-08, EVAL-09
 **Success Criteria** (what must be TRUE):
 
-1. The re-split test partition from Phase 38's manifest is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
+1. The current canonical 251-row test partition (SHA-256 `019aec39979429ca8005dd299d2ddaf7d3ecfdade259eecc4d3129adaed25938`) is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
 2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for all three models plainly, including an explicit, unhedged statement if PhoBERT or LoRA outscores the deployed QLoRA system on any metric.
+3. Only after the held-out comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,403 rows. That model is labeled a post-evaluation all-data fit, kept separate from the evaluated checkpoints, and receives no claim of an unbiased test score unless a new external holdout is obtained.
 
 **Plans**: TBD
 

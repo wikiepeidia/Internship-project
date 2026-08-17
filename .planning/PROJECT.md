@@ -33,9 +33,9 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - [ ] Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family: `.planning/codex-judge-instructions.md` is the ready-to-paste Codex CLI spec (batched, structured JSONL output, joinable back to source rows via `row_index`/`seed_id`) — plus a genuine manual 100-example human check.
 - [ ] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
-- [ ] Train and graph a real LoRA vs. QLoRA comparison on the repaired corpus.
-- [ ] Train and graph a real PhoBERT classification-head baseline on the repaired corpus.
-- [ ] Run the reserved 413-row test split exactly once, at the end, across all three trained models.
+- [ ] Run bounded LoRA/QLoRA probes on the RTX 5050 for honest feasibility and ETA measurements, then train and graph fresh matched full LoRA/QLoRA runs on Colab.
+- [ ] Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data.
+- [ ] Run the current reserved 251-row test split exactly once, at the end, across all three trained models; only afterward may a separate deployment model use all 2,403 rows.
 - [ ] Overhaul the report in an authentic USTH-student voice, chapter by chapter, once the reference report arrives.
 - [ ] Overhaul the slides around real pipeline stages with real graphs and progressive reveals.
 - [ ] Guided code-comment cleanup as defense-prep, sequenced last.
@@ -81,9 +81,9 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex, batched, structured JSONL output) plus a genuine manual 100-example human check by a Vietnamese-fluent reviewer.
 - Cut the t-test (too statistically sophisticated to be a plausible undergraduate's own idea); replace with plain descriptive quality stats plus the new manual-check results.
 - Restore the genuine `task_scam` 0.44→0.871 recall-recovery story into the report — real, evidenced, and previously scrubbed by an earlier guardrail rule that (in hindsight) made the report read as suspiciously frictionless.
-- Train and graph a real LoRA-vs-QLoRA comparison on the repaired corpus, on A100 compute — answers "why QLoRA and not just LoRA" with data, not literature citation.
-- Train and graph a real PhoBERT classification-head baseline on the repaired corpus — answers "why Qwen not PhoBERT" with a measured number, not just an architectural argument. Any result (including PhoBERT or LoRA outscoring the shipped system on raw classification) is reported honestly; the thesis's claim was never "Qwen is the best classifier."
-- Reserve the untouched 413-row test split; use it exactly once, at the end, across all three trained models.
+- Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then train fresh matched full LoRA and QLoRA runs on the same Colab accelerator type where available. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation.
+- Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data — answering "why Qwen not PhoBERT" with a measured number, not just an architectural argument. Any result (including PhoBERT or LoRA outscoring the shipped system on raw classification) is reported honestly; the thesis's claim was never "Qwen is the best classifier."
+- Reserve the current 251-row test split for one final three-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,403 rows without claiming an unbiased test score.
 - Overhaul the report chapter by chapter in an authentic USTH-student voice — student-drafted passages that Claude tightens without altering structure or word choice — gated on a real passed-student reference report the user is sourcing. Derive `WRITING_GUARDRAILS_REPORT.md` from that reference once it arrives.
 - Overhaul the slides around the real pipeline stages (get data → train → GGUF → eval) with real graphs from the retrains above, using progressive `\pause` reveals; slides come off LOCKED status for this milestone only.
 - Guided, file-by-file code-comment cleanup as defense-prep: Claude walks the student through each file, the student writes their own understanding back in as comments — building both a clean codebase and a personal cheatsheet. Sequenced last, right before the retake.
@@ -226,4 +226,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-08-06 after starting v7.0 Retake Redemption (data repair, LoRA/QLoRA/PhoBERT retrain-with-graphs, report/slide overhaul, and defense-prep code cleanup scoped)
+Last updated: 2026-08-17 after locking the Phase 40 RTX 5050 probe plus matched Colab training protocol and the Phase 41 post-evaluation all-data-fit boundary

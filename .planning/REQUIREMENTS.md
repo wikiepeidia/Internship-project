@@ -652,17 +652,17 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Real Multi-Model Training Evidence
 
-- [ ] **TRAIN-01**: Real LoRA (non-quantized) fine-tune on the repaired corpus, full logged training curve saved as a real artifact.
-- [ ] **TRAIN-02**: Fresh real QLoRA fine-tune on the same repaired corpus, same logging discipline.
-- [ ] **TRAIN-03**: LoRA vs. QLoRA compared side-by-side (loss curves, final metrics, hardware footprint) in the report.
-- [ ] **TRAIN-04**: Real PhoBERT classification-head baseline trained on the repaired corpus, logged training curve.
+- [ ] **TRAIN-01**: A bounded non-quantized LoRA probe on the RTX 5050 records genuine feasibility, steady-state timing, ETA, VRAM, and throughput; its adapter is discarded, then a fresh full LoRA run trains on Colab with a retained raw log and curve.
+- [ ] **TRAIN-02**: A bounded RTX 5050 QLoRA probe records the same measurements; its adapter is discarded, then a fresh full 4-bit QLoRA run trains on matched Colab hardware and fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`.
+- [ ] **TRAIN-03**: Full Qwen LoRA and QLoRA runs use identical pinned data/order, base revision, seed, sequence length, effective batch, epochs, optimizer/schedule, and evaluation cadence, differing intentionally in base-weight quantization; comparisons include curves, validation metrics, VRAM, and throughput, with hardware-confounded wall time identified when GPU types differ.
+- [ ] **TRAIN-04**: A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data with a logged curve; QLoRA is not added to PhoBERT solely for novelty.
 - [ ] **TRAIN-05**: PhoBERT vs. Qwen/QLoRA compared with real measured numbers, reported honestly regardless of outcome.
-- [ ] **TRAIN-06**: All new graphs sourced from saved training logs (not illustrative placeholders) in report and slides.
+- [ ] **TRAIN-06**: Every graph is generated from retained raw logs, and every run keeps dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped logs, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and validation metrics; no Git commit identifier is required.
 
 ### Held-Out Evaluation Discipline
 
-- [ ] **EVAL-08**: The re-split test partition evaluated exactly once, after all three models are finalized, under identical conditions.
-- [ ] **EVAL-09**: Final held-out results for all three models reported plainly, including any case where PhoBERT or LoRA outscores the deployed system.
+- [ ] **EVAL-08**: The current canonical 251-row test partition is evaluated exactly once, after all three models are finalized, under identical conditions.
+- [ ] **EVAL-09**: Final held-out results for all three models are frozen and reported plainly, including any case where PhoBERT or LoRA outscores the deployed system; any later all-2,403-row deployment fit is separate and carries no unbiased test-score claim.
 
 ### Report Overhaul
 
