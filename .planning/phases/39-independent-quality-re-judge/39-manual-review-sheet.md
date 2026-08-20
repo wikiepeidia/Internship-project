@@ -1,27 +1,13 @@
 # Phase 39 Manual Quality Review Sheet
 
-Sample size: 100 (50 judge-pass, 50 judge-fail)
-Source corpus: 2421 merged rows (1079 judge-pass, 1342 judge-fail) -- this is
-the corpus state AT JUDGE TIME. It has since been repaired (see
-data/manifests/manifest.json's `zalo_narrator_scaffold_repair` entry): the
-zalo_social_engineering narrator-scaffold defect the judge itself flagged was
-fixed, and a downstream seed-cap re-enforcement trimmed a few more rows. The
-corpus is now 2343 rows.
+There are **4 class labels**:
 
-**14 of the 100 examples below are `zalo_social_engineering` rows** (seeds
-`f96fa34949cf`, `c1b8d1d09927` x2, `453f4123d6fb`, `a23c0ac8b044`,
-`a236e34e7773`, `8f5da072ee2b`, `e2773f4d633e`, `9040926c38f5`,
-`3ceb8f4aab76`, `a631c566f8db`, `8596de0b7d00`, `1ed2f91485cb`,
-`d8eb5e399eb2`) and show the OLD, pre-repair narrator-scaffold text (e.g.
-"Tin Zalo tu bac si: ..."), not the current corpus text. Their PASS/FAIL
-verdict below reflects what the judge saw at the time -- this is still valid
-for checking whether the judge's OWN call was reasonable, but if you go
-looking for these seeds in the live `data/splits/*.jsonl`, the text there
-has changed (or, for a small number, that specific near-duplicate variant
-was dropped entirely -- see the manifest for which).
+- `bank_impersonation`
+- `benign`
+- `task_scam`
+- `zalo_social_engineering`
 
-Instructions: for each example below, read the message text and the Codex judge's verdict, then mark Your verdict as PASS or FAIL based on your own independent read of whether the row is genuinely realistic Vietnamese text with a correctly matching label and risk tier -- not whether you agree with Codex's stated reason. Add any observations in the blank Notes field.
-
+Separately, there are **3 risk tiers**: `benign`, `suspicious`, and `high-risk`
 ---
 
 ## Example 1/100 -- split=test row_index=33 seed_id=seed_5efd416f05fd

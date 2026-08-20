@@ -1,13 +1,16 @@
 # Phase 39 task_scam Mislabel Triage Sheet
 
-Candidates: 324 still in the live corpus (5 more were flagged by the same judge pass but have since been removed by an unrelated repair step -- not included below, nothing to do for them).
-
-Instructions: each candidate below is currently labeled `task_scam`, but the independent Codex judge scored `label_correctness` below 3/5 -- meaning the judge believes the text actually reads as a different class (see its stated reason). For each row, decide: keep the task_scam label if you disagree with the judge, relabel to the class you believe is correct, or drop the row if it's neither cleanly task_scam nor any other defined class.
-
+There are 4 class labels:
+bank_impersonation
+benign
+task_scam
+zalo_social_engineering
+Separately, there are 3 risk tiers: benign, suspicious, and high-risk
 ---
+
 ## Candidate 1/324 -- split=train row_index=383 seed_id=seed_1a0c3ea29c59
 
-> Chào anh/chị, đây là thông báo từ Ngân hàng ACB. Vui lòng đăng nhập vào ứng dụng Internet Banking để xác nhận giao dịch gần đây. Nếu không, tài khoản của anh/chị có thể bị khóa. Link: http://acb-bank-login.com
+> Chào anh/chị, đây là thông báo từ Ngân hàng ACB. Vui lòng đăng nhập vào ứng dụng Internet Banking để xác nhận giao dịch gần đây. Nếu không, tài khoản của anh/chị có thể bị khóa. Link: <http://acb-bank-login.com>
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -15,9 +18,9 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 - **Judge scores:** realism=4, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge's stated reason:** This is bank impersonation phishing, not a task scam, and the direct login is high risk.
 
-**Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
+Decision: [ ] Keep as task_scam   [X] Relabel to: bank_impersonation   [ ] Drop row
 
-**Notes:** 
+Notes: Fake ACB login URL used to harvest credentials under threat of account suspension.
 
 ---
 
@@ -31,9 +34,9 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 - **Judge scores:** realism=2, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=3, suspicious_span_accuracy=5
 - **Judge's stated reason:** Bracketed placeholder formatting makes this read like generated text, not a real message.
 
-**Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
+Decision: [ ] Keep as task_scam   [ ] Relabel to: __________   [X] Drop row
 
-**Notes:** 
+Notes: Obvious synthetic artifact (bracketed placeholder URL syntax [http://...]). Alternatively relabel to government_impersonation_phishing if syntax is retained.
 
 ---
 
@@ -47,9 +50,9 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 - **Judge scores:** realism=2, label_correctness=1, code_switch_naturalness=4, risk_tier_correctness=2, suspicious_span_accuracy=5
 - **Judge's stated reason:** Literal fake naming exposes synthetic construction and undermines real-world plausibility.
 
-**Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
+Decision: [ ] Keep as task_scam   [ ] Relabel to: __________   [X] Drop row
 
-**Notes:** 
+Notes: Synthetic text artifact using literal placeholder vcb-fake.com and markdown brackets.
 
 ---
 
@@ -63,15 +66,15 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 - **Judge scores:** realism=2, label_correctness=1, code_switch_naturalness=5, risk_tier_correctness=1, suspicious_span_accuracy=5
 - **Judge's stated reason:** Literal fake naming exposes synthetic construction and undermines real-world plausibility.
 
-**Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
+Decision: [ ] Keep as task_scam   [ ] Relabel to: __________   [X] Drop row
 
-**Notes:** 
+Notes: Unrealistic synthetic placeholder domain fakeURL.com and bracketed formatting.
 
 ---
 
 ## Candidate 5/324 -- split=train row_index=390 seed_id=seed_61a36fbd3ece
 
-> Chào bạn, do giao dịch Internet Banking của bạn đang bị lỗi, vui lòng đăng nhập lại vào app của chúng tôi để xác nhận thông tin. Link: http://fakebank.com/login. Cảm ơn bạn!
+> Chào bạn, do giao dịch Internet Banking của bạn đang bị lỗi, vui lòng đăng nhập lại vào app của chúng tôi để xác nhận thông tin. Link: <http://fakebank.com/login>. Cảm ơn bạn!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -81,7 +84,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -97,7 +100,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -113,7 +116,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -129,7 +132,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -145,7 +148,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -161,7 +164,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -177,13 +180,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 12/324 -- split=train row_index=413 seed_id=seed_bfe4a6bbd16d
 
-> Chào bạn, đây là Ngân hàng ACB. Chúng tôi phát hiện có giao dịch đáng ngờ trên tài khoản của bạn. Vui lòng xác nhận OTP để bảo mật tài khoản: 123456. Link xác nhận: https://acb.vn/verify. Đừng bỏ qua, nha!
+> Chào bạn, đây là Ngân hàng ACB. Chúng tôi phát hiện có giao dịch đáng ngờ trên tài khoản của bạn. Vui lòng xác nhận OTP để bảo mật tài khoản: 123456. Link xác nhận: <https://acb.vn/verify>. Đừng bỏ qua, nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -193,7 +196,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -209,7 +212,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -225,13 +228,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 15/324 -- split=train row_index=419 seed_id=seed_d41d9b30081a
 
-> Chị T ơi, đây là anh Công an phường Trung Hòa, có thông tin khẩn về tài khoản Internet Banking của chị bị kẻ gian truy cập trái phép. Để bảo mật, vui lòng đăng nhập và thay đổi mật khẩu ngay tại link này: http://bit.ly/CongAnTrungHoa. Nếu ko dc, gọi lại cho em 0334567890 nha.
+> Chị T ơi, đây là anh Công an phường Trung Hòa, có thông tin khẩn về tài khoản Internet Banking của chị bị kẻ gian truy cập trái phép. Để bảo mật, vui lòng đăng nhập và thay đổi mật khẩu ngay tại link này: <http://bit.ly/CongAnTrungHoa>. Nếu ko dc, gọi lại cho em 0334567890 nha.
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -241,13 +244,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 16/324 -- split=train row_index=421 seed_id=seed_d87bcc048ee5
 
-> Chào bạn, tài khoản Internet Banking của bạn đang có dấu hiệu bất thường. Vui lòng click vào link này để xác nhận thông tin: http://vcbank.com.vn/verify. Nếu không, tài khoản sẽ bị khóa ngay lập tức. Cảm ơn!
+> Chào bạn, tài khoản Internet Banking của bạn đang có dấu hiệu bất thường. Vui lòng click vào link này để xác nhận thông tin: <http://vcbank.com.vn/verify>. Nếu không, tài khoản sẽ bị khóa ngay lập tức. Cảm ơn!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -257,13 +260,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 17/324 -- split=train row_index=422 seed_id=seed_db9fb32e2681
 
-> Chào anh, em là Thu từ bộ phận Hỗ trợ Khách hàng của Paychex. Chúng tôi phát hiện có hoạt động đáng ngờ trên tài khoản Internet Banking của anh. Vui lòng xác minh OTP để bảo vệ tài khoản: http://paychex.vn/verifyotp. Cảm ơn anh, nha!
+> Chào anh, em là Thu từ bộ phận Hỗ trợ Khách hàng của Paychex. Chúng tôi phát hiện có hoạt động đáng ngờ trên tài khoản Internet Banking của anh. Vui lòng xác minh OTP để bảo vệ tài khoản: <http://paychex.vn/verifyotp>. Cảm ơn anh, nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -273,7 +276,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -289,7 +292,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -305,7 +308,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -321,7 +324,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -337,13 +340,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 22/324 -- split=train row_index=436 seed_id=seed_61a36fbd3ece
 
-> Xin chào, tài khoản ngân hàng của bạn cần xác minh OTP. Vui lòng nhập mã OTP nhận được vào app của chúng tôi tại đây: http://verifyotp.com. Nếu ko thấy mã, gọi 0987654321. Thanks!
+> Xin chào, tài khoản ngân hàng của bạn cần xác minh OTP. Vui lòng nhập mã OTP nhận được vào app của chúng tôi tại đây: <http://verifyotp.com>. Nếu ko thấy mã, gọi 0987654321. Thanks!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -353,7 +356,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -369,13 +372,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 24/324 -- split=train row_index=444 seed_id=seed_85009090b32e
 
-> Xin chào, có vẻ như tài khoản của bạn đang gặp sự cố. Vui lòng cập nhật thông tin tài khoản qua app bằng cách click vào link này: http://update-account.com. Liên hệ 19001234 nếu cần hỗ trợ. ĐT Ngân hàng.
+> Xin chào, có vẻ như tài khoản của bạn đang gặp sự cố. Vui lòng cập nhật thông tin tài khoản qua app bằng cách click vào link này: <http://update-account.com>. Liên hệ 19001234 nếu cần hỗ trợ. ĐT Ngân hàng.
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -385,13 +388,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 25/324 -- split=train row_index=446 seed_id=seed_93fafa81260d
 
-> Cảnh báo từ CAFC: Hệ thống phát hiện máy tính của bạn đang gặp vấn đề về bảo mật. Hãy truy cập link dưới đây để xác minh: http://safecheck.vn. Nếu không xử lý ngay, tài khoản Smart OTP của bạn có thể bị khóa, ak!
+> Cảnh báo từ CAFC: Hệ thống phát hiện máy tính của bạn đang gặp vấn đề về bảo mật. Hãy truy cập link dưới đây để xác minh: <http://safecheck.vn>. Nếu không xử lý ngay, tài khoản Smart OTP của bạn có thể bị khóa, ak!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -401,7 +404,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -417,7 +420,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -433,7 +436,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -449,7 +452,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -465,7 +468,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -481,7 +484,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -497,7 +500,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -513,7 +516,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -529,7 +532,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -545,13 +548,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 35/324 -- split=train row_index=475 seed_id=seed_1a0c3ea29c59
 
-> Anh/Chị ơi, em là nhân viên của BIDV. Hệ thống của chúng tôi đang nâng cấp, vui lòng đăng nhập lại vào app để xác nhận thông tin. Link: https://bidv-upgrade.info
+> Anh/Chị ơi, em là nhân viên của BIDV. Hệ thống của chúng tôi đang nâng cấp, vui lòng đăng nhập lại vào app để xác nhận thông tin. Link: <https://bidv-upgrade.info>
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -561,7 +564,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -577,7 +580,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -593,7 +596,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -609,13 +612,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 39/324 -- split=train row_index=481 seed_id=seed_4af17fdb851a
 
-> Xin chào, mình là đại diện của Binance. Chúng tôi đang tìm người giới thiệu bạn bè đăng ký tài khoản trên Binance thông qua link của bạn. Mỗi người đăng ký thành công, bạn nhận 20% hoa hồng. Link đăng ký: https://binance.com/register/123456. Bạn có quan tâm không?
+> Xin chào, mình là đại diện của Binance. Chúng tôi đang tìm người giới thiệu bạn bè đăng ký tài khoản trên Binance thông qua link của bạn. Mỗi người đăng ký thành công, bạn nhận 20% hoa hồng. Link đăng ký: <https://binance.com/register/123456>. Bạn có quan tâm không?
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -625,13 +628,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 40/324 -- split=train row_index=482 seed_id=seed_61a36fbd3ece
 
-> Kính gửi quý khách, tài khoản của bạn đã bị khóa do nghi ngờ gian lận. Để kích hoạt lại, vui lòng truy cập link: http://reactivateaccount.com và làm theo hướng dẫn. Nhanh nhanh nha!
+> Kính gửi quý khách, tài khoản của bạn đã bị khóa do nghi ngờ gian lận. Để kích hoạt lại, vui lòng truy cập link: <http://reactivateaccount.com> và làm theo hướng dẫn. Nhanh nhanh nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -641,7 +644,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -657,7 +660,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -673,7 +676,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -689,7 +692,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -705,7 +708,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -721,13 +724,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 46/324 -- split=train row_index=505 seed_id=seed_bfe4a6bbd16d
 
-> Chào bạn, đây là BIDV. Chúng tôi cần xác minh thông tin tài khoản của bạn do có hoạt động bất thường. Vui lòng truy cập link này để hoàn thành xác minh: http://bidv-auth.com. Hạn chót: 24h. Cảm ơn bạn!
+> Chào bạn, đây là BIDV. Chúng tôi cần xác minh thông tin tài khoản của bạn do có hoạt động bất thường. Vui lòng truy cập link này để hoàn thành xác minh: <http://bidv-auth.com>. Hạn chót: 24h. Cảm ơn bạn!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -737,7 +740,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -753,7 +756,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -769,7 +772,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -785,7 +788,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -801,13 +804,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 51/324 -- split=train row_index=514 seed_id=seed_db9fb32e2681
 
-> Xin chào, đây là Ngân hàng Techcombank. Chúng tôi cần xác minh thông tin tài khoản của bạn do nghi ngờ giao dịch lừa đảo. Hãy đăng nhập tại https://techcombank.com.vn/verify và làm theo hướng dẫn. Đừng để mất tiền oan, nha!
+> Xin chào, đây là Ngân hàng Techcombank. Chúng tôi cần xác minh thông tin tài khoản của bạn do nghi ngờ giao dịch lừa đảo. Hãy đăng nhập tại <https://techcombank.com.vn/verify> và làm theo hướng dẫn. Đừng để mất tiền oan, nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -817,7 +820,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -833,7 +836,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -849,7 +852,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -865,7 +868,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -881,7 +884,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -897,7 +900,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -913,13 +916,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 58/324 -- split=train row_index=528 seed_id=seed_61a36fbd3ece
 
-> Chào bạn, do có sự cố bảo mật, vui lòng cập nhật thông tin tài khoản trên app mới của chúng tôi. Link: http://updateinfo.com. Đừng bỏ lỡ, nha!
+> Chào bạn, do có sự cố bảo mật, vui lòng cập nhật thông tin tài khoản trên app mới của chúng tôi. Link: <http://updateinfo.com>. Đừng bỏ lỡ, nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -929,7 +932,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -945,7 +948,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -961,7 +964,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -977,7 +980,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -993,7 +996,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1009,7 +1012,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1025,7 +1028,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1041,7 +1044,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1057,7 +1060,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1073,7 +1076,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1089,7 +1092,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1105,7 +1108,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1121,7 +1124,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1137,7 +1140,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1153,7 +1156,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1169,7 +1172,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1185,7 +1188,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1201,7 +1204,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1217,7 +1220,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1233,7 +1236,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1249,7 +1252,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1265,7 +1268,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1281,7 +1284,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1297,7 +1300,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1313,7 +1316,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1329,7 +1332,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1345,7 +1348,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1361,7 +1364,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1377,7 +1380,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1393,13 +1396,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 88/324 -- split=train row_index=606 seed_id=seed_db9fb32e2681
 
-> Chào bạn, đây là hỗ trợ từ Momo. Chúng tôi cần xác minh tài khoản của bạn do có dấu hiệu lừa đảo. Vui lòng truy cập link này để xác nhận: http://momo.vn/confirm. Đừng để mất tài khoản Momo, nha!
+> Chào bạn, đây là hỗ trợ từ Momo. Chúng tôi cần xác minh tài khoản của bạn do có dấu hiệu lừa đảo. Vui lòng truy cập link này để xác nhận: <http://momo.vn/confirm>. Đừng để mất tài khoản Momo, nha!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -1409,7 +1412,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1425,7 +1428,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1441,7 +1444,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1457,7 +1460,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1473,7 +1476,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1489,7 +1492,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1505,7 +1508,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1521,7 +1524,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1537,7 +1540,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1553,7 +1556,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1569,7 +1572,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1585,7 +1588,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1601,7 +1604,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1617,7 +1620,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1633,7 +1636,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1649,7 +1652,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1665,7 +1668,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1681,7 +1684,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1697,13 +1700,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 107/324 -- split=train row_index=662 seed_id=seed_bfe4a6bbd16d
 
-> Xin chào, mình là quản lý dự án từ công ty ABC. Chúng tôi đang tuyển dụng vị trí Kế toán viên với mức lương hấp dẫn. Vui lòng gửi CV của bạn đến email tuyen.dung@abc.com.vn để được xem xét. Cơ hội tuyệt vời, ak!
+> Xin chào, mình là quản lý dự án từ công ty ABC. Chúng tôi đang tuyển dụng vị trí Kế toán viên với mức lương hấp dẫn. Vui lòng gửi CV của bạn đến email <tuyen.dung@abc.com.vn> để được xem xét. Cơ hội tuyệt vời, ak!
 
 - **Current label:** task_scam
 - **Risk tier:** suspicious
@@ -1713,7 +1716,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1729,7 +1732,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1745,7 +1748,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1761,7 +1764,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1777,7 +1780,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1793,7 +1796,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1809,7 +1812,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1825,7 +1828,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1841,7 +1844,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1857,7 +1860,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1873,7 +1876,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1889,7 +1892,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1905,7 +1908,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1921,7 +1924,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1937,7 +1940,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1953,7 +1956,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1969,7 +1972,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -1985,7 +1988,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2001,7 +2004,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2017,7 +2020,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2033,7 +2036,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2049,7 +2052,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2065,7 +2068,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2081,7 +2084,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2097,7 +2100,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2113,7 +2116,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2129,7 +2132,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2145,7 +2148,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2161,7 +2164,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2177,7 +2180,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2193,7 +2196,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2209,7 +2212,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2225,7 +2228,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2241,7 +2244,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2257,7 +2260,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2273,7 +2276,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2289,7 +2292,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2305,7 +2308,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2321,7 +2324,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2337,7 +2340,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2353,7 +2356,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2369,7 +2372,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2385,13 +2388,14 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 150/324 -- split=train row_index=1763 seed_id=seed_157ce0adb043
 
 > Chị ơi, em là Linh — em của chị Hoa đây ạ. Chị Hoa nhờ em nhắn vì chị ấy đang bận họp, điện thoại hết pin. Chị Hoa đang cần đóng viện phí gấp cho mẹ, nhờ chị chuyển hộ 5.500.000đ trước, tối chị Hoa gặp chị hoàn lại ngay ạ. Chuyển qua Momo hoặc Internet Banking đều được:
+>
 > - SĐT Momo: 0387 654 921 (Trần Thị Mai)
 > - STK: 1903 4455 6677 - Vietcombank
 > Chị chuyển xong báo em để em thông báo cho chị Hoa nhé ạ. Cảm ơn chị rất nhiều!
@@ -2404,7 +2408,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2420,7 +2424,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2436,7 +2440,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2452,7 +2456,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2468,7 +2472,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2484,7 +2488,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2500,7 +2504,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2516,7 +2520,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2532,7 +2536,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2548,7 +2552,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2564,7 +2568,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2580,7 +2584,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2596,7 +2600,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2612,7 +2616,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2628,7 +2632,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2644,7 +2648,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2660,7 +2664,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2676,7 +2680,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2692,7 +2696,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2708,7 +2712,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2724,7 +2728,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2740,7 +2744,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2756,7 +2760,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2772,7 +2776,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2788,7 +2792,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2804,7 +2808,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2820,7 +2824,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2836,7 +2840,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2852,7 +2856,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2868,7 +2872,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2884,7 +2888,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2900,7 +2904,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2916,7 +2920,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2932,7 +2936,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2948,7 +2952,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2964,7 +2968,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2980,7 +2984,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -2996,7 +3000,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3012,7 +3016,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3028,7 +3032,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3044,7 +3048,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3060,7 +3064,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3076,7 +3080,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3092,7 +3096,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3108,7 +3112,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3124,7 +3128,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3140,7 +3144,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3156,7 +3160,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3172,7 +3176,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3188,7 +3192,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3204,7 +3208,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3220,7 +3224,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3236,7 +3240,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3252,7 +3256,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3268,7 +3272,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3284,7 +3288,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3300,7 +3304,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3316,7 +3320,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3332,7 +3336,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3348,7 +3352,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3364,7 +3368,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3380,7 +3384,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3396,7 +3400,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3412,7 +3416,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3428,7 +3432,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3444,7 +3448,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3460,7 +3464,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3476,7 +3480,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3492,7 +3496,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3508,7 +3512,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3524,7 +3528,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3540,7 +3544,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3556,7 +3560,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3572,7 +3576,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3588,7 +3592,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3604,7 +3608,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3620,7 +3624,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3636,7 +3640,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3652,7 +3656,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3668,7 +3672,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3684,7 +3688,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3700,7 +3704,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3716,7 +3720,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3732,7 +3736,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3748,7 +3752,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3764,7 +3768,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3780,7 +3784,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3796,7 +3800,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3812,7 +3816,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3828,7 +3832,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3844,7 +3848,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3860,7 +3864,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3876,7 +3880,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3892,7 +3896,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3908,7 +3912,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3924,7 +3928,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3940,7 +3944,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3956,7 +3960,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3972,7 +3976,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -3988,7 +3992,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4004,13 +4008,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 251/324 -- split=train row_index=1870 seed_id=seed_157ce0adb043
 
-> Anh Long ơi, em là Kiên phòng kỹ thuật. Em cần anh xác nhận login vào hệ thống gấp để em reset lại quyền truy cập. Anh vào link này: http://portal-noidbo-vietcombank.net/login rồi nhập Smart OTP để em cấp lại quyền cho anh nha. Việc gấp lắm anh ơi.
+> Anh Long ơi, em là Kiên phòng kỹ thuật. Em cần anh xác nhận login vào hệ thống gấp để em reset lại quyền truy cập. Anh vào link này: <http://portal-noidbo-vietcombank.net/login> rồi nhập Smart OTP để em cấp lại quyền cho anh nha. Việc gấp lắm anh ơi.
 
 - **Current label:** task_scam
 - **Risk tier:** high-risk
@@ -4020,7 +4024,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4036,7 +4040,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4052,7 +4056,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4068,7 +4072,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4084,7 +4088,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4100,7 +4104,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4116,7 +4120,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4132,7 +4136,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4148,7 +4152,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4164,7 +4168,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4180,7 +4184,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4196,7 +4200,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4212,7 +4216,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4228,7 +4232,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4244,7 +4248,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4260,7 +4264,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4276,7 +4280,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4292,7 +4296,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4308,7 +4312,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4324,7 +4328,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4340,13 +4344,13 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
 ## Candidate 272/324 -- split=train row_index=1891 seed_id=seed_157ce0adb043
 
-> Tuấn đây mày. Số mới nha, đt cũ bể màn rồi. Tao đang cần 2tr gấp để cọc chỗ trọ, mai hết hạn rồi. Mày bank Techcombank ko? Chuyển vào STK 1190284756 tên LE QUOC TUAN giúp tao. Ko thì chuyển qua link này cũng đc: https://pay-vcb-fast.net/transfer?id=tuan99 — tao trả mày cuối tuần. Gọi số cũ ko bắt máy đc đâu mày ơi
+> Tuấn đây mày. Số mới nha, đt cũ bể màn rồi. Tao đang cần 2tr gấp để cọc chỗ trọ, mai hết hạn rồi. Mày bank Techcombank ko? Chuyển vào STK 1190284756 tên LE QUOC TUAN giúp tao. Ko thì chuyển qua link này cũng đc: <https://pay-vcb-fast.net/transfer?id=tuan99> — tao trả mày cuối tuần. Gọi số cũ ko bắt máy đc đâu mày ơi
 
 - **Current label:** task_scam
 - **Risk tier:** high-risk
@@ -4356,7 +4360,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4372,7 +4376,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4388,7 +4392,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4404,7 +4408,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4420,7 +4424,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4436,7 +4440,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4452,7 +4456,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4468,7 +4472,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4484,7 +4488,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4500,7 +4504,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4516,7 +4520,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4532,7 +4536,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4548,7 +4552,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4564,7 +4568,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4580,7 +4584,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4596,7 +4600,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4612,7 +4616,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4628,7 +4632,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4644,7 +4648,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4660,7 +4664,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4676,7 +4680,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4692,7 +4696,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4708,7 +4712,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4724,7 +4728,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4740,7 +4744,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4756,7 +4760,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4772,7 +4776,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4788,7 +4792,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4804,7 +4808,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4820,7 +4824,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4836,7 +4840,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4852,7 +4856,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4868,7 +4872,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4884,7 +4888,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4900,7 +4904,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4916,7 +4920,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4932,7 +4936,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4948,7 +4952,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4964,7 +4968,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4980,7 +4984,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -4996,7 +5000,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5012,7 +5016,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5028,7 +5032,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5044,7 +5048,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5060,7 +5064,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5076,7 +5080,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5092,7 +5096,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5108,7 +5112,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5124,7 +5128,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5140,7 +5144,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5156,7 +5160,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5172,7 +5176,7 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---
 
@@ -5188,6 +5192,6 @@ Instructions: each candidate below is currently labeled `task_scam`, but the ind
 
 **Decision:** [ ] Keep as task_scam   [ ] Relabel to: __________   [ ] Drop row
 
-**Notes:** 
+**Notes:**
 
 ---

@@ -9,10 +9,12 @@
 The repaired corpus (Phase 38's output) is independently judged for content
 quality by a third model family (Codex) and a genuine human reviewer,
 replacing the retired t-test with descriptive stats that can withstand
-defense scrutiny. This phase does not touch corpus structure (splits, seed
-groups, leakage) — that was Phase 38's job. It measures and, where a row is
-genuinely bad, fixes content quality on the already-structurally-sound
-corpus.
+defense scrutiny. The completed Phase 38 structure remains the integrity
+baseline, but the Phase 39 continuation may apply the user's 324 targeted
+label/drop decisions, quarantine non-independent lineage, re-enforce the
+global seed cap, and re-split whole seed groups. Those changes must preserve
+Phase 38's leakage, duplicate, span, cap, and provenance guarantees; seed
+diversity may never be manufactured.
 
 </domain>
 
@@ -60,33 +62,46 @@ corpus.
   that Phase 40's training CLI now defaults to the correct, current corpus.
 
 ### Judge Execution & Handoff Boundary
-- Judge target: the three new canonical files, `data/splits/{train,val,test}.jsonl`
-  — every row (2,421 total), not a sample.
-- Handoff boundary: Claude prepares and finalizes all tooling (the judge
-  instructions file, a merge/verification script for the judge's output),
-  commits it, then stops. The user runs Codex externally (pasting the
-  instructions file) and reports the resulting output file back — Claude
-  cannot drive Codex CLI directly (no working API key; established earlier
-  this milestone).
-- "Done" for Claude's side of this sub-task: a committed, correctly-pointed
-  instructions file plus a script that can validate and merge whatever
-  Codex produces, ready to run the moment the output file exists.
+- The initial 2,421-row Codex judgment is historical evidence. Final-snapshot
+  coverage is rebuilt over the projected 2,103-row staged corpus using exact
+  seven-field record digests: 1,562 unchanged judgments may carry forward
+  byte-for-evidence, while all 541 remaining records require fresh judgment.
+- The current Codex session performs the fresh work locally in deterministic,
+  hash-bound batches. No Claude key, web search, plugin, or external provider
+  is involved. Completed batches are immutable and restartable; partial or
+  hash-conflicting results fail closed.
+- "Done" means a joinable 2,103-row final result whose carried and fresh
+  origins are disjoint and complete, plus a machine-verifiable convergence
+  ledger proving zero unresolved semantic rows and a later fresh verdict for
+  every repaired digest.
 
 ### Fixing Flagged Rows & Manual Check
-- Fix strategy for judge-flagged bad rows: attempt a targeted fix where
-  feasible (e.g. re-derive an explanation or span), drop only if unfixable
-  — same repair philosophy as Phase 38, not a blanket drop-everything-flagged
-  policy.
-- 100-manual-check sample: stratified — a mix of judge-pass and judge-fail
-  rows, not pure random, so the check validates the judge's calls in both
-  directions rather than only checking one side.
-- Claude prepares the manual-check review sheet (row text + judge verdict,
-  blank pass/fail column) for the user to fill in — the user does not have
-  to hand-pick rows from raw JSONL themselves.
+- Apply the 324 authorized human decisions as label-only changes or drops.
+  Risk tier, suspicious spans, and XAI remain unchanged unless an explicit,
+  identity-bound Codex semantic-repair artifact authorizes the correction;
+  every changed digest is freshly re-judged.
+- The final 100-row sample is generated anew from the promoted snapshot and
+  stratified across labels, judge pass/fail status, and carried/fresh judge
+  origin. An old human verdict carries only when both record and full judge-
+  evidence digests match and its checkbox is unambiguous; otherwise it stays
+  blank for the user.
+- The user completes every remaining review row at a blocking human
+  checkpoint. No automation may infer or auto-pass human semantics.
 - Report integration: a descriptive table (pass rate + per-dimension means
   from the Codex judge, plus the manual-check pass rate) replaces the
   t-test in Chapter III's quality-check paragraph, in place — not a new
   standalone section.
+
+### Superseding Closure Decision (2026-08-20)
+- The latest user direction requires JUDGE-03 to close inside Phase 39 after
+  the final 100-row human review. Phase 39 therefore edits the active Chapter
+  III and Chapter V quality passages, removes the t-test/null-hypothesis/
+  p-value claims, inserts verified final descriptive and manual-review
+  statistics, compiles the thesis, and scans report/slide/defense sources for
+  stale claims before Phase 40 starts.
+- This supersedes the older planning handoff that assigned the actual
+  prose placement to Phase 42. Phase 42 may still overhaul surrounding prose,
+  but it no longer owns or blocks the JUDGE-03 correction.
 
 ### Claude's Discretion
 None beyond the above — all grey areas were resolved explicitly, including
@@ -117,10 +132,10 @@ the mid-discussion data-consolidation scope change.
 
 ### Integration Points
 - Input: `data/splits/{train,val,test}.jsonl` (2,421 rows total).
-- Output: `data/processed/codex-judge-pass.jsonl` (Codex's judge results,
-  produced externally), a manual-check review sheet, and — once both exist
-  — descriptive stats ready to paste into Chapter III of the report
-  (Phase 42's job to place, this phase's job to produce).
+- Output: `data/processed/codex-judge-pass.jsonl` (Codex's judge results), a
+  completed final-snapshot manual-check review sheet, descriptive statistics,
+  and the Phase 39 Chapter III/Chapter V report correction required by the
+  superseding closure decision above.
 
 </code_context>
 
