@@ -439,13 +439,26 @@ def test_single_lora_retry_is_hash_sealed_and_subtracts_first_attempt_budget(
             now_monotonic=106.0,
             boot_identity="boot-A",
         )
-    with pytest.raises(FileExistsError, match="already authorized"):
+    authority_path = root / "lora-retry-1/retry-authority.json"
+    authority_bytes = authority_path.read_bytes()
+    resumed_authority = local.authorize_lora_retry(
+        root,
+        now_utc="2026-08-24T08:00:07Z",
+        now_monotonic=107.0,
+        boot_identity="boot-A",
+    )
+    assert resumed_authority == authority
+    assert authority_path.read_bytes() == authority_bytes
+    extra = root / "lora-retry-1/unexpected.tmp"
+    extra.write_text("unsafe partial state", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="cannot be reauthorized"):
         local.authorize_lora_retry(
             root,
-            now_utc="2026-08-24T08:00:07Z",
-            now_monotonic=107.0,
+            now_utc="2026-08-24T08:00:08Z",
+            now_monotonic=108.0,
             boot_identity="boot-A",
         )
+    extra.unlink()
 
     retry = root / "lora-retry-1"
     retry_rows = _telemetry_rows("lora-retry-1")

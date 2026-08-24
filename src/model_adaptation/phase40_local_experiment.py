@@ -1521,7 +1521,17 @@ def authorize_lora_retry(
     source = _validated_lora_retry_source(root)
     retry_root = root / LORA_RETRY_STAGE
     if retry_root.exists() or retry_root.is_symlink():
-        raise FileExistsError("the single LoRA retry is already authorized or attempted")
+        if (
+            retry_root.is_dir()
+            and not retry_root.is_symlink()
+            and not _is_reparse_point(retry_root)
+            and {path.name for path in retry_root.iterdir()}
+            == {"retry-authority.json"}
+        ):
+            return _verify_lora_retry_authority(root)
+        raise FileExistsError(
+            "the single LoRA retry contains runtime/evidence and cannot be reauthorized"
+        )
     if float(source["retry_hard_limit_seconds"]) <= 15.0:
         raise TimeoutError("insufficient cumulative LoRA budget remains for a safe retry")
     retry_root.mkdir(parents=False, exist_ok=False)
