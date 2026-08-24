@@ -13,6 +13,7 @@ dependencies = [
     "playwright>=1.58",
     "pydantic>=2.12",
     "pydantic-settings>=2.0",
+    "pymupdf>=1.27,<2",
     "polars>=1.38",
     "anthropic>=0.93",
     "google-auth>=2.0",

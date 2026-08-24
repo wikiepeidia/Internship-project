@@ -51,7 +51,7 @@
     \item \textbf{Baseline (zero-shot):} macro F1\,=\,0.6702 \quad$\to$\quad \textbf{Fine-tuned:} macro F1\,=\,\textcolor{CVBLUE}{\textbf{0.9625}} \quad(\textbf{+0.2923})
     \item \textbf{Lowest recall:} Task Scam (0.871) --- bank-name + OTP phrasing overlaps class boundary.
     \item \textbf{Key gain:} benign recall 0.344\,$\to$\,1.000; base model over-predicts threats.
-    \item \textbf{Caution:} the reported 254 rows are the trainer validation split; seed overlap with training limits the generalization claim, and the 413-row test split remains unevaluated.
+    \item \textbf{Caution:} these model results belong to the older 254-row trainer-validation snapshot; they were not recomputed on the promoted 2{,}097-row corpus.
   \end{itemize}
   \vspace{4pt}
   {\footnotesize\textbf{Original Confusion Matrix error-pattern bullets (pre-merge, 4 items):}}
@@ -68,20 +68,20 @@
   \begin{block}{Contributions (original, pre-merge)}
     {\footnotesize
     \begin{enumerate}
-      \item \textbf{Vietnamese phishing corpus:} 3,000 synthetic samples, 4 classes, with schema validation and documented leakage limits.
+      \item \textbf{Vietnamese phishing corpus:} 2{,}097 promoted records, 4 classes, with schema validation and lineage governance.
       \item \textbf{Privacy-first local runtime:} \texttt{Qwen3-4B-Instruct-2507} GGUF Q8\_0 via \texttt{llama.cpp}; ${\approx}24$\,s in the final laptop CLI verification; no cloud inference.
       \item \textbf{Explainable decision layer:} grounded cue extraction + risk-tier labels in Vietnamese.
-      \item \textbf{Honest internal evaluation:} 254 validation samples; macro F1 = 0.9625; no independent-test claim.
+      \item \textbf{Historical internal model evaluation:} 254 validation samples; macro F1 = 0.9625; no current-corpus or independent-test claim.
     \end{enumerate}}
   \end{block}
   {\footnotesize\textbf{Current limitations (original, pre-merge, 3 items):}}
   \begin{itemize}\footnotesize
     \item \textbf{Text-only:} image-based phishing (QR codes, forwarded screenshots) is not handled.
     \item Vietnamese-only training data --- generalization to other languages is untested.
-    \item The 254-row result reuses validation data and includes seed overlap; the 413-row test split is unevaluated.
+    \item The 254-row result is an older model-training snapshot and was not recomputed on the promoted final corpus.
   \end{itemize}
   \begin{block}{Primary Future Direction (original, pre-merge)}
-    {\footnotesize Rebuild seed-group-disjoint splits and evaluate once on an untouched, human-labelled test set.}
+    {\footnotesize Train and select without touching the promoted 220-row test split, evaluate it once, and add real-world labelled evidence.}
   \end{block}
 \end{frame}
 

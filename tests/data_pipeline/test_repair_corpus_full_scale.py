@@ -40,8 +40,11 @@ from src.data_pipeline.schemas import DatasetRecord
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _BACKUP_ROOT = REPO_ROOT / "data" / "backup" / "pre-260808-consolidation"
-SPLITS_DIR = REPO_ROOT / "data" / "splits"
-MANIFEST_PATH = REPO_ROOT / "data" / "manifests" / "manifest.json"
+# DATA-04..08 are Phase 38 gates, so keep this suite bound to the immutable
+# Phase 38/F-01 release after Phase 39 promotes its audited successor.
+_PHASE38_RELEASE = REPO_ROOT / "data/processed/f01-zalo-direct-candidate-20260817-verified"
+SPLITS_DIR = _PHASE38_RELEASE / "splits"
+MANIFEST_PATH = _PHASE38_RELEASE / "manifest.json"
 ORIGINAL_MAIN_CORPUS = _BACKUP_ROOT / "synthetic" / "recovered-balanced.jsonl"
 ORIGINAL_RESERVED_TEST = _BACKUP_ROOT / "splits" / "recovered-balanced" / "test.jsonl"
 REPLACEMENT_CORPUS = _BACKUP_ROOT / "synthetic" / "zalo-social-engineering-codex-2026-08-08.jsonl"

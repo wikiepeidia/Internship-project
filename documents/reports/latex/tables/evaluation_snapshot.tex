@@ -1,14 +1,16 @@
 \begin{table}[H]
 \centering
-\begin{tabular}{p{4.2cm}p{2.7cm}p{6.0cm}}
+\small
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{p{3.6cm}p{4.6cm}p{4.7cm}}
 \toprule
 \textbf{Evidence item} & \textbf{Value} & \textbf{Source} \\
 \midrule
-Quality review sample              & 49/50 passed           & \texttt{quality-stats.json} \\
-Avg.\ realism / label correctness  & 4.68 / 4.96           & \texttt{quality-stats.json} \\
+Final joined judge evidence        & 1,395/2,097 passed; five means 4.020 / 4.851 / 4.672 / 4.119 / 4.745 & Final judge summary and provenance \\
+Final human quality sample         & 44/100 passed; 87/100 agreement & Manifest-bound human sheet \\
 Pilot model selection              & qwen3-4b-instruct-2507 selected; qwen3.5-4b alternative candidate & Pilot scoring record \\
-Training evidence                  & NF4 QLoRA; 2,333 train; checkpoint 584 & \texttt{training-summary.json} \\
-Internal validation size           & 254 examples          & \texttt{eval-results-qlora.json} \\
+Historical training evidence       & NF4 QLoRA; 2,333 train; checkpoint 584 & \texttt{training-summary.json} \\
+Historical internal validation     & 254 examples          & \texttt{eval-results-qlora.json} \\
 Per-class support                  & 56 bank, 75 Zalo, 62 task, 61 benign & \texttt{eval-results-qlora.json} \\
 Bank impersonation                 & recall 1.000, precision 0.862, F1 0.926 & \texttt{eval-results-qlora.json} \\
 Zalo social engineering            & recall 0.987, precision 1.000, F1 0.993 & \texttt{eval-results-qlora.json} \\
@@ -16,9 +18,9 @@ Task scam                          & recall 0.871, precision 1.000, F1 0.931 & \
 Benign                             & recall 1.000, precision 1.000, F1 1.000 & \texttt{eval-results-qlora.json} \\
 Accuracy / macro F1                & 0.9646 / 0.9625       & \texttt{eval-results-qlora.json} \\
 GGUF deployment                    & Q8\_0, 4,280,403,232 bytes; CLI verified & External registry + SHA-256 manifest \\
-Split limitation                   & One seed group spans multiple splits; 413-row test reserved for future work & Pipeline documentation \\
+Historical/current split boundary  & 254 validation (seed overlap) + 413 then-test; current test 220 and final splits seed-disjoint & Training snapshot and promoted manifest \\
 \bottomrule
 \end{tabular}
-\caption{Evaluation evidence summary linking reported metrics to source artifacts.}
+\caption{Current data-quality evidence and explicitly historical model-evaluation evidence.}
 \label{tab:evaluation-snapshot}
 \end{table}

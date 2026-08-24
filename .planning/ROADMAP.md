@@ -886,21 +886,21 @@ Plans:
 Plans:
 
 - [x] 39-01-PLAN.md -- Codex judge-output merge/validation tool and stratified 100-row manual-review-sheet generator, proven against realistic fixtures
-- [ ] 39-02-PLAN.md -- Stage the strict 324-decision migration, shared-lineage quarantine, cap, whole-seed re-split, and immutable audit provenance
-- [ ] 39-03-PLAN.md -- Build exact-record carry-forward tooling and prepare nine deterministic, hash-locked fresh-delta judge batches
-- [ ] 39-04-PLAN.md -- Run the local Codex batches and converge any semantic repairs through fresh, restartable re-judgment
-- [ ] 39-05-PLAN.md -- Atomically promote the converged corpus/judge bundle and refresh Phase 40/41 contracts from the live manifest
+- [x] 39-02-PLAN.md -- Stage the strict 324-decision migration, shared-lineage quarantine, cap, whole-seed re-split, and immutable audit provenance
+- [x] 39-03-PLAN.md -- Build exact-record carry-forward tooling and prepare nine deterministic, hash-locked fresh-delta judge batches
+- [x] 39-04-PLAN.md -- Run the local Codex batches and converge any semantic repairs through fresh, restartable re-judgment
+- [x] 39-05-PLAN.md -- Atomically promote the converged corpus/judge bundle and refresh Phase 40/41 contracts from the live manifest
 - [ ] 39-06-PLAN.md -- Generate a new final-snapshot 100-row sheet and stop at a genuine blocking human-review checkpoint
 - [ ] 39-07-PLAN.md -- Finalize the human evidence, replace retired t-test claims, compile/scan active documents, and close JUDGE-01/02/03
 
 ### Phase 40: Multi-Model Training Evidence
 
 **Goal**: Three real, independently trained models exist with genuine logged training curves — answering "why QLoRA and not just LoRA" and "why Qwen and not PhoBERT" with measured data instead of literature citation.
-**Depends on**: Phase 39 (the final-corpus human check and the canonical 2,403-row manifest must be frozen before any training run)
+**Depends on**: Phase 39 (training starts only after Phase 39's final-snapshot human and report gates close; Phase 42 is not a training prerequisite)
 **Requirements**: TRAIN-01, TRAIN-02, TRAIN-03, TRAIN-04, TRAIN-05, TRAIN-06
 **Success Criteria** (what must be TRUE):
 
-1. The input contract is frozen to the canonical manifest: 1,900 training rows, 252 validation rows, and 251 held-out test rows. Phase 40 verifies the three split SHA-256 values before work begins and never reads the test rows for training, tuning, checkpoint selection, or graph generation.
+1. The input contract is frozen to `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`: 1,658 training rows, 219 validation rows, and 220 held-out test rows, with split SHA-256 values `5fa46382db8fb477ef91ec4ba770bf3f8756df9f98b9950fdf5bc1f6ff402e8b`, `746ae6edb5008a8be8e9ef9d65f89fc44e559f99f28cd8d6a77f203ea5986d3c`, and `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`. Phase 40 verifies those identities before work begins and never reads test rows for training, tuning, checkpoint selection, or graph generation.
 2. Bounded LoRA and QLoRA probes run on the RTX 5050 for 30–50 post-warm-up optimizer steps where the mode can start. They record the real outcome (success or genuine failure), median steady-state step time, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead. The local ETA is explicitly an extrapolation, and all probe adapters are discarded rather than resumed on Colab.
 3. Fresh full Qwen LoRA and QLoRA runs start from the same pinned base-model revision on the same Colab accelerator type where available. Dataset hashes/order, random seed, maximum sequence length, effective batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence are identical; base-weight quantization is the intended experimental difference. If the accelerator types differ, wall-clock speed is reported as hardware-confounded rather than as a direct algorithm comparison.
 4. QLoRA fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`; missing CUDA, `bitsandbytes`, or `BitsAndBytesConfig` must stop the run instead of silently producing ordinary LoRA.
@@ -918,9 +918,9 @@ Plans:
 **Requirements**: EVAL-08, EVAL-09
 **Success Criteria** (what must be TRUE):
 
-1. The current canonical 251-row test partition (SHA-256 `019aec39979429ca8005dd299d2ddaf7d3ecfdade259eecc4d3129adaed25938`) is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
+1. The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
 2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for all three models plainly, including an explicit, unhedged statement if PhoBERT or LoRA outscores the deployed QLoRA system on any metric.
-3. Only after the held-out comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,403 rows. That model is labeled a post-evaluation all-data fit, kept separate from the evaluated checkpoints, and receives no claim of an unbiased test score unless a new external holdout is obtained.
+3. Only after the held-out comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,097 rows. That model is labeled a post-evaluation all-data fit, kept separate from the evaluated checkpoints, and receives no claim of an unbiased test score unless a new external holdout is obtained.
 
 **Plans**: TBD
 

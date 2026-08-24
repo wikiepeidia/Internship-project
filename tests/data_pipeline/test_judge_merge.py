@@ -8,6 +8,7 @@ these tests use only fixtures.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -16,14 +17,32 @@ from typing import Any
 import pytest
 
 from src.data_pipeline.judge_merge import (
+    SemanticQuarantineTransition,
+    _validate_semantic_quarantine_transition,
+    ConvergenceArtifact,
+    FinalJudgeResult,
+    FinalJudgeProvenanceRow,
+    FinalJudgeTarget,
+    build_final_judge_partition,
+    compose_final_judge_evidence,
+    complete_batch,
     CodexJudgeResult,
     compute_aggregate_stats,
+    dataset_record_digest,
+    judge_evidence_digest,
     load_judge_results,
     load_source_splits,
     main,
+    materialize_batch_bundle,
     merge_judge_results,
+    sha256_path,
+    validate_batch_bundle,
+    validate_carries_against_historical_backup,
+    validate_semantic_convergence,
     write_merge_outputs,
 )
+from src.data_pipeline.apply_mislabel_triage import record_identity
+from src.data_pipeline.repair_corpus_split_governance import assign_stratified_group_split
 
 _DIMENSIONS = (
     "realism",
@@ -368,3 +387,546 @@ def test_main_raises_actionable_error_when_judge_results_missing(tmp_path, monke
 
     with pytest.raises(FileNotFoundError, match=r"\.planning/codex-judge-instructions\.md"):
         main()
+
+
+# --- exact final-snapshot identity and carry/delta preparation ------------
+
+
+def _historical_merged_row(
+    record: dict[str, Any],
+    *,
+    split: str = "test",
+    row_index: int = 91,
+    score: int = 4,
+    reason: str = "Historical evidence stays byte-for-evidence identical.",
+) -> dict[str, Any]:
+    return {
+        **record,
+        "split": split,
+        "row_index": row_index,
+        **{dimension: score for dimension in _DIMENSIONS},
+        "judge_pass": score >= 3,
+        "judge_reason": reason,
+        "recomputed_pass": score >= 3,
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("text", "Mot tin nhan hoan toan khac nhung van du dai de hop le."),
+        ("label", "task_scam"),
+        ("risk_tier", "suspicious"),
+        ("suspicious_spans", ["Tin nhan"]),
+        ("xai_explanation", "Mot giai thich khac du dai de chung minh digest nhay cam."),
+        ("source", "synthetic_gemini"),
+        ("seed_id", "seed_digest_changed"),
+    ],
+)
+def test_dataset_record_digest_is_sensitive_to_every_dataset_field(field, replacement):
+    record = _make_source_row(
+        "seed_digest_base",
+        "Tin nhan ngan hang gia mao du dai de kiem thu digest bay truong.",
+        spans=[],
+    )
+    changed = {**record, field: replacement}
+
+    assert dataset_record_digest(record) != dataset_record_digest(changed)
+
+
+def test_build_final_partition_carries_only_unique_exact_record_and_rebases_coordinates():
+    carried = _make_source_row(
+        "seed_carried",
+        "Tin nhan carried du dai de kiem thu viec rebase toa do cu sang moi.",
+    )
+    changed = _make_source_row(
+        "seed_changed",
+        "Tin nhan changed du dai de bat buoc mot lan danh gia hoan toan moi.",
+        label="task_scam",
+    )
+    historical_changed = {**changed, "risk_tier": "suspicious"}
+    historical = [
+        _historical_merged_row(
+            carried,
+            split="test",
+            row_index=91,
+            score=5,
+            reason="Exact old verdict must survive unchanged.",
+        ),
+        _historical_merged_row(historical_changed, split="train", row_index=3),
+    ]
+
+    carries, delta = build_final_judge_partition(
+        {"train": [carried], "val": [changed], "test": []},
+        historical,
+        candidate_manifest_sha256="a" * 64,
+        candidate_split_sha256={"train": "b" * 64, "val": "c" * 64, "test": "d" * 64},
+        historical_merged_sha256="e" * 64,
+    )
+
+    assert len(carries) == 1
+    assert len(delta) == 1
+    carried_row = carries[0]
+    assert carried_row.result.split == "train"
+    assert carried_row.result.row_index == 0
+    assert carried_row.result.reason == "Exact old verdict must survive unchanged."
+    assert carried_row.provenance.historical_split == "test"
+    assert carried_row.provenance.historical_row_index == 91
+    assert carried_row.provenance.verdict_origin == "carried_forward_exact_record"
+    assert carried_row.provenance.evidence_digest == judge_evidence_digest(
+        carried_row.result
+    )
+    assert delta[0].split == "val"
+    assert delta[0].row_index == 0
+    assert delta[0].record_digest == dataset_record_digest(changed)
+
+
+def test_ambiguous_historical_digest_routes_to_fresh_delta():
+    record = _make_source_row(
+        "seed_ambiguous",
+        "Tin nhan trung lap lich su du dai de kiem thu unique-only carry policy.",
+    )
+    historical = [
+        _historical_merged_row(record, split="train", row_index=1),
+        _historical_merged_row(record, split="val", row_index=2),
+    ]
+
+    carries, delta = build_final_judge_partition(
+        {"train": [record], "val": [], "test": []},
+        historical,
+        candidate_manifest_sha256="a" * 64,
+        candidate_split_sha256={"train": "b" * 64, "val": "c" * 64, "test": "d" * 64},
+        historical_merged_sha256="e" * 64,
+    )
+
+    assert carries == []
+    assert [target.record_digest for target in delta] == [dataset_record_digest(record)]
+
+
+# --- deterministic restartable judge batches -----------------------------
+
+
+def _target(index: int) -> FinalJudgeTarget:
+    record = _make_source_row(
+        f"seed_batch_{index:04d}",
+        f"Tin nhan batch {index:04d} du dai de kiem thu queue bat dau lai an toan.",
+        label="task_scam",
+    )
+    return FinalJudgeTarget.from_record("train", index, record)
+
+
+def _fresh_result(target: FinalJudgeTarget, *, score: int = 4) -> dict[str, Any]:
+    return {
+        "split": target.split,
+        "row_index": target.row_index,
+        "seed_id": target.seed_id,
+        "record_digest": target.record_digest,
+        **{dimension: score for dimension in _DIMENSIONS},
+        "pass": score >= 3,
+        "reason": "Current-session row judgment with a concrete concise reason.",
+    }
+
+
+def test_materialized_batches_are_fixed_size_hash_bound_and_pending(tmp_path):
+    targets = [_target(index) for index in range(130)]
+    aggregate = tmp_path / "phase39-final-judge-delta-targets.jsonl"
+    carry = tmp_path / "phase39-final-judge-carry.jsonl"
+    batch_dir = tmp_path / "iteration-00"
+
+    manifest_path = materialize_batch_bundle(
+        targets=targets,
+        carries=[],
+        aggregate_targets_path=aggregate,
+        carry_path=carry,
+        batch_dir=batch_dir,
+        candidate_dir=tmp_path / "candidate",
+        candidate_manifest_sha256="a" * 64,
+        historical_merged_sha256="b" * 64,
+        batch_size=64,
+        iteration=0,
+    )
+    report = validate_batch_bundle(
+        manifest_path,
+        targets_path=aggregate,
+        carry_path=carry,
+        require_status="pending",
+    )
+
+    assert report["target_count"] == 130
+    assert report["batch_counts"] == [64, 64, 2]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert [entry["status"] for entry in manifest["batches"]] == ["pending"] * 3
+    assert [entry["result_sha256"] for entry in manifest["batches"]] == [None] * 3
+    assert all(not Path(entry["result_path"]).exists() for entry in manifest["batches"])
+
+
+def test_completed_batch_restart_is_idempotent_and_conflict_fails_closed(tmp_path):
+    target = _target(0)
+    aggregate = tmp_path / "targets.jsonl"
+    carry = tmp_path / "carry.jsonl"
+    batch_dir = tmp_path / "iteration-00"
+    manifest_path = materialize_batch_bundle(
+        targets=[target],
+        carries=[],
+        aggregate_targets_path=aggregate,
+        carry_path=carry,
+        batch_dir=batch_dir,
+        candidate_dir=tmp_path / "candidate",
+        candidate_manifest_sha256="a" * 64,
+        historical_merged_sha256="b" * 64,
+        batch_size=64,
+        iteration=0,
+    )
+    result_path = batch_dir / "batch-0001-results.jsonl"
+    _write_jsonl(result_path, [_fresh_result(target)])
+
+    first = complete_batch(manifest_path, "batch-0001")
+    before = manifest_path.read_bytes()
+    second = complete_batch(manifest_path, "batch-0001")
+
+    assert first["reused"] is False
+    assert second["reused"] is True
+    assert manifest_path.read_bytes() == before
+
+    _write_jsonl(result_path, [_fresh_result(target, score=3)])
+    with pytest.raises(ValueError, match="completed batch.*result SHA-256"):
+        complete_batch(manifest_path, "batch-0001")
+    assert json.loads(manifest_path.read_text(encoding="utf-8"))["batches"][0]["status"] == "complete"
+
+
+def test_partial_or_wrong_result_never_marks_pending_batch_complete(tmp_path):
+    targets = [_target(0), _target(1)]
+    aggregate = tmp_path / "targets.jsonl"
+    carry = tmp_path / "carry.jsonl"
+    batch_dir = tmp_path / "iteration-00"
+    manifest_path = materialize_batch_bundle(
+        targets=targets,
+        carries=[],
+        aggregate_targets_path=aggregate,
+        carry_path=carry,
+        batch_dir=batch_dir,
+        candidate_dir=tmp_path / "candidate",
+        candidate_manifest_sha256="a" * 64,
+        historical_merged_sha256="b" * 64,
+        batch_size=64,
+        iteration=0,
+    )
+    result_path = batch_dir / "batch-0001-results.jsonl"
+    _write_jsonl(result_path, [_fresh_result(targets[0])])
+
+    with pytest.raises(ValueError, match="result coverage"):
+        complete_batch(manifest_path, "batch-0001")
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["batches"][0]["status"] == "pending"
+    assert manifest["batches"][0]["result_sha256"] is None
+    assert result_path.exists()
+
+
+# --- semantic convergence -------------------------------------------------
+
+
+def _artifact(path: Path, *, records: int | None = None) -> dict[str, Any]:
+    return ConvergenceArtifact(
+        path=str(path), sha256=sha256_path(path), records=records
+    ).model_dump(mode="json")
+
+
+def test_convergence_validator_recomputes_hashes_and_requires_later_fresh_verdict(tmp_path):
+    before = _make_source_row(
+        "seed_repair",
+        "Tin nhan can sua semantic du dai de kiem thu re-judgment digest.",
+        label="task_scam",
+    )
+    after = {
+        **before,
+        "risk_tier": "suspicious",
+        "xai_explanation": "Giai thich da sua va du dai de rang buoc ket qua semantic moi.",
+    }
+    before_digest = dataset_record_digest(before)
+    after_digest = dataset_record_digest(after)
+
+    initial_manifest = tmp_path / "initial-manifest.json"
+    initial_manifest.write_text("{}\n", encoding="utf-8")
+    carry = tmp_path / "carry.jsonl"
+    carry.write_text("", encoding="utf-8")
+    targets = tmp_path / "targets.jsonl"
+    _write_jsonl(targets, [FinalJudgeTarget.from_record("train", 0, before).model_dump(mode="json")])
+    initial_batch_manifest = tmp_path / "initial-batches.json"
+    initial_batch_manifest.write_text("{}\n", encoding="utf-8")
+    before_split = tmp_path / "candidate-before.jsonl"
+    after_split = tmp_path / "candidate-after.jsonl"
+    _write_jsonl(before_split, [before])
+    _write_jsonl(after_split, [after])
+    semantic_targets = tmp_path / "semantic-targets.jsonl"
+    _write_jsonl(semantic_targets, [FinalJudgeTarget.from_record("train", 0, before).model_dump(mode="json")])
+    repairs = tmp_path / "repairs.jsonl"
+    _write_jsonl(
+        repairs,
+        [
+            {
+                "expected_record_digest": before_digest,
+                "new_risk_tier": after["risk_tier"],
+                "new_suspicious_spans": after["suspicious_spans"],
+                "new_xai_explanation": after["xai_explanation"],
+                "notes": "Explicit repair for the risk and explanation inconsistency.",
+            }
+        ],
+    )
+    rejudge_manifest = tmp_path / "rejudge-manifest.json"
+    rejudge_manifest.write_text("{}\n", encoding="utf-8")
+    rejudge_results = tmp_path / "rejudge-results.jsonl"
+    _write_jsonl(
+        rejudge_results,
+        [_fresh_result(FinalJudgeTarget.from_record("train", 0, after))],
+    )
+    final_manifest = tmp_path / "final-manifest.json"
+    final_manifest.write_text("{}\n", encoding="utf-8")
+
+    convergence_path = tmp_path / "convergence.json"
+    convergence = {
+        "schema_version": "phase39-semantic-convergence-v1",
+        "initial_candidate_manifest": _artifact(initial_manifest),
+        "initial_candidate_files": [_artifact(before_split, records=1)],
+        "initial_carry": _artifact(carry, records=0),
+        "initial_targets": _artifact(targets, records=1),
+        "initial_batch_manifest": _artifact(initial_batch_manifest),
+        "iterations": [
+            {
+                "iteration": 0,
+                "candidate_before": [_artifact(before_split, records=1)],
+                "semantic_targets": _artifact(semantic_targets, records=1),
+                "repair_decisions": _artifact(repairs, records=1),
+                "candidate_after": [_artifact(after_split, records=1)],
+                "rejudge_iteration": 1,
+                "rejudge_batch_manifest": _artifact(rejudge_manifest),
+                "rejudge_results": _artifact(rejudge_results, records=1),
+                "repairs": [
+                    {
+                        "record_identity": f"{before['seed_id']}:{hashlib.sha256(before['text'].encode('utf-8')).hexdigest()}",
+                        "before_digest": before_digest,
+                        "after_digest": after_digest,
+                    }
+                ],
+                "resolved_identities": [
+                    f"{before['seed_id']}:{hashlib.sha256(before['text'].encode('utf-8')).hexdigest()}"
+                ],
+                "unresolved_identities": [],
+            }
+        ],
+        "unresolved_identities": [],
+        "unresolved_count": 0,
+        "final_candidate_manifest": _artifact(final_manifest),
+        "final_candidate_files": [_artifact(after_split, records=1)],
+        "final_fresh_results": _artifact(rejudge_results, records=1),
+    }
+    convergence_path.write_text(json.dumps(convergence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = validate_semantic_convergence(convergence_path, require_zero_unresolved=True)
+    assert report["unresolved_count"] == 0
+    assert report["repair_count"] == 1
+
+    convergence["iterations"][0]["rejudge_iteration"] = 0
+    convergence_path.write_text(json.dumps(convergence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="later iteration"):
+        validate_semantic_convergence(convergence_path, require_zero_unresolved=True)
+
+
+def test_convergence_validator_rejects_nonzero_unresolved_and_hash_drift(tmp_path):
+    artifact = tmp_path / "artifact.jsonl"
+    artifact.write_text("{}\n", encoding="utf-8")
+    ref = _artifact(artifact, records=1)
+    convergence_path = tmp_path / "convergence.json"
+    payload = {
+        "schema_version": "phase39-semantic-convergence-v1",
+        "initial_candidate_manifest": ref,
+        "initial_candidate_files": [ref],
+        "initial_carry": ref,
+        "initial_targets": ref,
+        "initial_batch_manifest": ref,
+        "iterations": [],
+        "unresolved_identities": ["seed:identity"],
+        "unresolved_count": 1,
+        "final_candidate_manifest": ref,
+        "final_candidate_files": [ref],
+        "final_fresh_results": ref,
+    }
+    convergence_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="unresolved_count is 1"):
+        validate_semantic_convergence(convergence_path, require_zero_unresolved=True)
+
+    payload["unresolved_identities"] = []
+    payload["unresolved_count"] = 0
+    convergence_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    artifact.write_text("{\"tampered\":true}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        validate_semantic_convergence(convergence_path, require_zero_unresolved=True)
+
+
+def test_semantic_quarantine_transition_replays_removal_cap_and_group_split(tmp_path):
+    source_rows = [
+        _make_source_row(
+            f"seed_quarantine_{index:02d}",
+            f"Tin nhan Zalo thu {index:02d} du dai de kiem thu quarantine semantic.",
+            label="zalo_social_engineering",
+        )
+        for index in range(14)
+    ]
+    source_splits = {"train": source_rows, "val": [], "test": []}
+    quarantined = source_rows[0]
+    remaining = source_rows[1:]
+    assignments = assign_stratified_group_split(
+        remaining,
+        ratios=(0.8, 0.1, 0.1),
+        salt="phase39-mislabel-triage-v1",
+    )
+    final_splits = {"train": [], "val": [], "test": []}
+    for record in remaining:
+        final_splits[assignments[record["seed_id"]]].append(record)
+
+    before_dir = tmp_path / "before"
+    after_dir = tmp_path / "after"
+    before_dir.mkdir()
+    after_dir.mkdir()
+    for name in ("train", "val", "test"):
+        _write_jsonl(before_dir / f"{name}.jsonl", source_splits[name])
+        _write_jsonl(after_dir / f"{name}.jsonl", final_splits[name])
+
+    digest = dataset_record_digest(quarantined)
+    identity = record_identity(quarantined["seed_id"], quarantined["text"])
+    quarantine_path = tmp_path / "quarantine.jsonl"
+    quarantine_row = {
+        "source_split": "train",
+        "source_row_index": 0,
+        "record_digest": digest,
+        "record_identity": identity,
+        "reason": "fresh_judge_unrepairable_label",
+        "record": quarantined,
+        "fresh_judge": {
+            "split": "train",
+            "row_index": 0,
+            "seed_id": quarantined["seed_id"],
+            "realism": 4,
+            "label_correctness": 2,
+            "code_switch_naturalness": 4,
+            "risk_tier_correctness": 4,
+            "suspicious_span_accuracy": 4,
+            "pass": False,
+            "reason": "The text is ordinary and does not contain a social-engineering cue.",
+            "record_digest": digest,
+        },
+    }
+    _write_jsonl(quarantine_path, [quarantine_row])
+    cap_path = tmp_path / "cap-drops.jsonl"
+    cap_path.write_text("", encoding="utf-8")
+
+    transition = SemanticQuarantineTransition(
+        schema_version="phase39-semantic-quarantine-v1",
+        reason="fresh_judge_unrepairable_label",
+        candidate_before=[
+            ConvergenceArtifact(path=str(before_dir / f"{name}.jsonl"), sha256=sha256_path(before_dir / f"{name}.jsonl"), records=len(source_splits[name]))
+            for name in ("train", "val", "test")
+        ],
+        quarantine_records=ConvergenceArtifact(
+            path=str(quarantine_path), sha256=sha256_path(quarantine_path), records=1
+        ),
+        cap_drop_records=ConvergenceArtifact(
+            path=str(cap_path), sha256=sha256_path(cap_path), records=0
+        ),
+        candidate_after=[
+            ConvergenceArtifact(path=str(after_dir / f"{name}.jsonl"), sha256=sha256_path(after_dir / f"{name}.jsonl"), records=len(final_splits[name]))
+            for name in ("train", "val", "test")
+        ],
+        cap_pct=0.08,
+        split_ratios=(0.8, 0.1, 0.1),
+        split_salt="phase39-mislabel-triage-v1",
+        resolved_identities=[identity],
+    )
+    resolved, removed = _validate_semantic_quarantine_transition(
+        transition,
+        expected_before=source_splits,
+        final_splits=final_splits,
+    )
+    assert resolved == {identity}
+    assert removed == {digest}
+
+    quarantine_row["fresh_judge"]["label_correctness"] = 3
+    quarantine_row["fresh_judge"]["pass"] = True
+    _write_jsonl(quarantine_path, [quarantine_row])
+    with pytest.raises(ValueError, match="lacks a bound failing label verdict"):
+        _validate_semantic_quarantine_transition(
+            transition,
+            expected_before=source_splits,
+            final_splits=final_splits,
+        )
+
+
+def test_real_final_release_composition_is_exact_2097_snapshot():
+    repo_root = Path(__file__).resolve().parents[2]
+    combined, provenance = compose_final_judge_evidence(
+        candidate_dir=repo_root / "data/processed/phase39-mislabel-candidate",
+        convergence_path=repo_root / "data/processed/phase39-semantic-convergence.json",
+        carry_path=repo_root / "data/processed/phase39-final-evidence/carry.jsonl",
+        fresh_results_path=repo_root / "data/processed/codex-final-delta-judge.jsonl",
+    )
+    origins = {
+        origin: sum(row.verdict_origin == origin for row in provenance)
+        for origin in ("carried_forward_exact_record", "fresh_final_delta")
+    }
+    assert len(combined) == len(provenance) == 2_097
+    assert origins == {
+        "carried_forward_exact_record": 1_561,
+        "fresh_final_delta": 536,
+    }
+    source = load_source_splits(
+        repo_root / "data/processed/phase39-mislabel-candidate/splits"
+    )
+    merged, _ = merge_judge_results(combined, source)
+    stats = compute_aggregate_stats(merged)
+    assert stats["passed"] == 1_395
+    assert stats["pass_mismatch_count"] == 0
+    assert stats["per_split"]["train"]["passed"] == 1_130
+    assert stats["per_split"]["val"]["passed"] == 110
+    assert stats["per_split"]["test"]["passed"] == 155
+
+
+def test_final_provenance_origin_contract_is_closed():
+    with pytest.raises(ValueError, match="fresh provenance requires a source iteration"):
+        FinalJudgeProvenanceRow(
+            schema_version="phase39-final-judge-provenance-v1",
+            split="train",
+            row_index=0,
+            seed_id="seed_test",
+            record_digest="0" * 64,
+            evidence_digest="1" * 64,
+            verdict_origin="fresh_final_delta",
+            source_iteration=None,
+            source_path="data/processed/fresh.jsonl",
+            source_sha256="2" * 64,
+        )
+
+
+def test_carried_evidence_is_bound_to_byte_preserved_historical_merge(tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    backup = (
+        repo_root
+        / "data/backup/pre-phase39-mislabel-triage/processed/judge-merged.jsonl"
+    )
+    if not backup.is_file():
+        backup = repo_root / "data/processed/judge-merged.jsonl"
+    carry_source = repo_root / "data/processed/phase39-final-evidence/carry.jsonl"
+    report = validate_carries_against_historical_backup(
+        carry_path=carry_source,
+        historical_merged_backup=backup,
+    )
+    assert report["carry_count"] == 1_561
+    rows = [json.loads(line) for line in carry_source.read_text(encoding="utf-8").splitlines()]
+    rows[0]["result"]["reason"] = "Tampered but internally rehashed carried verdict."
+    rows[0]["provenance"]["evidence_digest"] = judge_evidence_digest(rows[0]["result"])
+    tampered = tmp_path / "carry.jsonl"
+    _write_jsonl(tampered, rows)
+    with pytest.raises(ValueError, match="evidence differs"):
+        validate_carries_against_historical_backup(
+            carry_path=tampered,
+            historical_merged_backup=backup,
+        )

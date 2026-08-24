@@ -5,14 +5,14 @@
 \toprule
 \textbf{Component} & \textbf{Description} & \textbf{Outcome} \\
 \midrule
-Data construction    & Synthetic corpus, schema checks, and LLM sample review & Quality sample 49/50 passed \\
+Data construction    & Final joined judge evidence and separate human sample & Judge 1{,}395/2{,}097 passed; human 44/100 passed \\
 Local runtime        & Offline text analysis with privacy-preserving safe defaults & End-to-end inference verified \\
 Model pilot          & Recall-first candidate comparison for the 4B baseline     & qwen3-4b-instruct-2507 selected \\
 Local deployment     & Adapted model exported to GGUF; CPU inference verified     & GGUF artifact registered \\
 Decision layer       & Risk tiers, threat labels, cues, and safe guidance         & Structured runtime output verified \\
-Final evaluation     & Internal validation on 254 examples & Macro F1 0.9625; leakage limitation disclosed \\
+Historical model evaluation & Earlier internal validation on 254 examples & Macro F1 0.9625; not recomputed on promoted corpus \\
 \bottomrule
 \end{tabular}
-\caption{Implemented pipeline components and evaluation outcomes.}
+\caption{Implemented pipeline components, current data-quality evidence, and historical model-evaluation outcome.}
 \label{tab:milestone-summary}
 \end{table}

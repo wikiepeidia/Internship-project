@@ -6,7 +6,7 @@
   \begin{itemize}
     \item \textbf{Text-only:} image-based phishing (QR codes, forwarded screenshots) is not handled.
     \item Vietnamese-only training data --- generalization to other languages is untested.
-    \item The 254-row result reuses validation data and includes seed overlap; the 413-row test split is unevaluated.
+    \item The historical 254-row result reused validation data and had seed overlap; 413 rows were then designated test. Those metrics were not recomputed on the promoted corpus.
   \end{itemize}
   \begin{block}{Primary Future Direction}
     Rebuild seed-group-disjoint splits and evaluate once on an untouched, human-labelled test set.

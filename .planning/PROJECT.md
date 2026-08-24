@@ -35,7 +35,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
 - [ ] Run bounded LoRA/QLoRA probes on the RTX 5050 for honest feasibility and ETA measurements, then train and graph fresh matched full LoRA/QLoRA runs on Colab.
 - [ ] Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data.
-- [ ] Run the current reserved 251-row test split exactly once, at the end, across all three trained models; only afterward may a separate deployment model use all 2,403 rows.
+- [ ] Run the current reserved 220-row test split exactly once, at the end, across all three trained models; only afterward may a separate deployment model use all 2,097 rows.
 - [ ] Overhaul the report in an authentic USTH-student voice, chapter by chapter, once the reference report arrives.
 - [ ] Overhaul the slides around real pipeline stages with real graphs and progressive reveals.
 - [ ] Guided code-comment cleanup as defense-prep, sequenced last.
@@ -83,7 +83,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - Restore the genuine `task_scam` 0.44→0.871 recall-recovery story into the report — real, evidenced, and previously scrubbed by an earlier guardrail rule that (in hindsight) made the report read as suspiciously frictionless.
 - Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then train fresh matched full LoRA and QLoRA runs on the same Colab accelerator type where available. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation.
 - Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data — answering "why Qwen not PhoBERT" with a measured number, not just an architectural argument. Any result (including PhoBERT or LoRA outscoring the shipped system on raw classification) is reported honestly; the thesis's claim was never "Qwen is the best classifier."
-- Reserve the current 251-row test split for one final three-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,403 rows without claiming an unbiased test score.
+- Reserve the current 220-row test split (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) for one final three-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,097 rows without claiming an unbiased test score. The live boundary is machine-bound in `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 - Overhaul the report chapter by chapter in an authentic USTH-student voice — student-drafted passages that Claude tightens without altering structure or word choice — gated on a real passed-student reference report the user is sourcing. Derive `WRITING_GUARDRAILS_REPORT.md` from that reference once it arrives.
 - Overhaul the slides around the real pipeline stages (get data → train → GGUF → eval) with real graphs from the retrains above, using progressive `\pause` reveals; slides come off LOCKED status for this milestone only.
 - Guided, file-by-file code-comment cleanup as defense-prep: Claude walks the student through each file, the student writes their own understanding back in as comments — building both a clean codebase and a personal cheatsheet. Sequenced last, right before the retake.
@@ -226,4 +226,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-08-17 after locking the Phase 40 RTX 5050 probe plus matched Colab training protocol and the Phase 41 post-evaluation all-data-fit boundary
+Last updated: 2026-08-21 after promoting the 2,097-row Phase 39 corpus and refreshing the manifest-bound Phase 40/41 data contract

@@ -2,38 +2,38 @@
 \begin{frame}{Data Pipeline}
   \framesubtitle{Seeds \textrightarrow{} Generated Training Examples \textrightarrow{} Quality Checks}
   \begin{center}
-    \scalebox{0.78}{\input{slides/figures/data_pipeline_bare.tex}}
+    \scalebox{0.68}{\input{slides/figures/data_pipeline_bare.tex}}
   \end{center}
   \vspace{-0.05cm}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.48\textwidth}
-      {\footnotesize\textbf{How generated data was used:}}
+      {\footnotesize\textbf{Historical model vs. current release:}}
       {\footnotesize
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
-        \item Generated messages were used for model training.
-        \item Validation rows were not gradient-training rows, but were used for evaluation and model-development decisions.
-        \item They are still project data, not real user traffic.
+        \item An earlier synthetic snapshot trained the historical model.
+        \item The promoted 2,097-row release has not yet been retrained or model-evaluated.
+        \item Its 220-row test remains reserved; all rows are synthetic project data.
       \end{itemize}}
     \end{column}
     \begin{column}{0.48\textwidth}
-      {\footnotesize\textbf{Split counts:}}
+      {\footnotesize\textbf{Final corpus split:}}
       {\footnotesize
       \begin{itemize}
         \setlength{\itemsep}{0.15em}
-        \item \textbf{2,333} train / \textbf{254} validation / \textbf{413} test
-        \item \textbf{Pydantic:} schema constraints; \textbf{LLM judge:} sampled semantics
+        \item \textbf{1,658} train / \textbf{219} validation / \textbf{220} test
+        \item \textbf{Pydantic:} schema; \textbf{judge:} final joined semantic evidence
       \end{itemize}}
-      \vspace{0.3em}
-      {\footnotesize\textbf{Quality check (n\,=\,100):}}\\[2pt]
+      \vspace{0.1em}
+      {\footnotesize\textbf{Final descriptive evidence:}}\\[1pt]
       {\scriptsize
-      \renewcommand{\arraystretch}{1.1}
-      \begin{tabular}{lcc}
-        & \textbf{Mean} & \textbf{$t$-stat} \\
-        Realism & 4.43\,/\,5 & $t{=}8.7$ \\
-        Label acc. & 4.92\,/\,5 & $t{=}53.2$ \\
-      \end{tabular}\\[2pt]
-      $p < 0.0001$; H$_0$: $\mu \leq 4.0$ rejected}
+      Final corpus 2,097 $\mid$ judge 1,395/2,097 pass (66.5\%)\\
+      Human 44/100 pass $\mid$ agreement 87/100}
     \end{column}
   \end{columns}
+  \vspace{-0.05em}
+  \makebox[\textwidth][c]{%
+    \parbox{0.82\textwidth}{\centering\tiny
+      \textbf{Independence scope:} 296 reconstructed Zalo rows share the judge family.\\[-0.1em]
+      The 9-row Zalo human sample is partial corroboration only.}}
 \end{frame}

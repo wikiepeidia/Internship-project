@@ -18,15 +18,17 @@ the held-out test rows; that belongs exclusively to Phase 41.
 ## Implementation Decisions
 
 ### Final-corpus prerequisite
-- Phase 40 starts only after Phase 39's human review is refreshed or
-  supplemented against the final 2,403-row corpus and the canonical manifest
-  is frozen.
-- Canonical split counts are train 1,900, validation 252, and test 251.
+- Phase 40 starts only after Phase 39's final-snapshot human review and report
+  gates close against the promoted 2,097-row corpus. Phase 42 is not a
+  training prerequisite.
+- The machine-readable authority is
+  `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
+- Canonical split counts are train 1,658, validation 219, and test 220.
 - The planner must verify these SHA-256 values before any probe or full run:
-  - train: `6454a271c6133f1ebbd41010390b8ea6ceae0a8ab0a75b2ab545099db3319ee8`
-  - validation: `7adfe8cd9a124dbb3d87046bb32f9fbd127d3e344c45be77c8bb9efa700aaa75`
-  - test: `019aec39979429ca8005dd299d2ddaf7d3ecfdade259eecc4d3129adaed25938`
-  - manifest: `4794cedae52cc5531083a569c3e63c419335a0544f365f4a4d6245048efc2b90`
+  - train: `5fa46382db8fb477ef91ec4ba770bf3f8756df9f98b9950fdf5bc1f6ff402e8b`
+  - validation: `746ae6edb5008a8be8e9ef9d65f89fc44e559f99f28cd8d6a77f203ea5986d3c`
+  - test: `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`
+  - manifest: `e55d768b5aad05ba6946fbb0e7ed248180186b7cbaad21d257a134e2f1b3dbad`
 
 ### RTX 5050 feasibility probes
 - Run one bounded LoRA probe and one bounded QLoRA probe on the laptop.
@@ -71,10 +73,10 @@ the held-out test rows; that belongs exclusively to Phase 41.
 
 ### Evaluation boundary
 - Phase 40 uses validation data for model selection and comparison and never
-  reads the 251 test rows.
+  reads the 220 test rows.
 - Phase 41 evaluates the three frozen checkpoints against the test split once.
 - After Phase 41 results are frozen, an optional deployment model may be fitted
-  on all 2,403 rows. It remains separate from the evaluated checkpoints and has
+  on all 2,097 rows. It remains separate from the evaluated checkpoints and has
   no unbiased test-score claim without a new external holdout.
 
 </decisions>

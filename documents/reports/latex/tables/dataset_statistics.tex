@@ -5,11 +5,11 @@
 \toprule
 \textbf{Data Split / Partition} & \textbf{Count} & \textbf{Methodological Focus} \\
 \midrule
-Training                  & 2{,}333 & QLoRA fine-tuning on the final synthetic corpus \\
-Validation                & 254     & Trainer evaluation and final reported comparison \\
-Test (reserved)           & 413     & Reserved for future independent benchmarking \\
+Training                  & 1{,}658 & Promoted records available for subsequent model training \\
+Validation                & 219     & Promoted model-development partition \\
+Test                      & 220     & Separate promoted held-out partition \\
 \midrule
-\textbf{Total Tracked Corpus} & \textbf{3{,}000} & Versioned lineage; external real-world val/test remains future work \\
+\textbf{Total Promoted Corpus} & \textbf{2{,}097} & Versioned lineage and final quality evidence \\
 \bottomrule
 \end{tabular}
 
@@ -17,7 +17,7 @@ Test (reserved)           & 413     & Reserved for future independent benchmarki
 
 \begin{tabular}{lrr}
 \toprule
-\textbf{Evaluation Class (Validation)} & \textbf{Support ($N$)} & \textbf{Measured Recall} \\
+\textbf{Historical Evaluation Class} & \textbf{Support ($N$)} & \textbf{Measured Recall} \\
 \midrule
 Bank Impersonation      & 56 & 1.000 \\
 Zalo Social Engineering & 75 & 0.987 \\
@@ -25,6 +25,6 @@ Task Scam               & 62 & 0.871 \\
 Benign                  & 61 & 1.000 \\
 \bottomrule
 \end{tabular}
-\caption{Dataset composition, split sizes, and internal evaluation boundaries.}
+\caption{Promoted dataset composition and the separate historical 254-row model-validation results.}
 \label{tab:dataset-stats}
 \end{table}

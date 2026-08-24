@@ -33,7 +33,13 @@ from src.data_pipeline.reconstruct_zalo_direct_catalog import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SPLITS_DIR = REPO_ROOT / "data" / "splits"
+# Phase 39 later promotes a smaller canonical corpus.  These reconstruction
+# regression fixtures stay bound to the immutable pre-triage F-01 snapshot
+# whose 2,343-row predecessor they are designed to reconstruct.
+SPLITS_DIR = (
+    REPO_ROOT
+    / "data/processed/f01-zalo-direct-candidate-20260817-verified/splits"
+)
 
 
 def _implementation_provenance(*, dirty: bool) -> dict:

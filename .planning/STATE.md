@@ -22,7 +22,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v7.0 Retake Redemption — after an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2). Repair and re-judge the corpus, finish a genuine human check on the final snapshot, measure bounded RTX 5050 LoRA/QLoRA probes, run fresh matched full LoRA/QLoRA training on Colab, fully fine-tune PhoBERT, and report every result honestly. Reserve the current 251-row test split for one final three-model evaluation; only after results are frozen may a separately labeled deployment fit use all 2,403 rows. Then overhaul the report/slides around the real evidence and finish guided code-comment cleanup as defense-prep.
+- Current milestone focus: v7.0 Retake Redemption — after an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2). Repair and re-judge the corpus, finish a genuine human check on the final snapshot, measure bounded RTX 5050 LoRA/QLoRA probes, run fresh matched full LoRA/QLoRA training on Colab, fully fine-tune PhoBERT, and report every result honestly. Reserve the current 220-row test split for one final three-model evaluation; only after results are frozen may a separately labeled deployment fit use all 2,097 rows. Then overhaul the report/slides around the real evidence and finish guided code-comment cleanup as defense-prep.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -36,8 +36,8 @@ progress:
 ## Current Position
 
 Phase: 39 (Independent Quality Re-Judge) — EXECUTING
-Plan: 1 of 1
-Status: Phase complete — ready for verification
+Plan: 5 of 7
+Status: Plan 39-05 complete — canonical 2,097-row release promoted; final-snapshot human review remains the Phase 40 blocker
 Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phase 39 Zalo data-quality correction
 
 ## Performance Metrics (Baseline Targets)
@@ -223,9 +223,9 @@ Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phas
 
 ## Session Continuity
 
-**Last session:** 2026-08-20T21:53:58+07:00
-**Stopped at:** Resumed after VS Code interruption; validating revised Phase 39 continuation plans 39-02 through 39-07 before execution
-**Resume file:** `.planning/phases/39-independent-quality-re-judge/39-02-PLAN.md`
+**Last session:** 2026-08-24T07:27:03+07:00
+**Stopped at:** Session resumed; completing Plan 39-07 final build, stale-claim, regression, and verification gates unattended
+**Resume file:** `.planning/phases/39-independent-quality-re-judge/.continue-here.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -301,7 +301,7 @@ Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phas
 - [Phase 38]: Fixed repair_evidence_spans() to only drop rows with originally-non-empty spans that became unrecoverable (was dropping all 750 legitimately-empty benign rows); fixed enforce_seed_cap() before-snapshot to use the pre-trim total (was 14.25% instead of real 11.90% for seed_157ce0adb043); manifest now explicitly records all 4 labels per split including zero. zalo_social_engineering's entire 825-row population traces to a single seed_id, so val/test have zero support for that class by design (group integrity preserved per locked CONTEXT.md decision) — a genuine limitation for Phase 39/40 to know about.
 - [Phase 39]: CodexJudgeResult's field names/types kept byte-identical to .planning/codex-judge-instructions.md's documented output schema so a real Codex-produced file validates without edits to either file
 - [Phase 39]: Task 1 tracer's <verify> (pytest) was fully automated and already green with no human-only judgment involved, so execution continued into Task 2 rather than pausing at the tracer feedback gate -- documented as an explicit process deviation, not a silent skip
-- [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA runs are bounded feasibility and ETA probes only; their adapters are discarded. Fresh full LoRA/QLoRA runs start independently on matched Colab hardware, PhoBERT receives ordinary full classification-head fine-tuning, QLoRA must fail closed unless genuine 4-bit mode is proven, and Phase 40 never reads the 251-row test split. The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics.
+- [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA runs are bounded feasibility and ETA probes only; their adapters are discarded. Fresh full LoRA/QLoRA runs start independently on matched Colab hardware, PhoBERT receives ordinary full classification-head fine-tuning, QLoRA must fail closed unless genuine 4-bit mode is proven, and Phase 40 never reads the 220-row test split (`6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`). The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics; the live boundary is `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 
 ## Performance Metrics
 

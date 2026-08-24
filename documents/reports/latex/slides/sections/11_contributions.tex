@@ -6,10 +6,10 @@
       \begin{block}{Contributions}
         {\footnotesize
         \begin{enumerate}
-          \item \textbf{Vietnamese phishing corpus:} 3,000 synthetic samples, 4 classes
+          \item \textbf{Vietnamese phishing corpus:} 2,097 promoted records, 4 classes
           \item \textbf{Privacy-first local runtime:} Qwen3-4B GGUF via \texttt{llama.cpp}, ${\approx}24$\,s, no cloud
           \item \textbf{Explainable decisions:} grounded cues + risk-tier labels
-          \item \textbf{Evaluation:} 254 samples, macro F1 = 0.9625
+          \item \textbf{Historical model evaluation:} 254 samples, macro F1 = 0.9625
         \end{enumerate}}
       \end{block}
     \end{column}
@@ -18,7 +18,7 @@
         {\footnotesize
         \begin{itemize}
           \item Text-only; Vietnamese-only training data
-          \item 413-row test split unevaluated
+          \item Older model metrics not recomputed on promoted corpus
         \end{itemize}}
       \end{alertblock}
       \vspace{-3pt}
@@ -26,8 +26,8 @@
         {\footnotesize
         \begin{itemize}
           \setlength{\itemsep}{1pt}
-          \item Seed-disjoint split, evaluated once on an untouched, human-labelled test set
-          \item Independent human review of grounding \& recommendation quality
+          \item Train/select without touching the promoted 220-row test split; evaluate it once
+          \item Real-world labelled evaluation and runtime-explanation review
         \end{itemize}}
       \end{block}
     \end{column}

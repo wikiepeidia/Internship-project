@@ -22,7 +22,7 @@ external model registry are not included in the repository. The small
 final-evidence manifest records the artifact path, byte size, and SHA-256
 identifier so that the deployed file can be checked without committing it.
 
-\noindent\textbf{Reproducing the reported pipeline:} the same commands used to produce the artifacts cited throughout this thesis are:
+\noindent\textbf{Runnable workflow commands:} the repository exposes the following commands for checking and running the current workflow:
 
 \begin{center}
 \small
@@ -33,26 +33,27 @@ identifier so that the deployed file can be checked without committing it.
 Check training readiness & \texttt{python -m src.model\_adaptation.cli doctor} \\
 Run QLoRA adaptation & \texttt{python -m src.model\_adaptation.cli train} \\
 Export to GGUF & \texttt{python -m src.model\_adaptation.cli convert} \\
-Run held-out evaluation & \texttt{python -m src.model\_adaptation.cli evaluate-release-split} \\
+Run evaluation workflow & \texttt{python -m src.model\_adaptation.cli evaluate-release-split} \\
 Check runtime readiness & \texttt{vnphish doctor} \\
 Analyze one message & \texttt{vnphish analyze} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Each command accepts flags for artifact paths, hyperparameters, and evaluation split location; the defaults reproduce the reported run. This table is intentionally a list of real, runnable commands rather than a narrative description, so the pipeline can be checked directly against the repository rather than taken on the strength of this document alone.
+These are runnable workflow examples, not a claim that current defaults reproduce the historical metrics. In the current tree, \texttt{evaluate-release-split} defaults to \path{data/splits/val.jsonl}, the 219-row development-validation partition. That default is not a held-out test and does not reproduce the historical 254-row result without the pinned earlier snapshot and artifacts. The promoted 220-row test partition remains reserved for subsequent retraining and held-out evaluation. Other commands likewise require explicit historical artifact paths and parameters to reproduce an earlier run.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
-The labelled corpus contains 3,000 Vietnamese messages constructed from
+The promoted corpus contains 2{,}097 Vietnamese messages constructed from
 cybercrime alert seeds (tinnhiemmang.vn) combined with synthetic
-generation. Pydantic validates record structure, while a separate LLM-based
-judge provides the recorded sample-quality scores. The corpus is split into
+generation. Pydantic validates record structure, while final joined judge
+evidence, targeted human triage, and lineage governance support semantic quality. The corpus is split into
 training, validation, and test partitions. Table~\ref{tab:dataset-splits}
 summarises the final split sizes and Table~\ref{tab:validation-class-dist} shows
-the per-class distribution of the 254-example validation set used for the
-reported comparison.
+the per-class distribution of the historical 254-example validation set used
+for the existing model comparison; the latter is not a distribution of the
+promoted validation split.
 
 \begin{table}[H]
 \centering
@@ -64,18 +65,18 @@ reported comparison.
 \toprule
 \textbf{Split} & \textbf{Examples} \\
 \midrule
-Training       & 2{,}333 \\
-Validation     &   254   \\
-Test (reserved)      & 413 \\
+Training       & 1{,}658 \\
+Validation     &   219   \\
+Test           &   220   \\
 \midrule
-\textbf{Total} & \textbf{3{,}000} \\
+\textbf{Total} & \textbf{2{,}097} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Per-class distribution of the 254-example internal validation set.}
+\caption{Per-class distribution of the historical 254-example internal validation set used for the existing model comparison.}
 \label{tab:validation-class-dist}
 \setlength{\tabcolsep}{10pt}
 \renewcommand{\arraystretch}{1.3}

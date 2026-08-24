@@ -661,8 +661,8 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Held-Out Evaluation Discipline
 
-- [ ] **EVAL-08**: The current canonical 251-row test partition is evaluated exactly once, after all three models are finalized, under identical conditions.
-- [ ] **EVAL-09**: Final held-out results for all three models are frozen and reported plainly, including any case where PhoBERT or LoRA outscores the deployed system; any later all-2,403-row deployment fit is separate and carries no unbiased test-score claim.
+- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated exactly once, after all three models are finalized, under identical conditions.
+- [ ] **EVAL-09**: Final held-out results for all three models are frozen and reported plainly, including any case where PhoBERT or LoRA outscores the deployed system; any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
 
 ### Report Overhaul
 

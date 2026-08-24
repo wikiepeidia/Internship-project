@@ -20,10 +20,10 @@ import unicodedata
 from collections import Counter, defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from src.data_pipeline.generate_mislabel_triage_sheet import select_mislabel_candidates
 from src.data_pipeline.processing.dedup import fuzz
@@ -87,6 +87,12 @@ EXPECTED_TOTAL_DISTRIBUTION = {
     "benign": 655,
     "zalo_social_engineering": 301,
 }
+SEMANTIC_QUARANTINE_SCHEMA_VERSION = "phase39-semantic-quarantine-v1"
+SEMANTIC_QUARANTINE_REASON = "fresh_judge_unrepairable_label"
+SEMANTIC_CAP_DROP_REASON = "global_iterative_seed_cap_after_semantic_quarantine"
+EXPECTED_POST_QUARANTINE_ROWS = 2_097
+EXPECTED_SEMANTIC_QUARANTINE_ROWS = 4
+EXPECTED_SEMANTIC_QUARANTINE_CAP_DROPS = 2
 EXPECTED_INPUT_SHA256 = {
     "train.jsonl": "6454a271c6133f1ebbd41010390b8ea6ceae0a8ab0a75b2ab545099db3319ee8",
     "val.jsonl": "7adfe8cd9a124dbb3d87046bb32f9fbd127d3e344c45be77c8bb9efa700aaa75",
@@ -164,6 +170,120 @@ class CodexSemanticRepairDecision(BaseModel):
     new_suspicious_spans: list[str]
     new_xai_explanation: str = Field(min_length=20)
     notes: str = Field(min_length=1)
+
+
+class SemanticQuarantineHashArtifact(BaseModel):
+    """One immutable, repository-relative artifact reference."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SemanticQuarantineRowArtifact(SemanticQuarantineHashArtifact):
+    records: int = Field(ge=0)
+
+
+class SemanticQuarantineSplitArtifact(SemanticQuarantineRowArtifact):
+    split: Literal["train", "val", "test"]
+
+
+class SemanticQuarantineSourceCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    manifest: SemanticQuarantineHashArtifact
+    splits: list[SemanticQuarantineSplitArtifact] = Field(min_length=3, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_exact_split_coverage(self) -> "SemanticQuarantineSourceCandidate":
+        names = [item.split for item in self.splits]
+        if names != list(SPLIT_NAMES):
+            raise ValueError(
+                f"source_candidate splits must be ordered {list(SPLIT_NAMES)}, got {names}"
+            )
+        return self
+
+
+class SemanticQuarantineFreshJudge(BaseModel):
+    """Local closed copy of the fresh FinalJudgeResult evidence shape.
+
+    Keeping the schema here avoids a circular import from ``judge_merge`` while
+    still checking its critical score, digest, coordinate, and computed-pass
+    invariants.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid", strict=True, populate_by_name=True
+    )
+
+    split: Literal["train", "val", "test"]
+    row_index: int = Field(ge=0)
+    seed_id: str = Field(min_length=1)
+    realism: int = Field(ge=1, le=5)
+    label_correctness: int = Field(ge=1, le=5)
+    code_switch_naturalness: int = Field(ge=1, le=5)
+    risk_tier_correctness: int = Field(ge=1, le=5)
+    suspicious_span_accuracy: int = Field(ge=1, le=5)
+    judge_pass: bool = Field(alias="pass")
+    reason: str = Field(min_length=1)
+    record_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_computed_pass(self) -> "SemanticQuarantineFreshJudge":
+        scores = (
+            self.realism,
+            self.label_correctness,
+            self.code_switch_naturalness,
+            self.risk_tier_correctness,
+            self.suspicious_span_accuracy,
+        )
+        if self.judge_pass != all(score >= 3 for score in scores):
+            raise ValueError("pass does not match the five fresh-judge scores")
+        if self.label_correctness >= 3:
+            raise ValueError("semantic quarantine requires label_correctness below 3")
+        return self
+
+
+class SemanticQuarantineContract(BaseModel):
+    """Closed authorization for the sole 2,103 -> 2,097 candidate transition."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: Literal["phase39-semantic-quarantine-v1"]
+    status: Literal["applied"]
+    reason: Literal["fresh_judge_unrepairable_label"]
+    source_candidate: SemanticQuarantineSourceCandidate
+    quarantine_artifact: SemanticQuarantineRowArtifact
+    cap_drop_artifact: SemanticQuarantineRowArtifact
+    cap_pct: float
+    split_ratios: list[float] = Field(min_length=3, max_length=3)
+    split_salt: str = Field(min_length=1)
+    expected_profile: dict[str, Any]
+
+    @model_validator(mode="after")
+    def validate_locked_governance(self) -> "SemanticQuarantineContract":
+        if self.cap_pct != 0.08:
+            raise ValueError("semantic quarantine cap_pct must be exactly 0.08")
+        if self.split_ratios != list(SPLIT_RATIOS):
+            raise ValueError(
+                f"semantic quarantine split_ratios must be {list(SPLIT_RATIOS)}"
+            )
+        if self.split_salt != SPLIT_SALT:
+            raise ValueError(
+                f"semantic quarantine split_salt must be exactly {SPLIT_SALT!r}"
+            )
+        if self.quarantine_artifact.records != EXPECTED_SEMANTIC_QUARANTINE_ROWS:
+            raise ValueError(
+                "semantic quarantine artifact must declare exactly "
+                f"{EXPECTED_SEMANTIC_QUARANTINE_ROWS} records"
+            )
+        if self.cap_drop_artifact.records != EXPECTED_SEMANTIC_QUARANTINE_CAP_DROPS:
+            raise ValueError(
+                "semantic quarantine cap-drop artifact must declare exactly "
+                f"{EXPECTED_SEMANTIC_QUARANTINE_CAP_DROPS} records"
+            )
+        return self
 
 
 @dataclass(frozen=True)
@@ -1251,6 +1371,357 @@ def _candidate_paths(candidate_dir: Path) -> dict[str, Path]:
     }
 
 
+def _semantic_quarantine_repo_root(candidate_dir: Path) -> Path:
+    """Return the repository root for a contract-bearing standard candidate.
+
+    Contract paths are repository-relative so that the manifest remains
+    portable.  Requiring the normal ``data/processed/<candidate>`` location
+    prevents a caller from silently changing what those relative paths mean.
+    """
+    resolved = Path(candidate_dir).resolve()
+    if resolved.parent.name != "processed" or resolved.parent.parent.name != "data":
+        raise MislabelTriageError(
+            "semantic quarantine candidate must live at data/processed/<candidate>"
+        )
+    return resolved.parent.parent.parent
+
+
+def _resolve_semantic_quarantine_artifact(
+    repo_root: Path,
+    artifact: SemanticQuarantineHashArtifact,
+    *,
+    context: str,
+) -> Path:
+    raw = artifact.path
+    pure = PurePosixPath(raw)
+    if (
+        "\\" in raw
+        or pure.is_absolute()
+        or not pure.parts
+        or any(part in {"", ".", ".."} for part in pure.parts)
+        or pure.as_posix() != raw
+    ):
+        raise MislabelTriageError(
+            f"{context} path must be a normalized repository-relative POSIX path"
+        )
+    resolved_root = Path(repo_root).resolve()
+    path = resolved_root.joinpath(*pure.parts).resolve()
+    try:
+        path.relative_to(resolved_root)
+    except ValueError as exc:
+        raise MislabelTriageError(f"{context} path escapes the repository") from exc
+    if not path.is_file():
+        raise MislabelTriageError(f"{context} artifact does not exist: {raw}")
+    actual_sha256 = sha256_path(path)
+    if actual_sha256 != artifact.sha256:
+        raise MislabelTriageError(
+            f"{context} hash mismatch: actual={actual_sha256}, expected={artifact.sha256}"
+        )
+    return path
+
+
+def _load_semantic_quarantine_contract(
+    manifest: Mapping[str, Any],
+) -> SemanticQuarantineContract | None:
+    triage = manifest.get("task_scam_mislabel_triage")
+    if not isinstance(triage, Mapping):
+        return None
+    if "semantic_quarantine_contract" not in triage:
+        return None
+    try:
+        return SemanticQuarantineContract.model_validate(
+            triage["semantic_quarantine_contract"]
+        )
+    except ValidationError as exc:
+        raise MislabelTriageError(
+            f"semantic quarantine contract is invalid: {exc}"
+        ) from exc
+
+
+def _load_bound_row_artifact(
+    repo_root: Path,
+    artifact: SemanticQuarantineRowArtifact,
+    *,
+    context: str,
+) -> list[dict[str, Any]]:
+    path = _resolve_semantic_quarantine_artifact(
+        repo_root, artifact, context=context
+    )
+    rows = read_jsonl(path)
+    if len(rows) != artifact.records:
+        raise MislabelTriageError(
+            f"{context} row count mismatch: actual={len(rows)}, "
+            f"expected={artifact.records}"
+        )
+    return rows
+
+
+def _validate_semantic_quarantine_transition(
+    candidate_dir: Path,
+    paths: Mapping[str, Path],
+    manifest: Mapping[str, Any],
+    current_splits: dict[str, list[dict[str, Any]]],
+    contract: SemanticQuarantineContract,
+) -> dict[str, Any]:
+    """Recompute and authorize the exact post-judge quarantine transition."""
+    repo_root = _semantic_quarantine_repo_root(candidate_dir)
+
+    source_manifest_path = _resolve_semantic_quarantine_artifact(
+        repo_root,
+        contract.source_candidate.manifest,
+        context="semantic quarantine source manifest",
+    )
+    try:
+        source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise MislabelTriageError(
+            f"semantic quarantine source manifest is invalid JSON: {exc}"
+        ) from exc
+    if not isinstance(source_manifest, dict):
+        raise MislabelTriageError("semantic quarantine source manifest is not an object")
+
+    source_splits: dict[str, list[dict[str, Any]]] = {}
+    for descriptor in contract.source_candidate.splits:
+        split_name = descriptor.split
+        source_path = _resolve_semantic_quarantine_artifact(
+            repo_root,
+            descriptor,
+            context=f"semantic quarantine source {split_name}",
+        )
+        if PurePosixPath(descriptor.path).name != f"{split_name}.jsonl":
+            raise MislabelTriageError(
+                f"semantic quarantine source {split_name} path has the wrong basename"
+            )
+        rows = [
+            validate_dataset_record(
+                row, context=f"semantic quarantine source {split_name}:{row_index}"
+            )
+            for row_index, row in enumerate(read_jsonl(source_path))
+        ]
+        if len(rows) != descriptor.records:
+            raise MislabelTriageError(
+                f"semantic quarantine source {split_name} row count mismatch"
+            )
+        try:
+            manifest_entry = source_manifest["manifest"]["files"][f"{split_name}.jsonl"]
+        except (KeyError, TypeError) as exc:
+            raise MislabelTriageError(
+                f"semantic quarantine source manifest lacks {split_name}.jsonl metadata"
+            ) from exc
+        expected_entry = {
+            "sha256": descriptor.sha256,
+            "records": descriptor.records,
+            "bytes": source_path.stat().st_size,
+        }
+        if manifest_entry != expected_entry:
+            raise MislabelTriageError(
+                f"semantic quarantine source manifest mismatch for {split_name}"
+            )
+        source_splits[split_name] = rows
+
+    source_stats = validate_candidate_splits(source_splits, enforce_locked_profile=True)
+    if source_manifest.get("split_class_distribution") != source_stats[
+        "split_class_distribution"
+    ]:
+        raise MislabelTriageError(
+            "semantic quarantine source manifest class distribution mismatch"
+        )
+
+    quarantine_rows = _load_bound_row_artifact(
+        repo_root,
+        contract.quarantine_artifact,
+        context="semantic quarantine artifact",
+    )
+    expected_quarantine_fields = {
+        "source_split",
+        "source_row_index",
+        "record_digest",
+        "record_identity",
+        "reason",
+        "record",
+        "fresh_judge",
+    }
+    remove_coordinates: set[tuple[str, int]] = set()
+    remove_digests: set[str] = set()
+    remove_identities: set[str] = set()
+    coordinate_order = {name: index for index, name in enumerate(SPLIT_NAMES)}
+    artifact_coordinates: list[tuple[str, int]] = []
+    for artifact_index, row in enumerate(quarantine_rows):
+        if set(row) != expected_quarantine_fields:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} has wrong fields"
+            )
+        split_name = row["source_split"]
+        row_index = row["source_row_index"]
+        if split_name not in SPLIT_NAMES or type(row_index) is not int or row_index < 0:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} has invalid source coordinate"
+            )
+        coordinate = (split_name, row_index)
+        if coordinate in remove_coordinates:
+            raise MislabelTriageError(
+                f"semantic quarantine repeats source coordinate {coordinate}"
+            )
+        if row_index >= len(source_splits[split_name]):
+            raise MislabelTriageError(
+                f"semantic quarantine source coordinate is out of range: {coordinate}"
+            )
+        if row["reason"] != SEMANTIC_QUARANTINE_REASON:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} has wrong reason"
+            )
+        record = validate_dataset_record(
+            row["record"], context=f"semantic quarantine row {artifact_index} record"
+        )
+        source_record = source_splits[split_name][row_index]
+        if record != source_record:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} does not equal its source record"
+            )
+        digest = record_digest(record)
+        identity = record_identity(record["seed_id"], record["text"])
+        if row["record_digest"] != digest or row["record_identity"] != identity:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} digest/identity binding failed"
+            )
+        if digest in remove_digests or identity in remove_identities:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} repeats a digest or identity"
+            )
+        try:
+            evidence = SemanticQuarantineFreshJudge.model_validate(row["fresh_judge"])
+        except ValidationError as exc:
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} has invalid fresh judge: {exc}"
+            ) from exc
+        if (
+            evidence.split != split_name
+            or evidence.row_index != row_index
+            or evidence.seed_id != record["seed_id"]
+            or evidence.record_digest != digest
+        ):
+            raise MislabelTriageError(
+                f"semantic quarantine row {artifact_index} fresh-judge binding failed"
+            )
+        remove_coordinates.add(coordinate)
+        remove_digests.add(digest)
+        remove_identities.add(identity)
+        artifact_coordinates.append(coordinate)
+
+    if artifact_coordinates != sorted(
+        artifact_coordinates,
+        key=lambda item: (coordinate_order[item[0]], item[1]),
+    ):
+        raise MislabelTriageError(
+            "semantic quarantine rows must be ordered by source split and row index"
+        )
+
+    post_quarantine_pool = [
+        record
+        for split_name in SPLIT_NAMES
+        for row_index, record in enumerate(source_splits[split_name])
+        if (split_name, row_index) not in remove_coordinates
+    ]
+    expected_pre_cap_count = EXPECTED_OUTPUT_TOTAL - EXPECTED_SEMANTIC_QUARANTINE_ROWS
+    if len(post_quarantine_pool) != expected_pre_cap_count:
+        raise MislabelTriageError(
+            f"semantic quarantine produced {len(post_quarantine_pool)} pre-cap rows, "
+            f"expected {expected_pre_cap_count}"
+        )
+
+    capped, cap_stats = enforce_seed_cap(
+        post_quarantine_pool, cap_pct=contract.cap_pct
+    )
+    expected_cap_drops = _derive_cap_drops(post_quarantine_pool, capped)
+    for row in expected_cap_drops:
+        row["reason"] = SEMANTIC_CAP_DROP_REASON
+    if (
+        len(expected_cap_drops) != EXPECTED_SEMANTIC_QUARANTINE_CAP_DROPS
+        or cap_stats.get("rows_dropped_seed_cap")
+        != EXPECTED_SEMANTIC_QUARANTINE_CAP_DROPS
+    ):
+        raise MislabelTriageError(
+            "semantic quarantine recomputation did not produce exactly two cap drops"
+        )
+    cap_drop_rows = _load_bound_row_artifact(
+        repo_root,
+        contract.cap_drop_artifact,
+        context="semantic quarantine cap-drop artifact",
+    )
+    if cap_drop_rows != expected_cap_drops:
+        raise MislabelTriageError(
+            "semantic quarantine cap-drop artifact differs from deterministic recomputation"
+        )
+
+    assignments = assign_stratified_group_split(
+        capped,
+        ratios=tuple(contract.split_ratios),  # exact length/value checked by the model
+        salt=contract.split_salt,
+    )
+    recomputed_splits = {name: [] for name in SPLIT_NAMES}
+    for record in capped:
+        recomputed_splits[assignments[record["seed_id"]]].append(record)
+    recomputed_stats = validate_candidate_splits(
+        recomputed_splits, enforce_locked_profile=False
+    )
+    if recomputed_stats["total_rows"] != EXPECTED_POST_QUARANTINE_ROWS:
+        raise MislabelTriageError(
+            f"semantic quarantine candidate has {recomputed_stats['total_rows']} rows, "
+            f"expected {EXPECTED_POST_QUARANTINE_ROWS}"
+        )
+    if contract.expected_profile != recomputed_stats:
+        raise MislabelTriageError(
+            "semantic quarantine expected_profile differs from recomputed profile"
+        )
+
+    for split_name in SPLIT_NAMES:
+        if current_splits[split_name] != recomputed_splits[split_name]:
+            raise MislabelTriageError(
+                f"semantic quarantine candidate values differ for {split_name}"
+            )
+        expected_payload = encode_jsonl(recomputed_splits[split_name])
+        if paths[f"splits/{split_name}.jsonl"].read_bytes() != expected_payload:
+            raise MislabelTriageError(
+                f"semantic quarantine candidate bytes differ for {split_name}"
+            )
+
+    triage = manifest["task_scam_mislabel_triage"]
+    if manifest.get("split_class_distribution") != recomputed_stats[
+        "split_class_distribution"
+    ]:
+        raise MislabelTriageError(
+            "semantic quarantine manifest split_class_distribution mismatch"
+        )
+    split_governance = triage.get("split_governance")
+    if not isinstance(split_governance, Mapping) or (
+        split_governance.get("ratios") != list(SPLIT_RATIOS)
+        or split_governance.get("salt") != SPLIT_SALT
+        or split_governance.get("whole_seed_groups") is not True
+        or split_governance.get("split_counts") != recomputed_stats["split_counts"]
+        or split_governance.get("split_class_distribution")
+        != recomputed_stats["split_class_distribution"]
+    ):
+        raise MislabelTriageError(
+            "semantic quarantine manifest split_governance mismatch"
+        )
+    validation = triage.get("validation")
+    if not isinstance(validation, Mapping) or any(
+        validation.get(key) != value for key, value in recomputed_stats.items()
+    ):
+        raise MislabelTriageError(
+            "semantic quarantine manifest validation profile mismatch"
+        )
+    expected_output_sha256 = {
+        f"splits/{name}.jsonl": sha256_path(paths[f"splits/{name}.jsonl"])
+        for name in SPLIT_NAMES
+    }
+    if triage.get("candidate_output_sha256") != expected_output_sha256:
+        raise MislabelTriageError(
+            "semantic quarantine manifest candidate_output_sha256 mismatch"
+        )
+    return recomputed_stats
+
+
 def validate_staged_candidate(
     candidate_dir: Path,
     *,
@@ -1275,8 +1746,23 @@ def validate_staged_candidate(
         name: read_jsonl(paths[f"splits/{name}.jsonl"])
         for name in SPLIT_NAMES
     }
-    stats = validate_candidate_splits(splits)
-    manifest = json.loads(paths["manifest.json"].read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(paths["manifest.json"].read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise MislabelTriageError(f"candidate manifest is invalid JSON: {exc}") from exc
+    if not isinstance(manifest, dict):
+        raise MislabelTriageError("candidate manifest is not an object")
+    quarantine_contract = _load_semantic_quarantine_contract(manifest)
+    if quarantine_contract is None:
+        stats = validate_candidate_splits(splits)
+    else:
+        stats = _validate_semantic_quarantine_transition(
+            candidate_dir,
+            paths,
+            manifest,
+            splits,
+            quarantine_contract,
+        )
     for name in SPLIT_NAMES:
         payload = paths[f"splits/{name}.jsonl"].read_bytes()
         entry = manifest["manifest"]["files"][f"{name}.jsonl"]
