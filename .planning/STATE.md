@@ -5,11 +5,11 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 40
 current_phase_name: Multi-Model Training Evidence
 status: executing
-stopped_at: Phase 40 Plan 03 complete; awaiting operator, package, model-acquisition, and RTX 5050 authority for Plan 04
-last_updated: "2026-08-24T14:28:46.7112302+07:00"
+stopped_at: Phase 40 RTX 5050 LoRA evidence sealed; QLoRA package gates and 5+40 probe remain next and have not started
+last_updated: "2026-08-24T19:39:31+07:00"
 last_activity: 2026-08-24
-last_activity_desc: Phase 40 Plan 03 complete; implementation commit 95beed5; independent security PASS; repository suite 869/869
-state_head: 95beed5e7c169399385e1ad05dd366dbe13f1e76
+last_activity_desc: Phase 40 local LoRA resource run sealed with sustained GPU pressure, no OOM, 26 measured steps, verified runtime discard, and 455/455 model-adaptation tests
+state_head: edb3ee8255a953dfec5eef387c0e8fb0182325ce
 progress:
   total_phases: 22
   completed_phases: 2
@@ -224,9 +224,9 @@ Last activity: 2026-08-24 — Phase 40 Plan 03 completed and committed as 95beed
 
 ## Session Continuity
 
-**Last session:** 2026-08-24T14:28:46+07:00
-**Stopped at:** Phase 40 Plan 03 complete and committed; awaiting the attended Plan 04 package/model-acquisition/RTX 5050 checkpoint
-**Resume file:** `.planning/phases/40-multi-model-training-evidence/40-04-PLAN.md`
+**Last session:** 2026-08-24T19:39:31+07:00
+**Stopped at:** Phase 40 LoRA local evidence is sealed and documented; next run the existing package-authority/runtime gates, then the genuine QLoRA 5+40 probe
+**Resume file:** `.planning/quick/260824-l7f-revise-phase-40-and-implement-a-monitore/260824-l7f-PLAN.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -303,6 +303,7 @@ Last activity: 2026-08-24 — Phase 40 Plan 03 completed and committed as 95beed
 - [Phase 39]: CodexJudgeResult's field names/types kept byte-identical to .planning/codex-judge-instructions.md's documented output schema so a real Codex-produced file validates without edits to either file
 - [Phase 39]: Task 1 tracer's <verify> (pytest) was fully automated and already green with no human-only judgment involved, so execution continued into Task 2 rather than pausing at the tracer feedback gate -- documented as an explicit process deviation, not a silent skip
 - [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA runs are bounded feasibility and ETA probes only; their adapters are discarded. Fresh full LoRA/QLoRA runs start independently on matched Colab hardware, PhoBERT receives ordinary full classification-head fine-tuning, QLoRA must fail closed unless genuine 4-bit mode is proven, and Phase 40 never reads the 220-row test split (`6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`). The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics; the live boundary is `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
+- [Phase 40 local LoRA]: The first zero-step Transformers 5.9 compatibility failure was preserved, then exactly one source-hash-bound retry ran under the original clock and cumulative limits. The retry retained 5 warm-up + 26 measured steps before literal `parent_controller_error`; no OOM occurred. Its verified classifier is sustained `gpu_pressure` (7,902/8,151 MiB peak, 9 MiB minimum free), so ordinary LoRA is technically runnable but operationally unattractive on this 8 GiB configuration. Recovery removed only the bounded runtime and retained no adapter/checkpoint. No further LoRA retry is authorized; QLoRA 5+40 is next.
 
 ## Performance Metrics
 

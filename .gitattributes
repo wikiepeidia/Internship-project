@@ -1,0 +1,2 @@
+# Hash-sealed Phase 40 child logs preserve progress-bar bytes verbatim.
+data/models/phase40/probes/rtx5050-local-decision/**/child-*.sanitized.log -whitespace

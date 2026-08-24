@@ -1,0 +1,1 @@
+{"epoch":0.0,"event_kind":"failure","optimizer_step":0,"run_kind":"probe","schema_version":"phase40-run-event-v1","sequence_id":0,"source_run_id":"rtx5050-lora","timestamp_utc":"2026-08-24T11:27:31.430998Z","trainer_values":{"error_type":"RuntimeError","failure_category":"runtime_failure","requested_adaptation_mode":"lora","resource_state":null,"resource_state_sha256":null}}
