@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -55,6 +56,101 @@ def _torch_identity() -> dict[str, object]:
         "module_path_sha256": "e" * 64,
         "record_sha256": "f" * 64,
     }
+
+
+def _preinstalled_baseline() -> dict[str, object]:
+    return {
+        "bitsandbytes_present": True,
+        "setup_receipt_relative_path": local.PACKAGE_SETUP_RECEIPT_RELATIVE_PATH.as_posix(),
+        "setup_receipt_sha256": "1" * 64,
+        "normalized_decision": local.APPROVE_AUTHORITY,
+        "decision_was_normalized": True,
+        "authority_source": local.PACKAGE_SETUP_AUTHORITY_SOURCE,
+        "authority_source_sha256": "2" * 64,
+    }
+
+
+def _fake_setup_receipt() -> tuple[dict[str, object], dict[str, object]]:
+    source = "install dependencies only; training starts tomorrow"
+    python_identity = {
+        "implementation": "CPython",
+        "version": "3.13.13",
+        "platform": "Windows-test",
+        "machine": "AMD64",
+        "executable_path_sha256": "3" * 64,
+    }
+    pre_inventory = local._distribution_inventory_from_rows(
+        [["torch", "2.12.0+cu132"]]
+    )
+    post_inventory = local._distribution_inventory_from_rows(
+        [["bitsandbytes", "0.50.1"], ["torch", "2.12.0+cu132"]]
+    )
+    distribution_identity = {
+        "version": "0.50.1",
+        "module_path_sha256": "4" * 64,
+        "record_sha256": "5" * 64,
+    }
+    download_url = (
+        "https://files.pythonhosted.org/packages/test/"
+        + local.BITSANDBYTES_WHEEL_FILENAME
+    )
+    provenance = local._bitsandbytes_install_provenance(download_url)
+    provenance_sha256 = hashlib.sha256(
+        local._canonical_json_bytes(provenance)
+    ).hexdigest()
+    payload: dict[str, object] = {
+        "schema_version": local.PACKAGE_SETUP_SCHEMA_VERSION,
+        "package": "bitsandbytes",
+        "version": "0.50.1",
+        "normalized_decision": local.APPROVE_AUTHORITY,
+        "decision_was_normalized": True,
+        "authority_source": local.PACKAGE_SETUP_AUTHORITY_SOURCE,
+        "authority_source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+        "normalization_note": local.PACKAGE_SETUP_NORMALIZATION_NOTE,
+        "install_provenance_relative_path": (
+            local.PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH.as_posix()
+        ),
+        "install_provenance_sha256": provenance_sha256,
+        "python_pre": python_identity,
+        "python_post": python_identity,
+        "torch_pre": _torch_identity(),
+        "torch_post": _torch_identity(),
+        "torch_distribution_identity_unchanged": True,
+        "inventory_pre": local._distribution_inventory_summary(pre_inventory),
+        "inventory_post": local._distribution_inventory_summary(post_inventory),
+        "package_delta": {
+            "added": [{"name": "bitsandbytes", "version": "0.50.1"}],
+            "removed": [],
+        },
+        "bitsandbytes": {
+            "distribution_identity": distribution_identity,
+            "runtime_identity": {
+                "version": "0.50.1",
+                "cuda_kernel_available": True,
+            },
+        },
+        "pip_check": {"exit_code": 0, "output": "No broken requirements found."},
+        "installed_utc": "2026-08-24T10:00:00Z",
+    }
+    current = {
+        "python": python_identity,
+        "inventory": post_inventory,
+        "distribution": distribution_identity,
+        "provenance": provenance,
+    }
+    return payload, current
+
+
+def _write_fake_setup_artifacts(
+    repo: Path, payload: dict[str, object], current: dict[str, object]
+) -> Path:
+    local._write_immutable_json(
+        repo / local.PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH,
+        current["provenance"],
+    )
+    receipt_path = repo / local.PACKAGE_SETUP_RECEIPT_RELATIVE_PATH
+    local._write_immutable_json(receipt_path, payload)
+    return receipt_path
 
 
 def _initialise(tmp_path: Path, *, monotonic: float = 100.0) -> Path:
@@ -430,6 +526,91 @@ def test_telemetry_requires_order_freshness_and_terminal_reason(tmp_path: Path) 
         local.verify_telemetry(stale_path, expected_stage="lora")
 
 
+def test_lora_memory_classifier_uses_sustained_boundary_samples() -> None:
+    gpu_rows = [
+        {
+            "sequence_id": index,
+            "device_vram_total_mib": 8_000,
+            "device_vram_used_mib": 7_600,
+            "device_vram_free_mib": 512,
+            "system_ram_total_bytes": 32_000,
+            "system_ram_available_bytes": 16_000,
+        }
+        for index in range(3)
+    ]
+
+    gpu = local.classify_lora_memory_pressure(gpu_rows, terminal_status="timeout")
+
+    assert gpu["classification"] == "gpu_pressure"
+    assert gpu["supporting_sample_sequences"] == [0, 1, 2]
+    assert gpu["peak_device_vram_used_mib"] == 7_600
+    assert gpu["minimum_device_vram_free_mib"] == 512
+
+    system_rows = [
+        {
+            "sequence_id": index,
+            "device_vram_total_mib": 8_000,
+            "device_vram_used_mib": 1_000,
+            "device_vram_free_mib": 7_000,
+            "system_ram_total_bytes": 20_000,
+            "system_ram_available_bytes": 2_000,
+        }
+        for index in range(3)
+    ]
+    system = local.classify_lora_memory_pressure(
+        system_rows, terminal_status="measured"
+    )
+    assert system["classification"] == "system_pressure"
+    assert system["minimum_system_ram_available_percent"] == 10.0
+
+
+def test_lora_memory_classifier_fails_closed_for_short_or_malformed_samples() -> None:
+    rows = [
+        {
+            "sequence_id": 0,
+            "device_vram_total_mib": 8_000,
+            "device_vram_used_mib": 7_999,
+            "device_vram_free_mib": 1,
+            "system_ram_total_bytes": None,
+            "system_ram_available_bytes": "unknown",
+        },
+        {
+            "sequence_id": 1,
+            "device_vram_total_mib": 8_000,
+            "device_vram_used_mib": 7_999,
+            "device_vram_free_mib": 1,
+            "system_ram_total_bytes": float("nan"),
+            "system_ram_available_bytes": 0,
+        },
+        {
+            "sequence_id": 2,
+            "device_vram_total_mib": "8151",
+            "device_vram_used_mib": None,
+            "device_vram_free_mib": None,
+            "system_ram_total_bytes": 32_000,
+            "system_ram_available_bytes": 16_000,
+        },
+    ]
+
+    result = local.classify_lora_memory_pressure(
+        rows, terminal_status="oom", oom_kind="unverified"
+    )
+
+    assert result["classification"] == "not_proven_memory_constrained"
+    assert result["memory_constrained"] is False
+    assert result["gpu_pressure_sample_sequences"] == []
+
+
+@pytest.mark.parametrize("oom_kind", ["cuda", "system"])
+def test_lora_memory_classifier_definitive_for_explicit_oom(oom_kind: str) -> None:
+    result = local.classify_lora_memory_pressure(
+        [], terminal_status="oom", oom_kind=oom_kind
+    )
+    assert result["classification"] == "definitive_memory_infeasible"
+    assert result["basis"] == f"explicit_{oom_kind}_oom"
+    assert result["memory_constrained"] is True
+
+
 @pytest.mark.parametrize(
     ("steps", "finite", "age", "median", "now", "expected"),
     [
@@ -498,6 +679,193 @@ def test_complete_qlora_events_produce_recomputable_eta(tmp_path: Path) -> None:
     assert evidence["projected_local_runtime_seconds"] == pytest.approx(
         evidence["steady_state_step_seconds_median"] * 1245 + 15.0
     )
+
+
+def test_setup_writer_publishes_sanitized_receipt_and_install_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    payload, current = _fake_setup_receipt()
+    report_path = tmp_path / "ephemeral-pip-report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "install": [
+                    {
+                        "metadata": {"name": "bitsandbytes", "version": "0.50.1"},
+                        "requested": True,
+                        "download_info": {
+                            "url": current["provenance"]["official_wheel"]["download_url"],
+                            "archive_info": {
+                                "hashes": {"sha256": local.BITSANDBYTES_WHEEL_SHA256}
+                            },
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        local, "capture_distribution_inventory", lambda: current["inventory"]
+    )
+    monkeypatch.setattr(local, "capture_python_identity", lambda: current["python"])
+    monkeypatch.setattr(local, "capture_torch_identity", _torch_identity)
+    monkeypatch.setattr(
+        local,
+        "capture_bitsandbytes_identity",
+        lambda: payload["bitsandbytes"]["runtime_identity"],
+    )
+    monkeypatch.setattr(
+        local,
+        "capture_distribution_identity",
+        lambda *args, **kwargs: current["distribution"],
+    )
+    monkeypatch.setattr(
+        local,
+        "_run_clean_pip_check",
+        lambda: {"exit_code": 0, "output": "No broken requirements found."},
+    )
+
+    receipt = local.write_bitsandbytes_setup_receipt(
+        repo,
+        pip_install_report=report_path,
+        source_authority_text="install dependencies only; training starts tomorrow",
+        pre_install_inventory_sha256=payload["inventory_pre"]["inventory_sha256"],
+        pre_install_distribution_count=payload["inventory_pre"]["distribution_count"],
+        pre_install_python=current["python"],
+        pre_install_torch=_torch_identity(),
+        installed_utc="2026-08-24T10:00:00Z",
+    )
+
+    receipt_path = repo / local.PACKAGE_SETUP_RECEIPT_RELATIVE_PATH
+    provenance_path = repo / local.PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH
+    public_text = receipt_path.read_text(encoding="utf-8")
+    assert provenance_path.is_file()
+    assert receipt["install_provenance_sha256"] == local._sha256_file(provenance_path)
+    assert receipt["authority_source"] == local.PACKAGE_SETUP_AUTHORITY_SOURCE
+    assert "training starts tomorrow" not in public_text
+    assert "distributions" not in public_text
+    assert "pip_install_report" not in public_text
+    assert local.verify_bitsandbytes_setup_receipt(repo)["setup_receipt_sha256"] == (
+        local._sha256_file(receipt_path)
+    )
+
+
+def test_preinstalled_setup_receipt_is_hash_linked_without_runtime_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    payload, current = _fake_setup_receipt()
+    receipt_path = _write_fake_setup_artifacts(repo, payload, current)
+    monkeypatch.setattr(local, "capture_python_identity", lambda: current["python"])
+    monkeypatch.setattr(local, "capture_torch_identity", _torch_identity)
+    monkeypatch.setattr(
+        local, "capture_distribution_inventory", lambda: current["inventory"]
+    )
+    monkeypatch.setattr(
+        local,
+        "capture_distribution_identity",
+        lambda *args, **kwargs: current["distribution"],
+    )
+    monkeypatch.setattr(
+        local,
+        "_run_clean_pip_check",
+        lambda: {"exit_code": 0, "output": "No broken requirements found."},
+    )
+
+    baseline = local.verify_bitsandbytes_setup_receipt(repo)
+
+    assert baseline == {
+        "bitsandbytes_present": True,
+        "setup_receipt_relative_path": local.PACKAGE_SETUP_RECEIPT_RELATIVE_PATH.as_posix(),
+        "setup_receipt_sha256": local._sha256_file(receipt_path),
+        "normalized_decision": local.APPROVE_AUTHORITY,
+        "decision_was_normalized": True,
+        "authority_source": local.PACKAGE_SETUP_AUTHORITY_SOURCE,
+        "authority_source_sha256": payload["authority_source_sha256"],
+    }
+
+
+def test_setup_receipt_rejects_torch_or_normalization_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload, current = _fake_setup_receipt()
+    payload["decision_was_normalized"] = False
+    repo = tmp_path / "normalization-drift"
+    _write_fake_setup_artifacts(repo, payload, current)
+    with pytest.raises(RuntimeError, match="receipt contract"):
+        local.verify_bitsandbytes_setup_receipt(repo)
+
+    payload, current = _fake_setup_receipt()
+    repo = tmp_path / "torch-drift"
+    _write_fake_setup_artifacts(repo, payload, current)
+    monkeypatch.setattr(local, "capture_python_identity", lambda: current["python"])
+    monkeypatch.setattr(
+        local, "capture_torch_identity", lambda: dict(_torch_identity(), version="2.13.0")
+    )
+    with pytest.raises(RuntimeError, match="Torch identity drifted"):
+        local.verify_bitsandbytes_setup_receipt(repo)
+
+
+def test_preinstalled_authority_records_normalization_not_fake_verbatim(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "decision"
+    baseline = _preinstalled_baseline()
+    local.initialize_decision_root(
+        root,
+        input_evidence=_input_evidence(),
+        base_model_provenance=_base_provenance(),
+        torch_identity=_torch_identity(),
+        package_baseline=baseline,
+        started_utc="2026-08-24T08:00:00Z",
+        started_monotonic=100.0,
+        boot_identity="boot-A",
+    )
+    lora = root / "lora"
+    _write_jsonl(lora / "telemetry.jsonl", _telemetry_rows("lora"))
+    (lora / "runtime").mkdir(parents=True)
+    receipt = local.discard_stage_runtime(lora, run_id="rtx5050-lora")
+    local.write_stage_outcome(
+        root,
+        stage="lora",
+        outcome={
+            "status": "measured",
+            "stop_reason": "evidence_target_reached",
+            "telemetry": "lora/telemetry.jsonl",
+            "discard_receipt": receipt,
+        },
+        now_utc="2026-08-24T08:01:00Z",
+        now_monotonic=160.0,
+        boot_identity="boot-A",
+    )
+    with pytest.raises(ValueError, match="cannot retroactively"):
+        local.record_package_authority(
+            root,
+            "reject bitsandbytes 0.50.1: changed my mind",
+            now_utc="2026-08-24T08:01:01Z",
+            now_monotonic=161.0,
+            boot_identity="boot-A",
+        )
+
+    authority = local.record_package_authority(
+        root,
+        local.APPROVE_AUTHORITY,
+        now_utc="2026-08-24T08:01:02Z",
+        now_monotonic=162.0,
+        boot_identity="boot-A",
+    )
+
+    assert authority["decision_text"] == local.APPROVE_AUTHORITY
+    assert authority["decision_source"] == "normalized_preinstalled_setup_receipt"
+    assert authority["decision_was_normalized"] is True
+    assert authority["normalization_note"] == local.PACKAGE_SETUP_NORMALIZATION_NOTE
+    assert authority["setup_receipt_sha256"] == baseline["setup_receipt_sha256"]
+    assert authority["authority_source"] == local.PACKAGE_SETUP_AUTHORITY_SOURCE
+    assert authority["authority_source_sha256"] == baseline[
+        "authority_source_sha256"
+    ]
 
 
 def test_package_authority_and_runtime_proof_fail_closed(tmp_path: Path) -> None:

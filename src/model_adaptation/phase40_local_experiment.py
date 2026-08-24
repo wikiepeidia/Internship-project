@@ -20,6 +20,7 @@ import importlib.util
 import json
 import math
 import os
+import platform
 from pathlib import Path, PurePosixPath
 import re
 import statistics
@@ -34,6 +35,22 @@ QWEN_REVISION = "cdbee75f17c01a7cc42f958dc650907174af0554"
 BITSANDBYTES_VERSION = "0.50.1"
 APPROVE_AUTHORITY = "approve bitsandbytes 0.50.1"
 REJECT_AUTHORITY_PREFIX = "reject bitsandbytes 0.50.1: "
+BITSANDBYTES_WHEEL_FILENAME = "bitsandbytes-0.50.1-py3-none-win_amd64.whl"
+BITSANDBYTES_WHEEL_SHA256 = (
+    "86f76e8a3278fbbfc3fa0d79d1c4e706ebc214babd57f0ea30e2da509bbdaad5"
+)
+BITSANDBYTES_WHEEL_BYTES = 37_961_070
+PACKAGE_SETUP_RECEIPT_RELATIVE_PATH = Path(
+    "data/models/phase40/setup/bitsandbytes-0.50.1-setup-receipt.json"
+)
+PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH = Path(
+    "data/models/phase40/setup/bitsandbytes-0.50.1-install-provenance.json"
+)
+PACKAGE_SETUP_AUTHORITY_SOURCE = "explicit_user_dependency_only_instruction"
+PACKAGE_SETUP_NORMALIZATION_NOTE = (
+    "Normalized from the source instruction; the operator did "
+    "not type the normalized decision verbatim."
+)
 
 DECISION_ROOT_RELATIVE_PATH = Path(
     "data/models/phase40/probes/rtx5050-local-decision"
@@ -74,8 +91,11 @@ CLOCK_SCHEMA_VERSION = "phase40-local-decision-clock-v1"
 LEDGER_SCHEMA_VERSION = "phase40-local-stage-ledger-v1"
 TELEMETRY_SCHEMA_VERSION = "phase40-local-telemetry-v1"
 OUTCOME_SCHEMA_VERSION = "phase40-local-outcome-v1"
-AUTHORITY_SCHEMA_VERSION = "phase40-package-authority-v1"
-PACKAGE_SCHEMA_VERSION = "phase40-package-runtime-v1"
+AUTHORITY_SCHEMA_VERSION = "phase40-package-authority-v2"
+PACKAGE_SCHEMA_VERSION = "phase40-package-runtime-v2"
+PACKAGE_SETUP_SCHEMA_VERSION = "phase40-package-setup-receipt-v2"
+PACKAGE_SETUP_PROVENANCE_SCHEMA_VERSION = "phase40-package-install-provenance-v1"
+MEMORY_PRESSURE_SCHEMA_VERSION = "phase40-lora-memory-pressure-v1"
 MANIFEST_SCHEMA_VERSION = "phase40-local-decision-manifest-v1"
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -526,10 +546,34 @@ def initialize_decision_root(
         if package_baseline is None
         else dict(package_baseline)
     )
-    if set(baseline) != {"bitsandbytes_present"} or not isinstance(
-        baseline["bitsandbytes_present"], bool
-    ):
-        raise ValueError("package baseline must record one boolean bitsandbytes presence fact")
+    if not isinstance(baseline.get("bitsandbytes_present"), bool):
+        raise ValueError("package baseline must record bitsandbytes presence as a boolean")
+    if baseline["bitsandbytes_present"] is False:
+        if set(baseline) != {"bitsandbytes_present"}:
+            raise ValueError("absent bitsandbytes baseline contains unexpected fields")
+    else:
+        required_preinstalled = {
+            "bitsandbytes_present",
+            "setup_receipt_relative_path",
+            "setup_receipt_sha256",
+            "normalized_decision",
+            "decision_was_normalized",
+            "authority_source",
+            "authority_source_sha256",
+        }
+        if (
+            set(baseline) != required_preinstalled
+            or baseline.get("setup_receipt_relative_path")
+            != PACKAGE_SETUP_RECEIPT_RELATIVE_PATH.as_posix()
+            or not isinstance(baseline.get("setup_receipt_sha256"), str)
+            or not _HEX64.fullmatch(str(baseline["setup_receipt_sha256"]))
+            or baseline.get("normalized_decision") != APPROVE_AUTHORITY
+            or baseline.get("decision_was_normalized") is not True
+            or baseline.get("authority_source") != PACKAGE_SETUP_AUTHORITY_SOURCE
+            or not isinstance(baseline.get("authority_source_sha256"), str)
+            or not _HEX64.fullmatch(str(baseline["authority_source_sha256"]))
+        ):
+            raise ValueError("preinstalled bitsandbytes baseline is incomplete or invalid")
     for payload in (input_evidence, base_model_provenance, torch_identity, baseline):
         _require_portable(payload)
 
@@ -974,6 +1018,163 @@ def verify_telemetry(path: Path, *, expected_stage: str) -> list[dict[str, objec
     return rows
 
 
+def _finite_telemetry_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _first_sustained_sample_run(
+    rows: Sequence[Mapping[str, object]],
+    predicate: Callable[[Mapping[str, object]], bool],
+    *,
+    minimum_samples: int = 3,
+) -> list[int]:
+    run: list[int] = []
+    for row in rows:
+        sequence = row.get("sequence_id")
+        if (
+            predicate(row)
+            and isinstance(sequence, int)
+            and not isinstance(sequence, bool)
+            and sequence >= 0
+        ):
+            run.append(sequence)
+            if len(run) >= minimum_samples:
+                return run
+        else:
+            run = []
+    return []
+
+
+def _detect_memory_oom_kind(error_text: object) -> str | None:
+    """Classify only explicit CUDA/process-memory errors; generic failures fail closed."""
+
+    if not isinstance(error_text, str):
+        return None
+    normalized = _sanitize_log_text(error_text).casefold()
+    cuda_markers = (
+        "torch.cuda.outofmemoryerror",
+        "cuda out of memory",
+        "cuda error: out of memory",
+    )
+    system_markers = (
+        "memoryerror",
+        "cannot allocate memory",
+        "not enough memory resources",
+    )
+    if any(marker in normalized for marker in cuda_markers):
+        return "cuda"
+    if any(marker in normalized for marker in system_markers):
+        return "system"
+    return None
+
+
+def classify_lora_memory_pressure(
+    telemetry_rows: Sequence[Mapping[str, object]],
+    *,
+    terminal_status: object,
+    oom_kind: object = None,
+) -> dict[str, object]:
+    """Apply the predeclared LoRA memory-pressure thresholds without inference.
+
+    Invalid or missing measurements never satisfy a pressure predicate. Pressure
+    requires three consecutive samples so a single sampler spike cannot become a
+    report claim.
+    """
+
+    rows = [row for row in telemetry_rows if isinstance(row, Mapping)]
+
+    def gpu_pressure(row: Mapping[str, object]) -> bool:
+        total = _finite_telemetry_number(row.get("device_vram_total_mib"))
+        used = _finite_telemetry_number(row.get("device_vram_used_mib"))
+        free = _finite_telemetry_number(row.get("device_vram_free_mib"))
+        return bool(
+            total is not None
+            and total > 0
+            and used is not None
+            and used >= 0.95 * total
+            and free is not None
+            and 0 <= free <= 512
+        )
+
+    def system_pressure(row: Mapping[str, object]) -> bool:
+        total = _finite_telemetry_number(row.get("system_ram_total_bytes"))
+        available = _finite_telemetry_number(row.get("system_ram_available_bytes"))
+        return bool(
+            total is not None
+            and total > 0
+            and available is not None
+            and 0 <= available <= 0.10 * total
+        )
+
+    gpu_sequences = _first_sustained_sample_run(rows, gpu_pressure)
+    system_sequences = _first_sustained_sample_run(rows, system_pressure)
+    used_values = [
+        value
+        for row in rows
+        if (value := _finite_telemetry_number(row.get("device_vram_used_mib")))
+        is not None
+    ]
+    free_values = [
+        value
+        for row in rows
+        if (value := _finite_telemetry_number(row.get("device_vram_free_mib")))
+        is not None
+    ]
+    available_values = [
+        value
+        for row in rows
+        if (value := _finite_telemetry_number(row.get("system_ram_available_bytes")))
+        is not None
+    ]
+    available_percent_values: list[float] = []
+    for row in rows:
+        total = _finite_telemetry_number(row.get("system_ram_total_bytes"))
+        available = _finite_telemetry_number(row.get("system_ram_available_bytes"))
+        if total is not None and total > 0 and available is not None and available >= 0:
+            available_percent_values.append(100.0 * available / total)
+
+    if terminal_status == "oom" and oom_kind in {"cuda", "system"}:
+        classification = "definitive_memory_infeasible"
+        basis = f"explicit_{oom_kind}_oom"
+        constrained = True
+        supporting = []
+    elif gpu_sequences:
+        classification = "gpu_pressure"
+        basis = "three_consecutive_samples_at_or_above_95pct_vram_and_at_or_below_512mib_free"
+        constrained = True
+        supporting = gpu_sequences
+    elif system_sequences:
+        classification = "system_pressure"
+        basis = "three_consecutive_samples_at_or_below_10pct_physical_ram_available"
+        constrained = True
+        supporting = system_sequences
+    else:
+        classification = "not_proven_memory_constrained"
+        basis = "no_definitive_oom_or_sustained_threshold"
+        constrained = False
+        supporting = []
+    return {
+        "schema_version": MEMORY_PRESSURE_SCHEMA_VERSION,
+        "classification": classification,
+        "memory_constrained": constrained,
+        "basis": basis,
+        "oom_kind": oom_kind if oom_kind in {"cuda", "system"} else None,
+        "supporting_sample_sequences": supporting,
+        "gpu_pressure_sample_sequences": gpu_sequences,
+        "system_pressure_sample_sequences": system_sequences,
+        "observed_sample_count": len(rows),
+        "peak_device_vram_used_mib": max(used_values, default=None),
+        "minimum_device_vram_free_mib": min(free_values, default=None),
+        "minimum_system_ram_available_bytes": min(available_values, default=None),
+        "minimum_system_ram_available_percent": min(
+            available_percent_values, default=None
+        ),
+    }
+
+
 def lora_should_extend(
     *,
     retained_steps: int,
@@ -1335,6 +1536,13 @@ def record_package_authority(
     if (root / "package-authority.json").exists():
         raise FileExistsError("bitsandbytes authority is already recorded")
     _require_prior_stages(root, ("preflight", "lora"))
+    baseline = _read_json(root / "package-baseline.json")
+    preinstalled = baseline.get("bitsandbytes_present") is True
+    if preinstalled and decision != APPROVE_AUTHORITY:
+        raise ValueError(
+            "preinstalled bitsandbytes has an approved normalized setup receipt; "
+            "a later rejection cannot retroactively authorize its installation"
+        )
     if decision == APPROVE_AUTHORITY:
         approved = True
         reason = None
@@ -1358,6 +1566,23 @@ def record_package_authority(
         "approved": approved,
         "rejection_reason": reason,
         "decision_text": decision,
+        "decision_source": (
+            "normalized_preinstalled_setup_receipt" if preinstalled else "operator_verbatim"
+        ),
+        "decision_was_normalized": preinstalled,
+        "normalization_note": PACKAGE_SETUP_NORMALIZATION_NOTE if preinstalled else None,
+        "setup_receipt_relative_path": (
+            baseline.get("setup_receipt_relative_path") if preinstalled else None
+        ),
+        "setup_receipt_sha256": (
+            baseline.get("setup_receipt_sha256") if preinstalled else None
+        ),
+        "authority_source": (
+            baseline.get("authority_source") if preinstalled else None
+        ),
+        "authority_source_sha256": (
+            baseline.get("authority_source_sha256") if preinstalled else None
+        ),
         "recorded_utc": timestamp,
         "recorded_monotonic": monotonic,
         "qlora_prestart_evidence": (
@@ -1406,7 +1631,7 @@ def verify_package_runtime(
     preflight_torch = _read_json(root / "environment-preflight.json")
     failure_reason: str | None = None
     if dict(torch_identity) != preflight_torch:
-        failure_reason = "Torch identity changed during bitsandbytes installation"
+        failure_reason = "Torch identity changed from the verified package setup/preflight baseline"
     elif bitsandbytes_identity.get("version") != BITSANDBYTES_VERSION:
         failure_reason = "installed bitsandbytes version is not exactly 0.50.1"
     elif bitsandbytes_identity.get("cuda_kernel_available") is not True:
@@ -1423,7 +1648,7 @@ def verify_package_runtime(
         "status": "verified" if failure_reason is None else "failed",
         "bitsandbytes": dict(bitsandbytes_identity),
         "torch": dict(torch_identity),
-        "torch_unchanged": dict(torch_identity) == preflight_torch,
+        "torch_distribution_identity_unchanged": dict(torch_identity) == preflight_torch,
         "failure_reason": failure_reason,
         "verified_utc": timestamp,
         "verified_monotonic": monotonic,
@@ -1506,6 +1731,12 @@ def write_stage_outcome(
             0.0, monotonic - state.deadline_monotonic
         ),
     }
+    if stage == "lora":
+        enriched["memory_pressure"] = classify_lora_memory_pressure(
+            telemetry,
+            terminal_status=payload.get("status"),
+            oom_kind=payload.get("oom_kind"),
+        )
     if "optimizer_events" in payload:
         events_rel = _portable_relative_path(payload["optimizer_events"])
         expected_prefix = f"{stage}/"
@@ -1785,9 +2016,16 @@ def verify_local_decision(decision_root: Path) -> dict[str, object]:
     if manifest.get("lora") != lora:
         raise RuntimeError("manifest-embedded LoRA outcome drifted")
     lora_telemetry_path = root / _portable_relative_path(lora["telemetry"])
-    verify_telemetry(lora_telemetry_path, expected_stage="lora")
+    lora_telemetry = verify_telemetry(lora_telemetry_path, expected_stage="lora")
     if lora.get("telemetry_sha256") != _sha256_file(lora_telemetry_path):
         raise RuntimeError("LoRA telemetry hash differs from its outcome")
+    expected_memory_pressure = classify_lora_memory_pressure(
+        lora_telemetry,
+        terminal_status=lora.get("status"),
+        oom_kind=lora.get("oom_kind"),
+    )
+    if lora.get("memory_pressure") != expected_memory_pressure:
+        raise RuntimeError("LoRA memory-pressure classification drifted")
     verify_stage_discard(root / "lora", lora["discard_receipt"])
     if "optimizer_events" in lora:
         lora_event_path = root / _portable_relative_path(lora["optimizer_events"])
@@ -1878,6 +2116,75 @@ def verify_local_decision(decision_root: Path) -> dict[str, object]:
     }
 
 
+def capture_python_identity() -> dict[str, object]:
+    return {
+        "implementation": platform.python_implementation(),
+        "version": platform.python_version(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "executable_path_sha256": hashlib.sha256(
+            os.path.normcase(os.fspath(Path(sys.executable).resolve())).encode("utf-8")
+        ).hexdigest(),
+    }
+
+
+def _distribution_inventory_from_rows(
+    rows: Sequence[Sequence[str]],
+) -> dict[str, object]:
+    normalized = sorted([[str(name), str(version)] for name, version in rows])
+    encoded = json.dumps(
+        normalized, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+    return {
+        "distribution_count": len(normalized),
+        "inventory_sha256": hashlib.sha256(encoded).hexdigest(),
+        "distributions": normalized,
+    }
+
+
+def capture_distribution_inventory() -> dict[str, object]:
+    rows = [
+        (
+            str(distribution.metadata.get("Name", "")).lower().replace("_", "-"),
+            str(distribution.version),
+        )
+        for distribution in importlib.metadata.distributions()
+    ]
+    if any(not name or not version for name, version in rows):
+        raise RuntimeError("installed distribution inventory contains an empty identity")
+    return _distribution_inventory_from_rows(rows)
+
+
+def capture_distribution_identity(
+    distribution_name: str, *, import_name: str
+) -> dict[str, object]:
+    try:
+        distribution = importlib.metadata.distribution(distribution_name)
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise RuntimeError(f"{distribution_name} distribution metadata is unavailable") from exc
+    record_files = [
+        item
+        for item in (distribution.files or ())
+        if PurePosixPath(str(item).replace("\\", "/")).name == "RECORD"
+    ]
+    if len(record_files) != 1:
+        raise RuntimeError(f"{distribution_name} distribution RECORD identity is ambiguous")
+    record_path = Path(distribution.locate_file(record_files[0]))
+    spec = importlib.util.find_spec(import_name)
+    if spec is None or spec.origin is None:
+        raise RuntimeError(f"{import_name} import origin is unavailable")
+    module_path = Path(spec.origin).resolve(strict=True)
+    if not record_path.is_file():
+        raise RuntimeError(f"{distribution_name} distribution RECORD is missing")
+    return {
+        "version": str(distribution.version),
+        "module_path_sha256": hashlib.sha256(
+            os.path.normcase(os.fspath(module_path)).encode("utf-8")
+        ).hexdigest(),
+        "record_sha256": _sha256_file(record_path),
+    }
+
+
 def capture_torch_identity() -> dict[str, object]:
     torch = importlib.import_module("torch")
     module_path = Path(torch.__file__).resolve(strict=True)
@@ -1917,14 +2224,419 @@ def capture_bitsandbytes_identity() -> dict[str, object]:
     bnb = importlib.import_module("bitsandbytes")
     torch = importlib.import_module("torch")
     linear4bit = getattr(getattr(bnb, "nn", None), "Linear4bit", None)
-    capability = getattr(getattr(torch, "cuda", None), "get_device_capability", None)
-    available = bool(
-        isinstance(linear4bit, type)
-        and getattr(torch.cuda, "is_available", lambda: False)()
-        and callable(capability)
-        and capability()
+    if not isinstance(linear4bit, type):
+        raise RuntimeError("bitsandbytes.nn.Linear4bit is unavailable")
+    if not getattr(torch.cuda, "is_available", lambda: False)():
+        raise RuntimeError("Torch CUDA is unavailable for bitsandbytes verification")
+    capability = tuple(int(value) for value in torch.cuda.get_device_capability())
+    cextension = importlib.import_module("bitsandbytes.cextension")
+    library = getattr(cextension, "lib", None)
+    compiled_with_cuda = bool(getattr(library, "compiled_with_cuda", False))
+    native_path = getattr(getattr(library, "_lib", None), "_name", None)
+    if not compiled_with_cuda or not isinstance(native_path, str):
+        raise RuntimeError("bitsandbytes Windows CUDA backend is unavailable")
+    values = torch.linspace(-1.0, 1.0, 4096, device="cuda", dtype=torch.float16)
+    values = values.reshape(64, 64)
+    quantized, quantization_state = bnb.functional.quantize_4bit(
+        values,
+        quant_type="nf4",
+        compress_statistics=True,
     )
-    return {"version": version, "cuda_kernel_available": available}
+    restored = bnb.functional.dequantize_4bit(quantized, quantization_state)
+    torch.cuda.synchronize()
+    kernel_available = bool(
+        tuple(restored.shape) == tuple(values.shape)
+        and torch.isfinite(restored).all().item()
+    )
+    if not kernel_available:
+        raise RuntimeError("bitsandbytes NF4 CUDA kernel round-trip failed")
+    return {
+        "version": version,
+        "cuda_kernel_available": True,
+        "linear4bit_available": True,
+        "linear4bit_module": str(linear4bit.__module__),
+        "compiled_with_cuda": True,
+        "native_library_name": Path(native_path).name,
+        "cuda_device_name": str(torch.cuda.get_device_name()),
+        "cuda_compute_capability": list(capability),
+        "nf4_roundtrip_shape": list(restored.shape),
+        "nf4_quantized_elements": int(quantized.numel()),
+        "nf4_roundtrip_finite": True,
+    }
+
+
+def _run_clean_pip_check() -> dict[str, object]:
+    completed = subprocess.run(
+        [sys.executable, "-m", "pip", "check"],
+        check=False,
+        capture_output=True,
+        text=True,
+        shell=False,
+    )
+    output = _sanitize_log_text(
+        "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(f"pip check failed after package setup: {output}")
+    return {"exit_code": 0, "output": output or "No broken requirements found."}
+
+
+def _distribution_inventory_summary(payload: object) -> dict[str, object]:
+    """Return the publishable count/hash while validating private inventory rows."""
+
+    if not isinstance(payload, Mapping):
+        raise RuntimeError("package inventory is not an object")
+    required = {"distribution_count", "inventory_sha256", "distributions"}
+    if set(payload) != required or not isinstance(payload.get("distributions"), list):
+        raise RuntimeError("package inventory has missing or extra fields")
+    rows = payload["distributions"]
+    if any(
+        not isinstance(row, list)
+        or len(row) != 2
+        or any(not isinstance(item, str) or not item for item in row)
+        for row in rows
+    ):
+        raise RuntimeError("package inventory contains an invalid distribution row")
+    derived = _distribution_inventory_from_rows(rows)
+    if dict(payload) != derived:
+        raise RuntimeError("package inventory hash/count does not match its rows")
+    return {
+        "distribution_count": derived["distribution_count"],
+        "inventory_sha256": derived["inventory_sha256"],
+    }
+
+
+def _validate_inventory_summary(payload: object) -> dict[str, object]:
+    if not isinstance(payload, Mapping) or set(payload) != {
+        "distribution_count",
+        "inventory_sha256",
+    }:
+        raise RuntimeError("package inventory summary has missing or extra fields")
+    count = payload.get("distribution_count")
+    digest = payload.get("inventory_sha256")
+    if (
+        not isinstance(count, int)
+        or isinstance(count, bool)
+        or count < 0
+        or not isinstance(digest, str)
+        or not _HEX64.fullmatch(digest)
+    ):
+        raise RuntimeError("package inventory summary is invalid")
+    return {"distribution_count": count, "inventory_sha256": digest}
+
+
+def _validate_authority_source_text(text: object) -> str:
+    if (
+        not isinstance(text, str)
+        or not text
+        or len(text) > 1_000
+        or any(character in text for character in "\r\n\x00")
+        or _sanitize_log_text(text) != text
+    ):
+        raise ValueError("package setup authority source must be one sanitized portable line")
+    return text
+
+
+def _bitsandbytes_package_selection_command() -> list[str]:
+    return [
+        "python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--only-binary=:all:",
+        "--index-url",
+        "https://pypi.org/simple",
+        "bitsandbytes==0.50.1",
+    ]
+
+
+def _bitsandbytes_install_provenance(download_url: str) -> dict[str, object]:
+    return {
+        "schema_version": PACKAGE_SETUP_PROVENANCE_SCHEMA_VERSION,
+        "normalized_package": {
+            "name": "bitsandbytes",
+            "version": BITSANDBYTES_VERSION,
+        },
+        "reproducible_package_selection_command": (
+            _bitsandbytes_package_selection_command()
+        ),
+        "invocation_scope_note": (
+            "Security-relevant package-selection arguments retained; the actual "
+            "invocation also produced an ephemeral pip report whose flag/path was "
+            "intentionally not retained, so this is not claimed as byte-for-byte argv."
+        ),
+        "official_wheel": {
+            "filename": BITSANDBYTES_WHEEL_FILENAME,
+            "download_url": download_url,
+            "sha256": BITSANDBYTES_WHEEL_SHA256,
+            "bytes": BITSANDBYTES_WHEEL_BYTES,
+        },
+    }
+
+
+def _verify_bitsandbytes_install_provenance(
+    repo_root: Path, receipt: Mapping[str, object]
+) -> dict[str, object]:
+    relative = receipt.get("install_provenance_relative_path")
+    if relative != PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH.as_posix():
+        raise RuntimeError("bitsandbytes install provenance path is invalid")
+    path = Path(repo_root) / _portable_relative_path(relative)
+    if receipt.get("install_provenance_sha256") != _sha256_file(path):
+        raise RuntimeError("bitsandbytes install provenance hash drifted")
+    provenance = _read_json(path)
+    if set(provenance) != {
+        "schema_version",
+        "normalized_package",
+        "reproducible_package_selection_command",
+        "invocation_scope_note",
+        "official_wheel",
+    }:
+        raise RuntimeError("bitsandbytes install provenance contract is invalid")
+    package = provenance.get("normalized_package")
+    wheel = provenance.get("official_wheel")
+    if (
+        provenance.get("schema_version") != PACKAGE_SETUP_PROVENANCE_SCHEMA_VERSION
+        or package
+        != {"name": "bitsandbytes", "version": BITSANDBYTES_VERSION}
+        or provenance.get("reproducible_package_selection_command")
+        != _bitsandbytes_package_selection_command()
+        or provenance.get("invocation_scope_note")
+        != (
+            "Security-relevant package-selection arguments retained; the actual "
+            "invocation also produced an ephemeral pip report whose flag/path was "
+            "intentionally not retained, so this is not claimed as byte-for-byte argv."
+        )
+        or not isinstance(wheel, Mapping)
+        or set(wheel) != {"filename", "download_url", "sha256", "bytes"}
+        or wheel.get("filename") != BITSANDBYTES_WHEEL_FILENAME
+        or wheel.get("sha256") != BITSANDBYTES_WHEEL_SHA256
+        or wheel.get("bytes") != BITSANDBYTES_WHEEL_BYTES
+        or not isinstance(wheel.get("download_url"), str)
+        or not str(wheel["download_url"]).startswith("https://files.pythonhosted.org/")
+        or not str(wheel["download_url"]).endswith(
+            "/" + BITSANDBYTES_WHEEL_FILENAME
+        )
+    ):
+        raise RuntimeError("bitsandbytes install provenance identity is invalid")
+    return provenance
+
+
+def write_bitsandbytes_setup_receipt(
+    repo_root: Path,
+    *,
+    pip_install_report: Path,
+    source_authority_text: str,
+    pre_install_inventory_sha256: str,
+    pre_install_distribution_count: int,
+    pre_install_python: Mapping[str, object],
+    pre_install_torch: Mapping[str, object],
+    installed_utc: str | None = None,
+) -> dict[str, object]:
+    """Seal dependency-only setup performed before the decision clock starts."""
+
+    source = _validate_authority_source_text(source_authority_text)
+    report_path = Path(pip_install_report)
+    report = _read_json_allow_absolute(report_path)
+    installs = report.get("install")
+    if not isinstance(installs, list) or len(installs) != 1 or not isinstance(installs[0], dict):
+        raise RuntimeError("pip install report must contain exactly one installed item")
+    installed = installs[0]
+    metadata = installed.get("metadata")
+    download = installed.get("download_info")
+    archive = download.get("archive_info") if isinstance(download, dict) else None
+    hashes = archive.get("hashes") if isinstance(archive, dict) else None
+    url = download.get("url") if isinstance(download, dict) else None
+    if (
+        not isinstance(metadata, dict)
+        or metadata.get("name") != "bitsandbytes"
+        or metadata.get("version") != BITSANDBYTES_VERSION
+        or installed.get("requested") is not True
+        or not isinstance(url, str)
+        or not url.startswith("https://files.pythonhosted.org/")
+        or not url.endswith("/" + BITSANDBYTES_WHEEL_FILENAME)
+        or not isinstance(hashes, dict)
+        or hashes.get("sha256") != BITSANDBYTES_WHEEL_SHA256
+    ):
+        raise RuntimeError("pip report does not prove the locked official PyPI Windows wheel")
+
+    post_inventory = capture_distribution_inventory()
+    post_rows = list(post_inventory["distributions"])
+    installed_row = ["bitsandbytes", BITSANDBYTES_VERSION]
+    if post_rows.count(installed_row) != 1:
+        raise RuntimeError("post-install inventory lacks one exact bitsandbytes distribution")
+    pre_rows = list(post_rows)
+    pre_rows.remove(installed_row)
+    pre_inventory = _distribution_inventory_from_rows(pre_rows)
+    if (
+        pre_inventory.get("inventory_sha256") != pre_install_inventory_sha256
+        or pre_inventory.get("distribution_count") != pre_install_distribution_count
+    ):
+        raise RuntimeError("reconstructed pre-install inventory differs from captured audit")
+
+    python_post = capture_python_identity()
+    torch_post = capture_torch_identity()
+    if dict(pre_install_python) != python_post:
+        raise RuntimeError("Python identity changed during bitsandbytes installation")
+    if dict(pre_install_torch) != torch_post:
+        raise RuntimeError("Torch identity changed during bitsandbytes installation")
+    runtime = capture_bitsandbytes_identity()
+    distribution_identity = capture_distribution_identity(
+        "bitsandbytes", import_name="bitsandbytes"
+    )
+    pip_check = _run_clean_pip_check()
+    provenance = _bitsandbytes_install_provenance(url)
+    provenance_path = Path(repo_root) / PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH
+    _write_immutable_json(provenance_path, provenance)
+    payload = {
+        "schema_version": PACKAGE_SETUP_SCHEMA_VERSION,
+        "package": "bitsandbytes",
+        "version": BITSANDBYTES_VERSION,
+        "normalized_decision": APPROVE_AUTHORITY,
+        "decision_was_normalized": True,
+        "authority_source": PACKAGE_SETUP_AUTHORITY_SOURCE,
+        "authority_source_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        "normalization_note": PACKAGE_SETUP_NORMALIZATION_NOTE,
+        "install_provenance_relative_path": (
+            PACKAGE_SETUP_PROVENANCE_RELATIVE_PATH.as_posix()
+        ),
+        "install_provenance_sha256": _sha256_file(provenance_path),
+        "python_pre": dict(pre_install_python),
+        "python_post": python_post,
+        "torch_pre": dict(pre_install_torch),
+        "torch_post": torch_post,
+        "torch_distribution_identity_unchanged": True,
+        "inventory_pre": _distribution_inventory_summary(pre_inventory),
+        "inventory_post": _distribution_inventory_summary(post_inventory),
+        "package_delta": {
+            "added": [{"name": "bitsandbytes", "version": BITSANDBYTES_VERSION}],
+            "removed": [],
+        },
+        "bitsandbytes": {
+            "distribution_identity": distribution_identity,
+            "runtime_identity": runtime,
+        },
+        "pip_check": pip_check,
+        "installed_utc": _utc_now() if installed_utc is None else installed_utc,
+    }
+    _parse_utc(str(payload["installed_utc"]))
+    output = Path(repo_root) / PACKAGE_SETUP_RECEIPT_RELATIVE_PATH
+    _write_immutable_json(output, payload)
+    return payload
+
+
+def verify_bitsandbytes_setup_receipt(repo_root: Path) -> dict[str, object]:
+    """Verify pre-clock package setup without importing bitsandbytes or loading a model."""
+
+    path = Path(repo_root) / PACKAGE_SETUP_RECEIPT_RELATIVE_PATH
+    receipt = _read_json(path)
+    required = {
+        "schema_version",
+        "package",
+        "version",
+        "normalized_decision",
+        "decision_was_normalized",
+        "authority_source",
+        "authority_source_sha256",
+        "normalization_note",
+        "install_provenance_relative_path",
+        "install_provenance_sha256",
+        "python_pre",
+        "python_post",
+        "torch_pre",
+        "torch_post",
+        "torch_distribution_identity_unchanged",
+        "inventory_pre",
+        "inventory_post",
+        "package_delta",
+        "bitsandbytes",
+        "pip_check",
+        "installed_utc",
+    }
+    if (
+        set(receipt) != required
+        or receipt.get("schema_version") != PACKAGE_SETUP_SCHEMA_VERSION
+        or receipt.get("package") != "bitsandbytes"
+        or receipt.get("version") != BITSANDBYTES_VERSION
+        or receipt.get("normalized_decision") != APPROVE_AUTHORITY
+        or receipt.get("decision_was_normalized") is not True
+        or receipt.get("authority_source") != PACKAGE_SETUP_AUTHORITY_SOURCE
+        or not isinstance(receipt.get("authority_source_sha256"), str)
+        or not _HEX64.fullmatch(str(receipt["authority_source_sha256"]))
+        or receipt.get("normalization_note") != PACKAGE_SETUP_NORMALIZATION_NOTE
+        or receipt.get("torch_distribution_identity_unchanged") is not True
+    ):
+        raise RuntimeError("bitsandbytes setup receipt contract is invalid")
+    _verify_bitsandbytes_install_provenance(repo_root, receipt)
+    _parse_utc(str(receipt.get("installed_utc")))
+
+    python_current = capture_python_identity()
+    torch_current = capture_torch_identity()
+    if receipt.get("python_pre") != receipt.get("python_post") or receipt.get(
+        "python_post"
+    ) != python_current:
+        raise RuntimeError("Python identity drifted from the verified package setup")
+    if receipt.get("torch_pre") != receipt.get("torch_post") or receipt.get(
+        "torch_post"
+    ) != torch_current:
+        raise RuntimeError("Torch identity drifted from the verified package setup")
+    pre_inventory = _validate_inventory_summary(receipt.get("inventory_pre"))
+    post_inventory = _validate_inventory_summary(receipt.get("inventory_post"))
+    if receipt.get("package_delta") != {
+        "added": [{"name": "bitsandbytes", "version": BITSANDBYTES_VERSION}],
+        "removed": [],
+    }:
+        raise RuntimeError("bitsandbytes setup changed more than the approved distribution")
+    live_inventory = capture_distribution_inventory()
+    if _distribution_inventory_summary(live_inventory) != post_inventory:
+        raise RuntimeError("installed package inventory drifted after setup")
+    reconstructed_pre = list(live_inventory["distributions"])
+    installed_row = ["bitsandbytes", BITSANDBYTES_VERSION]
+    if reconstructed_pre.count(installed_row) != 1:
+        raise RuntimeError("post-install inventory does not contain one bitsandbytes entry")
+    reconstructed_pre.remove(installed_row)
+    if pre_inventory != _distribution_inventory_summary(
+        _distribution_inventory_from_rows(reconstructed_pre)
+    ):
+        raise RuntimeError("package inventory delta does not reconstruct the pre-install state")
+    bnb = receipt.get("bitsandbytes")
+    if (
+        not isinstance(bnb, dict)
+        or bnb.get("distribution_identity")
+        != capture_distribution_identity("bitsandbytes", import_name="bitsandbytes")
+        or not isinstance(bnb.get("runtime_identity"), dict)
+        or bnb["runtime_identity"].get("version") != BITSANDBYTES_VERSION
+        or bnb["runtime_identity"].get("cuda_kernel_available") is not True
+    ):
+        raise RuntimeError("bitsandbytes distribution/runtime receipt is invalid")
+    if receipt.get("pip_check") != _run_clean_pip_check():
+        raise RuntimeError("pip check result drifted after package setup")
+    return {
+        "bitsandbytes_present": True,
+        "setup_receipt_relative_path": PACKAGE_SETUP_RECEIPT_RELATIVE_PATH.as_posix(),
+        "setup_receipt_sha256": _sha256_file(path),
+        "normalized_decision": APPROVE_AUTHORITY,
+        "decision_was_normalized": True,
+        "authority_source": receipt["authority_source"],
+        "authority_source_sha256": receipt["authority_source_sha256"],
+    }
+
+
+def resolve_package_baseline(repo_root: Path) -> dict[str, object]:
+    present = importlib.util.find_spec("bitsandbytes") is not None
+    receipt = Path(repo_root) / PACKAGE_SETUP_RECEIPT_RELATIVE_PATH
+    if not present:
+        if receipt.exists():
+            raise RuntimeError("bitsandbytes setup receipt exists but the package is absent")
+        return {"bitsandbytes_present": False}
+    return verify_bitsandbytes_setup_receipt(repo_root)
+
+
+def verify_lora_package_baseline(decision_root: Path, repo_root: Path) -> None:
+    baseline = _read_json(Path(decision_root) / "package-baseline.json")
+    current = resolve_package_baseline(repo_root)
+    if current != baseline:
+        raise RuntimeError("LoRA package baseline drifted from preflight")
 
 
 def _split_evidence(contract: object) -> dict[str, object]:
@@ -1982,6 +2694,7 @@ def _run_preflight(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("preflight download manifest is not the exact approved manifest")
     if _is_reparse_point(args.download_manifest):
         raise ValueError("preflight download manifest must not be a link or reparse point")
+    package_baseline = resolve_package_baseline(args.repo_root)
     clock_genesis = start_decision_clock(args.decision_root)
     os.environ.update(
         {
@@ -2023,14 +2736,18 @@ def _run_preflight(args: argparse.Namespace) -> dict[str, object]:
         ).portable_manifest()
         validate_external_snapshot_identity(args.base_model_path, args.download_manifest)
         bitsandbytes_present = importlib.util.find_spec("bitsandbytes") is not None
+        if bitsandbytes_present is not package_baseline["bitsandbytes_present"]:
+            raise RuntimeError("bitsandbytes presence drifted after package baseline verification")
         if bitsandbytes_present:
-            raise RuntimeError("bitsandbytes must be absent before the LoRA-first experiment")
+            input_evidence["preinstalled_package_setup"] = {
+                key: value for key, value in package_baseline.items() if key != "bitsandbytes_present"
+            }
         state = initialize_decision_root(
             args.decision_root,
             input_evidence=input_evidence,
             base_model_provenance=provenance,
             torch_identity=capture_torch_identity(),
-            package_baseline={"bitsandbytes_present": bitsandbytes_present},
+            package_baseline=package_baseline,
             clock_genesis=clock_genesis,
             repo_root_path_sha256=repo_root_path_sha256,
         )
@@ -2631,21 +3348,21 @@ def _run_monitored_training_stage_impl(
     )
     raw_log_hashes: dict[str, str] = {}
     sanitized_log_hashes: dict[str, str] = {}
+    sanitized_log_texts: dict[str, str] = {}
     for name, source in (("stdout", stdout_path), ("stderr", stderr_path)):
         content = source.read_text(encoding="utf-8", errors="replace") if source.exists() else ""
         if source.exists():
             raw_log_hashes[name] = _sha256_file(source)
         sanitized_path = stage_root / f"child-{name}.sanitized.log"
-        sanitized_path.write_text(
-            _sanitize_log_text(content), encoding="utf-8"
-        )
+        sanitized_content = _sanitize_log_text(content)
+        sanitized_path.write_text(sanitized_content, encoding="utf-8")
+        sanitized_log_texts[name] = sanitized_content
         sanitized_log_hashes[name] = _sha256_file(sanitized_path)
     receipt = discard_stage_runtime(stage_root, run_id=f"rtx5050-{stage}")
+    oom_kind = _detect_memory_oom_kind(sanitized_log_texts.get("stderr"))
     if process is not None and process.returncode == 0:
         status = "measured"
-    elif "out of memory" in _sanitize_log_text(
-        (stage_root / "child-stderr.sanitized.log").read_text(encoding="utf-8")
-    ).casefold():
+    elif oom_kind is not None:
         status = "oom"
     elif stop_reason in {"soft_timebox", "hard_timebox", "global_deadline"}:
         status = "timeout"
@@ -2687,6 +3404,8 @@ def _run_monitored_training_stage_impl(
         "sanitized_child_log_sha256": sanitized_log_hashes,
     }
     if stage == "lora":
+        if oom_kind is not None:
+            outcome["oom_kind"] = oom_kind
         retained_steps = (
             int(partial_event_summary["retained_optimizer_steps"])
             if partial_event_summary is not None
@@ -2880,11 +3599,7 @@ def run_operator_stage(args: argparse.Namespace) -> dict[str, object]:
         if getattr(args, "repo_root", None) is None:
             raise ValueError(f"{stage} requires --repo-root")
         if stage == "lora":
-            baseline = _read_json(Path(args.decision_root) / "package-baseline.json")
-            if baseline.get("bitsandbytes_present") is not False:
-                raise RuntimeError("LoRA-first package baseline is not clean")
-            if importlib.util.find_spec("bitsandbytes") is not None:
-                raise RuntimeError("bitsandbytes was installed before the LoRA stage")
+            verify_lora_package_baseline(args.decision_root, args.repo_root)
         return run_monitored_training_stage(args, stage=stage)
     if stage == "finalize":
         return finalize_local_decision(args.decision_root)
@@ -2985,14 +3700,17 @@ def _child_main(control_path: Path) -> int:
     if stage == "qlora":
         authority = _read_json(decision_root / "package-authority.json")
         package = _read_json(decision_root / "package-runtime.json")
-        if authority.get("approved") is not True or package.get("torch_unchanged") is not True:
+        if (
+            authority.get("approved") is not True
+            or package.get("torch_distribution_identity_unchanged") is not True
+        ):
             raise RuntimeError("QLoRA child lacks approved package/Torch authority")
         if capture_torch_identity() != package.get("torch"):
             raise RuntimeError("Torch identity drifted after the package verification gate")
         if capture_bitsandbytes_identity() != package.get("bitsandbytes"):
             raise RuntimeError("bitsandbytes identity drifted after the package verification gate")
-    elif importlib.util.find_spec("bitsandbytes") is not None:
-        raise RuntimeError("ordinary LoRA child refuses a post-preflight bitsandbytes install")
+    else:
+        verify_lora_package_baseline(decision_root, repo_root)
     validate_external_snapshot_identity(
         Path(str(control["base_model_path"])), EXTERNAL_DOWNLOAD_MANIFEST
     )
