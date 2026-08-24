@@ -3167,7 +3167,10 @@ def _build_training_arguments(
     device: str,
     use_bf16: bool,
 ) -> Any:
-    parameter_names = set(inspect.signature(transformers_module.TrainingArguments.__init__).parameters)
+    parameters = inspect.signature(
+        transformers_module.TrainingArguments.__init__
+    ).parameters
+    parameter_names = set(parameters)
     training_kwargs: dict[str, Any] = {
         "output_dir": str(training_output_dir),
         "num_train_epochs": config.num_train_epochs,
@@ -3194,14 +3197,30 @@ def _build_training_arguments(
         "optim": config.optimizer_name,
         "weight_decay": config.weight_decay,
         "lr_scheduler_type": config.lr_scheduler_type,
-        "warmup_steps": config.warmup_steps,
-        "warmup_ratio": config.warmup_ratio,
         "max_grad_norm": config.max_grad_norm,
         "tf32": config.tf32,
         "include_num_input_tokens_seen": True,
         "logging_strategy": "steps",
         "save_strategy": "steps",
     }
+    # Transformers 5 moved fractional warm-up to ``warmup_steps`` and made
+    # ``warmup_ratio`` a deprecated alias.  Supplying both lets the alias
+    # silently overwrite the integer field during dataclass normalization.
+    # The ``None`` default is the stable behavioral discriminator between the
+    # v5 fractional API and the legacy two-field API.
+    ratio_parameter = parameters.get("warmup_ratio")
+    uses_fractional_warmup_steps = (
+        ratio_parameter is not None and ratio_parameter.default is None
+    )
+    if (
+        uses_fractional_warmup_steps
+        and config.warmup_steps == 0
+        and config.warmup_ratio > 0
+    ):
+        training_kwargs["warmup_steps"] = config.warmup_ratio
+    else:
+        training_kwargs["warmup_steps"] = config.warmup_steps
+        training_kwargs["warmup_ratio"] = config.warmup_ratio
     if "eval_strategy" in parameter_names:
         training_kwargs["eval_strategy"] = "steps" if has_eval_data else "no"
     elif "evaluation_strategy" in parameter_names:
@@ -3250,14 +3269,11 @@ def _verify_training_argument_controls(
         "optim": config.optimizer_name,
         "weight_decay": config.weight_decay,
         "lr_scheduler_type": config.lr_scheduler_type,
-        "warmup_steps": config.warmup_steps,
-        "warmup_ratio": config.warmup_ratio,
         "max_grad_norm": config.max_grad_norm,
         "tf32": config.tf32,
         "fp16": device == "cuda" and not use_bf16,
         "bf16": use_bf16,
         "gradient_checkpointing": config.gradient_checkpointing,
-        "include_num_input_tokens_seen": True,
         "logging_strategy": "steps",
         "save_strategy": "steps",
     }
@@ -3270,6 +3286,68 @@ def _verify_training_argument_controls(
                 f"TrainingArguments changed required Phase 40 control {name}: "
                 f"expected {expected_value!r}, got {actual!r}"
             )
+    if not hasattr(training_args, "include_num_input_tokens_seen"):
+        raise RuntimeError(
+            "TrainingArguments omitted required Phase 40 control: "
+            "include_num_input_tokens_seen"
+        )
+    input_token_control = _control_value(
+        getattr(training_args, "include_num_input_tokens_seen")
+    )
+    if not (
+        input_token_control is True
+        or (
+            isinstance(input_token_control, str)
+            and input_token_control == "all"
+        )
+    ):
+        raise RuntimeError(
+            "TrainingArguments changed required Phase 40 control "
+            "include_num_input_tokens_seen: expected True/'all', got "
+            f"{input_token_control!r}"
+        )
+    for name in ("warmup_steps", "warmup_ratio"):
+        if not hasattr(training_args, name):
+            raise RuntimeError(
+                f"TrainingArguments omitted required Phase 40 control: {name}"
+            )
+    actual_warmup_steps = _control_value(getattr(training_args, "warmup_steps"))
+    actual_warmup_ratio = _control_value(getattr(training_args, "warmup_ratio"))
+    legacy_representation = (
+        actual_warmup_steps == config.warmup_steps
+        and actual_warmup_ratio == config.warmup_ratio
+    )
+    fractional_representation = (
+        config.warmup_steps == 0
+        and config.warmup_ratio > 0
+        and actual_warmup_steps == config.warmup_ratio
+        and actual_warmup_ratio is None
+    )
+    if not (legacy_representation or fractional_representation):
+        raise RuntimeError(
+            "TrainingArguments changed required Phase 40 warm-up controls: "
+            f"expected legacy ({config.warmup_steps!r}, {config.warmup_ratio!r}) "
+            f"or fractional ({config.warmup_ratio!r}, None), got "
+            f"({actual_warmup_steps!r}, {actual_warmup_ratio!r})"
+        )
+    warmup_resolver = getattr(training_args, "get_warmup_steps", None)
+    if not callable(warmup_resolver):
+        raise RuntimeError("TrainingArguments omitted the effective warm-up resolver")
+    expected_effective_warmup = (
+        config.warmup_steps
+        if config.warmup_steps > 0
+        else math.ceil(config.max_steps * config.warmup_ratio)
+    )
+    try:
+        actual_effective_warmup = warmup_resolver(config.max_steps)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("TrainingArguments warm-up resolver failed") from exc
+    if actual_effective_warmup != expected_effective_warmup:
+        raise RuntimeError(
+            "TrainingArguments changed effective Phase 40 warm-up: "
+            f"expected {expected_effective_warmup!r}, got "
+            f"{actual_effective_warmup!r}"
+        )
     evaluation_strategy = getattr(
         training_args,
         "eval_strategy",
@@ -4914,6 +4992,7 @@ def build_phase40_local_decision_config(
     val_split_path: Path,
     base_model_path: Path,
     decision_stage_root: Path,
+    run_id: str | None = None,
 ) -> TrainingConfig:
     """Build the exact disposable RTX 5050 decision-run controls.
 
@@ -4925,6 +5004,12 @@ def build_phase40_local_decision_config(
     if mode not in {AdaptationMode.LORA, AdaptationMode.QLORA}:
         raise ValueError("local Qwen decision mode must be lora or qlora")
     stage_root = _normalized_absolute_path(Path(decision_stage_root))
+    resolved_run_id = f"rtx5050-{mode.value}" if run_id is None else str(run_id)
+    allowed_run_ids = {f"rtx5050-{mode.value}"}
+    if mode == AdaptationMode.LORA:
+        allowed_run_ids.add("rtx5050-lora-retry-1")
+    if resolved_run_id not in allowed_run_ids:
+        raise ValueError("local Qwen decision run_id is not an authorized stage identity")
     runtime_root = stage_root / "runtime"
     _reject_existing_symlink_traversal(
         stage_root,
@@ -4966,7 +5051,7 @@ def build_phase40_local_decision_config(
         lora_bias="none",
         target_modules=DEFAULT_TARGET_MODULES,
         model_revision=PHASE40_QWEN_REVISION,
-        run_id=f"rtx5050-{mode.value}",
+        run_id=resolved_run_id,
         probe_post_warmup_steps=40,
         probe_warmup_steps=5,
         seed=42,

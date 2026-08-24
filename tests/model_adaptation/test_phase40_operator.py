@@ -133,6 +133,21 @@ def test_local_decision_command_delegates_lazily(monkeypatch, tmp_path: Path) ->
     assert len(calls) == 1
 
 
+def test_local_decision_parser_exposes_exact_single_lora_retry_stage() -> None:
+    args = operator.build_parser().parse_args(
+        (
+            "phase40-local-decision",
+            "--stage",
+            "lora-retry-1",
+            "--decision-root",
+            "decision",
+            "--repo-root",
+            ".",
+        )
+    )
+    assert args.stage == "lora-retry-1"
+
+
 def test_model_acquisition_requires_explicit_positive_authority_before_request_load(
     monkeypatch,
 ) -> None:

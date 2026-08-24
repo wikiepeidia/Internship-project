@@ -88,6 +88,7 @@ from src.model_adaptation.training import (
     _append_runtime_failure_event,
     _callback_event_to_run_event,
     _checkpoint_payload_sha256,
+    _build_training_arguments,
     _complete_full_qwen_training,
     _install_measured_checkpoint_wrapper,
     _load_pinned_qwen_base_components,
@@ -101,6 +102,8 @@ from src.model_adaptation.training import (
     _run_post_train_finalization_transaction,
     _write_checkpoint_resume_manifest,
     _verify_requested_runtime_controls,
+    _verify_training_argument_controls,
+    build_phase40_local_decision_config,
     build_qwen_base_model_acquisition_request,
     build_qwen_base_model_provenance,
     build_phase40_qwen_training_config,
@@ -143,6 +146,55 @@ class FakeCuda:
     def max_memory_reserved(self) -> int:
         self.calls.append("max_memory_reserved")
         return self.reserved
+
+
+def test_transformers_v5_fractional_warmup_and_token_counter_are_verified(
+    tmp_path: Path,
+) -> None:
+    transformers = pytest.importorskip("transformers")
+    config = build_phase40_local_decision_config(
+        adaptation_mode="lora",
+        train_split_path=tmp_path / "train.jsonl",
+        val_split_path=tmp_path / "val.jsonl",
+        base_model_path=tmp_path / "base",
+        decision_stage_root=tmp_path / "decision/lora",
+    )
+    arguments = _build_training_arguments(
+        transformers,
+        config,
+        tmp_path / "trainer",
+        has_eval_data=True,
+        device="cuda",
+        use_bf16=False,
+    )
+    assert arguments.warmup_steps == 0.03
+    assert arguments.warmup_ratio is None
+    assert arguments.get_warmup_steps(config.max_steps) == 2
+    assert arguments.include_num_input_tokens_seen == "all"
+    _verify_training_argument_controls(
+        arguments,
+        config,
+        device="cuda",
+        use_bf16=False,
+    )
+
+    arguments.warmup_ratio = 0.03
+    with pytest.raises(RuntimeError, match="warm-up controls"):
+        _verify_training_argument_controls(
+            arguments,
+            config,
+            device="cuda",
+            use_bf16=False,
+        )
+    arguments.warmup_ratio = None
+    arguments.include_num_input_tokens_seen = "yes"
+    with pytest.raises(RuntimeError, match="include_num_input_tokens_seen"):
+        _verify_training_argument_controls(
+            arguments,
+            config,
+            device="cuda",
+            use_bf16=False,
+        )
 
 
 FIXED_UTC = datetime(2026, 8, 24, 12, 0, tzinfo=timezone.utc)

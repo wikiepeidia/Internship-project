@@ -1198,6 +1198,7 @@ def build_parser() -> argparse.ArgumentParser:
             "preflight",
             "record-authority",
             "lora",
+            "lora-retry-1",
             "verify-package",
             "qlora",
             "finalize",

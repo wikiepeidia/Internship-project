@@ -358,6 +358,149 @@ def _qlora_proof() -> dict[str, object]:
     }
 
 
+def test_single_lora_retry_is_hash_sealed_and_subtracts_first_attempt_budget(
+    tmp_path: Path,
+) -> None:
+    root = _initialise(tmp_path)
+    lora = root / "lora"
+    rows = _telemetry_rows("lora")
+    rows[-1]["stop_reason"] = "child_error"
+    _write_jsonl(lora / "telemetry.jsonl", rows)
+    _write_jsonl(
+        lora / "optimizer-events.jsonl",
+        [
+            {
+                "schema_version": "phase40-run-event-v1",
+                "sequence_id": 0,
+                "source_run_id": "rtx5050-lora",
+                "run_kind": "probe",
+                "event_kind": "failure",
+                "timestamp_utc": "2026-08-24T08:00:03Z",
+                "optimizer_step": 0,
+                "epoch": 0.0,
+                "trainer_values": {
+                    "error_type": "RuntimeError",
+                    "failure_category": "runtime_failure",
+                    "requested_adaptation_mode": "lora",
+                    "resource_state": None,
+                    "resource_state_sha256": None,
+                },
+            }
+        ],
+    )
+    stderr = lora / "child-stderr.sanitized.log"
+    stderr.write_text(
+        "warning before failure\n" + local.KNOWN_LORA_WARMUP_CONTROL_FAILURE + "\n",
+        encoding="utf-8",
+    )
+    (lora / "runtime").mkdir(parents=True)
+    receipt = local.discard_stage_runtime(lora, run_id="rtx5050-lora")
+    local.write_stage_outcome(
+        root,
+        stage="lora",
+        outcome={
+            "status": "error",
+            "stop_reason": "child_error",
+            "retained_optimizer_steps": 0,
+            "losses_finite": False,
+            "telemetry": "lora/telemetry.jsonl",
+            "optimizer_events": "lora/optimizer-events.jsonl",
+            "sanitized_child_log_sha256": {
+                "stderr": local._sha256_file(stderr),
+            },
+            "discard_receipt": receipt,
+        },
+        now_utc="2026-08-24T08:00:04Z",
+        now_monotonic=104.0,
+        boot_identity="boot-A",
+    )
+
+    authority = local.authorize_lora_retry(
+        root,
+        now_utc="2026-08-24T08:00:05Z",
+        now_monotonic=105.0,
+        boot_identity="boot-A",
+    )
+    assert authority["retry_stage"] == "lora-retry-1"
+    assert authority["retry_run_id"] == "rtx5050-lora-retry-1"
+    assert authority["first_attempt_elapsed_seconds"] == 2.0
+    assert authority["retry_soft_limit_seconds"] == 1798.0
+    assert authority["retry_hard_limit_seconds"] == 3598.0
+    assert authority["fix_code_sha256"] == local._lora_retry_fix_code_sha256()
+    assert local._training_adaptation_mode("lora-retry-1") == "lora"
+    assert set(path.name for path in (root / "lora-retry-1").iterdir()) == {
+        "retry-authority.json"
+    }
+    with pytest.raises(RuntimeError, match="has not reached a terminal"):
+        local.record_package_authority(
+            root,
+            local.APPROVE_AUTHORITY,
+            now_utc="2026-08-24T08:00:06Z",
+            now_monotonic=106.0,
+            boot_identity="boot-A",
+        )
+    with pytest.raises(FileExistsError, match="already authorized"):
+        local.authorize_lora_retry(
+            root,
+            now_utc="2026-08-24T08:00:07Z",
+            now_monotonic=107.0,
+            boot_identity="boot-A",
+        )
+
+    retry = root / "lora-retry-1"
+    retry_rows = _telemetry_rows("lora-retry-1")
+    _write_jsonl(retry / "telemetry.jsonl", retry_rows)
+    (retry / "runtime").mkdir(parents=True)
+    retry_receipt = local.discard_stage_runtime(
+        retry, run_id="rtx5050-lora-retry-1"
+    )
+    outcome = local.write_stage_outcome(
+        root,
+        stage="lora-retry-1",
+        outcome={
+            "status": "measured",
+            "stop_reason": "evidence_target_reached",
+            "retained_optimizer_steps": 40,
+            "losses_finite": True,
+            "telemetry": "lora-retry-1/telemetry.jsonl",
+            "discard_receipt": retry_receipt,
+        },
+        now_utc="2026-08-24T08:00:08Z",
+        now_monotonic=108.0,
+        boot_identity="boot-A",
+    )
+    assert outcome["retry_authority_sha256"] == local._sha256_file(
+        retry / "retry-authority.json"
+    )
+    recorded = local.record_package_authority(
+        root,
+        "reject bitsandbytes 0.50.1: retry lifecycle fixture",
+        now_utc="2026-08-24T08:00:09Z",
+        now_monotonic=109.0,
+        boot_identity="boot-A",
+    )
+    assert recorded["approved"] is False
+    assert [row["stage"] for row in local._ledger_entries(root)] == [
+        "preflight",
+        "lora",
+        "lora-retry-1",
+        "record-authority",
+    ]
+    manifest = local.finalize_local_decision(
+        root,
+        now_utc="2026-08-24T08:00:10Z",
+        now_monotonic=110.0,
+        boot_identity="boot-A",
+    )
+    assert manifest["lora"] == outcome
+    assert manifest["initial_lora"]["stop_reason"] == "child_error"
+    assert [attempt["stage"] for attempt in manifest["lora_attempts"]] == [
+        "lora",
+        "lora-retry-1",
+    ]
+    assert local.verify_local_decision(root)["verified"] is True
+
+
 def test_decision_clock_rejects_reset_rollback_reboot_and_expiry(tmp_path: Path) -> None:
     root = _initialise(tmp_path)
     state = local.load_decision_state(

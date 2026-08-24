@@ -96,13 +96,22 @@ PACKAGE_SCHEMA_VERSION = "phase40-package-runtime-v2"
 PACKAGE_SETUP_SCHEMA_VERSION = "phase40-package-setup-receipt-v2"
 PACKAGE_SETUP_PROVENANCE_SCHEMA_VERSION = "phase40-package-install-provenance-v1"
 MEMORY_PRESSURE_SCHEMA_VERSION = "phase40-lora-memory-pressure-v1"
+LORA_RETRY_AUTHORITY_SCHEMA_VERSION = "phase40-lora-retry-authority-v1"
 MANIFEST_SCHEMA_VERSION = "phase40-local-decision-manifest-v1"
+
+LORA_RETRY_STAGE = "lora-retry-1"
+LORA_RETRY_RUN_ID = "rtx5050-lora-retry-1"
+KNOWN_LORA_WARMUP_CONTROL_FAILURE = (
+    "TrainingArguments changed required Phase 40 control warmup_steps: "
+    "expected 0, got 0.03"
+)
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _STAGE_ORDER = (
     "preflight",
     "lora",
+    LORA_RETRY_STAGE,
     "record-authority",
     "verify-package",
     "qlora",
@@ -941,8 +950,8 @@ def append_telemetry_sample(path: Path, sample: Mapping[str, object]) -> Path:
 
 class TelemetryRecorder:
     def __init__(self, path: Path, *, stage: str) -> None:
-        if stage not in {"lora", "qlora"}:
-            raise ValueError("telemetry stage must be lora or qlora")
+        if stage not in {"lora", LORA_RETRY_STAGE, "qlora"}:
+            raise ValueError("telemetry stage must be lora, lora-retry-1, or qlora")
         self.path = Path(path)
         self.stage = stage
         self.sequence_id = 0
@@ -1183,6 +1192,8 @@ def lora_should_extend(
     median_step_seconds: float | None,
     elapsed_seconds: float,
     remaining_decision_seconds: float,
+    soft_limit_seconds: float = LORA_SOFT_LIMIT_SECONDS,
+    hard_limit_seconds: float = LORA_HARD_LIMIT_SECONDS,
 ) -> bool:
     if not 1 <= retained_steps < MEASURED_OPTIMIZER_STEPS:
         return False
@@ -1190,11 +1201,18 @@ def lora_should_extend(
         return False
     if median_step_seconds is None or not math.isfinite(median_step_seconds) or median_step_seconds <= 0:
         return False
-    if elapsed_seconds < LORA_SOFT_LIMIT_SECONDS or elapsed_seconds >= LORA_HARD_LIMIT_SECONDS:
+    if (
+        not math.isfinite(soft_limit_seconds)
+        or not math.isfinite(hard_limit_seconds)
+        or soft_limit_seconds <= 0
+        or hard_limit_seconds <= soft_limit_seconds
+        or elapsed_seconds < soft_limit_seconds
+        or elapsed_seconds >= hard_limit_seconds
+    ):
         return False
     estimated_remaining = (MEASURED_OPTIMIZER_STEPS - retained_steps) * median_step_seconds
     return (
-        elapsed_seconds + estimated_remaining <= LORA_HARD_LIMIT_SECONDS
+        elapsed_seconds + estimated_remaining <= hard_limit_seconds
         and estimated_remaining <= remaining_decision_seconds
     )
 
@@ -1346,6 +1364,248 @@ def _require_prior_stages(root: Path, expected: Sequence[str]) -> None:
         raise RuntimeError(
             f"local decision stage order mismatch: expected {tuple(expected)}, got {actual}"
         )
+
+
+def _training_run_id(stage: str) -> str:
+    if stage == LORA_RETRY_STAGE:
+        return LORA_RETRY_RUN_ID
+    if stage in {"lora", "qlora"}:
+        return f"rtx5050-{stage}"
+    raise ValueError(f"unsupported training stage: {stage}")
+
+
+def _training_adaptation_mode(stage: str) -> str:
+    if stage in {"lora", LORA_RETRY_STAGE}:
+        return "lora"
+    if stage == "qlora":
+        return "qlora"
+    raise ValueError(f"unsupported training stage: {stage}")
+
+
+def _lora_stage_prefix(root: Path) -> tuple[str, ...]:
+    stages = tuple(str(row["stage"]) for row in _ledger_entries(root))
+    if stages[:3] == ("preflight", "lora", LORA_RETRY_STAGE):
+        _verify_lora_retry_authority(root)
+        return ("preflight", "lora", LORA_RETRY_STAGE)
+    if stages[:2] == ("preflight", "lora") and (
+        len(stages) == 2 or stages[2] == "record-authority"
+    ):
+        retry_root = Path(root) / LORA_RETRY_STAGE
+        if len(stages) == 2 and (retry_root.exists() or retry_root.is_symlink()):
+            raise RuntimeError("authorized LoRA retry has not reached a terminal ledger stage")
+        return ("preflight", "lora")
+    raise RuntimeError("local decision has no valid completed LoRA attempt prefix")
+
+
+def _directory_file_hashes(directory: Path) -> dict[str, str]:
+    root = Path(directory)
+    if not root.is_dir() or root.is_symlink() or _is_reparse_point(root):
+        raise RuntimeError("retry source directory is missing or unsafe")
+    result: dict[str, str] = {}
+    for current_raw, directory_names, file_names in os.walk(root, topdown=True):
+        current = Path(current_raw)
+        if _is_reparse_point(current):
+            raise RuntimeError("retry source contains a link or reparse point")
+        for name in tuple(directory_names):
+            if _is_reparse_point(current / name):
+                raise RuntimeError("retry source contains a link or reparse point")
+        for name in file_names:
+            path = current / name
+            if _is_reparse_point(path):
+                raise RuntimeError("retry source contains a link or reparse point")
+            if path.is_file():
+                result[path.relative_to(root).as_posix()] = _sha256_file(path)
+    if not result:
+        raise RuntimeError("retry source directory is empty")
+    return dict(sorted(result.items()))
+
+
+def _lora_retry_fix_code_sha256() -> dict[str, str]:
+    module_root = Path(__file__).resolve(strict=True).parent
+    files = {
+        "src/model_adaptation/phase40_local_experiment.py": module_root
+        / "phase40_local_experiment.py",
+        "src/model_adaptation/phase40_operator.py": module_root / "phase40_operator.py",
+        "src/model_adaptation/training.py": module_root / "training.py",
+    }
+    result: dict[str, str] = {}
+    for relative, path in files.items():
+        if not path.is_file() or path.is_symlink() or _is_reparse_point(path):
+            raise RuntimeError("LoRA retry fix code identity is missing or unsafe")
+        result[relative] = _sha256_file(path)
+    return result
+
+
+def _validated_lora_retry_source(
+    root: Path, *, require_source_only_ledger: bool = True
+) -> dict[str, object]:
+    if require_source_only_ledger:
+        _require_prior_stages(root, ("preflight", "lora"))
+    elif tuple(
+        str(row["stage"]) for row in _ledger_entries(root)[:2]
+    ) != ("preflight", "lora"):
+        raise RuntimeError("LoRA retry source lost its immutable stage prefix")
+    outcome_path = Path(root) / "lora/outcome.json"
+    outcome = _read_json(outcome_path)
+    if (
+        outcome.get("status") != "error"
+        or outcome.get("stop_reason") != "child_error"
+        or outcome.get("retained_optimizer_steps") != 0
+        or outcome.get("losses_finite") is not False
+    ):
+        raise RuntimeError(
+            "LoRA retry requires the exact zero-step child_error source outcome"
+        )
+    pressure = outcome.get("memory_pressure")
+    if not isinstance(pressure, dict) or pressure.get("memory_constrained") is not False:
+        raise RuntimeError("LoRA retry is forbidden after a memory-constrained attempt")
+    telemetry_path = Path(root) / _portable_relative_path(outcome.get("telemetry"))
+    telemetry = verify_telemetry(telemetry_path, expected_stage="lora")
+    if outcome.get("telemetry_sha256") != _sha256_file(telemetry_path):
+        raise RuntimeError("LoRA retry source telemetry drifted")
+    if outcome.get("memory_pressure") != classify_lora_memory_pressure(
+        telemetry,
+        terminal_status=outcome.get("status"),
+        oom_kind=outcome.get("oom_kind"),
+    ):
+        raise RuntimeError("LoRA retry source memory classification drifted")
+    partial = outcome.get("partial_event_summary")
+    if not isinstance(partial, dict) or any(
+        partial.get(name) != 0
+        for name in ("observed_optimizer_steps", "retained_optimizer_steps")
+    ):
+        raise RuntimeError("LoRA retry source contains optimizer progress")
+    stderr_path = Path(root) / "lora/child-stderr.sanitized.log"
+    stderr_hashes = outcome.get("sanitized_child_log_sha256")
+    if (
+        not isinstance(stderr_hashes, dict)
+        or stderr_hashes.get("stderr") != _sha256_file(stderr_path)
+    ):
+        raise RuntimeError("LoRA retry source stderr hash drifted")
+    stderr = stderr_path.read_text(encoding="utf-8", errors="strict")
+    if KNOWN_LORA_WARMUP_CONTROL_FAILURE not in stderr:
+        raise RuntimeError("LoRA retry source is not the known warm-up control failure")
+    first_monotonic = float(telemetry[0]["monotonic_seconds"])
+    terminal_monotonic = float(telemetry[-1]["monotonic_seconds"])
+    elapsed = terminal_monotonic - first_monotonic
+    if not math.isfinite(elapsed) or elapsed < 0 or elapsed >= LORA_SOFT_LIMIT_SECONDS:
+        raise RuntimeError("LoRA retry source duration is invalid")
+    return {
+        "source_outcome_sha256": _sha256_file(outcome_path),
+        "source_stderr_sha256": _sha256_file(stderr_path),
+        "source_artifact_sha256": _directory_file_hashes(Path(root) / "lora"),
+        "first_attempt_elapsed_seconds": elapsed,
+        "retry_soft_limit_seconds": LORA_SOFT_LIMIT_SECONDS - elapsed,
+        "retry_hard_limit_seconds": LORA_HARD_LIMIT_SECONDS - elapsed,
+    }
+
+
+def authorize_lora_retry(
+    decision_root: Path,
+    *,
+    now_utc: str | None = None,
+    now_monotonic: float | None = None,
+    boot_identity: str | None = None,
+) -> dict[str, object]:
+    """Seal exactly one compatibility retry without resetting any budget or clock."""
+
+    root = Path(decision_root)
+    timestamp = _utc_now() if now_utc is None else now_utc
+    monotonic = time.monotonic() if now_monotonic is None else float(now_monotonic)
+    state = load_decision_state(
+        root,
+        now_utc=timestamp,
+        now_monotonic=monotonic,
+        boot_identity=boot_identity,
+    )
+    source = _validated_lora_retry_source(root)
+    retry_root = root / LORA_RETRY_STAGE
+    if retry_root.exists() or retry_root.is_symlink():
+        raise FileExistsError("the single LoRA retry is already authorized or attempted")
+    if float(source["retry_hard_limit_seconds"]) <= 15.0:
+        raise TimeoutError("insufficient cumulative LoRA budget remains for a safe retry")
+    retry_root.mkdir(parents=False, exist_ok=False)
+    try:
+        transformers_version = importlib.metadata.version("transformers")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise RuntimeError("Transformers distribution identity is unavailable") from exc
+    payload = {
+        "schema_version": LORA_RETRY_AUTHORITY_SCHEMA_VERSION,
+        "retry_stage": LORA_RETRY_STAGE,
+        "retry_run_id": LORA_RETRY_RUN_ID,
+        "source_stage": "lora",
+        "reason": "trainer_control_compatibility_failure",
+        "failure_signature": KNOWN_LORA_WARMUP_CONTROL_FAILURE,
+        "compatibility_contract_version": "phase40-training-arguments-v2",
+        "transformers_version": transformers_version,
+        "fix_code_sha256": _lora_retry_fix_code_sha256(),
+        "source_outcome": "lora/outcome.json",
+        "source_stderr": "lora/child-stderr.sanitized.log",
+        **source,
+        "cumulative_soft_limit_seconds": LORA_SOFT_LIMIT_SECONDS,
+        "cumulative_hard_limit_seconds": LORA_HARD_LIMIT_SECONDS,
+        "decision_clock_sha256": _sha256_file(root / "decision-clock.json"),
+        "authorized_utc": timestamp,
+        "authorized_monotonic": monotonic,
+        "remaining_decision_seconds": state.deadline_monotonic - monotonic,
+    }
+    _write_immutable_json(retry_root / "retry-authority.json", payload)
+    return payload
+
+
+def _verify_lora_retry_authority(decision_root: Path) -> dict[str, object]:
+    root = Path(decision_root)
+    path = root / LORA_RETRY_STAGE / "retry-authority.json"
+    authority = _read_json(path)
+    required = {
+        "schema_version",
+        "retry_stage",
+        "retry_run_id",
+        "source_stage",
+        "reason",
+        "failure_signature",
+        "compatibility_contract_version",
+        "transformers_version",
+        "fix_code_sha256",
+        "source_outcome",
+        "source_stderr",
+        "source_outcome_sha256",
+        "source_stderr_sha256",
+        "source_artifact_sha256",
+        "first_attempt_elapsed_seconds",
+        "retry_soft_limit_seconds",
+        "retry_hard_limit_seconds",
+        "cumulative_soft_limit_seconds",
+        "cumulative_hard_limit_seconds",
+        "decision_clock_sha256",
+        "authorized_utc",
+        "authorized_monotonic",
+        "remaining_decision_seconds",
+    }
+    if set(authority) != required or (
+        authority.get("schema_version") != LORA_RETRY_AUTHORITY_SCHEMA_VERSION
+        or authority.get("retry_stage") != LORA_RETRY_STAGE
+        or authority.get("retry_run_id") != LORA_RETRY_RUN_ID
+        or authority.get("source_stage") != "lora"
+        or authority.get("reason") != "trainer_control_compatibility_failure"
+        or authority.get("failure_signature") != KNOWN_LORA_WARMUP_CONTROL_FAILURE
+        or authority.get("compatibility_contract_version")
+        != "phase40-training-arguments-v2"
+        or authority.get("fix_code_sha256") != _lora_retry_fix_code_sha256()
+        or authority.get("source_outcome") != "lora/outcome.json"
+        or authority.get("source_stderr") != "lora/child-stderr.sanitized.log"
+        or authority.get("cumulative_soft_limit_seconds") != LORA_SOFT_LIMIT_SECONDS
+        or authority.get("cumulative_hard_limit_seconds") != LORA_HARD_LIMIT_SECONDS
+        or authority.get("decision_clock_sha256")
+        != _sha256_file(root / "decision-clock.json")
+    ):
+        raise RuntimeError("LoRA retry authority contract drifted")
+    expected_source = _validated_lora_retry_source(
+        root, require_source_only_ledger=False
+    )
+    if any(authority.get(name) != value for name, value in expected_source.items()):
+        raise RuntimeError("LoRA retry authority source or cumulative budget drifted")
+    return authority
 
 
 def _write_qlora_prestart_failure(
@@ -1535,7 +1795,8 @@ def record_package_authority(
     )
     if (root / "package-authority.json").exists():
         raise FileExistsError("bitsandbytes authority is already recorded")
-    _require_prior_stages(root, ("preflight", "lora"))
+    lora_prefix = _lora_stage_prefix(root)
+    _require_prior_stages(root, lora_prefix)
     baseline = _read_json(root / "package-baseline.json")
     preinstalled = baseline.get("bitsandbytes_present") is True
     if preinstalled and decision != APPROVE_AUTHORITY:
@@ -1624,7 +1885,8 @@ def verify_package_runtime(
         now_monotonic=monotonic,
         boot_identity=boot_identity,
     )
-    _require_prior_stages(root, ("preflight", "lora", "record-authority"))
+    lora_prefix = _lora_stage_prefix(root)
+    _require_prior_stages(root, (*lora_prefix, "record-authority"))
     authority = _read_json(root / "package-authority.json")
     if authority.get("approved") is not True:
         raise RuntimeError("bitsandbytes was rejected; package verification is forbidden")
@@ -1682,8 +1944,8 @@ def write_stage_outcome(
     now_monotonic: float | None = None,
     boot_identity: str | None = None,
 ) -> dict[str, object]:
-    if stage not in {"lora", "qlora"}:
-        raise ValueError("training outcome stage must be lora or qlora")
+    if stage not in {"lora", LORA_RETRY_STAGE, "qlora"}:
+        raise ValueError("training outcome stage must be lora, lora-retry, or qlora")
     root = Path(decision_root)
     timestamp = _utc_now() if now_utc is None else now_utc
     monotonic = time.monotonic() if now_monotonic is None else float(now_monotonic)
@@ -1697,10 +1959,14 @@ def write_stage_outcome(
     )
     if stage == "lora":
         _require_prior_stages(root, ("preflight",))
+    elif stage == LORA_RETRY_STAGE:
+        _require_prior_stages(root, ("preflight", "lora"))
+        retry_authority = _verify_lora_retry_authority(root)
     else:
+        lora_prefix = _lora_stage_prefix(root)
         _require_prior_stages(
             root,
-            ("preflight", "lora", "record-authority", "verify-package"),
+            (*lora_prefix, "record-authority", "verify-package"),
         )
     required_common = {"status", "stop_reason", "telemetry", "discard_receipt"}
     if not required_common.issubset(payload):
@@ -1731,7 +1997,7 @@ def write_stage_outcome(
             0.0, monotonic - state.deadline_monotonic
         ),
     }
-    if stage == "lora":
+    if stage in {"lora", LORA_RETRY_STAGE}:
         enriched["memory_pressure"] = classify_lora_memory_pressure(
             telemetry,
             terminal_status=payload.get("status"),
@@ -1745,7 +2011,7 @@ def write_stage_outcome(
         event_path = root / events_rel
         partial_summary = _partial_optimizer_summary(
             event_path,
-            run_id=f"rtx5050-{stage}",
+            run_id=_training_run_id(stage),
         )
         supplied_partial = payload.get("partial_event_summary")
         if supplied_partial is not None and supplied_partial != partial_summary:
@@ -1782,6 +2048,17 @@ def write_stage_outcome(
                 "quantization_proof": proof_rel,
                 "quantization_proof_sha256": _sha256_file(root / proof_rel),
                 "proof": proof,
+            }
+        )
+    if stage == LORA_RETRY_STAGE:
+        authority_path = root / stage / "retry-authority.json"
+        enriched.update(
+            {
+                "retry_authority": f"{stage}/retry-authority.json",
+                "retry_authority_sha256": _sha256_file(authority_path),
+                "first_attempt_elapsed_seconds": retry_authority[
+                    "first_attempt_elapsed_seconds"
+                ],
             }
         )
     path = _write_immutable_json(root / stage / "outcome.json", enriched)
@@ -1829,6 +2106,7 @@ def finalize_local_decision(
     except TimeoutError:
         terminal_candidates = (
             root / "qlora/outcome.json",
+            root / LORA_RETRY_STAGE / "outcome.json",
             root / "lora/outcome.json",
         )
         terminal = next(
@@ -1857,21 +2135,27 @@ def finalize_local_decision(
         and isinstance(package_runtime, dict)
         and package_runtime.get("status") == "failed"
     )
+    lora_prefix = _lora_stage_prefix(root)
     if not approved:
-        expected = ("preflight", "lora", "record-authority")
+        expected = (*lora_prefix, "record-authority")
     elif package_failed:
-        expected = ("preflight", "lora", "record-authority", "verify-package")
+        expected = (*lora_prefix, "record-authority", "verify-package")
     else:
         expected = (
-            "preflight",
-            "lora",
+            *lora_prefix,
             "record-authority",
             "verify-package",
             "qlora",
         )
     if stages != expected:
         raise RuntimeError("local decision cannot finalize from incomplete or reordered stages")
-    lora = _read_json(root / "lora/outcome.json")
+    initial_lora = _read_json(root / "lora/outcome.json")
+    retried = lora_prefix[-1] == LORA_RETRY_STAGE
+    lora = (
+        _read_json(root / LORA_RETRY_STAGE / "outcome.json")
+        if retried
+        else initial_lora
+    )
     if not approved:
         qlora = _load_and_verify_qlora_prestart_rejection(root, authority)
     elif package_failed and isinstance(package_runtime, dict):
@@ -1939,6 +2223,19 @@ def finalize_local_decision(
         "probe_artifacts_retained": False,
         "accuracy_claim_from_partial_lora": False,
     }
+    if retried:
+        manifest.update(
+            {
+                "initial_lora": initial_lora,
+                "lora_attempts": [
+                    {"stage": "lora", "outcome": initial_lora},
+                    {"stage": LORA_RETRY_STAGE, "outcome": lora},
+                ],
+                "lora_retry_authority": _read_json(
+                    root / LORA_RETRY_STAGE / "retry-authority.json"
+                ),
+            }
+        )
     _write_immutable_json(root / "decision-manifest.json", manifest)
     return manifest
 
@@ -2012,31 +2309,68 @@ def verify_local_decision(decision_root: Path) -> dict[str, object]:
         root / "qlora/package-runtime.json"
     ) != package_runtime:
         raise RuntimeError("QLoRA package-runtime copy drifted")
-    lora = _read_json(root / "lora/outcome.json")
-    if manifest.get("lora") != lora:
-        raise RuntimeError("manifest-embedded LoRA outcome drifted")
-    lora_telemetry_path = root / _portable_relative_path(lora["telemetry"])
-    lora_telemetry = verify_telemetry(lora_telemetry_path, expected_stage="lora")
-    if lora.get("telemetry_sha256") != _sha256_file(lora_telemetry_path):
-        raise RuntimeError("LoRA telemetry hash differs from its outcome")
-    expected_memory_pressure = classify_lora_memory_pressure(
-        lora_telemetry,
-        terminal_status=lora.get("status"),
-        oom_kind=lora.get("oom_kind"),
+    initial_lora = _read_json(root / "lora/outcome.json")
+    retried = LORA_RETRY_STAGE in ledger_stages
+    retry_lora = (
+        _read_json(root / LORA_RETRY_STAGE / "outcome.json") if retried else None
     )
-    if lora.get("memory_pressure") != expected_memory_pressure:
-        raise RuntimeError("LoRA memory-pressure classification drifted")
-    verify_stage_discard(root / "lora", lora["discard_receipt"])
-    if "optimizer_events" in lora:
-        lora_event_path = root / _portable_relative_path(lora["optimizer_events"])
-        lora_partial = _partial_optimizer_summary(
-            lora_event_path, run_id="rtx5050-lora"
-        )
+    effective_lora = retry_lora if retry_lora is not None else initial_lora
+    if manifest.get("lora") != effective_lora:
+        raise RuntimeError("manifest-embedded effective LoRA outcome drifted")
+    if retried:
+        retry_authority = _verify_lora_retry_authority(root)
+        expected_attempts = [
+            {"stage": "lora", "outcome": initial_lora},
+            {"stage": LORA_RETRY_STAGE, "outcome": retry_lora},
+        ]
         if (
-            lora.get("optimizer_events_sha256") != _sha256_file(lora_event_path)
-            or lora.get("partial_event_summary") != lora_partial
+            manifest.get("initial_lora") != initial_lora
+            or manifest.get("lora_attempts") != expected_attempts
+            or manifest.get("lora_retry_authority") != retry_authority
         ):
-            raise RuntimeError("LoRA partial optimizer evidence drifted")
+            raise RuntimeError("manifest lost the audited two-attempt LoRA history")
+        if (
+            retry_lora.get("retry_authority")
+            != f"{LORA_RETRY_STAGE}/retry-authority.json"
+            or retry_lora.get("retry_authority_sha256")
+            != _sha256_file(root / LORA_RETRY_STAGE / "retry-authority.json")
+            or retry_lora.get("first_attempt_elapsed_seconds")
+            != retry_authority.get("first_attempt_elapsed_seconds")
+        ):
+            raise RuntimeError("LoRA retry outcome lost its sealed retry authority")
+    elif any(
+        name in manifest
+        for name in ("initial_lora", "lora_attempts", "lora_retry_authority")
+    ):
+        raise RuntimeError("manifest claims a LoRA retry absent from the ledger")
+    attempts = [("lora", initial_lora)]
+    if retry_lora is not None:
+        attempts.append((LORA_RETRY_STAGE, retry_lora))
+    for attempt_stage, lora in attempts:
+        lora_telemetry_path = root / _portable_relative_path(lora["telemetry"])
+        lora_telemetry = verify_telemetry(
+            lora_telemetry_path, expected_stage=attempt_stage
+        )
+        if lora.get("telemetry_sha256") != _sha256_file(lora_telemetry_path):
+            raise RuntimeError("LoRA telemetry hash differs from its outcome")
+        expected_memory_pressure = classify_lora_memory_pressure(
+            lora_telemetry,
+            terminal_status=lora.get("status"),
+            oom_kind=lora.get("oom_kind"),
+        )
+        if lora.get("memory_pressure") != expected_memory_pressure:
+            raise RuntimeError("LoRA memory-pressure classification drifted")
+        verify_stage_discard(root / attempt_stage, lora["discard_receipt"])
+        if "optimizer_events" in lora:
+            lora_event_path = root / _portable_relative_path(lora["optimizer_events"])
+            lora_partial = _partial_optimizer_summary(
+                lora_event_path, run_id=_training_run_id(attempt_stage)
+            )
+            if (
+                lora.get("optimizer_events_sha256") != _sha256_file(lora_event_path)
+                or lora.get("partial_event_summary") != lora_partial
+            ):
+                raise RuntimeError("LoRA partial optimizer evidence drifted")
     qlora = manifest.get("qlora")
     if qlora is not None:
         if not isinstance(qlora, dict):
@@ -2870,7 +3204,7 @@ def _local_child_events_path(stage_root: Path, stage: str) -> Path:
         / "local-decision-work"
         / "qwen3-4b-instruct-2507"
         / "evidence"
-        / f"rtx5050-{stage}"
+        / _training_run_id(stage)
         / "events.jsonl"
     )
 
@@ -3003,7 +3337,7 @@ def _retain_child_events(
     )
     return retained, _partial_optimizer_summary(
         retained,
-        run_id=f"rtx5050-{stage}",
+        run_id=_training_run_id(stage),
     )
 
 
@@ -3129,11 +3463,16 @@ def _run_monitored_training_stage_impl(
         and supplied_repo_hash != state.repo_root_path_sha256
     ):
         raise RuntimeError("repository root differs from the immutable preflight authority")
+    retry_authority: dict[str, object] | None = None
     if stage == "lora":
         _require_prior_stages(root, ("preflight",))
+    elif stage == LORA_RETRY_STAGE:
+        _require_prior_stages(root, ("preflight", "lora"))
+        retry_authority = _verify_lora_retry_authority(root)
     else:
+        lora_prefix = _lora_stage_prefix(root)
         _require_prior_stages(
-            root, ("preflight", "lora", "record-authority", "verify-package")
+            root, (*lora_prefix, "record-authority", "verify-package")
         )
     stage_root = root / stage
     if stage_root.is_symlink() or _is_reparse_point(stage_root):
@@ -3145,12 +3484,20 @@ def _run_monitored_training_stage_impl(
             and {path.name for path in stage_root.iterdir()}
             == {"package-authority.json", "package-runtime.json"}
         )
+        allowed_existing = allowed_existing or (
+            stage == LORA_RETRY_STAGE
+            and stage_root.is_dir()
+            and {path.name for path in stage_root.iterdir()}
+            == {"retry-authority.json"}
+        )
         if not allowed_existing:
             raise FileExistsError(f"{stage} stage already exists")
     runtime = stage_root / "runtime"
     runtime.mkdir(parents=True, exist_ok=False)
     control = {
         "stage": stage,
+        "adaptation_mode": _training_adaptation_mode(stage),
+        "run_id": _training_run_id(stage),
         "train_split": os.fspath(_lexical_absolute(Path(args.repo_root) / TRAIN_RELATIVE_PATH)),
         "val_split": os.fspath(_lexical_absolute(Path(args.repo_root) / VAL_RELATIVE_PATH)),
         "repo_root": os.fspath(_lexical_absolute(args.repo_root)),
@@ -3185,6 +3532,17 @@ def _run_monitored_training_stage_impl(
     latest_values = null_telemetry_values("not sampled")
     child_events_path = _local_child_events_path(stage_root, stage)
     lora_extension_decided = False
+    lora_like = stage in {"lora", LORA_RETRY_STAGE}
+    lora_soft_limit = (
+        float(retry_authority["retry_soft_limit_seconds"])
+        if retry_authority is not None
+        else LORA_SOFT_LIMIT_SECONDS
+    )
+    lora_hard_limit = (
+        float(retry_authority["retry_hard_limit_seconds"])
+        if retry_authority is not None
+        else LORA_HARD_LIMIT_SECONDS
+    )
 
     def request_boundary_stop(
         reason: str, *, absolute_deadline: float | None = None
@@ -3266,8 +3624,8 @@ def _run_monitored_training_stage_impl(
                     values=latest_values,
                 )
                 if (
-                    stage == "lora"
-                    and elapsed >= LORA_SOFT_LIMIT_SECONDS
+                    lora_like
+                    and elapsed >= lora_soft_limit
                     and not lora_extension_decided
                 ):
                     progress = _live_lora_progress(child_events_path)
@@ -3280,14 +3638,16 @@ def _run_monitored_training_stage_impl(
                         remaining_decision_seconds=max(
                             0.0, state.deadline_monotonic - now
                         ),
+                        soft_limit_seconds=lora_soft_limit,
+                        hard_limit_seconds=lora_hard_limit,
                     )
                     lora_extension_decided = True
                     if not may_extend:
                         request_boundary_stop("soft_timebox")
                         break
                 stage_limit = (
-                    LORA_HARD_LIMIT_SECONDS
-                    if stage == "lora"
+                    lora_hard_limit
+                    if lora_like
                     else DECISION_WINDOW_SECONDS
                 )
                 global_deadline = state.deadline_monotonic
@@ -3358,7 +3718,7 @@ def _run_monitored_training_stage_impl(
         sanitized_path.write_text(sanitized_content, encoding="utf-8")
         sanitized_log_texts[name] = sanitized_content
         sanitized_log_hashes[name] = _sha256_file(sanitized_path)
-    receipt = discard_stage_runtime(stage_root, run_id=f"rtx5050-{stage}")
+    receipt = discard_stage_runtime(stage_root, run_id=_training_run_id(stage))
     oom_kind = _detect_memory_oom_kind(sanitized_log_texts.get("stderr"))
     if process is not None and process.returncode == 0:
         status = "measured"
@@ -3403,7 +3763,7 @@ def _run_monitored_training_stage_impl(
         "raw_child_log_sha256": raw_log_hashes,
         "sanitized_child_log_sha256": sanitized_log_hashes,
     }
-    if stage == "lora":
+    if lora_like:
         if oom_kind is not None:
             outcome["oom_kind"] = oom_kind
         retained_steps = (
@@ -3425,7 +3785,7 @@ def _run_monitored_training_stage_impl(
         if events_path is not None and partial_event_summary is not None:
             outcome.update(
                 {
-                    "optimizer_events": "lora/optimizer-events.jsonl",
+                    "optimizer_events": f"{stage}/optimizer-events.jsonl",
                     "optimizer_events_sha256": partial_event_summary[
                         "optimizer_events_sha256"
                     ],
@@ -3505,7 +3865,7 @@ def run_monitored_training_stage(
                     )
             try:
                 receipt = discard_stage_runtime(
-                    stage_root, run_id=f"rtx5050-{stage}"
+                    stage_root, run_id=_training_run_id(stage)
                 )
             except BaseException:
                 raise
@@ -3595,11 +3955,13 @@ def run_operator_stage(args: argparse.Namespace) -> dict[str, object]:
             bitsandbytes_identity=bitsandbytes_identity,
             torch_identity=torch_identity,
         )
-    if stage in {"lora", "qlora"}:
+    if stage in {"lora", LORA_RETRY_STAGE, "qlora"}:
         if getattr(args, "repo_root", None) is None:
             raise ValueError(f"{stage} requires --repo-root")
-        if stage == "lora":
+        if stage in {"lora", LORA_RETRY_STAGE}:
             verify_lora_package_baseline(args.decision_root, args.repo_root)
+        if stage == LORA_RETRY_STAGE:
+            authorize_lora_retry(args.decision_root)
         return run_monitored_training_stage(args, stage=stage)
     if stage == "finalize":
         return finalize_local_decision(args.decision_root)
@@ -3638,6 +4000,14 @@ def _validate_stage_argv(args: argparse.Namespace, *, stage: str) -> None:
             "--warmup-steps",
             "--evidence-target-steps",
         },
+        LORA_RETRY_STAGE: common
+        | {
+            "--repo-root",
+            "--lora-soft-limit-seconds",
+            "--lora-hard-limit-seconds",
+            "--warmup-steps",
+            "--evidence-target-steps",
+        },
         "verify-package": common,
         "qlora": common | {"--repo-root", "--warmup-steps", "--post-warmup-steps"},
         "finalize": common,
@@ -3650,13 +4020,16 @@ def _validate_stage_argv(args: argparse.Namespace, *, stage: str) -> None:
         raise ValueError(
             f"stage {stage} received inappropriate fields: {', '.join(sorted(forbidden))}"
         )
-    if stage == "lora" and (
+    if stage in {"lora", LORA_RETRY_STAGE} and (
         args.lora_soft_limit_seconds != LORA_SOFT_LIMIT_SECONDS
         or args.lora_hard_limit_seconds != LORA_HARD_LIMIT_SECONDS
         or args.warmup_steps != WARMUP_OPTIMIZER_STEPS
         or args.evidence_target_steps != MEASURED_OPTIMIZER_STEPS
     ):
-        raise ValueError("LoRA stage controls are frozen at 1800/3600 seconds and 5+40 steps")
+        raise ValueError(
+            "LoRA stage controls are frozen at cumulative 1800/3600 seconds "
+            "and 5+40 steps"
+        )
     if stage == "qlora" and (
         args.warmup_steps != WARMUP_OPTIMIZER_STEPS
         or args.post_warmup_steps != MEASURED_OPTIMIZER_STEPS
@@ -3666,12 +4039,28 @@ def _validate_stage_argv(args: argparse.Namespace, *, stage: str) -> None:
 
 def _child_main(control_path: Path) -> int:
     control = _read_json_allow_absolute(control_path)
-    expected = {"stage", "train_split", "val_split", "repo_root", "base_model_path", "stage_root"}
+    expected = {
+        "stage",
+        "adaptation_mode",
+        "run_id",
+        "train_split",
+        "val_split",
+        "repo_root",
+        "base_model_path",
+        "stage_root",
+    }
     if set(control) != expected:
         raise RuntimeError("local training child control has missing or extra fields")
     stage = str(control["stage"])
-    if stage not in {"lora", "qlora"}:
+    if stage not in {"lora", LORA_RETRY_STAGE, "qlora"}:
         raise RuntimeError("local training child stage is invalid")
+    adaptation_mode = str(control["adaptation_mode"])
+    run_id = str(control["run_id"])
+    if (
+        adaptation_mode != _training_adaptation_mode(stage)
+        or run_id != _training_run_id(stage)
+    ):
+        raise RuntimeError("local training child stage identity is inconsistent")
     os.environ.update(
         {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_DATASETS_OFFLINE": "1"}
     )
@@ -3691,12 +4080,14 @@ def _child_main(control_path: Path) -> int:
         and supplied_repo_hash != state.repo_root_path_sha256
     ):
         raise RuntimeError("training child repository root differs from preflight authority")
-    _require_prior_stages(
-        decision_root,
-        ("preflight",)
-        if stage == "lora"
-        else ("preflight", "lora", "record-authority", "verify-package"),
-    )
+    if stage == "lora":
+        expected_prior = ("preflight",)
+    elif stage == LORA_RETRY_STAGE:
+        expected_prior = ("preflight", "lora")
+        _verify_lora_retry_authority(decision_root)
+    else:
+        expected_prior = (*_lora_stage_prefix(decision_root), "record-authority", "verify-package")
+    _require_prior_stages(decision_root, expected_prior)
     if stage == "qlora":
         authority = _read_json(decision_root / "package-authority.json")
         package = _read_json(decision_root / "package-runtime.json")
@@ -3722,11 +4113,12 @@ def _child_main(control_path: Path) -> int:
     )
     training = importlib.import_module("src.model_adaptation.training")
     config = training.build_phase40_local_decision_config(
-        adaptation_mode=stage,
+        adaptation_mode=adaptation_mode,
         train_split_path=Path(str(control["train_split"])),
         val_split_path=Path(str(control["val_split"])),
         base_model_path=Path(str(control["base_model_path"])),
         decision_stage_root=stage_root,
+        run_id=run_id,
     )
     result = training.run_phase40_local_decision_child(config, data_contract=contract)
     proof = result.get("quantization_proof")
