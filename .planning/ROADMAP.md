@@ -71,10 +71,10 @@
 
 ### v7.0 — Retake Redemption (target: retake defense ~2026-10-07, Wave 2)
 
-**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically-voiced report, defense-ready code) rather than another polish pass. Real sequencing dependencies, not phase-number order alone, govern execution: data repair must complete and be verified before the independent quality re-judge and before any of the three training runs; the quality re-judge (Codex-based, independent third model family) and the three training runs both depend only on the repaired corpus, not on each other, so they can proceed in either order or in parallel — both are intended to land inside the ~1-month Codex CLI access window (expires ~2026-09-06, one month from 2026-08-06); the held-out evaluation phase depends on all three trainings finishing, since it evaluates them together exactly once on the reserved test split; the report overhaul and slide overhaul both depend on that training/evaluation evidence and can run in parallel with each other (report is additionally gated on a pending external reference-report artifact — see Phase 42); code cleanup is sequenced last, immediately before the retake defense, so it reflects the final repaired data and training code.
+**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically-voiced report, defense-ready code) rather than another polish pass. Real sequencing dependencies, not phase-number order alone, govern execution: data repair must complete and be verified before the Codex quality re-judge and before any of the three training runs; the quality re-judge is cross-family relative to the original Claude generation lineage, with a disclosed same-family exception for the surviving GPT/Codex-authored Zalo reconstructions, and the three training runs both depend only on the repaired corpus, not on each other, so they can proceed in either order or in parallel — both are intended to land inside the ~1-month Codex CLI access window (expires ~2026-09-06, one month from 2026-08-06); the held-out evaluation phase depends on all three trainings finishing, since it evaluates them together exactly once on the reserved test split; the report overhaul and slide overhaul both depend on that training/evaluation evidence and can run in parallel with each other (report is additionally gated on a pending external reference-report artifact — see Phase 42); code cleanup is sequenced last, immediately before the retake defense, so it reflects the final repaired data and training code.
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
-- [ ] **Phase 39: Independent Quality Re-Judge** - Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex) plus a genuine manual 100-example human check; retire the t-test.
+- [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
 - [ ] **Phase 40: Multi-Model Training Evidence** - Measure bounded RTX 5050 LoRA/QLoRA probes, then train fresh matched LoRA, QLoRA, and PhoBERT runs with auditable Colab logs and genuine curves.
 - [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
@@ -872,7 +872,7 @@ Plans:
 
 ### Phase 39: Independent Quality Re-Judge
 
-**Goal**: The repaired corpus is independently verified for quality by a third model family and a genuine human reviewer, replacing the retired t-test with descriptive stats that can withstand defense scrutiny.
+**Goal**: The repaired corpus is verified with a complete Codex result bundle and a genuine human review, with cross-family scope and the 296-row same-family reconstruction exception stated explicitly, replacing the retired t-test with defensible descriptive statistics.
 **Depends on**: Phase 38
 **Requirements**: JUDGE-01, JUDGE-02, JUDGE-03
 **Success Criteria** (what must be TRUE):
@@ -881,7 +881,7 @@ Plans:
 2. A documented manual 100-example human check exists, completed by a Vietnamese-fluent reviewer, with a per-example pass/fail record and a summary suitable for direct report citation.
 3. The report's t-test section is removed and replaced with plain descriptive quality stats (pass rate, per-dimension averages from the Codex judge) plus the manual-check results.
 
-**Plans**: 1/7 plans executed
+**Plans**: 7/7 plans complete
 
 Plans:
 
@@ -890,8 +890,8 @@ Plans:
 - [x] 39-03-PLAN.md -- Build exact-record carry-forward tooling and prepare nine deterministic, hash-locked fresh-delta judge batches
 - [x] 39-04-PLAN.md -- Run the local Codex batches and converge any semantic repairs through fresh, restartable re-judgment
 - [x] 39-05-PLAN.md -- Atomically promote the converged corpus/judge bundle and refresh Phase 40/41 contracts from the live manifest
-- [ ] 39-06-PLAN.md -- Generate a new final-snapshot 100-row sheet and stop at a genuine blocking human-review checkpoint
-- [ ] 39-07-PLAN.md -- Finalize the human evidence, replace retired t-test claims, compile/scan active documents, and close JUDGE-01/02/03
+- [x] 39-06-PLAN.md -- Generate a new final-snapshot 100-row sheet and stop at a genuine blocking human-review checkpoint
+- [x] 39-07-PLAN.md -- Finalize the human evidence, replace retired t-test claims, compile/scan active documents, and close JUDGE-01/02/03
 
 ### Phase 40: Multi-Model Training Evidence
 
@@ -909,7 +909,30 @@ Plans:
 7. Each run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. A Git commit identifier is not required in this bundle.
 8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
-**Plans**: TBD
+**Plans**: 3/6 complete (in progress)
+**Wave 1**
+
+- [x] 40-01-PLAN.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 40-02-PLAN.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 40-03-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 40-04-PLAN.md
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 40-05-PLAN.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 40-06-PLAN.md
 
 ### Phase 41: Held-Out Evaluation Discipline
 
@@ -1013,8 +1036,8 @@ Plans:
 | 36. Dataset Construction & Labeling Methodology | 0/TBD | Not started | - |
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
-| 39. Independent Quality Re-Judge | 1/7 | In Progress |  |
-| 40. Multi-Model Training Evidence | 0/TBD | Not started | - |
+| 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
+| 40. Multi-Model Training Evidence | 3/6 | In Progress|  |
 | 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |

@@ -1,20 +1,21 @@
 ---
 gsd_state_version: 1.0
 milestone: v7.0
-milestone_name: Retake Redemption
-current_phase: 39
-current_phase_name: Independent Quality Re-Judge
-status: verifying
-stopped_at: Completed 39-01-PLAN.md
-last_updated: "2026-08-08T14:39:44.668Z"
-last_activity: 2026-08-08
-last_activity_desc: Phase 39 execution started
+milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
+current_phase: 40
+current_phase_name: Multi-Model Training Evidence
+status: executing
+stopped_at: Phase 40 Plan 03 complete; awaiting operator, package, model-acquisition, and RTX 5050 authority for Plan 04
+last_updated: "2026-08-24T14:28:46.7112302+07:00"
+last_activity: 2026-08-24
+last_activity_desc: Phase 40 Plan 03 complete; implementation commit 95beed5; independent security PASS; repository suite 869/869
+state_head: 95beed5e7c169399385e1ad05dd366dbe13f1e76
 progress:
-  total_phases: 28
-  completed_phases: 20
-  total_plans: 54
-  completed_plans: 49
-  percent: 71
+  total_phases: 22
+  completed_phases: 2
+  total_plans: 58
+  completed_plans: 50
+  percent: 9
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -35,10 +36,10 @@ progress:
 
 ## Current Position
 
-Phase: 39 (Independent Quality Re-Judge) — EXECUTING
-Plan: 5 of 7
-Status: Plan 39-05 complete — canonical 2,097-row release promoted; final-snapshot human review remains the Phase 40 blocker
-Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phase 39 Zalo data-quality correction
+Phase: 40 (Multi-Model Training Evidence) — EXECUTING
+Plan: 4 of 6
+Status: Awaiting the explicit Plan 04 operator/GPU checkpoint; all hardware-free Plan 03 work is complete
+Last activity: 2026-08-24 — Phase 40 Plan 03 completed and committed as 95beed5; security re-audit PASS; repository suite 869/869
 
 ## Performance Metrics (Baseline Targets)
 
@@ -223,9 +224,9 @@ Last activity: 2026-08-17 — Completed quick task 260817-ssd: document the Phas
 
 ## Session Continuity
 
-**Last session:** 2026-08-24T07:27:03+07:00
-**Stopped at:** Session resumed; completing Plan 39-07 final build, stale-claim, regression, and verification gates unattended
-**Resume file:** `.planning/phases/39-independent-quality-re-judge/.continue-here.md`
+**Last session:** 2026-08-24T14:28:46+07:00
+**Stopped at:** Phase 40 Plan 03 complete and committed; awaiting the attended Plan 04 package/model-acquisition/RTX 5050 checkpoint
+**Resume file:** `.planning/phases/40-multi-model-training-evidence/40-04-PLAN.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
