@@ -92,7 +92,7 @@ def test_module_import_surface_is_standard_library_only() -> None:
     assert not any(name == "src" or name.startswith("src.") for name in imports)
 
 
-def test_parser_exposes_only_the_ten_slim_phase40_commands() -> None:
+def test_parser_exposes_only_the_eleven_slim_phase40_commands() -> None:
     parser = operator.build_parser()
     choices = next(
         action.choices
@@ -110,7 +110,27 @@ def test_parser_exposes_only_the_ten_slim_phase40_commands() -> None:
         "phase40-verify-run-evidence",
         "phase40-render-graphs",
         "phase40-validate-notebooks",
+        "phase40-local-decision",
     }
+
+
+def test_local_decision_command_delegates_lazily(monkeypatch, tmp_path: Path) -> None:
+    calls: list[object] = []
+    fake = SimpleNamespace(
+        run_operator_stage=lambda args: calls.append(args) or {"status": "preflighted"}
+    )
+    monkeypatch.setattr(operator, "_import_module", lambda name: fake)
+    result = operator.main(
+        (
+            "phase40-local-decision",
+            "--stage",
+            "verify",
+            "--decision-root",
+            str(tmp_path / "decision"),
+        )
+    )
+    assert result == 0
+    assert len(calls) == 1
 
 
 def test_model_acquisition_requires_explicit_positive_authority_before_request_load(
