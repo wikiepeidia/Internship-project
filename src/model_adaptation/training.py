@@ -1399,6 +1399,10 @@ class TrainingConfig:
     requested_control_template: RequestedControlTemplate | None = None
     sanitized_argv: tuple[str, ...] | None = None
     run_bundle_root: Path | None = None
+    dataloader_num_workers: int = 0
+    controller_stop_request_path: Path | None = None
+    planned_full_optimizer_steps_override: int | None = None
+    local_decision: bool = False
 
     def __post_init__(self) -> None:
         mode = AdaptationMode(self.adaptation_mode)
@@ -1456,6 +1460,31 @@ class TrainingConfig:
             raise ValueError("sanitized_argv must be a non-empty tuple of argument strings")
         if kind == RunKind.PROBE and self.run_bundle_root is not None:
             raise ValueError("run_bundle_root is reserved for immutable full-run evidence")
+        if (
+            not isinstance(self.dataloader_num_workers, int)
+            or isinstance(self.dataloader_num_workers, bool)
+            or self.dataloader_num_workers < 0
+        ):
+            raise ValueError("dataloader_num_workers must be a non-negative integer")
+        if self.planned_full_optimizer_steps_override is not None and (
+            not isinstance(self.planned_full_optimizer_steps_override, int)
+            or isinstance(self.planned_full_optimizer_steps_override, bool)
+            or self.planned_full_optimizer_steps_override <= 0
+        ):
+            raise ValueError("planned full optimizer-step override must be positive")
+        if self.local_decision:
+            if kind != RunKind.PROBE:
+                raise ValueError("local decision training must remain run_kind=probe")
+            if self.controller_stop_request_path is None:
+                raise ValueError("local decision training requires a controller stop path")
+            if self.dataloader_num_workers != 0:
+                raise ValueError("local decision training fixes data-loader workers to zero")
+            if self.smoke_test:
+                raise ValueError("local decision training forbids the smoke-test mutation")
+            if self.resume_from_checkpoint is not None:
+                raise ValueError("local decision training cannot resume")
+            if not self.local_files_only or self.trust_remote_code:
+                raise ValueError("local decision training must be offline with remote code disabled")
 
     @property
     def experiment_identity(self) -> ExperimentIdentity:
@@ -1529,6 +1558,10 @@ def build_training_config(
     requested_control_template: RequestedControlTemplate | None = None,
     sanitized_argv: tuple[str, ...] | None = None,
     run_bundle_root: Path | None = None,
+    dataloader_num_workers: int = 0,
+    controller_stop_request_path: Path | None = None,
+    planned_full_optimizer_steps_override: int | None = None,
+    local_decision: bool = False,
 ) -> TrainingConfig:
     """Build a training config restricted to the pilot-selected candidates."""
 
@@ -1600,6 +1633,10 @@ def build_training_config(
         requested_control_template=requested_control_template,
         sanitized_argv=sanitized_argv,
         run_bundle_root=run_bundle_root,
+        dataloader_num_workers=dataloader_num_workers,
+        controller_stop_request_path=controller_stop_request_path,
+        planned_full_optimizer_steps_override=planned_full_optimizer_steps_override,
+        local_decision=local_decision,
     )
 
 
@@ -2030,6 +2067,8 @@ def _require_quantization_proof(
 def _planned_optimizer_steps(config: TrainingConfig, train_examples: int) -> int:
     if train_examples <= 0:
         raise ValueError("Phase 40 training requires at least one training example")
+    if config.planned_full_optimizer_steps_override is not None:
+        return config.planned_full_optimizer_steps_override
     if config.max_steps > 0:
         return config.max_steps
     steps_per_epoch = math.ceil(
@@ -3045,6 +3084,7 @@ def _build_phase40_runtime_callback(
     checkpoint_durations: list[float],
     validation_recorder: Phase40ValidationRecorder | None,
     checkpoint_manifest_sealer: Callable[[Path, Mapping[str, object]], Path] | None = None,
+    controller_stop_request_path: Path | None = None,
 ) -> Any:
     """Forward Trainer events unchanged while binding isolated save timing."""
 
@@ -3058,7 +3098,14 @@ def _build_phase40_runtime_callback(
             return evidence_callback.on_step_begin(args, state, control, **kwargs)
 
         def on_step_end(self, args, state, control, **kwargs):  # noqa: ANN001
-            return evidence_callback.on_step_end(args, state, control, **kwargs)
+            result = evidence_callback.on_step_end(args, state, control, **kwargs)
+            if controller_stop_request_path is not None:
+                stop_path = Path(controller_stop_request_path)
+                if stop_path.is_symlink():
+                    raise RuntimeError("controller stop request must not be a symlink")
+                if stop_path.is_file():
+                    setattr(result, "should_training_stop", True)
+            return result
 
         def on_log(self, args, state, control, logs=None, **kwargs):  # noqa: ANN001
             return evidence_callback.on_log(args, state, control, logs=logs, **kwargs)
@@ -3138,6 +3185,7 @@ def _build_training_arguments(
         "logging_first_step": True,
         "save_safetensors": True,
         "dataloader_pin_memory": device == "cuda",
+        "dataloader_num_workers": config.dataloader_num_workers,
         "fp16": device == "cuda" and not use_bf16,
         "bf16": use_bf16,
         "gradient_checkpointing": config.gradient_checkpointing,
@@ -3231,6 +3279,10 @@ def _verify_training_argument_controls(
         raise RuntimeError("TrainingArguments must preserve step-based validation cadence")
     if int(getattr(training_args, "world_size", 1)) != 1:
         raise RuntimeError("Phase 40 evidence contract supports one training process only")
+    if config.local_decision and int(
+        getattr(training_args, "dataloader_num_workers", -1)
+    ) != 0:
+        raise RuntimeError("local decision data-loader workers must remain zero")
 
 
 def _copy_directory_immutable(source: Path, target: Path) -> Path:
@@ -3899,17 +3951,21 @@ def _run_local_adapter_training(
         runtime_config = replace(
             config,
             max_steps=probe_contract.total_optimizer_steps,
-            save_steps=probe_contract.total_optimizer_steps,
+            save_steps=(
+                config.save_steps
+                if config.local_decision and config.adaptation_mode == AdaptationMode.LORA
+                else probe_contract.total_optimizer_steps
+            ),
             smoke_test=False,
         )
 
     base_model_path = _resolve_base_model_path(config)
     base_model_snapshot: QwenBaseModelSnapshot | None = None
-    if runtime_config.run_kind == RunKind.FULL:
+    if runtime_config.run_kind == RunKind.FULL or runtime_config.local_decision:
         if _resolved_model_id(runtime_config) != PHASE40_QWEN_MODEL_ID:
-            raise RuntimeError("full Phase 40 Qwen training requires the exact locked model_id")
+            raise RuntimeError("Phase 40 Qwen training requires the exact locked model_id")
         if runtime_config.model_revision != PHASE40_QWEN_REVISION:
-            raise RuntimeError("full Phase 40 Qwen training requires the exact pinned revision")
+            raise RuntimeError("Phase 40 Qwen training requires the exact pinned revision")
         base_model_snapshot = validate_qwen_base_model_snapshot(
             base_model_path,
             expected_model_id=_resolved_model_id(runtime_config),
@@ -4000,6 +4056,14 @@ def _run_local_adapter_training(
         backward_performed=backward_performed,
         adapter_gradients=gradient_checks,
     )
+    if runtime_config.local_decision:
+        if runtime_config.controller_stop_request_path is None:
+            raise RuntimeError("local decision lost its controller stop-request authority")
+        _write_immutable_bytes(
+            Path(runtime_config.controller_stop_request_path).parent
+            / "quantization-proof-prestep.json",
+            _canonical_json_line(_json_ready(asdict(quantization_proof))),
+        )
 
     use_bf16 = device == "cuda" and torch_module.cuda.is_bf16_supported()
     controlled_config: ResumeControlledConfig | None = None
@@ -4109,6 +4173,20 @@ def _run_local_adapter_training(
     deferred_full_train_end: list[Phase40CallbackEvent] = []
 
     def runtime_event_sink(event: Phase40CallbackEvent) -> None:
+        if runtime_config.local_decision:
+            values = dict(event.values)
+            for field_name, method_name in (
+                ("allocated_bytes", "memory_allocated"),
+                ("reserved_bytes", "memory_reserved"),
+            ):
+                method = getattr(torch_module.cuda, method_name, None)
+                try:
+                    observed = int(method()) if callable(method) else None
+                except (RuntimeError, TypeError, ValueError):
+                    observed = None
+                if observed is not None and observed >= 0:
+                    values[field_name] = observed
+            event = replace(event, values=tuple(sorted(values.items())))
         if (
             runtime_config.run_kind == RunKind.FULL
             and event.event_kind == CallbackEventKind.TRAIN_END
@@ -4176,6 +4254,7 @@ def _run_local_adapter_training(
         checkpoint_durations=checkpoint_durations,
         validation_recorder=validation_recorder,
         checkpoint_manifest_sealer=checkpoint_manifest_sealer,
+        controller_stop_request_path=runtime_config.controller_stop_request_path,
     )
     if "callbacks" in trainer_parameters:
         trainer_kwargs["callbacks"] = [runtime_callback]
@@ -4826,6 +4905,108 @@ def run_phase40_qwen_training(
             if key not in {"artifact_path", "quantization_proof", "verified_evidence"}
         },
     }
+
+
+def build_phase40_local_decision_config(
+    *,
+    adaptation_mode: AdaptationMode | str,
+    train_split_path: Path,
+    val_split_path: Path,
+    base_model_path: Path,
+    decision_stage_root: Path,
+) -> TrainingConfig:
+    """Build the exact disposable RTX 5050 decision-run controls.
+
+    The 45-step execution cap is deliberately separate from the 1,245-step
+    full-run ETA denominator.  This is not the legacy ``smoke_test`` path.
+    """
+
+    mode = AdaptationMode(adaptation_mode)
+    if mode not in {AdaptationMode.LORA, AdaptationMode.QLORA}:
+        raise ValueError("local Qwen decision mode must be lora or qlora")
+    stage_root = _normalized_absolute_path(Path(decision_stage_root))
+    runtime_root = stage_root / "runtime"
+    _reject_existing_symlink_traversal(
+        stage_root,
+        description="local decision stage root",
+    )
+    return TrainingConfig(
+        candidate_id="qwen3-4b-instruct-2507",
+        baseline_winner_id="qwen3-4b-instruct-2507",
+        runner_up_id="qwen3.5-4b",
+        train_split_path=Path(train_split_path),
+        val_split_path=Path(val_split_path),
+        version_tag="local-decision-work",
+        output_root=runtime_root,
+        registry_path=runtime_root / "unused-model-registry.json",
+        adaptation_mode=mode,
+        run_kind=RunKind.PROBE,
+        model_id=PHASE40_QWEN_MODEL_ID,
+        dry_run=False,
+        base_model_path=_normalized_absolute_path(Path(base_model_path)),
+        base_model_manifest_path=stage_root.parent / "base-model-provenance.json",
+        num_train_epochs=3.0,
+        max_steps=5 + 40,
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=4,
+        learning_rate=2e-4,
+        logging_steps=10,
+        save_steps=50,
+        save_total_limit=2,
+        max_seq_length=1024,
+        smoke_test=False,
+        resume_from_checkpoint=None,
+        device="cuda",
+        gradient_checkpointing=True,
+        local_files_only=True,
+        trust_remote_code=False,
+        lora_r=16,
+        lora_alpha=32,
+        lora_dropout=0.05,
+        lora_bias="none",
+        target_modules=DEFAULT_TARGET_MODULES,
+        model_revision=PHASE40_QWEN_REVISION,
+        run_id=f"rtx5050-{mode.value}",
+        probe_post_warmup_steps=40,
+        probe_warmup_steps=5,
+        seed=42,
+        data_seed=42,
+        optimizer_name="adamw_torch",
+        weight_decay=0.0,
+        lr_scheduler_type="linear",
+        warmup_steps=0,
+        warmup_ratio=0.03,
+        max_grad_norm=1.0,
+        tf32=False,
+        dataloader_num_workers=0,
+        controller_stop_request_path=runtime_root / "stop-request.json",
+        planned_full_optimizer_steps_override=1245,
+        local_decision=True,
+    )
+
+
+def run_phase40_local_decision_child(
+    config: TrainingConfig,
+    *,
+    data_contract: Phase40DataContract,
+) -> dict[str, Any]:
+    """Run one non-publishable child after the parent has sealed authority."""
+
+    if not isinstance(config, TrainingConfig) or config.local_decision is not True:
+        raise TypeError("local decision child requires its typed local TrainingConfig")
+    if config.run_kind != RunKind.PROBE or config.resume_from_checkpoint is not None:
+        raise RuntimeError("local decision child cannot resume or become a full run")
+    if config.max_steps != 45 or config.planned_full_optimizer_steps_override != 1245:
+        raise RuntimeError("local decision child lost its 45-step/1,245-step contract")
+    selection = PilotSelection(
+        baseline_winner_id="qwen3-4b-instruct-2507",
+        runner_up_id="qwen3.5-4b",
+        selection_notes="Disposable Phase 40 RTX 5050 local decision experiment",
+    )
+    result = run_training(config, data_contract=data_contract, selection=selection)
+    if result.get("artifact_record") is not None or result.get("artifact_path") is not None:
+        raise RuntimeError("local decision child returned a publishable adapter")
+    return result
 
 
 def run_training(

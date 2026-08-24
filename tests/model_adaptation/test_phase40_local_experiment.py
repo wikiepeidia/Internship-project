@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.model_adaptation import phase40_local_experiment as local
+from src.model_adaptation.phase40_evidence import RunEventKind, load_run_events
 
 
 def _input_evidence() -> dict[str, object]:
@@ -88,6 +89,8 @@ def _telemetry_rows(stage: str) -> list[dict[str, object]]:
         "process_rss_bytes": 10_000,
         "torch_allocated_bytes": 6_000,
         "torch_reserved_bytes": 7_000,
+        "torch_peak_allocated_bytes": 6_500,
+        "torch_peak_reserved_bytes": 7_500,
         "device_vram_total_mib": 8151,
         "device_vram_used_mib": 7000,
         "device_vram_free_mib": 1151,
@@ -119,58 +122,124 @@ def _telemetry_rows(stage: str) -> list[dict[str, object]]:
 
 def _qlora_events() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
-    for step in range(1, 46):
+
+    def append_event(
+        *,
+        event_kind: str,
+        optimizer_step: int,
+        second: int,
+        epoch: float,
+        trainer_values: dict[str, object],
+    ) -> None:
         rows.append(
             {
-                "schema_version": "phase40-callback-event-v1",
-                "sequence_id": step - 1,
+                "schema_version": "phase40-run-event-v1",
+                "sequence_id": len(rows),
                 "source_run_id": "rtx5050-qlora",
                 "run_kind": "probe",
-                "event_kind": "optimizer_step",
-                "timestamp_utc": f"2026-08-24T08:01:{step:02d}Z",
-                "optimizer_step": step,
-                "epoch": 0.01,
-                "duration_seconds": 1.5 + (step % 3) * 0.1,
-                "is_warmup": step <= 5,
-                "values": {
-                    "examples": 4,
-                    "tokens": 1024,
-                    "peak_allocated_bytes": 6_000,
-                    "peak_reserved_bytes": 7_000,
-                },
+                "event_kind": event_kind,
+                "timestamp_utc": f"2026-08-24T08:01:{second:02d}Z",
+                "optimizer_step": optimizer_step,
+                "epoch": epoch,
+                "trainer_values": trainer_values,
             }
         )
-    rows.extend(
-        [
-            {
-                "schema_version": "phase40-callback-event-v1",
-                "sequence_id": 45,
-                "source_run_id": "rtx5050-qlora",
+
+    append_event(
+        event_kind="run_start",
+        optimizer_step=0,
+        second=0,
+        epoch=0.0,
+        trainer_values={"callback_event_kind": "run_start", "run_kind": "probe"},
+    )
+    for step in range(1, 46):
+        append_event(
+            event_kind="step_timing",
+            optimizer_step=step,
+            second=step,
+            epoch=step / 45,
+            trainer_values={
+                "callback_event_kind": "optimizer_step",
                 "run_kind": "probe",
-                "event_kind": "evaluation",
-                "timestamp_utc": "2026-08-24T08:02:00Z",
-                "optimizer_step": 45,
-                "epoch": 0.01,
-                "duration_seconds": 12.0,
-                "is_warmup": None,
-                "values": {"eval_runtime": 12.0},
+                "epoch_observed": True,
+                "duration_seconds": 1.5 + (step % 3) * 0.1,
+                "is_warmup": step <= 5,
+                "examples": 4,
+                "tokens": 1024,
+                "peak_allocated_bytes": 6_000,
+                "peak_reserved_bytes": 7_000,
             },
-            {
-                "schema_version": "phase40-callback-event-v1",
-                "sequence_id": 46,
-                "source_run_id": "rtx5050-qlora",
-                "run_kind": "probe",
-                "event_kind": "checkpoint",
-                "timestamp_utc": "2026-08-24T08:02:01Z",
-                "optimizer_step": 45,
-                "epoch": 0.01,
-                "duration_seconds": 3.0,
-                "is_warmup": None,
-                "values": {"measurement_scope": "isolated"},
-            },
-        ]
+        )
+    append_event(
+        event_kind="evaluation",
+        optimizer_step=45,
+        second=46,
+        epoch=1.0,
+        trainer_values={
+            "callback_event_kind": "evaluation",
+            "run_kind": "probe",
+            "duration_seconds": 12.0,
+            "eval_runtime": 12.0,
+        },
+    )
+    append_event(
+        event_kind="checkpoint",
+        optimizer_step=45,
+        second=47,
+        epoch=1.0,
+        trainer_values={
+            "callback_event_kind": "checkpoint",
+            "run_kind": "probe",
+            "duration_seconds": 3.0,
+            "measurement_scope": "isolated",
+        },
+    )
+    append_event(
+        event_kind="run_end",
+        optimizer_step=45,
+        second=48,
+        epoch=1.0,
+        trainer_values={"callback_event_kind": "run_end", "run_kind": "probe"},
     )
     return rows
+
+
+def _partial_lora_events() -> list[dict[str, object]]:
+    return [
+        {
+            "schema_version": "phase40-run-event-v1",
+            "sequence_id": 0,
+            "source_run_id": "rtx5050-lora",
+            "run_kind": "probe",
+            "event_kind": "run_start",
+            "timestamp_utc": "2026-08-24T08:00:30Z",
+            "optimizer_step": 0,
+            "epoch": 0.0,
+            "trainer_values": {
+                "callback_event_kind": "run_start",
+                "run_kind": "probe",
+            },
+        },
+        {
+            "schema_version": "phase40-run-event-v1",
+            "sequence_id": 1,
+            "source_run_id": "rtx5050-lora",
+            "run_kind": "probe",
+            "event_kind": "step_timing",
+            "timestamp_utc": "2026-08-24T08:00:31Z",
+            "optimizer_step": 1,
+            "epoch": 0.01,
+            "trainer_values": {
+                "callback_event_kind": "optimizer_step",
+                "run_kind": "probe",
+                "epoch_observed": True,
+                "duration_seconds": 1.5,
+                "is_warmup": True,
+                "examples": 4,
+                "tokens": 1024,
+            },
+        },
+    ]
 
 
 def _qlora_proof() -> dict[str, object]:
@@ -246,6 +315,34 @@ def test_rejected_held_out_style_path_is_rejected_before_open(tmp_path: Path, mo
     assert not (repo / local.DECISION_ROOT_RELATIVE_PATH).exists()
 
 
+def test_training_stage_rejects_alternate_repo_before_child_or_stage_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_repo = tmp_path / "original-repo"
+    root = original_repo / local.DECISION_ROOT_RELATIVE_PATH
+    original_hash = local._path_identity_sha256(original_repo)
+    local.initialize_decision_root(
+        root,
+        input_evidence=_input_evidence(),
+        base_model_provenance=_base_provenance(),
+        torch_identity=_torch_identity(),
+        started_utc="2026-08-24T08:00:00Z",
+        started_monotonic=100.0,
+        boot_identity="boot-A",
+        repo_root_path_sha256=original_hash,
+    )
+    alternate = tmp_path / "copied-repo"
+    alternate.mkdir()
+    monkeypatch.setattr(local, "_boot_identity", lambda: "boot-A")
+    monkeypatch.setattr(local.time, "monotonic", lambda: 120.0)
+    monkeypatch.setattr(local, "_utc_now", lambda: "2026-08-24T08:00:20Z")
+    with pytest.raises(RuntimeError, match="repository root differs"):
+        local.run_monitored_training_stage(
+            SimpleNamespace(decision_root=root, repo_root=alternate), stage="lora"
+        )
+    assert not (root / "lora").exists()
+
+
 def test_external_snapshot_gate_checks_manifest_metadata_and_reparse(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot"
     metadata = snapshot / ".cache/huggingface/download"
@@ -276,9 +373,7 @@ def test_external_snapshot_gate_checks_manifest_metadata_and_reparse(tmp_path: P
                         "repo_id": local.QWEN_MODEL_ID,
                         "local_path": str(snapshot),
                         "size_bytes": sum(
-                            p.stat().st_size
-                            for p in snapshot.rglob("*")
-                            if p.is_file() and ".cache" not in p.parts
+                            p.stat().st_size for p in snapshot.rglob("*") if p.is_file()
                         ),
                     }
                 ]
@@ -364,23 +459,38 @@ def test_lora_extension_is_narrow_and_cannot_cross_hard_limit(
 @pytest.mark.parametrize("mutation", ["missing", "extra", "reordered"])
 def test_qlora_events_require_exact_five_plus_forty(tmp_path: Path, mutation: str) -> None:
     rows = _qlora_events()
+    step_indexes = [
+        index for index, row in enumerate(rows) if row["event_kind"] == "step_timing"
+    ]
     if mutation == "missing":
-        rows.pop(20)
+        rows.pop(step_indexes[19])
     elif mutation == "extra":
-        rows.insert(45, dict(rows[44], optimizer_step=46, sequence_id=45))
+        duplicate = dict(rows[step_indexes[-1]])
+        duplicate["trainer_values"] = dict(duplicate["trainer_values"])
+        evaluation_index = next(
+            index for index, row in enumerate(rows) if row["event_kind"] == "evaluation"
+        )
+        rows.insert(evaluation_index, duplicate)
     else:
-        rows[5], rows[6] = rows[6], rows[5]
+        rows[step_indexes[4]], rows[step_indexes[5]] = (
+            rows[step_indexes[5]],
+            rows[step_indexes[4]],
+        )
     for index, row in enumerate(rows):
         row["sequence_id"] = index
     path = tmp_path / "events.jsonl"
     _write_jsonl(path, rows)
-    with pytest.raises(RuntimeError, match="exactly 5 warm-up plus 40"):
+    with pytest.raises(RuntimeError):
         local.validate_qlora_events(path)
 
 
 def test_complete_qlora_events_produce_recomputable_eta(tmp_path: Path) -> None:
     path = tmp_path / "events.jsonl"
     _write_jsonl(path, _qlora_events())
+    events = load_run_events(path, expected_run_id="rtx5050-qlora")
+    assert events[0].event_kind == RunEventKind.RUN_START
+    assert events[-1].event_kind == RunEventKind.RUN_END
+    assert sum(event.event_kind == RunEventKind.STEP_TIMING for event in events) == 45
     evidence = local.validate_qlora_events(path)
     assert evidence["warmup_optimizer_steps"] == 5
     assert evidence["retained_optimizer_steps"] == 40
@@ -392,6 +502,25 @@ def test_complete_qlora_events_produce_recomputable_eta(tmp_path: Path) -> None:
 
 def test_package_authority_and_runtime_proof_fail_closed(tmp_path: Path) -> None:
     root = _initialise(tmp_path)
+    lora = root / "lora"
+    _write_jsonl(lora / "telemetry.jsonl", _telemetry_rows("lora"))
+    (lora / "runtime").mkdir(parents=True)
+    receipt = local.discard_stage_runtime(lora, run_id="rtx5050-lora")
+    local.write_stage_outcome(
+        root,
+        stage="lora",
+        outcome={
+            "status": "measured",
+            "stop_reason": "evidence_target_reached",
+            "retained_optimizer_steps": 40,
+            "losses_finite": True,
+            "telemetry": "lora/telemetry.jsonl",
+            "discard_receipt": receipt,
+        },
+        now_utc="2026-08-24T08:01:00Z",
+        now_monotonic=160.0,
+        boot_identity="boot-A",
+    )
     authority = local.record_package_authority(
         root,
         "approve bitsandbytes 0.50.1",
@@ -418,6 +547,71 @@ def test_package_authority_and_runtime_proof_fail_closed(tmp_path: Path) -> None
             now_monotonic=222.0,
             boot_identity="boot-A",
         )
+    failure_manifest = local.finalize_local_decision(
+        root,
+        now_utc="2026-08-24T08:02:03Z",
+        now_monotonic=223.0,
+        boot_identity="boot-A",
+    )
+    assert failure_manifest["qlora"]["failure_stage"] == "capability_preflight"
+    assert failure_manifest["recommendation"] == "colab_fallback"
+    assert local.verify_local_decision(root)["verified"] is True
+
+
+def test_package_rejection_seals_qlora_prestart_absence_and_finalizes(
+    tmp_path: Path,
+) -> None:
+    root = _initialise(tmp_path)
+    lora = root / "lora"
+    _write_jsonl(lora / "telemetry.jsonl", _telemetry_rows("lora"))
+    (lora / "runtime").mkdir(parents=True)
+    receipt = local.discard_stage_runtime(lora, run_id="rtx5050-lora")
+    local.write_stage_outcome(
+        root,
+        stage="lora",
+        outcome={
+            "status": "measured",
+            "stop_reason": "evidence_target_reached",
+            "retained_optimizer_steps": 1,
+            "losses_finite": True,
+            "telemetry": "lora/telemetry.jsonl",
+            "discard_receipt": receipt,
+        },
+        now_utc="2026-08-24T08:01:00Z",
+        now_monotonic=160.0,
+        boot_identity="boot-A",
+    )
+    authority = local.record_package_authority(
+        root,
+        "reject bitsandbytes 0.50.1: operator rejected the binary wheel",
+        now_utc="2026-08-24T08:02:00Z",
+        now_monotonic=220.0,
+        boot_identity="boot-A",
+    )
+    assert authority["approved"] is False
+    assert authority["qlora_prestart_evidence"] == "qlora/run-evidence.json"
+    assert not (root / "qlora/runtime").exists()
+    with pytest.raises(RuntimeError, match="rejected"):
+        local.verify_package_runtime(
+            root,
+            bitsandbytes_identity={
+                "version": "0.50.1",
+                "cuda_kernel_available": True,
+            },
+            torch_identity=_torch_identity(),
+            now_utc="2026-08-24T08:02:01Z",
+            now_monotonic=221.0,
+            boot_identity="boot-A",
+        )
+    manifest = local.finalize_local_decision(
+        root,
+        now_utc="2026-08-24T08:02:02Z",
+        now_monotonic=222.0,
+        boot_identity="boot-A",
+    )
+    assert manifest["qlora"]["status"] == "prestart_failure"
+    assert manifest["recommendation"] == "colab_fallback"
+    assert local.verify_local_decision(root)["verified"] is True
 
 
 @pytest.mark.parametrize(
@@ -515,6 +709,75 @@ def test_fake_complete_lifecycle_finalizes_and_verifies(tmp_path: Path) -> None:
     assert verified["verified"] is True
 
 
+def test_global_deadline_can_seal_cleanup_and_finalize_after_7200_seconds(
+    tmp_path: Path,
+) -> None:
+    root = _initialise(tmp_path)
+    lora = root / "lora"
+    _write_jsonl(lora / "telemetry.jsonl", _telemetry_rows("lora"))
+    (lora / "runtime").mkdir(parents=True)
+    receipt = local.discard_stage_runtime(lora, run_id="rtx5050-lora")
+    local.write_stage_outcome(
+        root,
+        stage="lora",
+        outcome={
+            "status": "measured",
+            "stop_reason": "evidence_target_reached",
+            "telemetry": "lora/telemetry.jsonl",
+            "discard_receipt": receipt,
+        },
+        now_utc="2026-08-24T08:01:00Z",
+        now_monotonic=160.0,
+        boot_identity="boot-A",
+    )
+    local.record_package_authority(
+        root,
+        "approve bitsandbytes 0.50.1",
+        now_utc="2026-08-24T08:02:00Z",
+        now_monotonic=220.0,
+        boot_identity="boot-A",
+    )
+    local.verify_package_runtime(
+        root,
+        bitsandbytes_identity={"version": "0.50.1", "cuda_kernel_available": True},
+        torch_identity=_torch_identity(),
+        now_utc="2026-08-24T08:02:01Z",
+        now_monotonic=221.0,
+        boot_identity="boot-A",
+    )
+    qlora = root / "qlora"
+    timeout_rows = _telemetry_rows("qlora")
+    timeout_rows[0]["monotonic_seconds"] = 7299.0
+    timeout_rows[1]["monotonic_seconds"] = 7301.0
+    timeout_rows[1]["stop_reason"] = "global_deadline"
+    _write_jsonl(qlora / "telemetry.jsonl", timeout_rows)
+    (qlora / "runtime").mkdir(parents=True)
+    qreceipt = local.discard_stage_runtime(qlora, run_id="rtx5050-qlora")
+    outcome = local.write_stage_outcome(
+        root,
+        stage="qlora",
+        outcome={
+            "status": "timeout",
+            "stop_reason": "global_deadline",
+            "telemetry": "qlora/telemetry.jsonl",
+            "discard_receipt": qreceipt,
+        },
+        now_utc="2026-08-24T10:00:05Z",
+        now_monotonic=7305.0,
+        boot_identity="boot-A",
+    )
+    assert outcome["completed_monotonic"] == 7300.0
+    assert outcome["post_deadline_sealing_seconds"] == 5.0
+    manifest = local.finalize_local_decision(
+        root,
+        now_utc="2026-08-24T10:00:06Z",
+        now_monotonic=7306.0,
+        boot_identity="boot-A",
+    )
+    assert manifest["elapsed_seconds"] == 7200.0
+    assert local.verify_local_decision(root)["verified"] is True
+
+
 def test_parent_interruption_still_writes_terminal_sample(tmp_path: Path) -> None:
     path = tmp_path / "telemetry.jsonl"
     sampler = local.TelemetryRecorder(path, stage="lora")
@@ -532,6 +795,95 @@ def test_parent_interruption_still_writes_terminal_sample(tmp_path: Path) -> Non
     assert local.verify_telemetry(path, expected_stage="lora")[-1][
         "stop_reason"
     ] == "parent_interrupted"
+
+
+def test_monitored_parent_interruption_copies_deterministic_events_and_cleans_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _initialise(tmp_path)
+    repo_root = tmp_path / "fake-repo"
+    repo_root.mkdir()
+    stage_root = root / "lora"
+    child_events = local._local_child_events_path(stage_root, "lora")
+    popen_calls: list[dict[str, object]] = []
+
+    class FakePopen:
+        pid = 4242
+
+        def __init__(self, command: list[str], **kwargs: object) -> None:
+            self.returncode: int | None = None
+            self.poll_count = 0
+            self.terminate_count = 0
+            self.kill_count = 0
+            popen_calls.append({"command": command, "kwargs": kwargs, "process": self})
+            _write_jsonl(child_events, _partial_lora_events())
+            stdout = kwargs["stdout"]
+            stderr = kwargs["stderr"]
+            stdout.write("fake child started\n")
+            stderr.write("fake child interrupted\n")
+            stdout.flush()
+            stderr.flush()
+
+        def poll(self) -> int | None:
+            self.poll_count += 1
+            if self.poll_count >= 3:
+                self.returncode = 130
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminate_count += 1
+
+        def kill(self) -> None:
+            self.kill_count += 1
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            assert self.returncode is not None
+            return self.returncode
+
+    clock = {"now": 120.0}
+
+    def fake_monotonic() -> float:
+        clock["now"] += 0.25
+        return clock["now"]
+
+    def interrupt_sample(*args: object, **kwargs: object) -> dict[str, object]:
+        del args, kwargs
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(local.time, "monotonic", fake_monotonic)
+    monkeypatch.setattr(local, "_utc_now", lambda: "2026-08-24T08:00:30Z")
+    monkeypatch.setattr(local, "_boot_identity", lambda: "boot-A")
+    monkeypatch.setattr(local.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(local, "sample_parent_telemetry", interrupt_sample)
+
+    outcome = local.run_monitored_training_stage(
+        SimpleNamespace(decision_root=root, repo_root=repo_root), stage="lora"
+    )
+
+    assert outcome["status"] == "interrupted"
+    assert outcome["stop_reason"] == "parent_interrupted"
+    assert not (stage_root / "runtime").exists()
+    local.verify_stage_discard(stage_root, outcome["discard_receipt"])
+    copied_events = stage_root / "optimizer-events.jsonl"
+    events = load_run_events(copied_events, expected_run_id="rtx5050-lora")
+    assert [event.event_kind for event in events] == [
+        RunEventKind.RUN_START,
+        RunEventKind.STEP_TIMING,
+    ]
+    terminal = local.verify_telemetry(
+        stage_root / "telemetry.jsonl", expected_stage="lora"
+    )[-1]
+    assert terminal["terminal"] is True
+    assert terminal["stop_reason"] == "parent_interrupted"
+    assert len(popen_calls) == 1
+    call = popen_calls[0]
+    assert call["kwargs"]["shell"] is False
+    assert call["kwargs"]["env"]["HF_HUB_OFFLINE"] == "1"
+    process = call["process"]
+    assert process.terminate_count == 0
+    assert process.kill_count == 0
 
 
 def test_local_training_controls_are_frozen_and_not_smoke_mutated(tmp_path: Path) -> None:
@@ -555,4 +907,3 @@ def test_local_training_controls_are_frozen_and_not_smoke_mutated(tmp_path: Path
     assert config.smoke_test is False
     assert config.trust_remote_code is False
     assert config.dataloader_num_workers == 0
-

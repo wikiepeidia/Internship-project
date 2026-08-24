@@ -1082,6 +1082,17 @@ def handle_validate_notebooks(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_local_decision(args: argparse.Namespace) -> int:
+    """Delegate one typed local stage without importing training at CLI load time."""
+
+    local = _import_module("src.model_adaptation.phase40_local_experiment")
+    result = local.run_operator_stage(args)
+    if not isinstance(result, dict):
+        raise RuntimeError("local decision stage did not return a JSON object")
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
 def _add_request_root_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--request-path", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=None)
@@ -1176,6 +1187,46 @@ def build_parser() -> argparse.ArgumentParser:
     validate_notebooks = subparsers.add_parser("phase40-validate-notebooks")
     validate_notebooks.add_argument("--root", type=Path, required=True)
     validate_notebooks.set_defaults(handler=handle_validate_notebooks)
+
+    local_decision = subparsers.add_parser(
+        "phase40-local-decision",
+        help="run one stage of the bounded RTX 5050 LoRA/QLoRA decision experiment",
+    )
+    local_decision.add_argument(
+        "--stage",
+        choices=(
+            "preflight",
+            "record-authority",
+            "lora",
+            "verify-package",
+            "qlora",
+            "finalize",
+            "verify",
+        ),
+        required=True,
+    )
+    local_decision.add_argument("--decision-root", type=Path, required=True)
+    local_decision.add_argument("--repo-root", type=Path, default=None)
+    local_decision.add_argument("--train-split", type=Path, default=None)
+    local_decision.add_argument("--val-split", type=Path, default=None)
+    local_decision.add_argument("--downstream-contract", type=Path, default=None)
+    local_decision.add_argument("--base-model-path", type=Path, default=None)
+    local_decision.add_argument("--download-manifest", type=Path, default=None)
+    local_decision.add_argument(
+        "--model-id", default="Qwen/Qwen3-4B-Instruct-2507"
+    )
+    local_decision.add_argument(
+        "--model-revision",
+        default="cdbee75f17c01a7cc42f958dc650907174af0554",
+    )
+    local_decision.add_argument("--decision-window-seconds", type=float, default=7200.0)
+    local_decision.add_argument("--lora-soft-limit-seconds", type=float, default=1800.0)
+    local_decision.add_argument("--lora-hard-limit-seconds", type=float, default=3600.0)
+    local_decision.add_argument("--warmup-steps", type=int, default=5)
+    local_decision.add_argument("--evidence-target-steps", type=int, default=40)
+    local_decision.add_argument("--post-warmup-steps", type=int, default=40)
+    local_decision.add_argument("--authority-decision", default=None)
+    local_decision.set_defaults(handler=handle_local_decision)
     return parser
 
 
