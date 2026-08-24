@@ -16,6 +16,7 @@ import math
 import os
 from pathlib import Path, PurePosixPath
 import shutil
+import stat
 from statistics import median
 import time
 from typing import Any, Protocol
@@ -843,6 +844,52 @@ def _bounded_path(root: Path, identity: str, *, must_exist: bool) -> tuple[Path,
     return root_resolved, candidate_resolved
 
 
+def _is_link_or_reparse(path: Path) -> bool:
+    try:
+        observed = os.lstat(path)
+    except FileNotFoundError:
+        return False
+    return bool(getattr(observed, "st_reparse_tag", 0)) or Path(path).is_symlink()
+
+
+def _clear_bounded_windows_readonly_tree(target: Path) -> tuple[str, ...]:
+    """Clear READONLY only after verifying every entry is real and bounded."""
+
+    lexical = Path(os.path.abspath(os.path.normpath(os.fspath(target))))
+    if _is_link_or_reparse(lexical):
+        raise ValueError("probe artifact tree must not be a link or reparse point")
+    root = lexical.resolve(strict=True)
+    if not root.is_dir() or _is_link_or_reparse(root):
+        raise ValueError("probe artifact tree must be one real directory")
+    paths = [root]
+    for current_raw, directory_names, file_names in os.walk(root, topdown=True):
+        current = Path(current_raw)
+        if _is_link_or_reparse(current):
+            raise ValueError("probe artifact tree contains a link or reparse point")
+        for name in (*tuple(directory_names), *tuple(file_names)):
+            candidate = current / name
+            if _is_link_or_reparse(candidate):
+                raise ValueError("probe artifact tree contains a link or reparse point")
+            resolved = candidate.resolve(strict=True)
+            if not resolved.is_relative_to(root):
+                raise ValueError("probe artifact tree contains an escaping path")
+            paths.append(candidate)
+    if os.name != "nt":
+        return ()
+    readonly_flag = 0x1
+    repaired: list[str] = []
+    for path in sorted(paths, key=lambda item: len(item.parts), reverse=True):
+        attributes = int(getattr(os.lstat(path), "st_file_attributes", 0))
+        if attributes & readonly_flag:
+            os.chmod(path, stat.S_IWRITE)
+            remaining = int(getattr(os.lstat(path), "st_file_attributes", 0))
+            if remaining & readonly_flag:
+                raise RuntimeError("Windows READONLY attribute could not be cleared safely")
+            relative = path.relative_to(root).as_posix()
+            repaired.append(relative if relative != "." else ".")
+    return tuple(sorted(repaired))
+
+
 @dataclass(frozen=True, slots=True)
 class ProbeDiscardReceipt:
     run_id: str
@@ -890,9 +937,7 @@ def discard_probe_artifact(
         Path(probe_root), discarded_path_identity, must_exist=True
     )
     if target.is_dir():
-        symlinks = [path for path in target.rglob("*") if path.is_symlink()]
-        if symlinks:
-            raise ValueError("probe artifacts containing symlinks cannot be discarded automatically")
+        _clear_bounded_windows_readonly_tree(target)
     pre_discard_sha256 = build_model_checksum(target)
     if target.is_dir():
         shutil.rmtree(target)
