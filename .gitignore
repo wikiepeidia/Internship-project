@@ -170,6 +170,8 @@ celerybeat.pid
 *.pid
 NUL
 *.ipynb
+# Phase 40's three statically validated operator controllers are source artifacts.
+!notebooks/phase40/*.ipynb
 # RabbitMQ
 mnesia/
 rabbitmq/

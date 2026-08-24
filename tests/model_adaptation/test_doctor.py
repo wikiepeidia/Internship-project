@@ -87,6 +87,7 @@ def test_training_doctor_reports_missing_dependency_with_exact_command(monkeypat
 
     status = doctor_module.run_training_doctor(
         candidate="baseline-winner",
+        adaptation_mode="lora",
         train_split=train_split,
         val_split=val_split,
         output_root=output_root,
@@ -140,6 +141,7 @@ def test_training_doctor_reports_ready_state_and_smoke_command(monkeypatch, tmp_
 
     status = doctor_module.run_training_doctor(
         candidate="baseline-winner",
+        adaptation_mode="lora",
         train_split=train_split,
         val_split=val_split,
         output_root=output_root,
@@ -150,5 +152,9 @@ def test_training_doctor_reports_ready_state_and_smoke_command(monkeypatch, tmp_
     assert status.ready is True
     assert status.backend_name == "training"
     assert "Fake GPU" in report
-    assert "phase3-smoke" in report
-    assert "python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-smoke --smoke-test" in report
+    assert "phase40-smoke" in report
+    assert (
+        "python -m src.model_adaptation.cli train --candidate baseline-winner "
+        "--adaptation-mode lora --run-kind probe --version-tag phase40-smoke --smoke-test"
+        in report
+    )

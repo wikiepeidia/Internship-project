@@ -111,11 +111,128 @@ def test_cli_exposes_pilot_and_train_commands():
         "convert",
         "doctor",
         "evaluate-release-split",
+        "phase40-build-input-bundle",
+        "phase40-build-source-bundle",
+        "phase40-finalize-comparison",
+        "phase40-finalize-human-review",
+        "phase40-preflight",
+        "phase40-render-graphs",
+        "phase40-validate-notebooks",
+        "phase40-verify-input-bundle",
+        "phase40-verify-review-queue",
+        "phase40-verify-run-evidence",
+        "phase40-verify-run-request",
         "pilot",
         "prepare-explanation-review",
         "release-eval",
         "train",
     ]
+
+
+def test_documented_phase40_notebook_validation_command_succeeds():
+    cli_module = _load_cli_module()
+    root = Path(__file__).resolve().parents[2] / "notebooks" / "phase40"
+
+    assert cli_module.main(["phase40-validate-notebooks", "--root", str(root)]) == 0
+
+
+def test_phase40_probe_and_review_cli_controls_parse_without_latest_alias(tmp_path):
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
+    probe = parser.parse_args(
+        [
+            "train",
+            "--candidate",
+            "baseline-winner",
+            "--version-tag",
+            "probe-v1",
+            "--train-split",
+            "data/splits/train.jsonl",
+            "--val-split",
+            "data/splits/val.jsonl",
+            "--adaptation-mode",
+            "qlora",
+            "--run-kind",
+            "probe",
+            "--post-warmup-steps",
+            "30",
+            "--run-id",
+            "qwen-qlora-probe-v1",
+        ]
+    )
+    assert probe.post_warmup_steps == 30
+    assert probe.warmup_steps == 5
+    assert probe.run_kind == "probe"
+
+    human = parser.parse_args(
+        [
+            "phase40-finalize-human-review",
+            "--request-path",
+            str(tmp_path / "request.json"),
+            "--comparison-manifest-path",
+            str(tmp_path / "comparison.json"),
+            "--selected-predictions-path",
+            str(tmp_path / "predictions.json"),
+            "--queue-path",
+            str(tmp_path / "queue.jsonl"),
+            "--queue-manifest-path",
+            str(tmp_path / "queue-manifest.json"),
+            "--reviewer-return-path",
+            str(tmp_path / "review.jsonl"),
+            "--output-root",
+            str(tmp_path / "out"),
+            "--vietnamese-fluent-attestation",
+        ]
+    )
+    assert human.vietnamese_fluent_attestation is True
+
+
+def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypatch):
+    cli_module = _load_cli_module()
+    request_path = tmp_path / "request.json"
+    request_path.write_text("{}", encoding="utf-8")
+    sentinel_request = object()
+
+    class FakeRequest:
+        @classmethod
+        def model_validate_json(cls, payload):
+            assert payload == "{}"
+            return sentinel_request
+
+    captured = {}
+
+    def fake_finalize(request, operator_return, **kwargs):
+        captured["request"] = request
+        captured["operator_return"] = operator_return
+        return SimpleNamespace(
+            manifest=SimpleNamespace(status="complete"),
+            manifest_path=tmp_path / "comparison-manifest.json",
+            report_path=tmp_path / "comparison-report.md",
+        )
+
+    monkeypatch.setattr(cli_module, "RunRequest", FakeRequest)
+    monkeypatch.setattr(cli_module, "finalize_phase40_comparison", fake_finalize)
+    argv = [
+        "phase40-finalize-comparison",
+        "--request-path",
+        str(request_path),
+        "--output-root",
+        str(tmp_path / "out"),
+        "--package-decision",
+        "bitsandbytes==0.50.1=approve",
+        "--package-decision",
+        "matplotlib==3.11.1=approve",
+    ]
+    for run_id, path in (
+        ("qwen-lora", "data/models/phase40/full/qwen-lora"),
+        ("qwen-qlora", "data/models/phase40/full/qwen-qlora"),
+        ("phobert", "data/models/phase40/full/phobert"),
+    ):
+        argv.extend(("--bundle-root", f"{run_id}={path}"))
+        argv.extend(("--gpu-identity", f"{run_id}=NVIDIA L4"))
+    assert cli_module.main(argv) == 0
+    assert captured["request"] is sentinel_request
+    assert len(captured["operator_return"].bundle_roots) == 3
 
 
 def test_cli_exposes_prepare_explanation_review_command():
@@ -164,7 +281,8 @@ def test_train_dry_run_uses_baseline_winner_and_runner_up_only(tmp_path, monkeyp
         captured_candidates.append(kwargs["candidate_id"])
         return SimpleNamespace(candidate_id=kwargs["candidate_id"], dry_run=kwargs["dry_run"])
 
-    def fake_run_training(config, *, selection=None):
+    def fake_run_training(config, *, data_contract, selection=None):
+        assert data_contract is sentinel_contract
         return {
             "dry_run": config.dry_run,
             "candidate_id": config.candidate_id,
@@ -174,10 +292,18 @@ def test_train_dry_run_uses_baseline_winner_and_runner_up_only(tmp_path, monkeyp
 
     monkeypatch.setattr(cli_module, "build_training_config", fake_build_training_config)
     monkeypatch.setattr(cli_module, "run_training", fake_run_training)
+    sentinel_contract = object()
+    monkeypatch.setattr(
+        cli_module,
+        "preflight_phase40_inputs",
+        lambda train_path, val_path, *, repo_root: sentinel_contract,
+    )
 
     baseline_exit = cli_module.main(
         [
             "train",
+            "--adaptation-mode",
+            "lora",
             "--candidate",
             "baseline-winner",
             "--version-tag",
@@ -194,6 +320,8 @@ def test_train_dry_run_uses_baseline_winner_and_runner_up_only(tmp_path, monkeyp
     runner_up_exit = cli_module.main(
         [
             "train",
+            "--adaptation-mode",
+            "lora",
             "--candidate",
             "runner-up",
             "--version-tag",
@@ -221,6 +349,8 @@ def test_train_command_returns_error_for_non_selected_candidate(tmp_path):
     exit_code = cli_module.main(
         [
             "train",
+            "--adaptation-mode",
+            "lora",
             "--candidate",
             "qwen2.5-7b-instruct",
             "--version-tag",
@@ -238,6 +368,39 @@ def test_train_command_returns_error_for_non_selected_candidate(tmp_path):
     assert exit_code == 1
 
 
+def test_train_rejects_data_paths_before_registry_or_output_resolution(tmp_path, monkeypatch):
+    cli_module = _load_cli_module()
+    calls: list[str] = []
+
+    def reject_preflight(train_path, val_path, *, repo_root):
+        calls.append("preflight")
+        raise ValueError("non-canonical fixture path")
+
+    monkeypatch.setattr(cli_module, "preflight_phase40_inputs", reject_preflight)
+    monkeypatch.setattr(
+        cli_module,
+        "_load_selection",
+        lambda *_: (_ for _ in ()).throw(AssertionError("registry opened before preflight")),
+    )
+    exit_code = cli_module.main(
+        [
+            "train",
+            "--adaptation-mode",
+            "lora",
+            "--candidate",
+            "baseline-winner",
+            "--version-tag",
+            "fixture",
+            "--train-split",
+            str(tmp_path / "decoy-train.jsonl"),
+            "--val-split",
+            str(tmp_path / "decoy-val.jsonl"),
+        ]
+    )
+    assert exit_code == 1
+    assert calls == ["preflight"]
+
+
 def test_doctor_command_formats_report_and_returns_success(monkeypatch, capsys):
     cli_module = _load_cli_module()
 
@@ -248,7 +411,9 @@ def test_doctor_command_formats_report_and_returns_success(monkeypatch, capsys):
     )
     monkeypatch.setattr(cli_module, "format_training_doctor_report", lambda status: "TRAIN READY")
 
-    exit_code = cli_module.main(["doctor", "--candidate", "baseline-winner"])
+    exit_code = cli_module.main(
+        ["doctor", "--candidate", "baseline-winner", "--adaptation-mode", "lora"]
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 0

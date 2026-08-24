@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+import sys
 
 from src.config.settings import get_settings
 from src.model_adaptation.catalog import build_default_catalog
@@ -11,6 +13,31 @@ from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
 from src.model_adaptation.explanation_review import build_manual_review_pack
 from src.model_adaptation.pilot import run_pilot
+from src.model_adaptation.phase40_contract import preflight_phase40_inputs
+from src.model_adaptation.phase40_handoff import (
+    ColabOperatorReturn,
+    InputBundleReference,
+    PackageDecision,
+    Phase40ComparisonManifest,
+    ReturnedBundleRoot,
+    ReturnedGpuIdentity,
+    ReviewQueueManifest,
+    ReviewQueueRow,
+    ReviewerReturnRow,
+    RunRequest,
+    build_phase40_input_bundle,
+    build_phase40_source_bundle,
+    finalize_phase40_comparison,
+    finalize_phase40_human_review,
+    load_phase40_selected_prediction_bundles,
+    transfer_authority_from_request,
+    verify_phase40_input_bundle,
+    verify_phase40_review_queue,
+    verify_phase40_run_request,
+)
+from src.model_adaptation.phase40_evidence import verify_phase40_bundle
+from src.model_adaptation.phase40_graphs import render_phase40_graphs
+from src.model_adaptation.phase40_modes import AdaptationMode, RunKind
 from src.model_adaptation.release_evaluation import evaluate_release_split
 from src.model_adaptation.release_gates import write_release_artifacts, synthesize_release_verdict
 from src.model_adaptation.registry import load_model_registry, save_model_registry
@@ -108,6 +135,57 @@ def _resolve_candidate_alias(candidate_arg: str, selection: PilotSelection) -> s
     return candidate_arg
 
 
+def _add_phase40_review_authority_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--request-path", type=Path, required=True)
+    parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--comparison-manifest-path", type=Path, required=True)
+    parser.add_argument("--selected-predictions-path", type=Path, required=True)
+    parser.add_argument("--queue-path", type=Path, required=True)
+
+
+def _load_jsonl_models(path: Path, model_type):  # noqa: ANN001
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValueError(f"required JSONL input is missing or empty: {path}")
+    payload = path.read_text(encoding="utf-8", errors="strict")
+    if not payload.endswith("\n"):
+        raise ValueError(f"JSONL input has a partial final record: {path}")
+    rows = []
+    for index, line in enumerate(payload.splitlines()):
+        if not line:
+            raise ValueError(f"JSONL input contains an empty row: {path}")
+        try:
+            rows.append(model_type.model_validate_json(line))
+        except Exception as exc:
+            raise ValueError(f"invalid JSONL row {index}: {path}") from exc
+    return tuple(rows)
+
+
+def _parse_package_decision(value: str) -> PackageDecision:
+    if "=" not in value:
+        raise ValueError("package decision must use PACKAGE=approve or PACKAGE=reject:REASON")
+    package, raw_decision = value.rsplit("=", 1)
+    decision, reason_separator, reason = raw_decision.partition(":")
+    return PackageDecision(
+        package=package,
+        decision=decision,
+        reason=(reason if reason_separator else None),
+    )
+
+
+def _parse_returned_root(value: str) -> ReturnedBundleRoot:
+    run_id, separator, path = value.partition("=")
+    if not separator:
+        raise ValueError("bundle root must use RUN_ID=REPOSITORY_PATH")
+    return ReturnedBundleRoot(run_id=run_id, path=path)
+
+
+def _parse_gpu_identity(value: str) -> ReturnedGpuIdentity:
+    run_id, separator, accelerator = value.partition("=")
+    if not separator:
+        raise ValueError("GPU identity must use RUN_ID=GPU_NAME")
+    return ReturnedGpuIdentity(run_id=run_id, accelerator=accelerator)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the operator parser for pilot, training, and conversion flows."""
 
@@ -125,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     pilot_parser.add_argument(
         "--registry-path",
         type=Path,
-        default=_default_registry_path(),
+        default=None,
         help="Path to the local model registry JSON",
     )
     pilot_parser.add_argument("--dry-run", action="store_true", help="Use local mock pilot metrics")
@@ -141,25 +219,25 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument(
         "--train-split",
         type=Path,
-        default=_default_split_path("train"),
-        help="Training split JSONL path",
+        required=True,
+        help="Canonical data/splits/train.jsonl path",
     )
     train_parser.add_argument(
         "--val-split",
         type=Path,
-        default=_default_split_path("val"),
-        help="Validation split JSONL path",
+        required=True,
+        help="Canonical data/splits/val.jsonl path",
     )
     train_parser.add_argument(
         "--output-root",
         type=Path,
-        default=get_settings().model_artifact_root,
+        default=None,
         help="Root directory for local model artifacts",
     )
     train_parser.add_argument(
         "--registry-path",
         type=Path,
-        default=_default_registry_path(),
+        default=None,
         help="Path to the local model registry JSON",
     )
     train_parser.add_argument(
@@ -225,7 +303,7 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument(
         "--resume-from-checkpoint",
         default=None,
-        help="Checkpoint path to resume from, or 'latest'",
+        help="Exact checkpoint-N path with a verified compatibility manifest; 'latest' is forbidden",
     )
     train_parser.add_argument(
         "--device",
@@ -239,9 +317,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run a short checkpoint-friendly preflight training job",
     )
     train_parser.add_argument(
-        "--full-precision",
-        action="store_true",
-        help="Disable optional 4-bit loading and force full-precision LoRA",
+        "--adaptation-mode",
+        required=True,
+        choices=[AdaptationMode.LORA.value, AdaptationMode.QLORA.value],
+        help="Explicit adapter mode; QLoRA never falls back to LoRA",
+    )
+    train_parser.add_argument(
+        "--run-kind",
+        choices=[RunKind.PROBE.value, RunKind.FULL.value],
+        default=RunKind.FULL.value,
+        help="Bounded probe or full evidence-producing run",
+    )
+    train_parser.add_argument(
+        "--post-warmup-steps",
+        type=int,
+        default=None,
+        help="Required 30-50 post-warm-up optimizer steps for a probe run",
+    )
+    train_parser.add_argument(
+        "--warmup-steps",
+        type=int,
+        default=5,
+        help="Measured probe warm-up optimizer steps (default: 5)",
+    )
+    train_parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Safe immutable Phase 40 run identifier",
+    )
+    train_parser.add_argument(
+        "--model-revision",
+        default="cdbee75f17c01a7cc42f958dc650907174af0554",
+        help="Pinned 40-hex base-model revision",
+    )
+    train_parser.add_argument(
+        "--run-request-path",
+        type=Path,
+        default=None,
+        help="Verified Phase 40 full-run request supplying transfer authority (required for full publication)",
     )
     train_parser.add_argument("--dry-run", action="store_true", help="Validate config without a real fine-tune")
     train_parser.set_defaults(handler=handle_train)
@@ -256,13 +369,13 @@ def build_parser() -> argparse.ArgumentParser:
     convert_parser.add_argument(
         "--output-root",
         type=Path,
-        default=get_settings().model_artifact_root,
+        default=None,
         help="Root directory for local model artifacts",
     )
     convert_parser.add_argument(
         "--registry-path",
         type=Path,
-        default=_default_registry_path(),
+        default=None,
         help="Path to the local model registry JSON",
     )
     convert_parser.add_argument(
@@ -282,25 +395,25 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument(
         "--train-split",
         type=Path,
-        default=_default_split_path("train"),
+        default=None,
         help="Training split JSONL path",
     )
     doctor_parser.add_argument(
         "--val-split",
         type=Path,
-        default=_default_split_path("val"),
+        default=None,
         help="Validation split JSONL path",
     )
     doctor_parser.add_argument(
         "--output-root",
         type=Path,
-        default=get_settings().model_artifact_root,
+        default=None,
         help="Root directory for local model artifacts",
     )
     doctor_parser.add_argument(
         "--registry-path",
         type=Path,
-        default=_default_registry_path(),
+        default=None,
         help="Path to the local model registry JSON",
     )
     doctor_parser.set_defaults(handler=handle_doctor)
@@ -312,7 +425,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_release_parser.add_argument(
         "--split-path",
         type=Path,
-        default=_default_phase_five_split_path(),
+        default=None,
         help="Held-out split JSONL path to evaluate",
     )
     evaluate_release_parser.add_argument(
@@ -394,6 +507,139 @@ def build_parser() -> argparse.ArgumentParser:
     )
     release_eval_parser.set_defaults(handler=handle_release_eval)
 
+    phase40_preflight_parser = subparsers.add_parser(
+        "phase40-preflight",
+        help="Authorize the canonical Phase 40 train and validation snapshots",
+    )
+    doctor_parser.add_argument(
+        "--adaptation-mode",
+        required=True,
+        choices=[AdaptationMode.LORA.value, AdaptationMode.QLORA.value],
+        help="Mode whose readiness must be checked without fallback",
+    )
+    phase40_preflight_parser.add_argument(
+        "--train-split",
+        type=Path,
+        required=True,
+        help="Canonical data/splits/train.jsonl path",
+    )
+    phase40_preflight_parser.add_argument(
+        "--val-split",
+        type=Path,
+        required=True,
+        help="Canonical data/splits/val.jsonl path",
+    )
+    phase40_preflight_parser.set_defaults(handler=handle_phase40_preflight)
+
+    phase40_source_parser = subparsers.add_parser(
+        "phase40-build-source-bundle",
+        help="Build the deterministic allowlisted Phase 40 source transfer bundle",
+    )
+    phase40_source_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_source_parser.add_argument("--output-root", type=Path, required=True)
+    phase40_source_parser.set_defaults(handler=handle_phase40_build_source_bundle)
+
+    phase40_input_parser = subparsers.add_parser(
+        "phase40-build-input-bundle",
+        help="Build the deterministic canonical train/validation-only transfer bundle",
+    )
+    phase40_input_parser.add_argument("--train-split", type=Path, required=True)
+    phase40_input_parser.add_argument("--val-split", type=Path, required=True)
+    phase40_input_parser.add_argument("--output-path", type=Path, required=True)
+    phase40_input_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_input_parser.add_argument("--reference-output", type=Path, default=None)
+    phase40_input_parser.set_defaults(handler=handle_phase40_build_input_bundle)
+
+    phase40_verify_input_parser = subparsers.add_parser(
+        "phase40-verify-input-bundle",
+        help="Verify a request-bound input archive before opening its data members",
+    )
+    phase40_verify_input_parser.add_argument("--archive-path", type=Path, required=True)
+    phase40_verify_input_parser.add_argument("--reference-path", type=Path, required=True)
+    phase40_verify_input_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_verify_input_parser.add_argument("--extraction-root", type=Path, default=None)
+    phase40_verify_input_parser.add_argument("--verify-only", action="store_true")
+    phase40_verify_input_parser.set_defaults(handler=handle_phase40_verify_input_bundle)
+
+    phase40_request_parser = subparsers.add_parser(
+        "phase40-verify-run-request",
+        help="Verify the immutable Phase 40 source and train/validation transfer authorities",
+    )
+    phase40_request_parser.add_argument("--request-path", type=Path, required=True)
+    phase40_request_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_request_parser.set_defaults(handler=handle_phase40_verify_run_request)
+
+    phase40_evidence_parser = subparsers.add_parser(
+        "phase40-verify-run-evidence",
+        help="Rehash and verify one complete Phase 40 run-evidence bundle",
+    )
+    phase40_evidence_parser.add_argument("--run-root", type=Path, required=True)
+    phase40_evidence_parser.add_argument(
+        "--allow-prestart-failure",
+        action="store_true",
+        help="Explicitly accept a hash-verified pre-start failure record",
+    )
+    phase40_evidence_parser.set_defaults(handler=handle_phase40_verify_run_evidence)
+
+    phase40_graph_parser = subparsers.add_parser(
+        "phase40-render-graphs",
+        help="Rebuild Phase 40 loss graphs from retained raw events and metrics",
+    )
+    phase40_graph_parser.add_argument("--run-root", type=Path, required=True)
+    phase40_graph_parser.add_argument("--smoothing-window", type=int, default=None)
+    phase40_graph_parser.add_argument("--dpi", type=int, default=120)
+    phase40_graph_parser.set_defaults(handler=handle_phase40_render_graphs)
+
+    phase40_notebook_parser = subparsers.add_parser(
+        "phase40-validate-notebooks",
+        help="Statically validate the three canonical Phase 40 notebook controllers",
+    )
+    phase40_notebook_parser.add_argument("--root", type=Path, required=True)
+    phase40_notebook_parser.set_defaults(handler=handle_phase40_validate_notebooks)
+
+    phase40_comparison_parser = subparsers.add_parser(
+        "phase40-finalize-comparison",
+        help="Reverify returned full runs and freeze the three-model comparison",
+    )
+    phase40_comparison_parser.add_argument("--request-path", type=Path, required=True)
+    phase40_comparison_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_comparison_parser.add_argument("--output-root", type=Path, required=True)
+    phase40_comparison_parser.add_argument(
+        "--package-decision",
+        action="append",
+        default=[],
+        metavar="PACKAGE=approve|reject:REASON",
+    )
+    phase40_comparison_parser.add_argument(
+        "--bundle-root", action="append", default=[], metavar="RUN_ID=REPOSITORY_PATH"
+    )
+    phase40_comparison_parser.add_argument(
+        "--gpu-identity", action="append", default=[], metavar="RUN_ID=GPU_NAME"
+    )
+    phase40_comparison_parser.add_argument("--verify-only", action="store_true")
+    phase40_comparison_parser.set_defaults(handler=handle_phase40_finalize_comparison)
+
+    phase40_queue_parser = subparsers.add_parser(
+        "phase40-verify-review-queue",
+        help="Re-derive a frozen review queue from comparison/input authorities",
+    )
+    _add_phase40_review_authority_arguments(phase40_queue_parser)
+    phase40_queue_parser.set_defaults(handler=handle_phase40_verify_review_queue)
+
+    phase40_human_parser = subparsers.add_parser(
+        "phase40-finalize-human-review",
+        help="Freeze exact-coverage Vietnamese review notes without changing predictions",
+    )
+    _add_phase40_review_authority_arguments(phase40_human_parser)
+    phase40_human_parser.add_argument("--queue-manifest-path", type=Path, required=True)
+    phase40_human_parser.add_argument("--reviewer-return-path", type=Path, required=True)
+    phase40_human_parser.add_argument("--output-root", type=Path, required=True)
+    phase40_human_parser.add_argument(
+        "--vietnamese-fluent-attestation", action="store_true", required=True
+    )
+    phase40_human_parser.add_argument("--verify-only", action="store_true")
+    phase40_human_parser.set_defaults(handler=handle_phase40_finalize_human_review)
+
     return parser
 
 
@@ -413,10 +659,11 @@ def handle_pilot(args: argparse.Namespace) -> int:
         selection=selection,
         scorecards=scorecards,
     )
-    save_model_registry(registry, args.registry_path)
+    registry_path = args.registry_path or _default_registry_path()
+    save_model_registry(registry, registry_path)
     print(
         f"Pilot dry-run complete: baseline={selection.baseline_winner_id} "
-        f"runner-up={selection.runner_up_id} registry={args.registry_path}"
+        f"runner-up={selection.runner_up_id} registry={registry_path}"
     )
     return 0
 
@@ -424,15 +671,38 @@ def handle_pilot(args: argparse.Namespace) -> int:
 def handle_train(args: argparse.Namespace) -> int:
     """Run the dry-run training scaffold for the selected candidate alias."""
 
-    selection = _load_selection(args.registry_path)
+    data_contract = preflight_phase40_inputs(
+        args.train_split,
+        args.val_split,
+        repo_root=Path.cwd(),
+    )
+    registry_path = args.registry_path or _default_registry_path()
+    output_root = args.output_root or get_settings().model_artifact_root
+    selection = _load_selection(registry_path)
     resolved_candidate_id = _resolve_candidate_alias(args.candidate, selection)
+    transfer_authority = None
+    if args.run_request_path is not None:
+        run_request = RunRequest.model_validate_json(
+            args.run_request_path.read_text(encoding="utf-8", errors="strict")
+        )
+        verify_phase40_run_request(run_request, repo_root=Path.cwd())
+        if args.run_id is None or args.run_id not in {run.run_id for run in run_request.runs}:
+            raise ValueError("--run-id must identify one run in --run-request-path")
+        requested = next(run for run in run_request.runs if run.run_id == args.run_id)
+        if (
+            requested.model_family.value != "qwen"
+            or requested.adaptation_mode != AdaptationMode(args.adaptation_mode)
+            or requested.run_kind != RunKind.FULL.value
+        ):
+            raise ValueError("training CLI identity differs from its frozen run request")
+        transfer_authority = transfer_authority_from_request(run_request)
     config = build_training_config(
         candidate_id=resolved_candidate_id,
         train_split_path=args.train_split,
         val_split_path=args.val_split,
         version_tag=args.version_tag,
-        output_root=args.output_root,
-        registry_path=args.registry_path,
+        output_root=output_root,
+        registry_path=registry_path,
         selection=selection,
         dry_run=args.dry_run,
         base_model_path=args.base_model_path,
@@ -448,9 +718,16 @@ def handle_train(args: argparse.Namespace) -> int:
         smoke_test=args.smoke_test,
         resume_from_checkpoint=args.resume_from_checkpoint,
         device=args.device,
-        use_4bit=not args.full_precision,
+        adaptation_mode=AdaptationMode(args.adaptation_mode),
+        run_kind=RunKind(args.run_kind),
+        probe_post_warmup_steps=args.post_warmup_steps,
+        probe_warmup_steps=args.warmup_steps,
+        run_id=args.run_id,
+        model_revision=args.model_revision,
+        transfer_authority=transfer_authority,
+        sanitized_argv=getattr(args, "_phase40_raw_argv", None),
     )
-    result = run_training(config, selection=selection)
+    result = run_training(config, data_contract=data_contract, selection=selection)
     summary_parts = [
         f"candidate={result['candidate_id']}",
         f"train_examples={result['train_examples']}",
@@ -472,19 +749,21 @@ def handle_train(args: argparse.Namespace) -> int:
 def handle_convert(args: argparse.Namespace) -> int:
     """Run the GGUF conversion flow for the selected candidate alias."""
 
-    selection = _load_selection(args.registry_path)
+    registry_path = args.registry_path or _default_registry_path()
+    output_root = args.output_root or get_settings().model_artifact_root
+    selection = _load_selection(registry_path)
     resolved_candidate_id = _resolve_candidate_alias(args.candidate, selection)
     request = build_gguf_request(
         resolved_candidate_id,
         args.version_tag,
-        registry_path=args.registry_path,
-        output_root=args.output_root,
+        registry_path=registry_path,
+        output_root=output_root,
         selection=selection,
         quantization_profile=args.quantization_profile,
     )
     result = convert_to_gguf(
         request,
-        registry_path=args.registry_path,
+        registry_path=registry_path,
         selection=selection,
         dry_run=args.dry_run,
     )
@@ -499,12 +778,17 @@ def handle_convert(args: argparse.Namespace) -> int:
 def handle_doctor(args: argparse.Namespace) -> int:
     """Run the training doctor command and print the readiness report."""
 
+    registry_path = args.registry_path or _default_registry_path()
+    train_split = args.train_split or _default_split_path("train")
+    val_split = args.val_split or _default_split_path("val")
+    output_root = args.output_root or get_settings().model_artifact_root
     status = run_training_doctor(
         candidate=args.candidate,
-        train_split=args.train_split,
-        val_split=args.val_split,
-        output_root=args.output_root,
-        registry_path=args.registry_path,
+        adaptation_mode=AdaptationMode(args.adaptation_mode),
+        train_split=train_split,
+        val_split=val_split,
+        output_root=output_root,
+        registry_path=registry_path,
     )
     print(format_training_doctor_report(status))
     return 0 if status.ready else 1
@@ -522,8 +806,9 @@ def handle_evaluate_release_split(args: argparse.Namespace) -> int:
         if current == 1 or current == total or current % progress_every == 0:
             print(f"Phase 5 evaluation progress: {current}/{total}")
 
+    split_path = args.split_path or _default_phase_five_split_path()
     snapshot = evaluate_release_split(
-        args.split_path,
+        split_path,
         snapshot_path=args.snapshot_path,
         run_id=args.run_id,
         progress_callback=_emit_progress if progress_every is not None else None,
@@ -569,11 +854,211 @@ def handle_release_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_phase40_preflight(args: argparse.Namespace) -> int:
+    """Validate only the canonical train/validation inputs and print identities."""
+
+    contract = preflight_phase40_inputs(
+        args.train_split,
+        args.val_split,
+        repo_root=Path.cwd(),
+    )
+    for identity in contract.ordered_identities:
+        print(
+            f"{identity.split_name}: records={identity.records} bytes={identity.bytes} "
+            f"sha256={identity.sha256}"
+        )
+    return 0
+
+
+def handle_phase40_build_source_bundle(args: argparse.Namespace) -> int:
+    """Build and print the exact deterministic source transfer identity."""
+
+    built = build_phase40_source_bundle(args.repo_root, args.output_root)
+    print(built.reference.model_dump_json())
+    return 0
+
+
+def handle_phase40_build_input_bundle(args: argparse.Namespace) -> int:
+    """Build an exact-byte train/validation archive from canonical preflight."""
+
+    contract = preflight_phase40_inputs(
+        args.train_split,
+        args.val_split,
+        repo_root=args.repo_root,
+    )
+    built = build_phase40_input_bundle(
+        contract, args.output_path, repo_root=args.repo_root
+    )
+    reference_bytes = (built.reference.model_dump_json(indent=2) + "\n").encode("utf-8")
+    if args.reference_output is not None:
+        args.reference_output.parent.mkdir(parents=True, exist_ok=True)
+        args.reference_output.write_bytes(reference_bytes)
+    print(built.reference.model_dump_json())
+    return 0
+
+
+def handle_phase40_verify_input_bundle(args: argparse.Namespace) -> int:
+    """Verify a typed input reference and optionally materialize fixed outputs."""
+
+    reference = InputBundleReference.model_validate_json(
+        args.reference_path.read_text(encoding="utf-8")
+    )
+    contract = verify_phase40_input_bundle(
+        args.archive_path,
+        reference,
+        repo_root=args.repo_root,
+        extraction_root=args.extraction_root,
+        materialize=not args.verify_only,
+    )
+    print(
+        f"Phase 40 input bundle verified: train={len(contract.train_snapshot.rows)} "
+        f"val={len(contract.validation_snapshot.rows)} archive={args.archive_path}"
+    )
+    return 0
+
+
+def handle_phase40_verify_run_request(args: argparse.Namespace) -> int:
+    """Verify a frozen run request and both of its transfer authorities."""
+
+    request = RunRequest.model_validate_json(args.request_path.read_text(encoding="utf-8"))
+    verify_phase40_run_request(request, repo_root=args.repo_root)
+    print(f"Phase 40 run request verified: {args.request_path}")
+    return 0
+
+
+def handle_phase40_verify_run_evidence(args: argparse.Namespace) -> int:
+    evidence = verify_phase40_bundle(
+        args.run_root,
+        allow_prestart_failure=args.allow_prestart_failure,
+    )
+    print(
+        f"Phase 40 run evidence verified: run_id={evidence.run_id} "
+        f"status={evidence.status.value} root={args.run_root}"
+    )
+    return 0
+
+
+def handle_phase40_render_graphs(args: argparse.Namespace) -> int:
+    provenance = render_phase40_graphs(
+        args.run_root,
+        smoothing_window=args.smoothing_window,
+        dpi=args.dpi,
+    )
+    print(
+        f"Phase 40 graph regenerated: graph={provenance.graph_id} "
+        f"output={provenance.output.relative_path}"
+    )
+    return 0
+
+
+def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
+    request = RunRequest.model_validate_json(
+        args.request_path.read_text(encoding="utf-8", errors="strict")
+    )
+    operator_return = ColabOperatorReturn(
+        package_decisions=tuple(
+            _parse_package_decision(value) for value in args.package_decision
+        ),
+        bundle_roots=tuple(_parse_returned_root(value) for value in args.bundle_root),
+        gpu_identities=tuple(
+            _parse_gpu_identity(value) for value in args.gpu_identity
+        ),
+    )
+    artifacts = finalize_phase40_comparison(
+        request,
+        operator_return,
+        repo_root=args.repo_root,
+        output_root=args.output_root,
+        verify_only=args.verify_only,
+    )
+    print(
+        f"Phase 40 comparison {artifacts.manifest.status}: "
+        f"manifest={artifacts.manifest_path} report={artifacts.report_path}"
+    )
+    return 0
+
+
+def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
+    request = RunRequest.model_validate_json(
+        args.request_path.read_text(encoding="utf-8", errors="strict")
+    )
+    verify_phase40_run_request(request, repo_root=args.repo_root)
+    contract = verify_phase40_input_bundle(
+        Path(args.repo_root) / request.input_bundle.repository_relative_path,
+        request.input_bundle,
+        repo_root=args.repo_root,
+        materialize=False,
+    )
+    comparison = Phase40ComparisonManifest.model_validate_json(
+        args.comparison_manifest_path.read_text(encoding="utf-8", errors="strict")
+    )
+    bundles = load_phase40_selected_prediction_bundles(
+        args.selected_predictions_path,
+        comparison_manifest=comparison,
+    )
+    queue = _load_jsonl_models(args.queue_path, ReviewQueueRow)
+    verify_phase40_review_queue(
+        queue,
+        contract=contract,
+        prediction_bundles=bundles,
+    )
+    return contract, comparison, bundles, queue
+
+
+def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
+    _, comparison, _, queue = _load_phase40_review_authorities(args)
+    if comparison.review_queue_sha256 is None:
+        raise ValueError("comparison manifest has no review-queue identity")
+    queue_payload = args.queue_path.read_bytes()
+    import hashlib
+
+    if hashlib.sha256(queue_payload).hexdigest() != comparison.review_queue_sha256:
+        raise ValueError("review queue file hash differs from the comparison manifest")
+    print(f"Phase 40 review queue verified: rows={len(queue)} path={args.queue_path}")
+    return 0
+
+
+def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
+    contract, _, bundles, queue = _load_phase40_review_authorities(args)
+    reviews = _load_jsonl_models(args.reviewer_return_path, ReviewerReturnRow)
+    artifacts = finalize_phase40_human_review(
+        queue,
+        reviews,
+        contract=contract,
+        prediction_bundles=bundles,
+        queue_manifest_path=args.queue_manifest_path,
+        comparison_manifest_path=args.comparison_manifest_path,
+        output_root=args.output_root,
+        vietnamese_fluent_attestation=args.vietnamese_fluent_attestation,
+        verify_only=args.verify_only,
+    )
+    print(
+        f"Phase 40 human review finalized: notes={artifacts.notes_path} "
+        f"report={artifacts.report_path}"
+    )
+    return 0
+
+
+def handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
+    """Compatibility entrypoint for the Plan 40-03 documented verification command."""
+
+    from src.model_adaptation.phase40_notebooks import validate_phase40_notebooks
+
+    issues = tuple(validate_phase40_notebooks(args.root))
+    if issues:
+        for issue in issues:
+            print(str(issue))
+        return 1
+    print(f"Phase 40 notebooks validated: root={args.root} count=3")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint for the Phase 3 and Phase 5 operator tooling."""
 
     parser = build_parser()
     args = parser.parse_args(argv)
+    args._phase40_raw_argv = tuple(sys.argv[1:] if argv is None else argv)
     try:
         return args.handler(args)
     except (RuntimeError, ValueError, FileNotFoundError) as exc:

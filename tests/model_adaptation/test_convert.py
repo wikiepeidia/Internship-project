@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
+from src.model_adaptation.phase40_modes import AdaptationMode
 from src.model_adaptation.registry import load_model_registry
 from src.model_adaptation.schemas import PilotSelection
 from src.model_adaptation.training import build_training_config, save_adapter_artifacts
@@ -30,6 +31,7 @@ def _stage_adapter(tmp_path: Path, candidate_id: str, *, version_tag: str = "pha
         output_root=tmp_path / "models",
         registry_path=registry_path,
         selection=_selection(),
+        adaptation_mode=AdaptationMode.LORA,
         dry_run=True,
     )
     save_adapter_artifacts(config, selection=_selection())

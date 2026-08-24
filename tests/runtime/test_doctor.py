@@ -7,6 +7,7 @@ from pathlib import Path
 import src.runtime.analyzers.accelerated as accelerated_module
 import src.runtime.analyzers.gguf as gguf_module
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
+from src.model_adaptation.phase40_modes import AdaptationMode
 from src.model_adaptation.schemas import (
     ExplanationRubricSummary,
     HeldOutSupportAudit,
@@ -42,6 +43,7 @@ def _stage_accelerated_registry(tmp_path: Path) -> Path:
         output_root=tmp_path / "models",
         registry_path=registry_path,
         selection=_selection(),
+        adaptation_mode=AdaptationMode.LORA,
         dry_run=True,
     )
     save_adapter_artifacts(config, selection=_selection())
@@ -59,6 +61,7 @@ def _stage_gguf_registry(tmp_path: Path) -> Path:
         output_root=tmp_path / "models",
         registry_path=registry_path,
         selection=_selection(),
+        adaptation_mode=AdaptationMode.LORA,
         dry_run=True,
     )
     save_adapter_artifacts(config, selection=_selection())
