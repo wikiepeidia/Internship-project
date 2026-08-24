@@ -1,4 +1,4 @@
----
+by th---
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
@@ -308,7 +308,7 @@ Last activity: 2026-08-24 — bounded LoRA ran for 29m42s, reached sustained GPU
 ## Performance Metrics
 
 | Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
+| ------ | ---------- | ------- | ------- |
 | Phase 38 P01 | 42min | 2 tasks | 2 files |
 | Phase 38 P02 | 14min | 2 tasks | 4 files |
 | Phase 39 P01 | 25min | 2 tasks | 4 files |
