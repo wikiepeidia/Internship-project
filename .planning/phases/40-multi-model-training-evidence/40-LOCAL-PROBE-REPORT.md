@@ -1,6 +1,6 @@
 # Phase 40 Local RTX 5050 Probe Report
 
-Status: LoRA resource run completed its bounded local window and its recovery-only evidence seal verifies. QLoRA has not been started by this report.
+Status: LoRA resource run completed its bounded local window and its recovery-only evidence seal verifies. The local LoRA path is closed for this deadline; QLoRA has not been started by this report and work resumes on 2026-08-25.
 
 ## Claim boundary
 
@@ -47,6 +47,10 @@ The mechanical memory classifier is `gpu_pressure`, with basis `three_consecutiv
 ## Decision
 
 Ordinary LoRA is technically runnable on this laptop, but it operates with effectively no device-memory headroom and a provisional compute-only schedule near 18.4–18.9 hours. That makes a fresh full local LoRA run operationally unattractive for the current deadline. The next local experiment should be the already authorized genuine QLoRA 5+40 probe; its own measurements, not this LoRA extrapolation or historical recollection, must decide whether the full QLoRA run stays local or moves to Colab.
+
+For planning and defense wording, ordinary LoRA is therefore treated as too resource-intensive on the tested laptop. A **32 GB-class system-RAM configuration and more than 8 GB of VRAM are recommended** for a reliable full run with usable headroom. This is a practical recommendation, not a benchmarked strict minimum: telemetry observed 20.94 GiB peak system-RAM use on a 31.61 GiB host, while the 8,151 MiB GPU reached 7,902 MiB used and only 9 MiB minimum free. Likewise, the 18.42–18.88-hour figure is an incomplete-window compute extrapolation that excludes evaluation and checkpoint overhead; it does not guarantee that a full run would finish successfully. The bounded probe itself ended with `parent_controller_error` before its evidence-step target, although no OOM occurred.
+
+Handoff sealed on 2026-08-24. No further ordinary-LoRA retry is authorized for this decision window. Phase 40 resumes on 2026-08-25 with the existing QLoRA package-authority/runtime gates followed by the genuine QLoRA 5+40 probe.
 
 ## Evidence references
 
