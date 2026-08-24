@@ -26,6 +26,7 @@ from src.model_adaptation.registry import build_model_checksum
 
 RECOVERY_SCHEMA_VERSION = "phase40-lora-retry-recovery-v1"
 CONTROLLER_FAILURE_SCHEMA_VERSION = "phase40-controller-failure-recovery-v1"
+FINALIZATION_SCHEMA_VERSION = "phase40-lora-retry-recovery-finalization-v1"
 HISTORICAL_RUN_COMMIT = "803c3b3cec9caceb54732c4c7e94ad6ceb7938a0"
 RECOVERY_REASON = (
     "original_controller_error_not_retained; "
@@ -60,6 +61,7 @@ _RECOVERY_FILES = frozenset(
         "recovery-seal.json",
         "discard-receipt.json",
         "controller-failure.json",
+        "recovery-finalization.json",
         "outcome.json",
     }
 )
@@ -154,6 +156,27 @@ def _recovery_code_identity(repo_root: Path) -> dict[str, object]:
             raise RuntimeError("recovery code must be committed and byte-identical to HEAD")
         hashes[relative] = hashlib.sha256(working).hexdigest()
     return {"commit": commit, "source_sha256": hashes}
+
+
+def _verify_committed_recovery_code(
+    repo_root: Path, identity: object
+) -> dict[str, object]:
+    if not isinstance(identity, dict) or set(identity) != {"commit", "source_sha256"}:
+        raise RuntimeError("sealed recovery code identity is invalid")
+    commit = identity.get("commit")
+    hashes = identity.get("source_sha256")
+    if not isinstance(commit, str) or _git_commit(repo_root, commit) != commit:
+        raise RuntimeError("sealed recovery commit identity drifted")
+    if not isinstance(hashes, dict) or set(hashes) != set(_RECOVERY_CODE_FILES):
+        raise RuntimeError("sealed recovery source-hash set is invalid")
+    observed: dict[str, str] = {}
+    for relative in _RECOVERY_CODE_FILES:
+        expected = hashes.get(relative)
+        digest = hashlib.sha256(_git_bytes(repo_root, commit, relative)).hexdigest()
+        if not isinstance(expected, str) or digest != expected:
+            raise RuntimeError("sealed historical recovery code drifted")
+        observed[relative] = digest
+    return {"commit": commit, "source_sha256": observed}
 
 
 def _is_link_or_reparse(path: Path) -> bool:
@@ -444,14 +467,13 @@ def _resource_peaks(telemetry: Sequence[Mapping[str, object]]) -> dict[str, obje
 
 
 def _verify_existing_seal(
-    seal: Mapping[str, object], stage_root: Path, recovery_code: Mapping[str, object]
+    seal: Mapping[str, object], stage_root: Path, repo_root: Path
 ) -> None:
     if (
         seal.get("schema_version") != RECOVERY_SCHEMA_VERSION
         or seal.get("stage") != local.LORA_RETRY_STAGE
         or seal.get("run_id") != local.LORA_RETRY_RUN_ID
         or seal.get("recovery_reason") != RECOVERY_REASON
-        or seal.get("recovery_code") != recovery_code
         or seal.get("telemetry_sha256")
         != local._sha256_file(stage_root / "telemetry.jsonl")
         or seal.get("optimizer_events_sha256")
@@ -460,6 +482,13 @@ def _verify_existing_seal(
         != local._sha256_file(stage_root / "quantization-proof.json")
     ):
         raise RuntimeError("existing recovery seal differs from current immutable evidence")
+    _verify_committed_recovery_code(repo_root, seal.get("recovery_code"))
+
+
+def _canonical_partial_summary(summary: Mapping[str, object]) -> dict[str, object]:
+    canonical = dict(summary)
+    canonical.pop("steady_state_step_seconds_median", None)
+    return canonical
 
 
 def recover_lora_retry(
@@ -507,7 +536,7 @@ def recover_lora_retry(
     seal: dict[str, object]
     if seal_path.is_file():
         seal = local._read_json(seal_path)
-        _verify_existing_seal(seal, stage_root, recovery_code)
+        _verify_existing_seal(seal, stage_root, repository)
     else:
         if not runtime.is_dir():
             raise RuntimeError("unsealed recovery is missing its disposable runtime")
@@ -583,6 +612,47 @@ def recover_lora_retry(
         "terminal_monotonic": telemetry[-1]["monotonic_seconds"],
     }
     local._write_immutable_json(controller_path, controller)
+    finalization_path = stage_root / "recovery-finalization.json"
+    finalization = {
+        "schema_version": FINALIZATION_SCHEMA_VERSION,
+        "stage": local.LORA_RETRY_STAGE,
+        "run_id": local.LORA_RETRY_RUN_ID,
+        "reason": "resume_after_discard_with_canonical_partial_optimizer_summary",
+        "recovery_seal": f"{local.LORA_RETRY_STAGE}/recovery-seal.json",
+        "recovery_seal_sha256": local._sha256_file(seal_path),
+        "discard_receipt": f"{local.LORA_RETRY_STAGE}/discard-receipt.json",
+        "discard_receipt_sha256": local._sha256_file(receipt_path),
+        "controller_failure": f"{local.LORA_RETRY_STAGE}/controller-failure.json",
+        "controller_failure_sha256": local._sha256_file(controller_path),
+        "finalization_code": recovery_code,
+        "sealed_utc": timestamp,
+        "sealed_monotonic": monotonic,
+        "remaining_decision_seconds": state.deadline_monotonic - monotonic,
+    }
+    if finalization_path.is_file():
+        existing_finalization = local._read_json(finalization_path)
+        if existing_finalization.get("schema_version") != FINALIZATION_SCHEMA_VERSION:
+            raise RuntimeError("existing recovery finalization authority is invalid")
+        _verify_committed_recovery_code(
+            repository, existing_finalization.get("finalization_code")
+        )
+        stable_keys = (
+            "stage",
+            "run_id",
+            "reason",
+            "recovery_seal",
+            "recovery_seal_sha256",
+            "discard_receipt",
+            "discard_receipt_sha256",
+            "controller_failure",
+            "controller_failure_sha256",
+        )
+        if any(existing_finalization.get(key) != finalization[key] for key in stable_keys):
+            raise RuntimeError("existing recovery finalization authority drifted")
+        finalization = existing_finalization
+    else:
+        local._write_immutable_json(finalization_path, finalization)
+    canonical_optimizer = _canonical_partial_summary(optimizer)
     outcome_payload = {
         "status": "error",
         "stop_reason": "parent_controller_error",
@@ -592,12 +662,16 @@ def recover_lora_retry(
         "controller_failure_sha256": local._sha256_file(controller_path),
         "recovery_seal": f"{local.LORA_RETRY_STAGE}/recovery-seal.json",
         "recovery_seal_sha256": local._sha256_file(seal_path),
+        "recovery_finalization": (
+            f"{local.LORA_RETRY_STAGE}/recovery-finalization.json"
+        ),
+        "recovery_finalization_sha256": local._sha256_file(finalization_path),
         "recovery_reason": RECOVERY_REASON,
         "retained_optimizer_steps": 26,
         "losses_finite": True,
         "optimizer_events": f"{local.LORA_RETRY_STAGE}/optimizer-events.jsonl",
-        "optimizer_events_sha256": optimizer["optimizer_events_sha256"],
-        "partial_event_summary": optimizer,
+        "optimizer_events_sha256": canonical_optimizer["optimizer_events_sha256"],
+        "partial_event_summary": canonical_optimizer,
         "quantization_proof": f"{local.LORA_RETRY_STAGE}/quantization-proof.json",
         "quantization_proof_sha256": local._sha256_file(
             stage_root / "quantization-proof.json"

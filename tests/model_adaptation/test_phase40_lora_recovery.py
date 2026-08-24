@@ -209,3 +209,59 @@ def test_readonly_cleanup_rejects_root_link_before_resolve(tmp_path: Path, monke
     with pytest.raises(ValueError, match="link or reparse"):
         callbacks._clear_bounded_windows_readonly_tree(target)
     assert observed == [target]
+
+
+def test_post_discard_resume_accepts_only_hash_bound_historical_seal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    stage = tmp_path / local.LORA_RETRY_STAGE
+    stage.mkdir()
+    for name in recovery._BASE_STAGE_FILES:
+        (stage / name).write_text(f"{name}\n", encoding="utf-8")
+    for name in ("recovery-seal.json", "discard-receipt.json", "controller-failure.json"):
+        (stage / name).write_text("{}\n", encoding="utf-8")
+    recovery._validate_stage_entries(stage)
+    assert not (stage / "runtime").exists()
+
+    sealed_code = {"commit": "a" * 40, "source_sha256": {}}
+    seal = {
+        "schema_version": recovery.RECOVERY_SCHEMA_VERSION,
+        "stage": local.LORA_RETRY_STAGE,
+        "run_id": local.LORA_RETRY_RUN_ID,
+        "recovery_reason": recovery.RECOVERY_REASON,
+        "recovery_code": sealed_code,
+        "telemetry_sha256": local._sha256_file(stage / "telemetry.jsonl"),
+        "optimizer_events_sha256": local._sha256_file(
+            stage / "optimizer-events.jsonl"
+        ),
+        "quantization_proof_sha256": local._sha256_file(
+            stage / "quantization-proof.json"
+        ),
+    }
+    observed: list[object] = []
+    monkeypatch.setattr(
+        recovery,
+        "_verify_committed_recovery_code",
+        lambda _repo, identity: observed.append(identity) or identity,
+    )
+    recovery._verify_existing_seal(seal, stage, tmp_path)
+    assert observed == [sealed_code]
+    seal["optimizer_events_sha256"] = "0" * 64
+    with pytest.raises(RuntimeError, match="immutable evidence"):
+        recovery._verify_existing_seal(seal, stage, tmp_path)
+
+
+def test_outcome_uses_canonical_partial_summary_and_keeps_median_separate() -> None:
+    enriched = {
+        "observed_optimizer_steps": 31,
+        "retained_optimizer_steps": 26,
+        "losses_finite": True,
+        "measured_step_seconds": MEASURED_DURATIONS,
+        "optimizer_events_sha256": "a" * 64,
+        "terminal_event_kind": "step_timing",
+        "steady_state_step_seconds_median": 53.27434919999996,
+    }
+    canonical = recovery._canonical_partial_summary(enriched)
+    assert "steady_state_step_seconds_median" not in canonical
+    assert canonical["retained_optimizer_steps"] == 26
+    assert enriched["steady_state_step_seconds_median"] == 53.27434919999996
