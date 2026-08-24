@@ -40,7 +40,7 @@ Analyze one message & \texttt{vnphish analyze} \\
 \end{tabular}
 \end{center}
 
-These are runnable workflow examples, not a claim that current defaults reproduce the historical metrics. In the current tree, \texttt{evaluate-release-split} defaults to \path{data/splits/val.jsonl}, the 219-row development-validation partition. That default is not a held-out test and does not reproduce the historical 254-row result without the pinned earlier snapshot and artifacts. The promoted 220-row test partition remains reserved for subsequent retraining and held-out evaluation. Other commands likewise require explicit historical artifact paths and parameters to reproduce an earlier run.
+These are runnable workflow examples; the current defaults are a development-validation configuration, not a historical-metric reproduction configuration. In the current tree, \texttt{evaluate-release-split} defaults to \path{data/splits/val.jsonl}, the 219-row development-validation partition. That default is not a held-out test and cannot yield the historical 254-row result without the pinned earlier snapshot and artifacts. The promoted 220-row test partition remains reserved for subsequent retraining and held-out evaluation. Other commands likewise require explicit historical artifact paths and parameters to reproduce an earlier run.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}

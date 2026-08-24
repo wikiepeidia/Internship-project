@@ -30,8 +30,8 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ### Active
 
-- [ ] Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family: `.planning/codex-judge-instructions.md` is the ready-to-paste Codex CLI spec (batched, structured JSONL output, joinable back to source rows via `row_index`/`seed_id`) — plus a genuine manual 100-example human check.
-- [ ] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
+- [x] Complete the Codex quality pass on the repaired corpus with a joinable structured JSONL bundle, explicitly disclose that 296 surviving GPT/Codex-authored Zalo reconstructions share the judge family, and pair it with a genuine manual 100-example human check.
+- [x] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
 - [ ] Run bounded LoRA/QLoRA probes on the RTX 5050 for honest feasibility and ETA measurements, then train and graph fresh matched full LoRA/QLoRA runs on Colab.
 - [ ] Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data.
@@ -78,7 +78,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 **Target features:**
 
 - Repair the synthetic corpus's structural bugs (one seed = ~25% of the 3,000-row corpus; a seed crossing all three splits; 131 invalid evidence spans) against concrete, checkable acceptance gates — not open-ended cleanup.
-- Re-run the LLM-judge quality pass on the repaired corpus with an independent third model family (Codex, batched, structured JSONL output) plus a genuine manual 100-example human check by a Vietnamese-fluent reviewer.
+- Complete the Codex quality pass on the repaired corpus, disclose its same-family limitation for 296 surviving reconstructed Zalo rows, and pair it with a genuine manual 100-example human check by a Vietnamese-fluent reviewer.
 - Cut the t-test (too statistically sophisticated to be a plausible undergraduate's own idea); replace with plain descriptive quality stats plus the new manual-check results.
 - Restore the genuine `task_scam` 0.44→0.871 recall-recovery story into the report — real, evidenced, and previously scrubbed by an earlier guardrail rule that (in hindsight) made the report read as suspiciously frictionless.
 - Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then train fresh matched full LoRA and QLoRA runs on the same Colab accelerator type where available. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation.

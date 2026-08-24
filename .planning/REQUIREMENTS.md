@@ -646,9 +646,9 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Independent Quality Re-Judge
 
-- [ ] **JUDGE-01**: Full repaired corpus judged by an independent third model family via `.planning/codex-judge-instructions.md`, producing a joinable structured result file.
-- [ ] **JUDGE-02**: Manual 100-example human check completed by a Vietnamese-fluent reviewer, results captured for report inclusion.
-- [ ] **JUDGE-03**: T-test removed from the report; replaced with descriptive quality stats plus the manual-check results.
+- [x] **JUDGE-01**: Full repaired corpus has a joinable structured Codex result file via `.planning/codex-judge-instructions.md`; Codex is cross-family relative to the original Claude generation lineage, while the 296 surviving GPT/Codex-authored Zalo reconstructions are explicitly disclosed as a same-family exception and separately sampled in the human review.
+- [x] **JUDGE-02**: Manual 100-example human check completed by a Vietnamese-fluent reviewer, results captured for report inclusion.
+- [x] **JUDGE-03**: T-test removed from the report; replaced with descriptive quality stats plus the manual-check results.
 
 ### Real Multi-Model Training Evidence
 
@@ -696,9 +696,9 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | DATA-06 | Phase 38 | Complete (v3, post-260808-otp) |
 | DATA-07 | Phase 38 | Complete (v3, post-260808-otp) |
 | DATA-08 | Phase 38 | Complete |
-| JUDGE-01 | Phase 39 | Pending |
-| JUDGE-02 | Phase 39 | Pending |
-| JUDGE-03 | Phase 39 | Pending |
+| JUDGE-01 | Phase 39 | Complete |
+| JUDGE-02 | Phase 39 | Complete |
+| JUDGE-03 | Phase 39 | Complete |
 | TRAIN-01 | Phase 40 | Pending |
 | TRAIN-02 | Phase 40 | Pending |
 | TRAIN-03 | Phase 40 | Pending |
