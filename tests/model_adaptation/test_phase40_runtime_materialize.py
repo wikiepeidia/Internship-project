@@ -644,6 +644,11 @@ def test_evidence_pinned_direct_roots_and_smoke_operations_are_exact():
     assert {"sklearn_metrics", "matplotlib_agg_render"} <= (
         materialize._SMOKE_CHECK_KEYS
     )
+    recipe = materialize._recipe_payload()
+    assert recipe["schema_version"].endswith("-v3")
+    assert recipe["fixed_smoke_environment"]["TORCHINDUCTOR_CACHE_DIR"] == (
+        "temporary/torch-inductor"
+    )
 
 
 def test_public_producer_and_verifier_have_no_injection_surface():
@@ -685,6 +690,7 @@ def test_strict_smoke_environment_drops_unallowlisted_host_values(tmp_path):
             "AWS_SECRET_ACCESS_KEY": "forbidden",
             "PYTHONPATH": r"C:\live-site-packages",
             "CONDA_PREFIX": r"C:\conda",
+            "TORCHINDUCTOR_CACHE_DIR": r"C:\host-torch-cache",
         },
     )
     assert environment["SYSTEMROOT"] == r"C:\Windows"
@@ -695,6 +701,10 @@ def test_strict_smoke_environment_drops_unallowlisted_host_values(tmp_path):
     assert "CONDA_PREFIX" not in environment
     assert environment["HF_HUB_OFFLINE"] == "1"
     assert environment["MPLCONFIGDIR"].endswith("temporary\\mpl")
+    assert environment["TORCHINDUCTOR_CACHE_DIR"].endswith(
+        "temporary\\torch-inductor"
+    )
+    assert "host-torch-cache" not in environment["TORCHINDUCTOR_CACHE_DIR"]
 
 
 @pytest.mark.parametrize("semantic_target", ("closure", "python", "inventory", "smoke"))

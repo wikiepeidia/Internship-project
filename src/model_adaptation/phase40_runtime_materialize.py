@@ -60,7 +60,7 @@ MATERIALIZATION_RECEIPT_SCHEMA_VERSION = (
 MATERIALIZATION_COMPLETE_SCHEMA_VERSION = (
     "phase40-runtime-dependency-materialization-complete-v1"
 )
-STAGING_RECIPE_SCHEMA_VERSION = "phase40-runtime-dependency-staging-recipe-v2"
+STAGING_RECIPE_SCHEMA_VERSION = "phase40-runtime-dependency-staging-recipe-v3"
 SMOKE_SCHEMA_VERSION = "phase40-runtime-staged-smoke-v2"
 CAPTURE_ROOT_NAMES = ("capture-a", "capture-b")
 PYTHON_RUNTIME_ROOT_NAME = "python-runtime"
@@ -1390,6 +1390,12 @@ def _build_smoke_environment(
             "PYTHONNOUSERSITE": "1",
             "HF_HOME": os.fspath(temporary / "hf"),
             "MPLCONFIGDIR": os.fspath(temporary / "mpl"),
+            # Torch 2.12 resolves its Inductor cache while importing through
+            # bitsandbytes/PEFT.  A username-free strict environment otherwise
+            # makes getpass fail mid-import and leaves torch._dynamo partially
+            # initialized.  Keep the cache inside the disposable smoke root;
+            # never pass through a personal username or host cache path.
+            "TORCHINDUCTOR_CACHE_DIR": os.fspath(temporary / "torch-inductor"),
             "XDG_CACHE_HOME": os.fspath(temporary / "xdg-cache"),
             "TEMP": os.fspath(temporary),
             "TMP": os.fspath(temporary),
@@ -1513,9 +1519,22 @@ def _recipe_payload() -> dict[str, object]:
         "distribution_mapping": "site-packages-or-python-prefix-v1",
         "metadata_alias_policy": "deduplicate-exact-same-source-v1",
         "import_origin_overrides": dict(sorted(IMPORT_ORIGIN_OVERRIDES.items())),
-        "smoke_policy": "staged-python-temp-write-strict-env-allowlist-v2",
+        "smoke_policy": "staged-python-temp-write-strict-env-allowlist-v3",
         "smoke_check_keys": sorted(_SMOKE_CHECK_KEYS),
         "environment_passthrough_allowlist": sorted(_SMOKE_PASSTHROUGH_ENV_KEYS),
+        "fixed_smoke_environment": {
+            "HF_HOME": "temporary/hf",
+            "HF_HUB_OFFLINE": "1",
+            "MPLCONFIGDIR": "temporary/mpl",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+            "TEMP": "temporary",
+            "TMP": "temporary",
+            "TOKENIZERS_PARALLELISM": "false",
+            "TORCHINDUCTOR_CACHE_DIR": "temporary/torch-inductor",
+            "TRANSFORMERS_OFFLINE": "1",
+            "XDG_CACHE_HOME": "temporary/xdg-cache",
+        },
         "authority_policy": "capture-a-equals-capture-b-verify-both-v2",
     }
 
