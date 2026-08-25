@@ -201,6 +201,15 @@ $OldNoUserSite = $env:PYTHONNOUSERSITE
 try {
     $LauncherLock = Open-LockedReadFile -LiteralPath $LauncherPath
     $AuthorityLocks.Add($LauncherLock.Stream)
+    $LauncherProcess = Get-Process -Id $PID
+    $LauncherImagePath = [System.IO.Path]::GetFullPath(
+        $LauncherProcess.MainModule.FileName
+    )
+    Assert-NoReparseDirectoryAncestors -DirectoryPath (
+        [System.IO.Path]::GetDirectoryName($LauncherImagePath)
+    )
+    $LauncherImageLock = Open-LockedReadFile -LiteralPath $LauncherImagePath
+    $AuthorityLocks.Add($LauncherImageLock.Stream)
 
     $SourceManifest = Join-Path $ResolvedOutput "execution-source-manifest.json"
     $ProtocolAuthority = Join-Path $ResolvedOutput "frozen-inference-protocols.json"
@@ -391,6 +400,8 @@ def load(path):
     clean_root,
     launcher_capability_sha256,
     launcher_process_id_raw,
+    launcher_process_image_path,
+    launcher_process_image_sha256,
 ) = sys.argv[1:]
 source, source_bytes = load(source_path)
 request, _ = load(request_path)
@@ -404,6 +415,13 @@ if len(launcher_capability_sha256) != 64 or any(
 launcher_process_id = int(launcher_process_id_raw)
 if launcher_process_id <= 0:
     raise RuntimeError("launcher process identity is invalid")
+normalized_launcher_image = os.path.normcase(
+    os.path.abspath(os.path.normpath(launcher_process_image_path))
+)
+if len(launcher_process_image_sha256) != 64 or any(
+    value not in "0123456789abcdef" for value in launcher_process_image_sha256
+):
+    raise RuntimeError("launcher process image digest is invalid")
 bundle_bytes = canonical(request["authorities"]["model_bundle_authorities"])
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(clean_root)))
 payload = canonical({
@@ -421,6 +439,10 @@ payload = canonical({
     "source_handles_locked_at_launch": True,
     "launcher_capability_sha256": launcher_capability_sha256,
     "launcher_process_id": launcher_process_id,
+    "launcher_process_image_path_sha256": hashlib.sha256(
+        normalized_launcher_image.encode("utf-8")
+    ).hexdigest(),
+    "launcher_process_image_sha256": launcher_process_image_sha256,
     "runtime_import_roots": source["python"]["runtime_import_roots"],
 })
 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
@@ -433,7 +455,8 @@ finally:
 '@
     & $PythonPath -I -S -s -B -c $ReceiptBuilder `
         $MaterializationReceipt $SourceManifest $PreparedRequest `
-        $ProtocolAuthority $CleanRoot $CapabilitySha256 ([string]$PID)
+        $ProtocolAuthority $CleanRoot $CapabilitySha256 ([string]$PID) `
+        $LauncherImagePath $LauncherImageLock.Sha256
     if ($LASTEXITCODE -ne 0) {
         throw "Pinned Python failed to freeze the execution materialization receipt"
     }
@@ -444,16 +467,12 @@ finally:
 import hashlib
 import importlib.abc
 import importlib.util
-import ctypes
-from ctypes import wintypes
 import json
-import msvcrt
 import os
 import platform
 from pathlib import Path
 import runpy
 import sys
-import types
 
 def reject_duplicates(pairs):
     result = {}
@@ -475,60 +494,12 @@ def load(path):
 
 root = Path(sys.argv.pop(1)).absolute()
 output = Path(sys.argv.pop(1)).absolute()
-capability_handle = int(sys.argv.pop(1))
 source, source_bytes = load(output / "execution-source-manifest.json")
 receipt, _ = load(output / "execution-materialization-receipt.json")
 request, _ = load(output / "evaluation-request.json")
 _, protocol_bytes = load(output / "frozen-inference-protocols.json")
 if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
-if capability_handle <= 0:
-    raise RuntimeError("live inherited launcher handle is required")
-os.set_handle_inheritable(capability_handle, False)
-capability_descriptor = msvcrt.open_osfhandle(
-    capability_handle,
-    os.O_RDONLY | getattr(os, "O_BINARY", 0),
-)
-capability_stream = os.fdopen(capability_descriptor, "rb", buffering=0)
-nonce = bytearray()
-while len(nonce) < 32:
-    chunk = capability_stream.read(32 - len(nonce))
-    if not chunk:
-        raise RuntimeError("live inherited launcher capability closed early")
-    nonce.extend(chunk)
-capability_os_handle = msvcrt.get_osfhandle(capability_stream.fileno())
-kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-get_server_pid = kernel32.GetNamedPipeServerProcessId
-get_server_pid.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
-get_server_pid.restype = wintypes.BOOL
-peek_pipe = kernel32.PeekNamedPipe
-peek_pipe.argtypes = [
-    wintypes.HANDLE,
-    ctypes.c_void_p,
-    wintypes.DWORD,
-    ctypes.POINTER(wintypes.DWORD),
-    ctypes.POINTER(wintypes.DWORD),
-    ctypes.POINTER(wintypes.DWORD),
-]
-peek_pipe.restype = wintypes.BOOL
-server_process_id = wintypes.ULONG()
-if not get_server_pid(capability_os_handle, ctypes.byref(server_process_id)):
-    raise RuntimeError("launcher pipe server identity is unavailable")
-
-def assert_launcher_live():
-    available = wintypes.DWORD()
-    if not peek_pipe(
-        capability_os_handle,
-        None,
-        0,
-        None,
-        ctypes.byref(available),
-        None,
-    ):
-        raise RuntimeError("launcher pipe is no longer live")
-    if available.value != 0:
-        raise RuntimeError("launcher pipe contains unexpected extra capability bytes")
-
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(root))))
 expected = {
     "source_manifest_sha256": hashlib.sha256(source_bytes).hexdigest(),
@@ -539,8 +510,6 @@ expected = {
     "python_executable_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
     "clean_runtime_root_sha256": hashlib.sha256(normalized_root.encode("utf-8")).hexdigest(),
     "source_file_count": len(source["files"]),
-    "launcher_capability_sha256": hashlib.sha256(bytes(nonce)).hexdigest(),
-    "launcher_process_id": int(server_process_id.value),
     "runtime_import_roots": source["python"]["runtime_import_roots"],
 }
 if receipt.get("schema_version") != "phase41-execution-materialization-v1" or receipt.get("mode") != "locked-clean-runtime" or receipt.get("source_handles_locked_at_launch") is not True:
@@ -548,23 +517,6 @@ if receipt.get("schema_version") != "phase41-execution-materialization-v1" or re
 for key, value in expected.items():
     if receipt.get(key) != value:
         raise RuntimeError(f"materialization receipt drifted: {key}")
-assert_launcher_live()
-capability_state = {"consumed": False}
-
-def consume_launcher_once():
-    assert_launcher_live()
-    if capability_state["consumed"]:
-        raise RuntimeError("launcher capability was already consumed")
-    capability_state["consumed"] = True
-
-capability_module = types.ModuleType("_vnphish_phase41_launcher_capability")
-capability_module._nonce = bytes(nonce)
-capability_module.binding = object()
-capability_module.server_process_id = int(server_process_id.value)
-capability_module.assert_live = assert_launcher_live
-capability_module.consume_once = consume_launcher_once
-capability_module._stream = capability_stream
-sys.modules[capability_module.__name__] = capability_module
 expected_files = {row["path"]: row for row in source["files"]}
 actual_files = {
     path.relative_to(root).as_posix(): path
@@ -651,21 +603,16 @@ sys.path[:] = [*runtime_roots, *[value for value in sys.path if value not in {""
 sys.argv = ["src.model_adaptation.cli", "phase41-run-once", "--output-root", str(output)]
 runpy.run_module("src.model_adaptation.cli", run_name="__main__", alter_sys=True)
 '@
-    $CapabilityPipe = $null
     $ChildProcess = $null
     try {
-        $CapabilityPipe = [System.IO.Pipes.AnonymousPipeServerStream]::new(
-            [System.IO.Pipes.PipeDirection]::Out,
-            [System.IO.HandleInheritability]::Inheritable
-        )
-        $ClientHandle = $CapabilityPipe.GetClientHandleAsString()
         $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
         $StartInfo.FileName = $PythonPath
         $StartInfo.UseShellExecute = $false
         $StartInfo.CreateNoWindow = $true
+        $StartInfo.RedirectStandardInput = $true
         foreach ($Argument in @(
             '-I', '-S', '-s', '-B', '-c', $Bootstrap,
-            $CleanRoot, $ResolvedOutput, $ClientHandle
+            $CleanRoot, $ResolvedOutput
         )) {
             [void]$StartInfo.ArgumentList.Add([string]$Argument)
         }
@@ -673,9 +620,9 @@ runpy.run_module("src.model_adaptation.cli", run_name="__main__", alter_sys=True
         if ($null -eq $ChildProcess) {
             throw "Pinned Python child process did not start"
         }
-        $CapabilityPipe.DisposeLocalCopyOfClientHandle()
-        $CapabilityPipe.Write($CapabilityBytes, 0, $CapabilityBytes.Length)
-        $CapabilityPipe.Flush()
+        $CapabilityStream = $ChildProcess.StandardInput.BaseStream
+        $CapabilityStream.Write($CapabilityBytes, 0, $CapabilityBytes.Length)
+        $CapabilityStream.Flush()
         $ChildProcess.WaitForExit()
         if ($ChildProcess.ExitCode -ne 0) {
             throw "Phase 41 isolated run failed with exit code $($ChildProcess.ExitCode)"
@@ -683,7 +630,6 @@ runpy.run_module("src.model_adaptation.cli", run_name="__main__", alter_sys=True
     }
     finally {
         if ($null -ne $ChildProcess) { $ChildProcess.Dispose() }
-        if ($null -ne $CapabilityPipe) { $CapabilityPipe.Dispose() }
     }
 }
 finally {

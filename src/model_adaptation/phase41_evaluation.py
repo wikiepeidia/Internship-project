@@ -2,8 +2,8 @@
 
 Preparation treats the held-out identity as opaque metadata.  Only
 ``run_phase41_once`` is allowed to acquire the payload, and it durably spends
-the content identity before doing so.  The module has no model-library import;
-it accepts two already-loaded, protocol-bound predictors.
+the content identity before doing so.  The production entry owns model loading
+and accepts no predictor, opener, or capability supplied by its caller.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import ast
 import hashlib
-import importlib
 import json
 import math
 import ntpath
@@ -72,9 +71,11 @@ EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
 MATERIALIZATION_RECEIPT_NAME = "execution-materialization-receipt.json"
 COMPLETION_SEAL_NAME = "protected-completion-seal.json"
-LAUNCH_CAPABILITY_MODULE = "_vnphish_phase41_launcher_capability"
 PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED = (
     "phase40_comparison_launch_receipt_contract_missing"
+)
+PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED = (
+    "phase40_runtime_dependency_byte_authority_missing"
 )
 
 _PHASE39_AUTHORITY_RELATIVE = Path(
@@ -149,6 +150,91 @@ class _AccessMetadata:
 
 _ACCESS_METADATA: ContextVar[_AccessMetadata | None] = ContextVar(
     "phase41_access_metadata", default=None
+)
+
+
+@dataclass(slots=True)
+class _LiveLauncherCapability:
+    """OS-backed launcher lifetime proof created only from inherited stdin."""
+
+    output_root_sha256: str
+    pipe_handle: int
+    launcher_process_handle: int
+    launcher_process_id: int
+    launcher_capability_sha256: str
+    launcher_process_image_path_sha256: str
+    launcher_process_image_sha256: str
+    consumed: bool = False
+    closed: bool = False
+
+    def assert_live(self) -> None:
+        if self.closed or os.name != "nt":
+            raise ContractError("live inherited launcher capability is unavailable")
+        import ctypes
+        from ctypes import wintypes
+
+        FILE_TYPE_PIPE = 3
+        WAIT_TIMEOUT = 0x102
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        get_file_type = kernel32.GetFileType
+        get_file_type.argtypes = [wintypes.HANDLE]
+        get_file_type.restype = wintypes.DWORD
+        if int(get_file_type(wintypes.HANDLE(self.pipe_handle))) != FILE_TYPE_PIPE:
+            raise ContractError("inherited launcher capability is not a pipe")
+        available = wintypes.DWORD()
+        peek_pipe = kernel32.PeekNamedPipe
+        peek_pipe.argtypes = [
+            wintypes.HANDLE,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        peek_pipe.restype = wintypes.BOOL
+        if not peek_pipe(
+            wintypes.HANDLE(self.pipe_handle),
+            None,
+            0,
+            None,
+            ctypes.byref(available),
+            None,
+        ) or available.value != 0:
+            raise ContractError("launcher pipe is closed or contains extra bytes")
+        wait_for_single_object = kernel32.WaitForSingleObject
+        wait_for_single_object.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        wait_for_single_object.restype = wintypes.DWORD
+        if int(
+            wait_for_single_object(
+                wintypes.HANDLE(self.launcher_process_handle), 0
+            )
+        ) != WAIT_TIMEOUT:
+            raise ContractError("launcher parent process is no longer live")
+
+    def consume_once(self) -> None:
+        self.assert_live()
+        if self.consumed:
+            raise ContractError("launcher capability was already consumed")
+        self.consumed = True
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        if os.name == "nt" and self.launcher_process_handle:
+            import ctypes
+            from ctypes import wintypes
+
+            close_handle = ctypes.WinDLL(
+                "kernel32", use_last_error=True
+            ).CloseHandle
+            close_handle.argtypes = [wintypes.HANDLE]
+            close_handle.restype = wintypes.BOOL
+            close_handle(wintypes.HANDLE(self.launcher_process_handle))
+
+
+_LIVE_LAUNCHER_CAPABILITY: ContextVar[_LiveLauncherCapability | None] = ContextVar(
+    "phase41_live_launcher_capability", default=None
 )
 
 
@@ -818,6 +904,37 @@ def _exclusive_write(path: Path, payload: bytes) -> Path:
     finally:
         os.close(descriptor)
     return path
+
+
+def _durable_replace(path: Path, payload: bytes) -> Path:
+    """Atomically replace one already-owned journal file with flushed bytes."""
+
+    path = Path(path)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.replace")
+    _exclusive_write(temporary, payload)
+    try:
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
+    return path
+
+
+def _replace_global_completion(
+    path: Path, *, pending_payload: bytes, completed_payload: bytes
+) -> Path:
+    """Transition the protected completion journal from pending to completed."""
+
+    root = _claim_registry_root()
+    if path.parent != root:
+        raise ContractError("global completion path escaped the fixed registry")
+    _validate_claim_registry_root(root)
+    if path.read_bytes() != pending_payload:
+        raise ContractError("protected completion journal changed before finalization")
+    return _durable_replace(path, completed_payload)
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -1583,12 +1700,15 @@ def _terminal_failure(root: Path, claim_sha256: str, stage: str, exc: BaseExcept
         "error_type": type(exc).__name__,
         "rerun_permitted": False,
     }
+    terminal_path = root / TERMINAL_NAME
+    terminal_payload = _canonical_json_bytes(payload)
     try:
-        _exclusive_write(root / TERMINAL_NAME, _canonical_json_bytes(payload))
+        _exclusive_write(terminal_path, terminal_payload)
     except FileExistsError:
-        # The claim still proves the holdout is spent. Never remove it to make
-        # a failed attempt look rerunnable.
-        pass
+        # A local completed terminal is only provisional until the protected
+        # completion journal reaches completed. Replace it deterministically
+        # when that final transition fails; the global claim remains spent.
+        _durable_replace(terminal_path, terminal_payload)
 
 
 def _run_once(
@@ -2165,6 +2285,8 @@ def _materialization_payload(
     created_at_utc: str,
     launcher_capability_sha256: str | None = None,
     launcher_process_id: int | None = None,
+    launcher_process_image_path_sha256: str | None = None,
+    launcher_process_image_sha256: str | None = None,
 ) -> bytes:
     if mode not in {"locked-clean-runtime", "synthetic-test"}:
         raise ContractError("execution materialization mode is invalid")
@@ -2180,6 +2302,8 @@ def _materialization_payload(
     if mode == "synthetic-test":
         capability_sha256 = "0" * 64
         process_id = 0
+        process_image_path_sha256 = "0" * 64
+        process_image_sha256 = "0" * 64
     else:
         capability_sha256 = _require_sha256(
             launcher_capability_sha256, "live launcher capability"
@@ -2191,6 +2315,12 @@ def _materialization_payload(
         ):
             raise ContractError("live launcher process ID is invalid")
         process_id = launcher_process_id
+        process_image_path_sha256 = _require_sha256(
+            launcher_process_image_path_sha256, "launcher process image path"
+        )
+        process_image_sha256 = _require_sha256(
+            launcher_process_image_sha256, "launcher process image"
+        )
     return _canonical_json_bytes(
         {
             "schema_version": "phase41-execution-materialization-v1",
@@ -2207,6 +2337,8 @@ def _materialization_payload(
             "source_handles_locked_at_launch": True,
             "launcher_capability_sha256": capability_sha256,
             "launcher_process_id": process_id,
+            "launcher_process_image_path_sha256": process_image_path_sha256,
+            "launcher_process_image_sha256": process_image_sha256,
             "runtime_import_roots": python_authority["runtime_import_roots"],
         }
     )
@@ -2259,6 +2391,8 @@ def _verify_materialization_receipt(
         "source_handles_locked_at_launch",
         "launcher_capability_sha256",
         "launcher_process_id",
+        "launcher_process_image_path_sha256",
+        "launcher_process_image_sha256",
         "runtime_import_roots",
     }
     launcher = source.get("launcher")
@@ -2288,11 +2422,19 @@ def _verify_materialization_receipt(
         or not SHA256_RE.fullmatch(receipt["launcher_capability_sha256"])
         or not isinstance(receipt["launcher_process_id"], int)
         or isinstance(receipt["launcher_process_id"], bool)
+        or not isinstance(receipt["launcher_process_image_path_sha256"], str)
+        or not SHA256_RE.fullmatch(
+            receipt["launcher_process_image_path_sha256"]
+        )
+        or not isinstance(receipt["launcher_process_image_sha256"], str)
+        or not SHA256_RE.fullmatch(receipt["launcher_process_image_sha256"])
         or (
             receipt["mode"] == "synthetic-test"
             and (
                 receipt["launcher_capability_sha256"] != "0" * 64
                 or receipt["launcher_process_id"] != 0
+                or receipt["launcher_process_image_path_sha256"] != "0" * 64
+                or receipt["launcher_process_image_sha256"] != "0" * 64
             )
         )
         or (
@@ -2300,6 +2442,8 @@ def _verify_materialization_receipt(
             and (
                 receipt["launcher_capability_sha256"] == "0" * 64
                 or receipt["launcher_process_id"] <= 0
+                or receipt["launcher_process_image_path_sha256"] == "0" * 64
+                or receipt["launcher_process_image_sha256"] == "0" * 64
             )
         )
         or receipt["runtime_import_roots"]
@@ -2317,52 +2461,185 @@ def _verify_materialization_receipt(
                 receipt["launcher_capability_sha256"]
             ),
             launcher_process_id=int(receipt["launcher_process_id"]),
+            launcher_process_image_path_sha256=str(
+                receipt["launcher_process_image_path_sha256"]
+            ),
+            launcher_process_image_sha256=str(
+                receipt["launcher_process_image_sha256"]
+            ),
         )
     ):
         raise ContractError("execution materialization receipt drifted")
 
 
-def _require_live_launcher_capability(
-    output_root: Path, *, consume: bool
-) -> object | None:
-    """Prove the protected materializer parent is still alive for production."""
+def _acquire_live_launcher_capability(output_root: Path) -> _LiveLauncherCapability:
+    """Read and bind the one-use nonce from the inherited Windows stdin pipe."""
 
-    if _TEST_RUNTIME.get() is not None:
-        return None
+    if _TEST_RUNTIME.get() is not None or os.name != "nt":
+        raise ContractError("production run requires a Windows launcher capability")
     materialization = _load_materialization_receipt(output_root)
     if materialization is None:
         raise ContractError("the protected launcher materialization receipt is required")
     receipt, _ = materialization
     if receipt.get("mode") != "locked-clean-runtime":
         raise ContractError("production run requires locked clean-runtime materialization")
-    try:
-        capability = importlib.import_module(LAUNCH_CAPABILITY_MODULE)
-    except ModuleNotFoundError as exc:
-        raise ContractError(
-            "production run requires a live inherited launcher capability"
-        ) from exc
-    nonce = getattr(capability, "_nonce", None)
-    binding = getattr(capability, "binding", None)
-    server_process_id = getattr(capability, "server_process_id", None)
-    assert_live = getattr(capability, "assert_live", None)
-    consume_once = getattr(capability, "consume_once", None)
+    launcher_process_id = receipt.get("launcher_process_id")
     if (
-        not isinstance(nonce, bytes)
-        or len(nonce) != 32
-        or binding is None
-        or server_process_id != receipt.get("launcher_process_id")
-        or not callable(assert_live)
-        or not callable(consume_once)
-        or _sha256(nonce) != receipt.get("launcher_capability_sha256")
+        not isinstance(launcher_process_id, int)
+        or isinstance(launcher_process_id, bool)
+        or launcher_process_id <= 0
+    ):
+        raise ContractError("launcher process identity is invalid")
+    for field, description in (
+        ("launcher_capability_sha256", "launcher capability"),
+        ("launcher_process_image_path_sha256", "launcher process image path"),
+        ("launcher_process_image_sha256", "launcher process image"),
+    ):
+        _require_sha256(receipt.get(field), description)
+
+    import ctypes
+    from ctypes import wintypes
+    import msvcrt
+
+    FILE_TYPE_PIPE = 3
+    STD_INPUT_HANDLE = 0xFFFFFFF6
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    SYNCHRONIZE = 0x100000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    try:
+        descriptor = int(sys.stdin.buffer.fileno())
+        pipe_handle = int(msvcrt.get_osfhandle(descriptor))
+    except (AttributeError, OSError, TypeError, ValueError) as exc:
+        raise ContractError(
+            "production run requires the inherited launcher pipe on stdin"
+        ) from exc
+    kernel32.GetStdHandle.argtypes = [wintypes.DWORD]
+    kernel32.GetStdHandle.restype = wintypes.HANDLE
+    standard_handle = int(kernel32.GetStdHandle(STD_INPUT_HANDLE))
+    get_file_type = kernel32.GetFileType
+    get_file_type.argtypes = [wintypes.HANDLE]
+    get_file_type.restype = wintypes.DWORD
+    if (
+        descriptor != 0
+        or pipe_handle <= 0
+        or pipe_handle != standard_handle
+        or int(get_file_type(wintypes.HANDLE(pipe_handle))) != FILE_TYPE_PIPE
+    ):
+        raise ContractError("inherited launcher capability is not the stdin pipe")
+
+    get_server_pid = kernel32.GetNamedPipeServerProcessId
+    get_server_pid.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
+    get_server_pid.restype = wintypes.BOOL
+    server_process_id = wintypes.ULONG()
+    if not get_server_pid(
+        wintypes.HANDLE(pipe_handle), ctypes.byref(server_process_id)
+    ):
+        raise ContractError("launcher pipe server identity is unavailable")
+    if int(server_process_id.value) != launcher_process_id:
+        raise ContractError("launcher pipe server differs from the frozen parent")
+
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    open_process.restype = wintypes.HANDLE
+    process_handle = int(
+        open_process(
+            PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+            False,
+            server_process_id.value,
+        )
+    )
+    if not process_handle:
+        raise ContractError("launcher parent process cannot be inspected")
+    try:
+        query_image = kernel32.QueryFullProcessImageNameW
+        query_image.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        query_image.restype = wintypes.BOOL
+        capacity = wintypes.DWORD(32768)
+        image_buffer = ctypes.create_unicode_buffer(capacity.value)
+        if not query_image(
+            wintypes.HANDLE(process_handle),
+            0,
+            image_buffer,
+            ctypes.byref(capacity),
+        ):
+            raise ContractError("launcher parent image path is unavailable")
+        image_path = Path(image_buffer.value)
+        if (
+            _normalized_path_sha256(image_path)
+            != receipt.get("launcher_process_image_path_sha256")
+            or not image_path.is_file()
+            or image_path.is_symlink()
+            or _sha256(image_path.read_bytes())
+            != receipt.get("launcher_process_image_sha256")
+        ):
+            raise ContractError("launcher parent image differs from its frozen authority")
+
+        nonce = bytearray()
+        while len(nonce) < 32:
+            chunk = os.read(descriptor, 32 - len(nonce))
+            if not chunk:
+                raise ContractError("inherited launcher capability closed early")
+            nonce.extend(chunk)
+        nonce_sha256 = _sha256(bytes(nonce))
+        if nonce_sha256 != receipt.get("launcher_capability_sha256"):
+            raise ContractError("inherited launcher nonce differs from its receipt")
+        capability = _LiveLauncherCapability(
+            output_root_sha256=_normalized_path_sha256(Path(output_root)),
+            pipe_handle=pipe_handle,
+            launcher_process_handle=process_handle,
+            launcher_process_id=int(server_process_id.value),
+            launcher_capability_sha256=nonce_sha256,
+            launcher_process_image_path_sha256=str(
+                receipt["launcher_process_image_path_sha256"]
+            ),
+            launcher_process_image_sha256=str(
+                receipt["launcher_process_image_sha256"]
+            ),
+        )
+        capability.assert_live()
+        return capability
+    except BaseException:
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+        close_handle(wintypes.HANDLE(process_handle))
+        raise
+
+
+def _require_live_launcher_capability(
+    output_root: Path, *, consume: bool
+) -> _LiveLauncherCapability | None:
+    """Return only the currently OS-verified launcher capability."""
+
+    if _TEST_RUNTIME.get() is not None:
+        return None
+    capability = _LIVE_LAUNCHER_CAPABILITY.get()
+    if type(capability) is not _LiveLauncherCapability:  # reject forged subclasses
+        raise ContractError("production run lacks its internally owned launcher capability")
+    materialization = _load_materialization_receipt(output_root)
+    if materialization is None:
+        raise ContractError("the protected launcher materialization receipt is required")
+    receipt, _ = materialization
+    if (
+        capability.output_root_sha256 != _normalized_path_sha256(Path(output_root))
+        or capability.launcher_process_id != receipt.get("launcher_process_id")
+        or capability.launcher_capability_sha256
+        != receipt.get("launcher_capability_sha256")
+        or capability.launcher_process_image_path_sha256
+        != receipt.get("launcher_process_image_path_sha256")
+        or capability.launcher_process_image_sha256
+        != receipt.get("launcher_process_image_sha256")
     ):
         raise ContractError("live inherited launcher capability differs from receipt")
-    try:
-        assert_live()
-        if consume:
-            consume_once()
-    except Exception as exc:
-        raise ContractError("live inherited launcher capability is unavailable") from exc
-    return binding
+    capability.assert_live()
+    if consume:
+        capability.consume_once()
+    return capability
 
 
 def _ensure_synthetic_materialization_receipt(output_root: Path) -> None:
@@ -2887,7 +3164,11 @@ def _manifest_from_disk(root: Path) -> Phase41EvidenceManifest:
 
 
 def _freeze_completion_evidence(
-    root: Path, products: _CompletionProducts, *, clock: Clock = _utc_now
+    root: Path,
+    products: _CompletionProducts,
+    *,
+    clock: Clock = _utc_now,
+    finalization_guard: Callable[[], None] | None = None,
 ) -> None:
     """Freeze every local artifact, protect its seal, then write terminal last."""
 
@@ -2961,17 +3242,38 @@ def _freeze_completion_evidence(
             "meaning": "protected seal prevents consistent post-run evidence resealing",
         }
     )
-    _exclusive_write(root / COMPLETION_SEAL_NAME, seal_payload)
-    # Freeze the local terminal before the protected machine transition. If a
-    # local write fails, no authoritative completed seal can exist. The global
-    # seal below is the final, authoritative completion transition.
-    _exclusive_write(root / TERMINAL_NAME, terminal_payload)
+    pending_payload = _canonical_json_bytes(
+        {
+            "schema_version": "phase41-protected-completion-journal-v1",
+            "status": "completion_pending",
+            "created_at_utc": clock(),
+            "claim_sha256": claim_sha,
+            "reserved_split_sha256": products.identity.sha256,
+            "evidence_manifest_sha256": _sha256(manifest_payload),
+            "intended_terminal_sha256": _sha256(terminal_payload),
+            "intended_completion_seal_sha256": _sha256(seal_payload),
+            "operator_sid": _current_operator_sid(),
+            "meaning": "pending is non-success until atomically replaced by completed",
+        }
+    )
+    global_completion = _global_completion_path(products.identity)
     try:
-        _exclusive_global_claim_write(
-            _global_completion_path(products.identity), seal_payload
-        )
+        _exclusive_global_claim_write(global_completion, pending_payload)
     except FileExistsError as exc:
-        raise ContractError("protected completion seal already exists") from exc
+        raise ContractError("protected completion journal already exists") from exc
+    # Local completed evidence is provisional while the protected journal is
+    # pending. The machine-global transition below is the final authoritative
+    # success step. Any local/global failure is converted to spent_failed by
+    # the enclosing run handler, and verification rejects a pending journal.
+    _exclusive_write(root / COMPLETION_SEAL_NAME, seal_payload)
+    _exclusive_write(root / TERMINAL_NAME, terminal_payload)
+    if finalization_guard is not None:
+        finalization_guard()
+    _replace_global_completion(
+        global_completion,
+        pending_payload=pending_payload,
+        completed_payload=seal_payload,
+    )
 
 
 def _validate_predictor_entry_mode(qwen, phobert) -> None:  # noqa: ANN001
@@ -2998,8 +3300,10 @@ def _validate_predictor_entry_mode(qwen, phobert) -> None:  # noqa: ANN001
         )
 
 
-def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifest:  # noqa: ANN001
-    """Spend the authorization exactly once using two preloaded frozen predictors."""
+def _run_phase41_once_with_predictors(
+    output_root: Path, qwen, phobert  # noqa: ANN001
+) -> Phase41EvidenceManifest:
+    """Private loaded-predictor core, gated by test runtime or live OS capability."""
 
     from src.model_adaptation.phase41_protocols import (
         FrozenPhoBertPredictor,
@@ -3018,8 +3322,9 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
         )
     live_binding = _require_live_launcher_capability(root, consume=False)
     verify_phase41_preauthorization(root)
-    if not isinstance(qwen, FrozenQwenPredictor) or not isinstance(
-        phobert, FrozenPhoBertPredictor
+    if (
+        type(qwen) is not FrozenQwenPredictor
+        or type(phobert) is not FrozenPhoBertPredictor
     ):
         raise ContractError("run-once requires preloaded frozen Qwen and PhoBERT predictors")
     _validate_predictor_entry_mode(qwen, phobert)
@@ -3067,7 +3372,9 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
 
     def freeze_verified_completion(products: _CompletionProducts) -> None:
         assert_predictor_lifetimes()
-        _freeze_completion_evidence(root, products)
+        _freeze_completion_evidence(
+            root, products, finalization_guard=assert_predictor_lifetimes
+        )
 
     _ACCESS_METADATA.set(None)
     _run_once(
@@ -3079,6 +3386,36 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
         preclaim_guard=consume_preclaim_capability,
     )
     return _manifest_from_disk(root)
+
+
+def _run_phase41_once_synthetic_for_test(
+    output_root: Path, qwen, phobert  # noqa: ANN001
+) -> Phase41EvidenceManifest:
+    """Private synthetic tracer seam; unavailable outside the test runtime."""
+
+    if _TEST_RUNTIME.get() is None:
+        raise ContractError("synthetic run helper is unavailable in production")
+    return _run_phase41_once_with_predictors(output_root, qwen, phobert)
+
+
+def run_phase41_once(output_root: Path) -> Phase41EvidenceManifest:
+    """Own production launcher proof, model loading, and the one-shot run."""
+
+    if _TEST_RUNTIME.get() is not None:
+        raise ContractError("production run entry is unavailable in synthetic runtime")
+    root = Path(output_root)
+    capability = _acquire_live_launcher_capability(root)
+    token = _LIVE_LAUNCHER_CAPABILITY.set(capability)
+    try:
+        from src.model_adaptation.phase41_protocols import (
+            load_phase41_production_predictors,
+        )
+
+        qwen, phobert = load_phase41_production_predictors(root)
+        return _run_phase41_once_with_predictors(root, qwen, phobert)
+    finally:
+        _LIVE_LAUNCHER_CAPABILITY.reset(token)
+        capability.close()
 
 
 def _verify_protected_completion_seal(root: Path) -> None:
@@ -3663,7 +4000,8 @@ def prepare_phase41_from_canonical_authorities(
     """Validate every existing upstream authority, then stop at the missing receipt.
 
     Phase 40 planning requires an external clean-source comparison-launch
-    receipt, but no producer, schema, canonical path, or verifier exists yet.
+    receipt and a frozen byte authority for the Python inference environment,
+    but no producer, schema, canonical path, or verifier exists for either.
     This entry point therefore validates the code-fixed Phase 39 metadata,
     complete comparison, human-review closure, and both immutable bundles, then
     raises a stable precondition code.  It never guesses an upstream receipt
@@ -3705,7 +4043,11 @@ def prepare_phase41_from_canonical_authorities(
     raise ContractError(
         f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: Phase 40 must first "
         "implement and freeze the external clean-source comparison-launch "
-        "receipt authority; Phase 41 refuses to invent its schema or hash"
+        "receipt authority; "
+        f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: Phase 40 must also "
+        "freeze an installed-tree or wheel inventory for Torch, Transformers, "
+        "PEFT, bitsandbytes, and transitive runtime bytes; Phase 41 refuses to "
+        "invent either authority or infer byte identity from package versions"
     )
 
 
@@ -3722,6 +4064,7 @@ __all__ = [
     "OpaqueHeldOutAuthority",
     "PREDICTION_COLUMNS",
     "PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED",
+    "PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED",
     "Phase41EvidenceManifest",
     "Prediction",
     "PreparedPhase41Evaluation",

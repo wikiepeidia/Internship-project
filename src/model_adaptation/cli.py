@@ -1091,12 +1091,8 @@ def handle_phase41_authorize_evaluation(args: argparse.Namespace) -> int:
 
 def handle_phase41_run_once(args: argparse.Namespace) -> int:
     from src.model_adaptation.phase41_evaluation import run_phase41_once
-    from src.model_adaptation.phase41_protocols import (
-        load_phase41_production_predictors,
-    )
 
-    qwen, phobert = load_phase41_production_predictors(args.output_root)
-    manifest = run_phase41_once(args.output_root, qwen, phobert)
+    manifest = run_phase41_once(args.output_root)
     print(f"Phase 41 completed: evidence={manifest.path}")
     return 0
 

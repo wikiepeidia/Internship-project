@@ -59,6 +59,9 @@ def test_launcher_is_clean_runtime_self_bound_and_has_no_authority_overrides():
     assert "areaccessrulesprotected" in lowered
     assert "get-acl -literalpath" in lowered
     assert "s-1-5-18" in lowered and "s-1-5-32-544" in lowered
+    assert "redirectstandardinput = $true" in lowered
+    assert "getclienthandleasstring" not in lowered
+    assert "_vnphish_phase41_launcher_capability" not in lowered
     assert not re.search(
         r"param\s*\([^)]*\$(?:split|model|claim|registry|retry)",
         source,
@@ -88,8 +91,6 @@ def test_launcher_embedded_python_is_syntax_valid_and_bootstrap_is_source_only()
 
 @pytest.mark.skipif(os.name != "nt", reason="launcher capability is Windows-only")
 def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_path):
-    import msvcrt
-
     blocks = _embedded_blocks()
     output = tmp_path / "output"
     clean = output / "clean-runtime"
@@ -98,12 +99,24 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     files = {
         "src/__init__.py": b"",
         "src/model_adaptation/__init__.py": b"",
+        "src/model_adaptation/phase41_evaluation.py": Path(
+            "src/model_adaptation/phase41_evaluation.py"
+        ).read_bytes(),
         "src/model_adaptation/cli.py": (
             b"import json, sys\n"
             b"from pathlib import Path\n"
-            b"import _vnphish_phase41_launcher_capability as capability\n"
-            b"capability.assert_live()\n"
+            b"from src.model_adaptation.phase41_evaluation import "
+            b"_acquire_live_launcher_capability\n"
             b"output = Path(sys.argv[-1])\n"
+            b"capability = _acquire_live_launcher_capability(output)\n"
+            b"capability.assert_live()\n"
+            b"capability.consume_once()\n"
+            b"try:\n"
+            b"    capability.consume_once()\n"
+            b"except Exception:\n"
+            b"    reuse_blocked = True\n"
+            b"else:\n"
+            b"    reuse_blocked = False\n"
             b"injected = output / 'clean-runtime' / 'src' / "
             b"'model_adaptation' / 'injected.py'\n"
             b"injected.write_text(\"from pathlib import Path\\n"
@@ -117,7 +130,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             b"    injection_blocked = False\n"
             b"Path(output, 'bootstrap-marker.json').write_text("
             b"json.dumps({'argv': sys.argv, 'injection_blocked': injection_blocked, "
-            b"'launcher_live': True}), "
+            b"'launcher_live': True, 'reuse_blocked': reuse_blocked}), "
             b"encoding='utf-8')\n"
         ),
     }
@@ -175,6 +188,8 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     receipt_path = output / "execution-materialization-receipt.json"
     capability_nonce = os.urandom(32)
     capability_sha256 = hashlib.sha256(capability_nonce).hexdigest()
+    launcher_image = Path(sys.executable).absolute()
+    launcher_image_sha256 = hashlib.sha256(launcher_image.read_bytes()).hexdigest()
     output.mkdir(exist_ok=True)
     source_path.write_bytes(_canonical_bytes(source_manifest))
     request_path.write_bytes(_canonical_bytes(request))
@@ -196,6 +211,8 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             os.fspath(clean),
             capability_sha256,
             str(os.getpid()),
+            os.fspath(launcher_image),
+            launcher_image_sha256,
         ],
         check=False,
         capture_output=True,
@@ -214,24 +231,17 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             blocks["Bootstrap"],
             os.fspath(clean),
             os.fspath(output),
-            "0",
         ],
         check=False,
         capture_output=True,
         text=True,
     )
     assert direct.returncode != 0
-    assert "live inherited launcher handle is required" in direct.stderr
+    assert "launcher capability" in direct.stderr or "stdin pipe" in direct.stderr
     assert not (output / "bootstrap-marker.json").exists()
 
-    read_descriptor, write_descriptor = os.pipe()
-    read_handle = msvcrt.get_osfhandle(read_descriptor)
-    os.set_handle_inheritable(read_handle, True)
-    os.write(write_descriptor, capability_nonce)
-    startup = subprocess.STARTUPINFO()
-    startup.lpAttributeList = {"handle_list": [read_handle]}
-    try:
-        bootstrap = subprocess.run(
+    def run_capability_child() -> tuple[int, str]:
+        child = subprocess.Popen(
             [
                 sys.executable,
                 "-I",
@@ -242,23 +252,32 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
                 blocks["Bootstrap"],
                 os.fspath(clean),
                 os.fspath(output),
-                str(read_handle),
             ],
-            check=False,
-            capture_output=True,
-            text=True,
-            close_fds=True,
-            startupinfo=startup,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False,
         )
-    finally:
-        os.close(write_descriptor)
-        os.close(read_descriptor)
-    assert bootstrap.returncode == 0, bootstrap.stderr
+        try:
+            assert child.stdin is not None
+            child.stdin.write(capability_nonce)
+            child.stdin.flush()
+            child_returncode = child.wait(timeout=30)
+            assert child.stderr is not None
+            child_stderr = child.stderr.read().decode("utf-8", errors="replace")
+            return child_returncode, child_stderr
+        finally:
+            if child.stdin is not None:
+                child.stdin.close()
+
+    returncode, stderr = run_capability_child()
+    assert returncode == 0, stderr
     marker = json.loads(
         (output / "bootstrap-marker.json").read_text(encoding="utf-8")
     )
     assert marker["injection_blocked"] is True
     assert marker["launcher_live"] is True
+    assert marker["reuse_blocked"] is True
     assert not (module_root / "injected-ran").exists()
     assert Path(marker["argv"][0]) == module_root / "cli.py"
     assert marker["argv"][1:] == [
@@ -266,6 +285,25 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
         "--output-root",
         os.fspath(output.absolute()),
     ]
+
+    (output / "bootstrap-marker.json").unlink()
+    (module_root / "injected.py").unlink()
+    wrong_image_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    wrong_image_receipt["launcher_process_image_sha256"] = "0" * 64
+    receipt_path.write_bytes(_canonical_bytes(wrong_image_receipt))
+    returncode, stderr = run_capability_child()
+    assert returncode != 0
+    assert "launcher parent image differs" in stderr
+    assert not (output / "bootstrap-marker.json").exists()
+
+    wrong_parent_receipt = dict(wrong_image_receipt)
+    wrong_parent_receipt["launcher_process_image_sha256"] = launcher_image_sha256
+    wrong_parent_receipt["launcher_process_id"] = os.getpid() + 100000
+    receipt_path.write_bytes(_canonical_bytes(wrong_parent_receipt))
+    returncode, stderr = run_capability_child()
+    assert returncode != 0
+    assert "launcher pipe server differs" in stderr
+    assert not (output / "bootstrap-marker.json").exists()
 
 
 def test_isolated_no_site_bootstrap_ignores_hostile_sitecustomize(tmp_path):

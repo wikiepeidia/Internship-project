@@ -8,6 +8,8 @@ import inspect
 import json
 import os
 from pathlib import Path
+import sys
+import types
 
 import pytest
 
@@ -22,7 +24,7 @@ from src.model_adaptation.phase41_evaluation import (
     authorize_phase41_evaluation,
     freeze_deployment_fit_disposition,
     prepare_phase41_evaluation,
-    run_phase41_once,
+    run_phase41_once as production_run_phase41_once,
     verify_phase41_evidence,
     verify_phase41_preauthorization,
     _phase41_test_runtime,
@@ -32,6 +34,10 @@ from src.model_adaptation.phase41_protocols import (
     FrozenQwenPredictor,
     build_synthetic_protocol_authority,
 )
+
+# Existing synthetic scenarios use the private tracer seam deliberately. The
+# public production entry accepts only output_root and owns predictor loading.
+run_phase41_once = phase41_evaluation._run_phase41_once_synthetic_for_test
 
 
 LABELS = (
@@ -271,9 +277,9 @@ def test_deployment_fit_disposition_reproduces_precommitted_choice(tmp_path):
 
 
 def test_public_run_and_verify_signatures_have_no_opener_registry_or_split_override():
-    run_parameters = set(inspect.signature(run_phase41_once).parameters)
+    run_parameters = set(inspect.signature(production_run_phase41_once).parameters)
     verify_parameters = set(inspect.signature(verify_phase41_evidence).parameters)
-    assert run_parameters == {"output_root", "qwen", "phobert"}
+    assert run_parameters == {"output_root"}
     assert verify_parameters == {"output_root"}
     assert {"opener", "registry", "split_path", "retry"}.isdisjoint(run_parameters)
 
@@ -283,6 +289,7 @@ def test_private_test_and_low_level_execution_seams_are_not_exported():
     assert {
         "_phase41_test_runtime",
         "_run_once",
+        "_run_phase41_once_synthetic_for_test",
         "_owned_split_opener",
         "prepare_evaluation",
         "authorize_evaluation",
@@ -327,15 +334,73 @@ def test_leftover_materialization_receipt_cannot_authorize_direct_python_run(tmp
         created_at_utc="2026-08-25T00:00:00Z",
         launcher_capability_sha256="d" * 64,
         launcher_process_id=os.getpid(),
+        launcher_process_image_path_sha256="e" * 64,
+        launcher_process_image_sha256="f" * 64,
     )
     (root / "execution-materialization-receipt.json").write_bytes(receipt)
-    with pytest.raises(ContractError, match="live inherited launcher capability"):
-        run_phase41_once(
+    fake = types.ModuleType("_vnphish_phase41_launcher_capability")
+    fake._nonce = b"x" * 32
+    fake.binding = object()
+    fake.assert_live = lambda: None
+    fake.consume_once = lambda: None
+    sys.modules[fake.__name__] = fake
+    with pytest.raises(ContractError, match="launcher.*stdin|stdin pipe"):
+        production_run_phase41_once(
             root,
-            FrozenQwenPredictor(protocols.qwen, _predictor_rows),
-            FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
         )
+    sys.modules.pop(fake.__name__, None)
     assert not (root / "one-shot-claim.json").exists()
+
+
+def test_public_run_rejects_caller_predictors_and_private_core_requires_runtime(tmp_path):
+    protocols = build_synthetic_protocol_authority(_models())
+
+    class ForgedQwen(FrozenQwenPredictor):
+        @property
+        def production_verified(self):
+            return True
+
+    forged = ForgedQwen(protocols.qwen, _predictor_rows)
+    phobert = FrozenPhoBertPredictor(protocols.phobert, _predictor_rows)
+    with pytest.raises(TypeError):
+        production_run_phase41_once(tmp_path, forged, phobert)
+    with pytest.raises(ContractError, match="unavailable in production"):
+        phase41_evaluation._run_phase41_once_synthetic_for_test(
+            tmp_path, forged, phobert
+        )
+    assert not (tmp_path / "one-shot-claim.json").exists()
+
+
+def test_canonical_preparation_names_runtime_byte_authority_as_upstream_blocker(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_code_fixed_authority_path",
+        lambda *_args, **_kwargs: tmp_path / "synthetic-authority.json",
+    )
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_phase39_opaque_authority",
+        lambda *_args, **_kwargs: (None, "a" * 64),
+    )
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_verify_phase40_closure",
+        lambda **_kwargs: None,
+    )
+    with pytest.raises(ContractError) as exc_info:
+        phase41_evaluation.prepare_phase41_from_canonical_authorities(
+            tmp_path / "output",
+            repo_root=tmp_path,
+            phase39_contract_path=tmp_path / "phase39.json",
+            phase40_comparison_manifest_path=tmp_path / "comparison.json",
+            phase40_review_manifest_path=tmp_path / "review.json",
+            deployment_fit_choice="deferred",
+        )
+    message = str(exc_info.value)
+    assert phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED in message
+    assert phase41_evaluation.PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED in message
 
 
 def test_programdata_environment_cannot_redirect_machine_registry(tmp_path, monkeypatch):
@@ -432,6 +497,7 @@ def test_completion_terminal_is_written_after_every_other_local_evidence(
     writes: list[str] = []
     real_write = phase41_evaluation._exclusive_write
     real_global_write = phase41_evaluation._exclusive_global_claim_write
+    real_global_replace = phase41_evaluation._replace_global_completion
 
     def recording_write(path: Path, content: bytes) -> Path:
         writes.append(path.name)
@@ -441,9 +507,23 @@ def test_completion_terminal_is_written_after_every_other_local_evidence(
         writes.append(f"global:{path.name}")
         return real_global_write(path, content)
 
+    def recording_global_replace(
+        path: Path, *, pending_payload: bytes, completed_payload: bytes
+    ) -> Path:
+        result = real_global_replace(
+            path,
+            pending_payload=pending_payload,
+            completed_payload=completed_payload,
+        )
+        writes.append(f"global-final:{path.name}")
+        return result
+
     monkeypatch.setattr(phase41_evaluation, "_exclusive_write", recording_write)
     monkeypatch.setattr(
         phase41_evaluation, "_exclusive_global_claim_write", recording_global_write
+    )
+    monkeypatch.setattr(
+        phase41_evaluation, "_replace_global_completion", recording_global_replace
     )
     with _phase41_test_runtime(registry_root=tmp_path / "machine-claims"):
         run_phase41_once(
@@ -451,7 +531,7 @@ def test_completion_terminal_is_written_after_every_other_local_evidence(
             FrozenQwenPredictor(protocols.qwen, _predictor_rows),
             FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
         )
-    assert writes[-1].startswith("global:")
+    assert writes[-1].startswith("global-final:")
     assert writes[-1].endswith(".completion.json")
     assert writes.index("evaluation-access-receipt.json") < writes.index(
         "evidence-manifest.json"
@@ -460,6 +540,12 @@ def test_completion_terminal_is_written_after_every_other_local_evidence(
         "protected-completion-seal.json"
     )
     assert writes.index("terminal.json") < len(writes) - 1
+    pending_index = next(
+        index
+        for index, name in enumerate(writes)
+        if name.startswith("global:") and name.endswith(".completion.json")
+    )
+    assert pending_index < writes.index("protected-completion-seal.json")
 
 
 def test_completion_evidence_failure_freezes_spent_failed_not_completed(
@@ -525,9 +611,50 @@ def test_local_terminal_failure_cannot_publish_protected_completed_seal(
     terminal = json.loads((root / "terminal.json").read_text(encoding="utf-8"))
     assert terminal["status"] == "spent_failed"
     assert terminal["failure_stage"] == "freeze_completion_evidence"
-    assert not (
-        registry / f"{hashlib.sha256(payload).hexdigest()}.completion.json"
-    ).exists()
+    protected = json.loads(
+        (
+            registry / f"{hashlib.sha256(payload).hexdigest()}.completion.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert protected["status"] == "completion_pending"
+
+
+def test_global_completion_transition_failure_replaces_local_terminal_with_spent_failed(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+    protocols = _prepare_authorize(root, split, payload)
+    registry = tmp_path / "machine-claims"
+
+    def fail_final_transition(*_args, **_kwargs):
+        raise OSError("synthetic protected completion transition failure")
+
+    monkeypatch.setattr(
+        phase41_evaluation, "_replace_global_completion", fail_final_transition
+    )
+    with _phase41_test_runtime(registry_root=registry):
+        with pytest.raises(
+            OSError, match="synthetic protected completion transition failure"
+        ):
+            run_phase41_once(
+                root,
+                FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+                FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+            )
+        terminal = json.loads((root / "terminal.json").read_text(encoding="utf-8"))
+        assert terminal["status"] == "spent_failed"
+        assert terminal["failure_stage"] == "freeze_completion_evidence"
+        protected = json.loads(
+            (
+                registry / f"{hashlib.sha256(payload).hexdigest()}.completion.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert protected["status"] == "completion_pending"
+        with pytest.raises(ContractError):
+            verify_phase41_evidence(root)
 
 
 def test_fixed_evidence_inventory_rejects_traversal_before_artifact_access(tmp_path):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -476,7 +477,8 @@ def test_legacy_evaluation_cli_routes_are_not_recognized(
 
 
 def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
-    parser = _load_cli_module().build_parser()
+    cli_module = _load_cli_module()
+    parser = cli_module.build_parser()
     subparsers_action = next(
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
@@ -498,6 +500,9 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
     assert option_strings == {"-h", "--help", "--output-root"}
     forbidden = {"--split-path", "--model-path", "--registry-root", "--retry"}
     assert option_strings.isdisjoint(forbidden)
+    handler_source = inspect.getsource(cli_module.handle_phase41_run_once)
+    assert "load_phase41_production_predictors" not in handler_source
+    assert "run_phase41_once(args.output_root)" in handler_source
 
     prepare_parser = subparsers_action.choices["phase41-prepare-evaluation"]
     prepare_options = {
