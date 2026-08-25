@@ -5,17 +5,17 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 40
 current_phase_name: Multi-Model Training Evidence
 status: executing
-stopped_at: Phase 40 Plan 05 clean v3 local QLoRA full run active under a fail-closed D-drive supervisor; fresh-only controller v9 queues verified local PhoBERT after Qwen evidence and GGUF completion; full ordinary LoRA is withdrawn
-last_updated: "2026-08-25T12:42:44.0649666Z"
+stopped_at: Phase 40 Plan 05 QLoRA remains active with step 1150/1245 fully sealed and checkpoint 1200 under validation, with fresh-only PhoBERT controller v9 waiting; Phase 41 Plan 01 synthetic preparation is peer-reviewed PASS but separately blocked on canonical Phase 40 authority materialization and binding
+last_updated: "2026-08-25T16:59:02.400Z"
 last_activity: 2026-08-25
-last_activity_desc: Confirmed QLoRA alive through durable step 900/1245, deployed and independently verified fresh-only PhoBERT controller v9, refroze the 41-file comparison authority, and blocked legacy-evaluator access to the Phase 41 reserved path without opening it
-state_head: 4ca89902ebe063475d7459f34d994f757f8d8bc9
+last_activity_desc: Confirmed trainer 19772, supervisor 1576, telemetry 15308, and controller v9 20064 alive with step 1150/1245 sealed and checkpoint 1200 validation underway; Phase 41 synthetic preparation passed peer review plus 103 focused and 626 full tests while every production verb remains fail-closed on missing canonical authorities without opening the reserved split
+state_head: e1454e1f30028a8f104b6b9fe7ac8b268d5c309c
 progress:
   total_phases: 22
-  completed_phases: 2
-  total_plans: 58
+  completed_phases: 1
+  total_plans: 81
   completed_plans: 51
-  percent: 9
+  percent: 5
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -40,7 +40,7 @@ progress:
 Phase: 40 (Multi-Model Training Evidence) — EXECUTING
 Plan: 5 of 6
 Status: Plan 04 complete; Plan 05 clean v3 local QLoRA branch is running unattended and fresh-only PhoBERT controller v9 is queued behind verified Qwen evidence plus GGUF; the full-LoRA branch is withdrawn, the 41-file two-model authority is frozen and externally verified, and two-model validation finalization plus Plan 06 remain open
-Last activity: 2026-08-25 — confirmed QLoRA alive through durable step 900/1245, retained controller v9 with a 20/20 readiness PASS, passed all 537 model-adaptation tests plus 13 Phase 41, 9 controller, and 7 comparison-gate synthetic tests, and kept Colab restricted to a validation-stage contingency before the held-out test is opened
+Last activity: 2026-08-25 — confirmed trainer PID 19772, supervisor 1576, telemetry 15308, and controller v9 PID 20064 alive; QLoRA step 1150/1245 validation landed at 23:50:14 and its checkpoint sealed at 23:50:18, while checkpoint 1200 exists from 23:54:54 with validation underway and controller v9 still waiting. Phase 41 synthetic preparation passed peer review, 103/103 integrated focused tests, and 626/626 full model-adaptation tests without opening the reserved split, but production remains fail-closed on missing canonical Phase 40 authorities.
 
 ## Performance Metrics (Baseline Targets)
 
@@ -231,8 +231,8 @@ Last activity: 2026-08-25 — confirmed QLoRA alive through durable step 900/124
 
 ## Session Continuity
 
-**Last session:** 2026-08-25T19:42:44+07:00
-**Stopped at:** The clean local full QLoRA trainer remains active as PID 19772 from `D:\PROJEct\AI MODELS\phase40-full-local-20260825\source-runtime-v3`, with immutable output under `transfer-root-v3` and mutable checkpoints under the run-ID-scoped `work-v3`; its last durable progress observed in this session was step 900/1,245. Its supervisor verifies only exact sealed Qwen checkpoints, verifies final run evidence, exports and verifies Q8_0 GGUF, stops corrected telemetry, and seals resource hashes. Fresh-only PhoBERT chain controller v9 is waiting as PID 20064 / creation FILETIME `134321351510583152`, source SHA-256 `63f47598fe81749b961ca7c5f056fe4e63925f2ad93f94f9beabafd047246b26`; it holds an exclusive fixed lease, independently re-verifies Qwen/GGUF, waits for three safe GPU-memory samples, then starts one fresh local PhoBERT run with zero automated resume attempts and fail-closed evidence/telemetry gates. Preserve failed attempts and do not start concurrent or accidental duplicate QLoRA/PhoBERT runs; a later fresh fallback exists only under the formally invoked pre-test validation contingency.
+**Last session:** 2026-08-25T16:59:02.400Z
+**Stopped at:** Phase 40 Plan 05 clean v3 local QLoRA remains active with step 1150/1,245 as the latest fully sealed durable evidence: validation landed at 23:50:14 and checkpoint sealing completed at 23:50:18. Checkpoint 1200 exists from 23:54:54 and its validation/prediction pass is underway. Trainer PID 19772, supervisor 1576, telemetry 15308, and controller v9 PID 20064 remain alive; controller v9 still waits behind verified Qwen evidence, GGUF verification, trainer exit, and the safe GPU-memory gate. Phase 41 Plan 01 synthetic preparation is peer-reviewed PASS with 103/103 integrated focused and 626/626 full model-adaptation tests, but it remains separately blocked from production protocol derivation because canonical post-training authority materialization and comparison binding are incomplete. The reserved split was not accessed.
 **Resume file:** `.planning/phases/40-multi-model-training-evidence/40-LOCAL-FULL-QLORA-REPORT.md`
 
 - Last session: 2026-07-02
@@ -329,3 +329,7 @@ Last activity: 2026-08-25 — confirmed QLoRA alive through durable step 900/124
 | Phase 38 P01 | 42min | 2 tasks | 2 files |
 | Phase 38 P02 | 14min | 2 tasks | 4 files |
 | Phase 39 P01 | 25min | 2 tasks | 4 files |
+
+### Blockers
+
+- Phase 41 Plan 01 production preparation remains blocked: runtime/segmenter capture tooling exists at `08761f8`, but its canonical post-training receipts and comparison binding are not yet materialized; the external comparison-launch receipt, comparison-bound GGUF verification receipt, and retained PhoBERT tokenizer authority also remain upstream. Every production and launcher-capability verb fails closed on the first missing code-fixed authority; see `41-01-BLOCKED.md`.
