@@ -94,6 +94,45 @@ class FakeTrainingArguments:
         self.__dict__.update(kwargs)
 
 
+class StrictTransformers5TrainingArguments:
+    """TrainingArguments-shaped double without the removed save_safetensors option."""
+
+    def __init__(
+        self,
+        *,
+        output_dir: str,
+        seed: int,
+        data_seed: int,
+        max_steps: int,
+        num_train_epochs: float,
+        per_device_train_batch_size: int,
+        per_device_eval_batch_size: int,
+        gradient_accumulation_steps: int,
+        learning_rate: float,
+        weight_decay: float,
+        optim: str,
+        lr_scheduler_type: str,
+        warmup_steps: int,
+        warmup_ratio: float,
+        max_grad_norm: float,
+        logging_strategy: str,
+        logging_steps: int,
+        eval_strategy: str,
+        eval_steps: int,
+        save_strategy: str,
+        save_steps: int,
+        save_total_limit: int,
+        load_best_model_at_end: bool,
+        report_to: str,
+        remove_unused_columns: bool,
+        bf16: bool,
+        fp16: bool,
+        tf32: bool,
+        gradient_checkpointing: bool,
+    ) -> None:
+        self.output_dir = output_dir
+
+
 class FakeCollator:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
@@ -426,6 +465,7 @@ def _dependencies(
     model: FakeModel | None = None,
     captures: dict[str, Any] | None = None,
     trainer_factory=FakeTrainer,  # noqa: ANN001
+    training_arguments_factory=FakeTrainingArguments,  # noqa: ANN001
     telemetry_clock=None,  # noqa: ANN001
 ) -> PhoBertTrainingDependencies:
     tokenizer = FakeTokenizer()
@@ -454,7 +494,7 @@ def _dependencies(
         segmenter_version=PHOBERT_SEGMENTER_VERSION,
         tokenizer_factory=tokenizer_factory,
         model_factory=model_factory,
-        training_arguments_factory=FakeTrainingArguments,
+        training_arguments_factory=training_arguments_factory,
         data_collator_factory=FakeCollator,
         trainer_factory=trainer_factory,
         trainer_callback_base=object,
@@ -720,6 +760,38 @@ def test_full_fake_training_finalizes_complete_four_logit_evidence(tmp_path: Pat
     assert [row["raw_text"] for row in preprocessing] == [
         row.raw_message for row in _contract().train_snapshot.rows + _contract().validation_snapshot.rows
     ]
+
+
+def test_training_arguments_omit_removed_transformers_v5_keyword(tmp_path: Path) -> None:
+    result = run_phobert_training(
+        _config(tmp_path, run_id="strict-transformers-v5"),
+        _contract(),
+        dependencies=_dependencies(
+            training_arguments_factory=StrictTransformers5TrainingArguments,
+        ),
+    )
+
+    assert result.evidence.status.value == "complete"
+
+
+def test_training_arguments_preserve_options_for_kwargs_factory(tmp_path: Path) -> None:
+    captures: dict[str, Any] = {}
+
+    class CapturingTrainingArguments:
+        def __init__(self, **kwargs: Any) -> None:
+            captures.update(kwargs)
+            self.__dict__.update(kwargs)
+
+    result = run_phobert_training(
+        _config(tmp_path, run_id="kwargs-training-arguments"),
+        _contract(),
+        dependencies=_dependencies(
+            training_arguments_factory=CapturingTrainingArguments,
+        ),
+    )
+
+    assert result.evidence.status.value == "complete"
+    assert captures["save_safetensors"] is True
 
 
 def test_no_passing_checkpoint_remains_visible_as_safety_failure(tmp_path: Path) -> None:

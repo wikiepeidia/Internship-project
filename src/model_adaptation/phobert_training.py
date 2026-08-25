@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import hashlib
 import importlib
 import importlib.metadata
+import inspect
 import json
 import math
 import os
@@ -2601,6 +2602,27 @@ def _resolve_default_dependencies(dependencies: PhoBertTrainingDependencies) -> 
     )
 
 
+def _build_phobert_training_arguments(
+    training_arguments_factory: Callable[..., Any],
+    training_kwargs: Mapping[str, Any],
+) -> Any:
+    parameters = inspect.signature(training_arguments_factory).parameters
+    accepts_arbitrary_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    supported_kwargs = (
+        dict(training_kwargs)
+        if accepts_arbitrary_kwargs
+        else {
+            key: value
+            for key, value in training_kwargs.items()
+            if key in parameters
+        }
+    )
+    return training_arguments_factory(**supported_kwargs)
+
+
 def _prepare_run_root(path: Path, *, resume: bool) -> Path:
     root = Path(path)
     if not root.is_absolute():
@@ -2798,37 +2820,40 @@ def run_phobert_training(
     )
 
     trainer_root = work_root / "trainer"
-    training_args = resolved.training_arguments_factory(
-        output_dir=str(trainer_root),
-        seed=config.seed,
-        data_seed=config.data_seed,
-        max_steps=config.max_optimizer_steps,
-        num_train_epochs=config.num_train_epochs,
-        per_device_train_batch_size=config.per_device_train_batch_size,
-        per_device_eval_batch_size=config.per_device_train_batch_size,
-        gradient_accumulation_steps=config.gradient_accumulation_steps,
-        learning_rate=config.learning_rate,
-        weight_decay=config.weight_decay,
-        optim=config.optimizer_name,
-        lr_scheduler_type=config.lr_scheduler_type,
-        warmup_steps=config.warmup_steps,
-        warmup_ratio=config.warmup_ratio,
-        max_grad_norm=config.max_grad_norm,
-        logging_strategy="steps",
-        logging_steps=config.logging_steps,
-        eval_strategy="steps",
-        eval_steps=config.evaluation_steps,
-        save_strategy="steps",
-        save_steps=config.evaluation_steps,
-        save_total_limit=config.save_total_limit,
-        load_best_model_at_end=False,
-        report_to="none",
-        remove_unused_columns=False,
-        bf16=config.bf16,
-        fp16=config.fp16,
-        tf32=config.tf32,
-        gradient_checkpointing=config.gradient_checkpointing,
-        save_safetensors=True,
+    training_args = _build_phobert_training_arguments(
+        resolved.training_arguments_factory,
+        {
+            "output_dir": str(trainer_root),
+            "seed": config.seed,
+            "data_seed": config.data_seed,
+            "max_steps": config.max_optimizer_steps,
+            "num_train_epochs": config.num_train_epochs,
+            "per_device_train_batch_size": config.per_device_train_batch_size,
+            "per_device_eval_batch_size": config.per_device_train_batch_size,
+            "gradient_accumulation_steps": config.gradient_accumulation_steps,
+            "learning_rate": config.learning_rate,
+            "weight_decay": config.weight_decay,
+            "optim": config.optimizer_name,
+            "lr_scheduler_type": config.lr_scheduler_type,
+            "warmup_steps": config.warmup_steps,
+            "warmup_ratio": config.warmup_ratio,
+            "max_grad_norm": config.max_grad_norm,
+            "logging_strategy": "steps",
+            "logging_steps": config.logging_steps,
+            "eval_strategy": "steps",
+            "eval_steps": config.evaluation_steps,
+            "save_strategy": "steps",
+            "save_steps": config.evaluation_steps,
+            "save_total_limit": config.save_total_limit,
+            "load_best_model_at_end": False,
+            "report_to": "none",
+            "remove_unused_columns": False,
+            "bf16": config.bf16,
+            "fp16": config.fp16,
+            "tf32": config.tf32,
+            "gradient_checkpointing": config.gradient_checkpointing,
+            "save_safetensors": True,
+        },
     )
     recorder = _CheckpointRecorder(
         run_root=run_root,
