@@ -145,6 +145,9 @@ def test_synthetic_pass_is_claim_before_open_shared_snapshot_and_byte_stable(tmp
             FrozenQwenPredictor(protocols.qwen, qwen),
             FrozenPhoBertPredictor(protocols.phobert, phobert),
         )
+        before = {path.name: path.read_bytes() for path in root.iterdir() if path.is_file()}
+        assert verify_phase41_evidence(root) == verify_phase41_evidence(root)
+        after = {path.name: path.read_bytes() for path in root.iterdir() if path.is_file()}
 
     assert events.index("claim_durable") < events.index("handle_acquired")
     assert events.count("handle_acquired") == 1
@@ -152,9 +155,6 @@ def test_synthetic_pass_is_claim_before_open_shared_snapshot_and_byte_stable(tmp
     assert events[-2:] == ["qwen", "phobert"]
     assert seen_snapshots[0] == seen_snapshots[1]
     assert manifest.status == "completed"
-    before = {path.name: path.read_bytes() for path in root.iterdir() if path.is_file()}
-    assert verify_phase41_evidence(root) == verify_phase41_evidence(root)
-    after = {path.name: path.read_bytes() for path in root.iterdir() if path.is_file()}
     assert before == after
 
 
@@ -200,17 +200,16 @@ def test_deployment_fit_disposition_reproduces_precommitted_choice(tmp_path):
             FrozenQwenPredictor(protocols.qwen, _predictor_rows),
             FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
         )
-    path = freeze_deployment_fit_disposition(
-        root,
-        DeploymentFitDisposition(
-            choice="deferred",
-            selected_checkpoint_identities=tuple(
-                model.selected_checkpoint_identity for model in _models()
+        path = freeze_deployment_fit_disposition(
+            root,
+            DeploymentFitDisposition(
+                choice="deferred",
+                selected_checkpoint_identities=tuple(
+                    model.selected_checkpoint_identity for model in _models()
+                ),
             ),
-        ),
-    )
+        )
     body = json.loads(path.read_text(encoding="utf-8"))
     assert body["choice"] == "deferred"
     assert body["unbiased_test_score_claim"] is False
     assert body["test_outcome_used_for_tuning"] is False
-
