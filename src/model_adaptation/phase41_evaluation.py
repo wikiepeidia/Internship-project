@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import ntpath
 import os
 from pathlib import Path
 import re
@@ -82,13 +83,28 @@ _TEST_RUNTIME: ContextVar[_TestRuntime | None] = ContextVar(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class _AccessMetadata:
+    requested_path_sha256: str
+    final_path_sha256: str
+    volume_serial_number: int
+    file_identity: str
+
+
+_ACCESS_METADATA: ContextVar[_AccessMetadata | None] = ContextVar(
+    "phase41_access_metadata", default=None
+)
+
+
 @contextmanager
 def _phase41_test_runtime(
     *, registry_root: Path, event_sink: list[str] | None = None
 ) -> Iterator[None]:
     """Private synthetic seam; production APIs expose no registry/opener override."""
 
-    token = _TEST_RUNTIME.set(_TestRuntime(Path(registry_root), event_sink))
+    synthetic_registry = Path(registry_root)
+    synthetic_registry.mkdir(parents=True, exist_ok=True)
+    token = _TEST_RUNTIME.set(_TestRuntime(synthetic_registry, event_sink))
     try:
         yield
     finally:
@@ -109,6 +125,165 @@ def _claim_registry_root() -> Path:
     if not program_data or not os.path.isabs(program_data):
         raise ContractError("ProgramData identity is missing or unsafe")
     return Path(program_data) / "VNPhish" / "phase41-one-shot-claims"
+
+
+def _windows_file_attributes(path: Path) -> int:
+    if os.name != "nt":
+        raise ContractError("Phase 41 production access requires Windows")
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_attributes = kernel32.GetFileAttributesW
+    get_attributes.argtypes = [ctypes.c_wchar_p]
+    get_attributes.restype = ctypes.c_uint32
+    attributes = int(get_attributes(os.fspath(path)))
+    if attributes == 0xFFFFFFFF:
+        code = ctypes.get_last_error()
+        raise ContractError(f"unsafe reserved path: Win32 attributes unavailable ({code})")
+    return attributes
+
+
+def _validate_claim_registry_root(root: Path) -> None:
+    if _TEST_RUNTIME.get() is not None:
+        if not root.is_dir() or root.is_symlink():
+            raise ContractError("synthetic claim registry is missing or unsafe")
+        return
+    attributes = _windows_file_attributes(root)
+    if not attributes & 0x10 or attributes & 0x400:
+        raise ContractError("ProgramData claim registry must be a provisioned non-reparse directory")
+    if not os.access(root, os.W_OK):
+        raise ContractError("operator cannot write the protected ProgramData claim registry")
+
+
+def _current_operator_sid() -> str:
+    if _TEST_RUNTIME.get() is not None:
+        return "synthetic-operator-sid"
+    if os.name != "nt":
+        return "synthetic-nonwindows"
+    import ctypes
+    from ctypes import wintypes
+
+    TOKEN_QUERY = 0x0008
+    TOKEN_USER_CLASS = 1
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    advapi32.OpenProcessToken.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    ]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.GetTokenInformation.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_uint,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetTokenInformation.restype = wintypes.BOOL
+    advapi32.ConvertSidToStringSidW.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.LPWSTR),
+    ]
+    advapi32.ConvertSidToStringSidW.restype = wintypes.BOOL
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)
+    ):
+        raise ContractError("cannot read the Phase 41 operator SID")
+    try:
+        needed = wintypes.DWORD()
+        advapi32.GetTokenInformation(
+            token, TOKEN_USER_CLASS, None, 0, ctypes.byref(needed)
+        )
+        if not needed.value:
+            raise ContractError("operator SID size query failed")
+        buffer = ctypes.create_string_buffer(needed.value)
+        if not advapi32.GetTokenInformation(
+            token,
+            TOKEN_USER_CLASS,
+            buffer,
+            needed,
+            ctypes.byref(needed),
+        ):
+            raise ContractError("operator SID query failed")
+        sid_pointer = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0]
+        string_sid = wintypes.LPWSTR()
+        if not advapi32.ConvertSidToStringSidW(sid_pointer, ctypes.byref(string_sid)):
+            raise ContractError("operator SID conversion failed")
+        try:
+            return string_sid.value
+        finally:
+            kernel32.LocalFree(ctypes.cast(string_sid, ctypes.c_void_p))
+    finally:
+        kernel32.CloseHandle(token)
+
+
+def _exclusive_global_claim_write(path: Path, payload: bytes) -> Path:
+    """Create the machine claim with no sharing, write-through, and durable flush."""
+
+    root = _claim_registry_root()
+    if path.parent != root:
+        raise ContractError("global claim path escaped the fixed registry")
+    _validate_claim_registry_root(root)
+    if os.name != "nt":
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.write(descriptor, payload)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        return path
+
+    import ctypes
+    from ctypes import wintypes
+
+    GENERIC_WRITE = 0x40000000
+    CREATE_NEW = 1
+    FILE_ATTRIBUTE_NORMAL = 0x80
+    FILE_FLAG_WRITE_THROUGH = 0x80000000
+    invalid_handle = ctypes.c_void_p(-1).value
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    create_file.restype = wintypes.HANDLE
+    handle = create_file(
+        os.fspath(path),
+        GENERIC_WRITE,
+        0,
+        None,
+        CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
+        None,
+    )
+    if handle == invalid_handle:
+        code = ctypes.get_last_error()
+        if code in {80, 183}:
+            raise FileExistsError(os.fspath(path))
+        raise OSError(code, "CreateFileW failed for protected Phase 41 claim")
+    try:
+        written = wintypes.DWORD()
+        buffer = ctypes.create_string_buffer(payload)
+        if not kernel32.WriteFile(
+            handle, buffer, len(payload), ctypes.byref(written), None
+        ) or written.value != len(payload):
+            raise OSError(ctypes.get_last_error(), "WriteFile failed for Phase 41 claim")
+        if not kernel32.FlushFileBuffers(handle):
+            raise OSError(
+                ctypes.get_last_error(), "FlushFileBuffers failed for Phase 41 claim"
+            )
+    finally:
+        kernel32.CloseHandle(handle)
+    return path
 
 
 class Phase41PrototypeError(RuntimeError):
@@ -644,12 +819,16 @@ def _claim_once(
             "authorization_sha256": authorization_sha256,
             "reserved_split_sha256": identity.sha256,
             "reserved_split_path_sha256": _sha256(identity.path.encode("utf-8")),
+            "claim_registry_sha256": _sha256(
+                os.fspath(_claim_registry_root()).encode("utf-8")
+            ),
+            "operator_sid": _current_operator_sid(),
             "meaning": "existence permanently blocks another governed evaluation attempt",
         }
     )
     global_path = _global_claim_path(identity)
     try:
-        _exclusive_write(global_path, payload)
+        _exclusive_global_claim_write(global_path, payload)
     except FileExistsError as exc:
         raise AlreadySpentError("the Phase 41 holdout was claimed concurrently") from exc
     # Keep an identical receipt with the result bundle. The global claim is
@@ -1251,6 +1430,8 @@ def verify_only(output_root: Path) -> dict[str, object]:
         "authorization_sha256",
         "reserved_split_sha256",
         "reserved_split_path_sha256",
+        "claim_registry_sha256",
+        "operator_sid",
         "meaning",
     } or (
         claim["schema_version"] != "phase41-one-shot-claim-v1"
@@ -1262,6 +1443,10 @@ def verify_only(output_root: Path) -> dict[str, object]:
         or claim["reserved_split_sha256"] != identity.sha256
         or claim["reserved_split_path_sha256"]
         != _sha256(identity.path.encode("utf-8"))
+        or claim["claim_registry_sha256"]
+        != _sha256(os.fspath(_claim_registry_root()).encode("utf-8"))
+        or not isinstance(claim["operator_sid"], str)
+        or not claim["operator_sid"]
         or claim["meaning"]
         != "existence permanently blocks another governed evaluation attempt"
     ):
@@ -1587,10 +1772,146 @@ def authorize_phase41_evaluation(
     )
 
 
-def _owned_split_opener(path: Path) -> BinaryIO:
-    """Sole production opener.  Task 2 replaces this with the Win32 handle owner."""
+def _validate_reserved_path_after_claim(path: Path) -> str:
+    """Reject aliases and redirecting components after the claim is durable."""
 
-    return path.open("rb")
+    raw = os.fspath(path)
+    normalized_slashes = raw.replace("/", "\\")
+    lowered = normalized_slashes.casefold()
+    if lowered.startswith(("\\\\?\\", "\\\\.\\", "\\??\\")):
+        raise ContractError("unsafe reserved path namespace")
+    drive, tail = ntpath.splitdrive(normalized_slashes)
+    if not drive or not ntpath.isabs(normalized_slashes):
+        raise ContractError("unsafe reserved path: absolute drive path required")
+    if ":" in tail:
+        raise ContractError("alternate data stream is forbidden for the reserved path")
+    canonical = ntpath.normpath(normalized_slashes)
+    if ntpath.normcase(canonical) != ntpath.normcase(normalized_slashes):
+        raise ContractError("unsafe reserved path normalization or escape")
+
+    candidate = Path(canonical)
+    chain = list(reversed(candidate.parents)) + [candidate]
+    for component in chain:
+        attributes = _windows_file_attributes(component)
+        if attributes & 0x400:
+            raise ContractError("unsafe reserved path: reparse component detected")
+    leaf_attributes = _windows_file_attributes(candidate)
+    if leaf_attributes & 0x10:
+        raise ContractError("unsafe reserved path: leaf is a directory")
+    return canonical
+
+
+def _strip_win32_final_prefix(value: str) -> str:
+    if value.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + value[8:]
+    if value.startswith("\\\\?\\"):
+        return value[4:]
+    return value
+
+
+def _owned_split_opener(path: Path) -> BinaryIO:
+    """Acquire the reserved payload through exactly one exclusive Win32 handle."""
+
+    canonical = _validate_reserved_path_after_claim(path)
+    if os.name != "nt":
+        raise ContractError("Phase 41 production evaluation requires Windows")
+    import ctypes
+    from ctypes import wintypes
+    import msvcrt
+
+    GENERIC_READ = 0x80000000
+    OPEN_EXISTING = 3
+    FILE_ATTRIBUTE_NORMAL = 0x80
+    FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000
+    invalid_handle = ctypes.c_void_p(-1).value
+
+    class BY_HANDLE_FILE_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("dwFileAttributes", wintypes.DWORD),
+            ("ftCreationTime", wintypes.FILETIME),
+            ("ftLastAccessTime", wintypes.FILETIME),
+            ("ftLastWriteTime", wintypes.FILETIME),
+            ("dwVolumeSerialNumber", wintypes.DWORD),
+            ("nFileSizeHigh", wintypes.DWORD),
+            ("nFileSizeLow", wintypes.DWORD),
+            ("nNumberOfLinks", wintypes.DWORD),
+            ("nFileIndexHigh", wintypes.DWORD),
+            ("nFileIndexLow", wintypes.DWORD),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    create_file.restype = wintypes.HANDLE
+    get_final_path = kernel32.GetFinalPathNameByHandleW
+    get_final_path.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    ]
+    get_final_path.restype = wintypes.DWORD
+    get_file_information = kernel32.GetFileInformationByHandle
+    get_file_information.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(BY_HANDLE_FILE_INFORMATION),
+    ]
+    get_file_information.restype = wintypes.BOOL
+    handle = create_file(
+        canonical,
+        GENERIC_READ,
+        0,
+        None,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
+        None,
+    )
+    if handle == invalid_handle:
+        raise ContractError(
+            f"unsafe reserved path: exclusive CreateFileW failed ({ctypes.get_last_error()})"
+        )
+    transferred = False
+    try:
+        size = get_final_path(handle, None, 0, 0)
+        if not size:
+            raise ContractError("unsafe reserved path: final handle path unavailable")
+        buffer = ctypes.create_unicode_buffer(size + 1)
+        written = get_final_path(handle, buffer, len(buffer), 0)
+        if not written or written >= len(buffer):
+            raise ContractError("unsafe reserved path: final handle path changed")
+        final_path = _strip_win32_final_prefix(buffer.value)
+        if ntpath.normcase(ntpath.normpath(final_path)) != ntpath.normcase(canonical):
+            raise ContractError("unsafe reserved path: final handle path mismatch")
+        information = BY_HANDLE_FILE_INFORMATION()
+        if not get_file_information(handle, ctypes.byref(information)):
+            raise ContractError("unsafe reserved path: file identity unavailable")
+        if information.dwFileAttributes & 0x410:
+            raise ContractError("unsafe reserved path: final handle is redirecting or a directory")
+        file_identity = f"{information.nFileIndexHigh:08x}{information.nFileIndexLow:08x}"
+        _ACCESS_METADATA.set(
+            _AccessMetadata(
+                requested_path_sha256=_sha256(os.fspath(path).encode("utf-8")),
+                final_path_sha256=_sha256(final_path.encode("utf-8")),
+                volume_serial_number=int(information.dwVolumeSerialNumber),
+                file_identity=file_identity,
+            )
+        )
+        descriptor = msvcrt.open_osfhandle(
+            int(handle), os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        )
+        transferred = True
+        return os.fdopen(descriptor, "rb", closefd=True)
+    finally:
+        if not transferred:
+            kernel32.CloseHandle(handle)
 
 
 def _artifact_hashes(root: Path, names: Sequence[str]) -> tuple[tuple[str, str], ...]:
@@ -1659,6 +1980,7 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
         or phobert.protocol.protocol_sha256 != protocols.phobert.protocol_sha256
     ):
         raise ContractError("predictor protocol identity drifted")
+    _ACCESS_METADATA.set(None)
     result = run_once(
         root,
         opener=_owned_split_opener,
@@ -1668,12 +1990,17 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
     request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
     identity, _ = _validate_prepared(request)
     claim_bytes = (root / CLAIM_NAME).read_bytes()
+    access_metadata = _ACCESS_METADATA.get()
+    if access_metadata is None:
+        raise ContractError("successful evaluation lacks owned-handle identity evidence")
     access = _canonical_json_bytes(
         {
             "schema_version": "phase41-evaluation-access-v1",
             "claim_sha256": _sha256(claim_bytes),
-            "requested_path_sha256": _sha256(identity.path.encode("utf-8")),
-            "final_path_sha256": _sha256(identity.path.encode("utf-8")),
+            "requested_path_sha256": access_metadata.requested_path_sha256,
+            "final_path_sha256": access_metadata.final_path_sha256,
+            "volume_serial_number": access_metadata.volume_serial_number,
+            "file_identity": access_metadata.file_identity,
             "handle_acquisitions": 1,
             "sequential_payload_reads": 1,
             "observed_bytes": identity.bytes,
@@ -1724,6 +2051,49 @@ def verify_phase41_evidence(output_root: Path) -> Phase41EvidenceManifest:
 
     root = Path(output_root)
     verify_only(root)
+    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    identity, _ = _validate_prepared(request)
+    claim_bytes = (root / CLAIM_NAME).read_bytes()
+    access, _ = _load_canonical_json(
+        root / ACCESS_RECEIPT_NAME, "Phase 41 evaluation access receipt"
+    )
+    if set(access) != {
+        "schema_version",
+        "claim_sha256",
+        "requested_path_sha256",
+        "final_path_sha256",
+        "volume_serial_number",
+        "file_identity",
+        "handle_acquisitions",
+        "sequential_payload_reads",
+        "observed_bytes",
+        "observed_sha256",
+        "observed_records",
+        "observed_label_counts",
+        "raw_content_retained",
+    }:
+        raise ContractError("evaluation access receipt fields drifted")
+    if (
+        access["schema_version"] != "phase41-evaluation-access-v1"
+        or access["claim_sha256"] != _sha256(claim_bytes)
+        or access["requested_path_sha256"]
+        != _sha256(identity.path.encode("utf-8"))
+        or not isinstance(access["final_path_sha256"], str)
+        or not SHA256_RE.fullmatch(access["final_path_sha256"])
+        or not isinstance(access["volume_serial_number"], int)
+        or isinstance(access["volume_serial_number"], bool)
+        or access["volume_serial_number"] < 0
+        or not isinstance(access["file_identity"], str)
+        or not re.fullmatch(r"[0-9a-f]{16}", access["file_identity"])
+        or access["handle_acquisitions"] != 1
+        or access["sequential_payload_reads"] != 1
+        or access["observed_bytes"] != identity.bytes
+        or access["observed_sha256"] != identity.sha256
+        or access["observed_records"] != identity.records
+        or access["observed_label_counts"] != dict(identity.label_counts)
+        or access["raw_content_retained"] is not False
+    ):
+        raise ContractError("evaluation access receipt authority drifted")
     manifest = _manifest_from_disk(root)
     expected = _artifact_hashes(root, tuple(name for name, _ in manifest.artifacts))
     if expected != manifest.artifacts:
