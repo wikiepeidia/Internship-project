@@ -2213,14 +2213,27 @@ def _exact_artifact_for_role(evidence: RunEvidence, role: str):
 
 def _artifact_for_sha(evidence: RunEvidence, role: str, sha256: str):
     matches = tuple(
-        artifact
-        for artifact in evidence.artifacts
-        if artifact.role == role and artifact.sha256 == sha256
-    )
-    if len(matches) != 1:
-        raise RuntimeError(
-            f"run {evidence.run_id} selected checkpoint does not bind exactly one {role} artifact"
+        sorted(
+            (
+                artifact
+                for artifact in evidence.artifacts
+                if artifact.role == role and artifact.sha256 == sha256
+            ),
+            key=lambda artifact: (
+                artifact.relative_path,
+                artifact.logical_name,
+            ),
         )
+    )
+    if not matches:
+        raise RuntimeError(
+            f"run {evidence.run_id} checkpoint does not bind a {role} artifact"
+        )
+    # Metric summaries can be byte-identical at multiple checkpoints.  Some
+    # completed trainers retain every path while others deduplicate by
+    # role/SHA.  Every match is already bundle-verified against the same
+    # cryptographic content identity, so path multiplicity is not semantic
+    # ambiguity; select a stable path for reproducible reads.
     return matches[0]
 
 

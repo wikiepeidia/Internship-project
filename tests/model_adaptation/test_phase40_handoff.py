@@ -1793,6 +1793,44 @@ def test_finalize_comparison_succeeds_and_verify_only_is_byte_stable(
     assert tuple(path.read_bytes() for path in paths) == before
 
 
+def test_checkpoint_metrics_allow_byte_identical_duplicate_artifact_paths(
+    tmp_path,
+    monkeypatch,
+):
+    import src.model_adaptation.phase40_handoff as handoff
+
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    evidence = fixture.evidence_by_run["phobert"]
+    returned_root = next(
+        run.returned_root for run in fixture.request.runs if run.run_id == "phobert"
+    )
+    run_root = fixture.repo / returned_root
+    original = next(
+        artifact for artifact in evidence.artifacts if artifact.role == "metrics"
+    )
+    duplicate_relative = "checkpoints/duplicate/validation-metrics.json"
+    duplicate_path = run_root / duplicate_relative
+    duplicate_path.parent.mkdir(parents=True)
+    duplicate_path.write_bytes((run_root / original.relative_path).read_bytes())
+    duplicate = original.model_copy(
+        update={
+            "logical_name": "validation-metrics-duplicate",
+            "relative_path": duplicate_relative,
+        }
+    )
+    duplicated = evidence.model_copy(
+        update={"artifacts": (*evidence.artifacts, duplicate)}
+    )
+
+    selected, _ = handoff._recompute_checkpoint_selection(
+        run_root,
+        duplicated,
+        fixture.contract.validation_snapshot,
+    )
+
+    assert selected.selected_step == evidence.selected_checkpoint.optimizer_step
+
+
 def test_local_comparison_needs_no_colab_package_approval(
     tmp_path, monkeypatch
 ):
