@@ -20,7 +20,8 @@ from src.model_adaptation.phase41_evaluation import (
     FrozenModelIdentity,
     OpaqueHeldOutAuthority,
     PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
-    prepare_phase41_evaluation,
+    _phase41_test_runtime,
+    _prepare_phase41_synthetic_for_test,
     prepare_phase41_from_canonical_authorities,
 )
 from src.model_adaptation.phase41_protocols import (
@@ -35,6 +36,7 @@ from src.model_adaptation.phase41_protocols import (
     build_synthetic_protocol_authority,
     build_protocol_authority,
     canonical_json_bytes,
+    load_phase41_production_predictors,
     load_protocol_authority,
     write_protocol_authority,
 )
@@ -188,6 +190,61 @@ def test_public_callback_cannot_claim_production_verification():
     )
     assert "def _verified_qwen_predictor" not in source
     assert "def _verified_phobert_predictor" not in source
+
+
+def test_object_new_and_recovered_python_state_cannot_forge_production_predictor(
+    tmp_path,
+):
+    qwen_body, phobert_body = _production_protocol_bodies()
+    authority = build_protocol_authority(qwen_body, phobert_body)
+    callback_calls: list[object] = []
+
+    def arbitrary_callback(snapshot):
+        callback_calls.append(snapshot)
+        return ()
+
+    forged = object.__new__(FrozenQwenPredictor)
+    object.__setattr__(forged, "protocol", authority.qwen)
+    object.__setattr__(forged, "predictor", arbitrary_callback)
+    object.__setattr__(forged, "loaded", True)
+    object.__setattr__(forged, "smoke_verified", True)
+    object.__setattr__(forged, "_leases", ())
+    object.__setattr__(forged, "_authority_sha256", authority.authority_sha256)
+    object.__setattr__(forged, "_output_root", tmp_path.absolute())
+    object.__setattr__(forged, "_launcher_binding", object())
+    object.__setattr__(forged, "_launcher_capability_sha256", "a" * 64)
+
+    assert load_phase41_production_predictors.__closure__ is None
+    assert forged.production_verified is False
+    assert forged.launcher_capability_sha256 is None
+    assert forged._has_launcher_binding(object()) is False
+    with pytest.raises(ProtocolContractError, match="exactly two live model leases"):
+        forged.assert_lifetime_integrity()
+
+    closed_leases = []
+    for index in range(2):
+        lease = object.__new__(_ImmutableTreeLease)
+        lease.root = tmp_path / f"forged-lease-{index}"
+        lease.description = "forged closed lease"
+        lease._closed = True
+        lease._inventory = ((".", "directory", 0),)
+        lease._handles = [object()]
+        closed_leases.append(lease)
+    object.__setattr__(forged, "_leases", tuple(closed_leases))
+    assert forged.production_verified is False
+    with pytest.raises(ProtocolContractError, match="live OS-backed"):
+        forged.assert_lifetime_integrity()
+
+    object.__setattr__(forged, "_leases", ())
+    with pytest.raises(ProtocolContractError, match="exactly two live model leases"):
+        forged(object())
+    assert callback_calls == []
+
+    source = Path("src/model_adaptation/phase41_protocols.py").read_text(
+        encoding="utf-8"
+    )
+    assert "LoaderCapability" not in source
+    assert "_loader_capability" not in source
 
 
 @pytest.mark.parametrize(
@@ -506,19 +563,20 @@ def test_prepare_rejects_protocol_artifact_identity_drift(tmp_path):
     models = _models()
     protocols = build_synthetic_protocol_authority(models)
     drifted_qwen = replace(models[0], artifact_sha256="a" * 64)
-    with pytest.raises(ContractError, match="artifact|protocol"):
-        prepare_phase41_evaluation(
-            tmp_path / "out",
-            held_out=_held_out(),
-            models=(drifted_qwen, models[1]),
-            protocols=protocols,
-            comparison_authority_sha256="5" * 64,
-            review_closure_sha256="6" * 64,
-            comparison_launch_receipt_sha256="7" * 64,
-            execution_source_manifest_sha256="8" * 64,
-            prior_human_exposure_disclosed=True,
-            deployment_fit_choice="deferred",
-        )
+    with _phase41_test_runtime(registry_root=tmp_path / "registry"):
+        with pytest.raises(ContractError, match="artifact|protocol"):
+            _prepare_phase41_synthetic_for_test(
+                tmp_path / "out",
+                held_out=_held_out(),
+                models=(drifted_qwen, models[1]),
+                protocols=protocols,
+                comparison_authority_sha256="5" * 64,
+                review_closure_sha256="6" * 64,
+                comparison_launch_receipt_sha256="7" * 64,
+                execution_source_manifest_sha256="8" * 64,
+                prior_human_exposure_disclosed=True,
+                deployment_fit_choice="deferred",
+            )
 
 
 def test_protocol_loader_rejects_nested_duplicate_and_nonfinite_json(tmp_path):
@@ -553,18 +611,19 @@ def test_protocol_authority_write_flushes_file_durably(tmp_path, monkeypatch):
 def test_execution_source_manifest_binds_inventory_and_launcher(tmp_path):
     models = _models()
     protocols = build_synthetic_protocol_authority(models)
-    prepare_phase41_evaluation(
-        tmp_path,
-        held_out=_held_out(),
-        models=models,
-        protocols=protocols,
-        comparison_authority_sha256="5" * 64,
-        review_closure_sha256="6" * 64,
-        comparison_launch_receipt_sha256="7" * 64,
-        execution_source_manifest_sha256="8" * 64,
-        prior_human_exposure_disclosed=True,
-        deployment_fit_choice="deferred",
-    )
+    with _phase41_test_runtime(registry_root=tmp_path / "registry"):
+        _prepare_phase41_synthetic_for_test(
+            tmp_path,
+            held_out=_held_out(),
+            models=models,
+            protocols=protocols,
+            comparison_authority_sha256="5" * 64,
+            review_closure_sha256="6" * 64,
+            comparison_launch_receipt_sha256="7" * 64,
+            execution_source_manifest_sha256="8" * 64,
+            prior_human_exposure_disclosed=True,
+            deployment_fit_choice="deferred",
+        )
     manifest = json.loads((tmp_path / "execution-source-manifest.json").read_text(encoding="utf-8"))
     assert manifest["launcher"]["path"] == "scripts/phase41_one_shot_launcher.ps1"
     assert len(manifest["launcher"]["sha256"]) == 64

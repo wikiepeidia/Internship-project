@@ -742,8 +742,24 @@ class _ImmutableTreeLease:
         self.assert_intact()
 
     def assert_intact(self) -> None:
-        if self._closed or not self._handles:
+        expected_handles = len((self.root, *self.root.parents)) + len(self._inventory)
+        if (
+            self._closed
+            or not self._inventory
+            or not self._handles
+            or len(self._handles) != expected_handles
+        ):
             raise ProtocolContractError(f"{self.description} lifetime lease is closed")
+        for record in self._handles:
+            if (
+                not isinstance(record, tuple)
+                or len(record) != 2
+                or record[0] is not self._handle_kernel32
+                or not record[1]
+            ):
+                raise ProtocolContractError(
+                    f"{self.description} lifetime lease lacks live OS handles"
+                )
         self._assert_change_fence_clean()
         if _tree_inventory(self.root) != self._inventory:
             raise ProtocolContractError(
@@ -804,15 +820,119 @@ def _run_with_immutable_leases(
 PredictorCallable = Callable[["InMemorySnapshot"], Sequence["Prediction"]]
 
 
+def _lexical_path_key(path: Path) -> str:
+    return os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(path))))
+
+
+def _assert_loaded_predictor_state(
+    value: object,
+    *,
+    role: str,
+    expected_binding: object | None = None,
+) -> str:
+    """Prove live model leases and the OS-backed launcher binding at use time."""
+
+    protocol = getattr(value, "protocol", None)
+    if type(protocol) is not FrozenInferenceProtocol or protocol.role != role:
+        raise ProtocolContractError(f"{role} production predictor protocol is invalid")
+    if (
+        getattr(value, "loaded", None) is not True
+        or getattr(value, "smoke_verified", None) is not True
+    ):
+        raise ProtocolContractError(
+            f"{role} production predictor was not loaded and smoke-verified"
+        )
+    leases = getattr(value, "_leases", None)
+    if (
+        type(leases) is not tuple
+        or len(leases) != 2
+        or leases[0] is leases[1]
+        or any(type(lease) is not _ImmutableTreeLease for lease in leases)
+    ):
+        raise ProtocolContractError(
+            f"{role} production predictor requires exactly two live model leases"
+        )
+    try:
+        for lease in leases:
+            lease.assert_intact()
+        lease_identities = tuple(lease.identity_sha256 for lease in leases)
+    except Exception as exc:
+        raise ProtocolContractError(
+            f"{role} production predictor lacks live OS-backed model leases"
+        ) from exc
+    expected_identities = (
+        _require_sha(protocol.body["bundle_root_sha256"], f"{role} bundle identity"),
+        _require_sha(protocol.body["base_snapshot_sha256"], f"{role} base identity"),
+    )
+    if lease_identities != expected_identities:
+        raise ProtocolContractError(f"{role} production lease identities drifted")
+    expected_bundle_root = Path(str(protocol.body["bundle_root"]))
+    if _lexical_path_key(leases[0].root) != _lexical_path_key(expected_bundle_root):
+        raise ProtocolContractError(f"{role} production bundle lease root drifted")
+    authority_sha256 = _require_sha(
+        getattr(value, "_authority_sha256", None),
+        f"{role} protocol authority identity",
+    )
+    output_root = getattr(value, "_output_root", None)
+    if not isinstance(output_root, Path) or not output_root.is_absolute():
+        raise ProtocolContractError(f"{role} production output root is invalid")
+    try:
+        durable_authority = load_protocol_authority(output_root)
+    except Exception as exc:
+        raise ProtocolContractError(
+            f"{role} durable protocol authority is unavailable"
+        ) from exc
+    durable_protocol = (
+        durable_authority.qwen if role == "qwen" else durable_authority.phobert
+    )
+    if (
+        durable_authority.authority_sha256 != authority_sha256
+        or durable_protocol.protocol_sha256 != protocol.protocol_sha256
+    ):
+        raise ProtocolContractError(f"{role} durable protocol authority drifted")
+    launcher_binding = getattr(value, "_launcher_binding", None)
+    if launcher_binding is None or (
+        expected_binding is not None and launcher_binding is not expected_binding
+    ):
+        raise ProtocolContractError(f"{role} launcher binding drifted")
+    capability_sha256 = _require_sha(
+        getattr(value, "_launcher_capability_sha256", None),
+        f"{role} launcher capability",
+    )
+    try:
+        from src.model_adaptation.phase41_evaluation import (
+            _require_live_launcher_capability,
+        )
+
+        observed_binding = _require_live_launcher_capability(
+            output_root,
+            consume=False,
+        )
+    except Exception as exc:
+        raise ProtocolContractError(
+            f"{role} launcher binding is not OS-verified and live"
+        ) from exc
+    if (
+        observed_binding is None
+        or observed_binding is not launcher_binding
+        or getattr(observed_binding, "launcher_capability_sha256", None)
+        != capability_sha256
+    ):
+        raise ProtocolContractError(f"{role} launcher binding is not live and exact")
+    return capability_sha256
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class FrozenQwenPredictor:
     protocol: FrozenInferenceProtocol
     predictor: PredictorCallable
     loaded: bool
     smoke_verified: bool
-    _loader_capability: object | None = field(repr=False, compare=False)
     _leases: tuple[_ImmutableTreeLease, ...] = field(repr=False, compare=False)
     _authority_sha256: str | None = field(repr=False, compare=False)
+    _output_root: Path | None = field(repr=False, compare=False)
+    _launcher_binding: object | None = field(repr=False, compare=False)
+    _launcher_capability_sha256: str | None = field(repr=False, compare=False)
 
     def __init__(
         self,
@@ -831,43 +951,50 @@ class FrozenQwenPredictor:
         object.__setattr__(self, "predictor", predictor)
         object.__setattr__(self, "loaded", False)
         object.__setattr__(self, "smoke_verified", False)
-        object.__setattr__(self, "_loader_capability", None)
         object.__setattr__(self, "_leases", ())
         object.__setattr__(self, "_authority_sha256", None)
+        object.__setattr__(self, "_output_root", None)
+        object.__setattr__(self, "_launcher_binding", None)
+        object.__setattr__(self, "_launcher_capability_sha256", None)
 
     @property
     def production_verified(self) -> bool:
         if self.loaded is not True or self.smoke_verified is not True:
             return False
         try:
-            self.assert_lifetime_integrity()
-            lease_identities = tuple(lease.identity_sha256 for lease in self._leases)
-        except ProtocolContractError:
+            _assert_loaded_predictor_state(self, role="qwen")
+        except Exception:
             return False
-        return _loader_capability_is_valid(
-            self._loader_capability,
-            role="qwen",
-            authority_sha256=self._authority_sha256,
-            protocol_sha256=self.protocol.protocol_sha256,
-            lease_identities=lease_identities,
-        )
+        return True
 
     @property
     def launcher_capability_sha256(self) -> str | None:
-        return _loader_capability_sha256(self._loader_capability)
+        try:
+            return _assert_loaded_predictor_state(self, role="qwen")
+        except Exception:
+            return None
 
     @property
     def synthetic_test_only(self) -> bool:
         return self.protocol.body["runtime"]["python"] == "synthetic"
 
     def _has_launcher_binding(self, binding: object) -> bool:
-        return _loader_capability_matches_binding(self._loader_capability, binding)
+        try:
+            _assert_loaded_predictor_state(
+                self,
+                role="qwen",
+                expected_binding=binding,
+            )
+        except Exception:
+            return False
+        return True
 
     def assert_lifetime_integrity(self) -> None:
-        for lease in self._leases:
-            lease.assert_intact()
+        _assert_loaded_predictor_state(self, role="qwen")
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
+        if not self.synthetic_test_only:
+            self.assert_lifetime_integrity()
         return self.predictor(snapshot)
 
 
@@ -877,9 +1004,11 @@ class FrozenPhoBertPredictor:
     predictor: PredictorCallable
     loaded: bool
     smoke_verified: bool
-    _loader_capability: object | None = field(repr=False, compare=False)
     _leases: tuple[_ImmutableTreeLease, ...] = field(repr=False, compare=False)
     _authority_sha256: str | None = field(repr=False, compare=False)
+    _output_root: Path | None = field(repr=False, compare=False)
+    _launcher_binding: object | None = field(repr=False, compare=False)
+    _launcher_capability_sha256: str | None = field(repr=False, compare=False)
 
     def __init__(
         self,
@@ -898,43 +1027,50 @@ class FrozenPhoBertPredictor:
         object.__setattr__(self, "predictor", predictor)
         object.__setattr__(self, "loaded", False)
         object.__setattr__(self, "smoke_verified", False)
-        object.__setattr__(self, "_loader_capability", None)
         object.__setattr__(self, "_leases", ())
         object.__setattr__(self, "_authority_sha256", None)
+        object.__setattr__(self, "_output_root", None)
+        object.__setattr__(self, "_launcher_binding", None)
+        object.__setattr__(self, "_launcher_capability_sha256", None)
 
     @property
     def production_verified(self) -> bool:
         if self.loaded is not True or self.smoke_verified is not True:
             return False
         try:
-            self.assert_lifetime_integrity()
-            lease_identities = tuple(lease.identity_sha256 for lease in self._leases)
-        except ProtocolContractError:
+            _assert_loaded_predictor_state(self, role="phobert")
+        except Exception:
             return False
-        return _loader_capability_is_valid(
-            self._loader_capability,
-            role="phobert",
-            authority_sha256=self._authority_sha256,
-            protocol_sha256=self.protocol.protocol_sha256,
-            lease_identities=lease_identities,
-        )
+        return True
 
     @property
     def launcher_capability_sha256(self) -> str | None:
-        return _loader_capability_sha256(self._loader_capability)
+        try:
+            return _assert_loaded_predictor_state(self, role="phobert")
+        except Exception:
+            return None
 
     @property
     def synthetic_test_only(self) -> bool:
         return self.protocol.body["runtime"]["python"] == "synthetic"
 
     def _has_launcher_binding(self, binding: object) -> bool:
-        return _loader_capability_matches_binding(self._loader_capability, binding)
+        try:
+            _assert_loaded_predictor_state(
+                self,
+                role="phobert",
+                expected_binding=binding,
+            )
+        except Exception:
+            return False
+        return True
 
     def assert_lifetime_integrity(self) -> None:
-        for lease in self._leases:
-            lease.assert_intact()
+        _assert_loaded_predictor_state(self, role="phobert")
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
+        if not self.synthetic_test_only:
+            self.assert_lifetime_integrity()
         return self.predictor(snapshot)
 
 
@@ -1198,8 +1334,6 @@ def _qwen_generation_controls(protocol: FrozenInferenceProtocol) -> dict[str, ob
 
 def _load_phase41_production_predictors_impl(
     output_root: Path,
-    *,
-    _capability_type: type,
 ) -> tuple[FrozenQwenPredictor, FrozenPhoBertPredictor]:
     """Load and smoke the two code-fixed local artifacts without a data opener.
 
@@ -1604,123 +1738,40 @@ def _load_phase41_production_predictors_impl(
     for lease in (*qwen_leases, *phobert_leases):
         lease.assert_intact()
 
-    qwen_capability = _capability_type(
-        role="qwen",
-        authority_sha256=authority.authority_sha256,
-        protocol_sha256=authority.qwen.protocol_sha256,
-        launcher_capability_sha256=launcher_capability_sha256,
-        launcher_binding=launcher_binding,
-        lease_identities=tuple(lease.identity_sha256 for lease in qwen_leases),
-    )
-    phobert_capability = _capability_type(
-        role="phobert",
-        authority_sha256=authority.authority_sha256,
-        protocol_sha256=authority.phobert.protocol_sha256,
-        launcher_capability_sha256=launcher_capability_sha256,
-        launcher_binding=launcher_binding,
-        lease_identities=tuple(lease.identity_sha256 for lease in phobert_leases),
-    )
     qwen = object.__new__(FrozenQwenPredictor)
     object.__setattr__(qwen, "protocol", authority.qwen)
     object.__setattr__(qwen, "predictor", qwen_predict)
     object.__setattr__(qwen, "loaded", True)
     object.__setattr__(qwen, "smoke_verified", True)
-    object.__setattr__(qwen, "_loader_capability", qwen_capability)
     object.__setattr__(qwen, "_leases", qwen_leases)
     object.__setattr__(qwen, "_authority_sha256", authority.authority_sha256)
+    object.__setattr__(qwen, "_output_root", root.absolute())
+    object.__setattr__(qwen, "_launcher_binding", launcher_binding)
+    object.__setattr__(
+        qwen,
+        "_launcher_capability_sha256",
+        launcher_capability_sha256,
+    )
     phobert = object.__new__(FrozenPhoBertPredictor)
     object.__setattr__(phobert, "protocol", authority.phobert)
     object.__setattr__(phobert, "predictor", phobert_predict)
     object.__setattr__(phobert, "loaded", True)
     object.__setattr__(phobert, "smoke_verified", True)
-    object.__setattr__(phobert, "_loader_capability", phobert_capability)
     object.__setattr__(phobert, "_leases", phobert_leases)
     object.__setattr__(phobert, "_authority_sha256", authority.authority_sha256)
+    object.__setattr__(phobert, "_output_root", root.absolute())
+    object.__setattr__(phobert, "_launcher_binding", launcher_binding)
+    object.__setattr__(
+        phobert,
+        "_launcher_capability_sha256",
+        launcher_capability_sha256,
+    )
+    qwen.assert_lifetime_integrity()
+    phobert.assert_lifetime_integrity()
     return qwen, phobert
 
 
-def _install_capability_guarded_loader(loader_impl):  # noqa: ANN001
-    """Keep the only accepted production-capability type inside a closure."""
-
-    class LoaderCapability:
-        __slots__ = (
-            "role",
-            "authority_sha256",
-            "protocol_sha256",
-            "launcher_capability_sha256",
-            "launcher_binding",
-            "lease_identities",
-            "_sealed",
-        )
-
-        def __init__(
-            self,
-            *,
-            role: str,
-            authority_sha256: str,
-            protocol_sha256: str,
-            launcher_capability_sha256: str,
-            launcher_binding: object,
-            lease_identities: tuple[str, ...],
-        ) -> None:
-            object.__setattr__(self, "role", role)
-            object.__setattr__(self, "authority_sha256", authority_sha256)
-            object.__setattr__(self, "protocol_sha256", protocol_sha256)
-            object.__setattr__(
-                self,
-                "launcher_capability_sha256",
-                launcher_capability_sha256,
-            )
-            object.__setattr__(self, "launcher_binding", launcher_binding)
-            object.__setattr__(self, "lease_identities", lease_identities)
-            object.__setattr__(self, "_sealed", True)
-
-        def __setattr__(self, name: str, value: object) -> None:
-            del name, value
-            raise AttributeError("loader capability is immutable")
-
-    def guarded(output_root: Path):  # noqa: ANN202
-        return loader_impl(output_root, _capability_type=LoaderCapability)
-
-    def valid(
-        capability: object,
-        *,
-        role: str,
-        authority_sha256: str | None,
-        protocol_sha256: str,
-        lease_identities: tuple[str, ...],
-    ) -> bool:
-        return (
-            type(capability) is LoaderCapability
-            and capability.role == role
-            and capability.authority_sha256 == authority_sha256
-            and capability.protocol_sha256 == protocol_sha256
-            and capability.lease_identities == lease_identities
-            and capability._sealed is True
-        )
-
-    def capability_sha256(capability: object) -> str | None:
-        if type(capability) is not LoaderCapability:
-            return None
-        return str(capability.launcher_capability_sha256)
-
-    def matches_binding(capability: object, binding: object) -> bool:
-        return (
-            type(capability) is LoaderCapability
-            and capability.launcher_binding is binding
-        )
-
-    guarded.__name__ = "load_phase41_production_predictors"
-    guarded.__qualname__ = "load_phase41_production_predictors"
-    return guarded, valid, capability_sha256, matches_binding
-
-
-(
-    load_phase41_production_predictors,
-    _loader_capability_is_valid,
-    _loader_capability_sha256,
-    _loader_capability_matches_binding,
-) = _install_capability_guarded_loader(_load_phase41_production_predictors_impl)
+load_phase41_production_predictors = _load_phase41_production_predictors_impl
 
 
 __all__ = [
