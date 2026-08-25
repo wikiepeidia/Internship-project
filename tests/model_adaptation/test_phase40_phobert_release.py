@@ -40,6 +40,7 @@ from src.model_adaptation.phase40_graphs import render_phase40_graphs
 from src.model_adaptation.phase40_handoff import (
     FIXED_ACTIVE_RETURNED_ROOTS,
     FIXED_INPUT_DRIVE_PATH,
+    FIXED_INPUT_EXTRACTION_ROOT,
     FIXED_LORA_PROBE_FILES,
     FIXED_LORA_PROBE_ROOT,
     FIXED_RETURNED_ROOTS,
@@ -1549,6 +1550,21 @@ def test_run_evidence_path_exception_cannot_be_reused_in_sanitized_argv(tmp_path
 
     with pytest.raises(PhoBertReleaseError, match="absolute host path"):
         _build(fixture)
+
+
+def test_run_evidence_allows_exact_fixed_input_root_in_sanitized_argv(tmp_path):
+    fixture = _fixture(
+        tmp_path,
+        evidence_sanitized_argv=(
+            "train",
+            "--input-root",
+            FIXED_INPUT_EXTRACTION_ROOT,
+        ),
+    )
+
+    built = _build(fixture)
+
+    assert built.root == fixture.bundle_root
 
 
 def test_opaque_model_weights_do_not_trigger_text_path_scanner(tmp_path):

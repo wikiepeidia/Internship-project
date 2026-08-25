@@ -13,3 +13,15 @@ data/models/phase40/input/** -text
 data/models/phase40/source/** -text
 # Recovery-request capsules are themselves hash authorities and must round-trip byte-exactly.
 data/models/phase40/request-authority-roots/** -text
+# Final Phase 40 production authorities and receipts are canonical byte artifacts.
+data/models/phase40/runtime-dependency-*.json -text
+data/models/phase40/final-comparison-authority.json -text
+data/models/phase40/qwen-gguf-verification-receipt.json -text
+data/models/phase40/phobert-tokenizer-authority.json -text
+data/models/phase40/comparison-launch-receipt.json -text
+data/models/phase40/comparison-launch-capability.claim -text
+data/models/phase40/comparison-manifest.json -text
+data/models/phase40/selected-prediction-bundles.json -text
+data/models/phase40/review/review-queue.jsonl -text
+data/models/phase40/review/review-queue-manifest.json -text
+data/models/phase40/review/reviewer-return.template.jsonl -text

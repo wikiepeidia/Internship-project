@@ -149,6 +149,7 @@ _SAFETENSORS_SUFFIX = ".safetensors"
 _MAX_SAFETENSORS_HEADER_BYTES = 64 * 1024 * 1024
 _CANONICAL_RUN_EVIDENCE_PATH_EXCEPTIONS = MappingProxyType(
     {
+        ("sanitized_argv", "[]"): FIXED_INPUT_EXTRACTION_ROOT,
         ("transfer_authority", "input_drive_path"): FIXED_INPUT_DRIVE_PATH,
         ("transfer_authority", "input_extraction_root"): (
             FIXED_INPUT_EXTRACTION_ROOT
