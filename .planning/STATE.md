@@ -5,11 +5,11 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 40
 current_phase_name: Multi-Model Training Evidence
 status: executing
-stopped_at: Phase 40 Plan 05 QLoRA remains active with step 1200/1245 fully sealed and terminal training underway, with fresh-only PhoBERT controller v9 waiting; Phase 41 Plan 01 synthetic preparation is peer-reviewed PASS but separately blocked on canonical Phase 40 authority materialization and binding
-last_updated: "2026-08-25T17:33:01.012Z"
+stopped_at: Phase 40 Plan 05 Qwen QLoRA is verified complete with all 1245 steps and safety gate PASS; supervised Q8_0 GGUF export is active while fresh-only PhoBERT controller v9 waits behind export/load-smoke and VRAM gates; Phase 41 remains blocked on canonical Phase 40 authority materialization and binding
+last_updated: "2026-08-25T18:15:00.148Z"
 last_activity: 2026-08-26
-last_activity_desc: Confirmed trainer 19772, supervisor 1576, telemetry 15308, and controller v9 20064 alive; checkpoint 1200 and its validation prediction are sealed, training resumed for the final 45 optimizer steps, and Phase 41 production remains fail-closed on missing canonical authorities without opening the reserved split
-state_head: ac6b80125c6e998203ea808eaf4f59d5ebd86f98
+last_activity_desc: Qwen QLoRA reached 1245/1245, terminal validation landed, immutable run evidence verified with exit 0 and safety gate PASS, trainer 19772 exited cleanly, and supervisor 1576 launched the Q8_0 GGUF export while controller v9 20064 remained armed for fresh PhoBERT
+state_head: c7208ce89184e8e2abe38c6a3355ed1a908f19f3
 progress:
   total_phases: 22
   completed_phases: 1
@@ -39,8 +39,8 @@ progress:
 
 Phase: 40 (Multi-Model Training Evidence) — EXECUTING
 Plan: 5 of 6
-Status: Plan 04 complete; Plan 05 clean v3 local QLoRA branch is running unattended and fresh-only PhoBERT controller v9 is queued behind verified Qwen evidence plus GGUF; the full-LoRA branch is withdrawn, the 41-file two-model authority is frozen and externally verified, and two-model validation finalization plus Plan 06 remain open
-Last activity: 2026-08-26 — confirmed trainer PID 19772, supervisor 1576, telemetry 15308, and controller v9 PID 20064 alive; QLoRA checkpoint 1200 was retained at 23:54:55, its validation prediction landed at 00:31:24, and training resumed for the final 45 optimizer steps while controller v9 still waits. Phase 41 synthetic preparation passed peer review, 103/103 integrated focused tests, and 626/626 full model-adaptation tests without opening the reserved split, but production remains fail-closed on missing canonical Phase 40 authorities.
+Status: Plan 04 complete; Plan 05 clean v3 local Qwen QLoRA run is verified complete and its supervised Q8_0 GGUF export is active, while fresh-only PhoBERT controller v9 is queued behind verified export/load-smoke and safe VRAM gates; the full-LoRA branch is withdrawn, and two-model validation finalization plus Plan 06 remain open
+Last activity: 2026-08-26 — Qwen QLoRA reached 1,245/1,245, terminal predictions landed at 01:13:58, immutable run evidence verified with exit 0 and safety gate PASS at 01:15:00, and trainer PID 19772 exited cleanly. Supervisor PID 1576 launched the supervised Q8_0 GGUF export as PID 28320; telemetry PID 15308 and fresh-only controller v9 PID 20064 remain alive. Phase 41 production remains fail-closed on missing canonical Phase 40 authorities.
 
 ## Performance Metrics (Baseline Targets)
 
@@ -231,8 +231,8 @@ Last activity: 2026-08-26 — confirmed trainer PID 19772, supervisor 1576, tele
 
 ## Session Continuity
 
-**Last session:** 2026-08-25T17:33:01.012Z
-**Stopped at:** Phase 40 Plan 05 clean v3 local QLoRA remains active with step 1200/1,245 as the latest fully sealed durable evidence: checkpoint retention completed at 23:54:55 and its validation prediction landed at 00:31:24. Training resumed for the final 45 optimizer steps. Trainer PID 19772, supervisor 1576, telemetry 15308, and controller v9 PID 20064 remain alive; controller v9 still waits behind verified Qwen evidence, GGUF verification, trainer exit, and the safe GPU-memory gate. Phase 41 Plan 01 synthetic preparation is peer-reviewed PASS with 103/103 integrated focused and 626/626 full model-adaptation tests, but it remains separately blocked from production protocol derivation because canonical post-training authority materialization and comparison binding are incomplete. The reserved split was not accessed.
+**Last session:** 2026-08-25T18:15:00.148Z
+**Stopped at:** Phase 40 Plan 05 clean v3 local Qwen QLoRA is verified complete: all 1,245 optimizer steps finished, terminal predictions landed at 01:13:58, run evidence verified with exit 0 and safety gate PASS, and trainer PID 19772 exited cleanly. Supervisor PID 1576 launched Q8_0 GGUF export PID 28320; telemetry PID 15308 and controller v9 PID 20064 remain alive. Controller v9 waits behind verified GGUF/load smoke and the safe GPU-memory gate before launching exactly one fresh PhoBERT run. Phase 41 remains blocked because canonical post-training authority materialization and comparison binding are incomplete. The reserved split was not accessed.
 **Resume file:** `.planning/phases/40-multi-model-training-evidence/40-LOCAL-FULL-QLORA-REPORT.md`
 
 - Last session: 2026-07-02
