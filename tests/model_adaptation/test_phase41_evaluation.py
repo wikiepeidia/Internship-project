@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import hashlib
+import inspect
 import json
 from pathlib import Path
 
@@ -213,3 +214,88 @@ def test_deployment_fit_disposition_reproduces_precommitted_choice(tmp_path):
     assert body["choice"] == "deferred"
     assert body["unbiased_test_score_claim"] is False
     assert body["test_outcome_used_for_tuning"] is False
+
+
+def test_public_run_and_verify_signatures_have_no_opener_registry_or_split_override():
+    run_parameters = set(inspect.signature(run_phase41_once).parameters)
+    verify_parameters = set(inspect.signature(verify_phase41_evidence).parameters)
+    assert run_parameters == {"output_root", "qwen", "phobert"}
+    assert verify_parameters == {"output_root"}
+    assert {"opener", "registry", "split_path", "retry"}.isdisjoint(run_parameters)
+
+
+def test_same_content_at_another_path_and_output_root_cannot_replay(tmp_path):
+    payload = _payload()
+    first_split = tmp_path / "first.jsonl"
+    copied_split = tmp_path / "copied.jsonl"
+    first_split.write_bytes(payload)
+    copied_split.write_bytes(payload)
+    first_root = tmp_path / "first-output"
+    copied_root = tmp_path / "copied-output"
+    first_protocols = _prepare_authorize(first_root, first_split, payload)
+    copied_protocols = _prepare_authorize(copied_root, copied_split, payload)
+    registry = tmp_path / "machine-claims"
+    with _phase41_test_runtime(registry_root=registry):
+        run_phase41_once(
+            first_root,
+            FrozenQwenPredictor(first_protocols.qwen, _predictor_rows),
+            FrozenPhoBertPredictor(first_protocols.phobert, _predictor_rows),
+        )
+        with pytest.raises(AlreadySpentError):
+            run_phase41_once(
+                copied_root,
+                FrozenQwenPredictor(copied_protocols.qwen, _predictor_rows),
+                FrozenPhoBertPredictor(copied_protocols.phobert, _predictor_rows),
+            )
+    assert not (copied_root / "evaluation-access-receipt.json").exists()
+
+
+def test_access_receipt_proves_one_handle_and_read_without_content(tmp_path):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+    protocols = _prepare_authorize(root, split, payload)
+    with _phase41_test_runtime(registry_root=tmp_path / "machine-claims"):
+        run_phase41_once(
+            root,
+            FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+            FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+        )
+    receipt = json.loads((root / "evaluation-access-receipt.json").read_text(encoding="utf-8"))
+    assert receipt["handle_acquisitions"] == 1
+    assert receipt["sequential_payload_reads"] == 1
+    assert receipt["raw_content_retained"] is False
+    serialized = json.dumps(receipt)
+    assert "synthetic message" not in serialized
+    assert "volume_serial_number" in receipt
+    assert "file_identity" in receipt
+
+
+@pytest.mark.skipif(not hasattr(Path, "is_junction"), reason="Windows path checks required")
+def test_alternate_data_stream_is_rejected_only_after_durable_claim(tmp_path):
+    base = tmp_path / "ads-base.jsonl"
+    base.write_bytes(b"base")
+    ads = Path(f"{base}:phase41")
+    payload = _payload()
+    ads.write_bytes(payload)
+    root = tmp_path / "phase41"
+    protocols = _prepare_authorize(root, ads, payload)
+    calls: list[str] = []
+
+    def forbidden(_snapshot):
+        calls.append("predictor")
+        return ()
+
+    registry = tmp_path / "machine-claims"
+    with _phase41_test_runtime(registry_root=registry, event_sink=calls):
+        with pytest.raises(Exception, match="alternate data stream|unsafe reserved path"):
+            run_phase41_once(
+                root,
+                FrozenQwenPredictor(protocols.qwen, forbidden),
+                FrozenPhoBertPredictor(protocols.phobert, forbidden),
+            )
+    assert "claim_durable" in calls
+    assert "handle_acquired" not in calls
+    assert "predictor" not in calls
+    assert json.loads((root / "terminal.json").read_text(encoding="utf-8"))["status"] == "spent_failed"
