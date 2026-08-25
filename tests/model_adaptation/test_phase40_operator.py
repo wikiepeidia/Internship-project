@@ -554,8 +554,8 @@ def test_exact_qwen_resume_uses_backend_manifest_verifier(
 
     class ResumeModel:
         @classmethod
-        def model_validate(cls, payload):  # noqa: ANN001, ANN206
-            assert payload == {"identity": "frozen"}
+        def model_validate_json(cls, payload):  # noqa: ANN001, ANN206
+            assert json.loads(payload) == {"identity": "frozen"}
             return controlled
 
     fake_evidence = SimpleNamespace(ResumeControlledConfig=ResumeModel)

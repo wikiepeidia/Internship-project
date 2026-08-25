@@ -525,7 +525,14 @@ def _verify_qwen_resume_checkpoint(
     controlled_payload = payload.get("controlled_config")
     if not isinstance(controlled_payload, dict):
         raise RuntimeError("checkpoint resume manifest lacks controlled_config")
-    controlled = evidence.ResumeControlledConfig.model_validate(controlled_payload)
+    controlled = evidence.ResumeControlledConfig.model_validate_json(
+        json.dumps(
+            controlled_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     request.control_template_by_run[selected_run.run_id].verify_runtime_config(controlled)
     model_id, model_revision = _request_model_identity(request, selected_run)
     base_model_snapshot = _validate_base_model_cli_paths(

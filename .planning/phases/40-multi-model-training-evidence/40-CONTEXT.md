@@ -1,14 +1,14 @@
 # Phase 40: Multi-Model Training Evidence - Context
 
 **Gathered:** 2026-08-17
-**Status:** Ready for planning after Phase 39 final-corpus review closes
+**Status:** Executing Plan 40-05; the dated execution amendment supersedes the earlier Colab-only routing language below
 
 <domain>
 ## Phase Boundary
 
 Phase 40 creates genuine, reproducible training evidence for three models:
 Qwen LoRA, Qwen QLoRA, and a PhoBERT classification-head baseline. It measures
-local feasibility on the RTX 5050, executes fresh full training on Colab, and
+local feasibility on the RTX 5050, executes fresh full training on explicitly recorded accelerators, and
 produces curves plus validation comparisons. It does not evaluate or inspect
 the held-out test rows; that belongs exclusively to Phase 41.
 
@@ -55,9 +55,10 @@ different accelerator is explicitly hardware-confounded.
 - Discard both probe adapters. Do not resume either probe on Colab or include
   probe points in the full-run learning curves.
 
-### Fresh matched Colab runs
+### Fresh matched full runs (originally Colab-first)
 - Start fresh full Qwen LoRA and QLoRA runs from the same pinned base-model
-  revision, preferably on the same Colab accelerator type.
+  revision. The verified QLoRA branch is now local; ordinary LoRA may use
+  Colab, and external QLoRA is only a terminal-failure fallback.
 - Hold dataset hashes/order, random seed, maximum sequence length, effective
   batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence
   constant. Base-weight quantization is the intended difference.
@@ -117,8 +118,8 @@ different accelerator is explicitly hardware-confounded.
 <deferred>
 ## Deferred Ideas
 
-- Formal executable Phase 40 plans remain to be produced by the phase planner
-  after the refreshed Phase 39 final-corpus human review is complete.
+- Formal executable Phase 40 plans were produced after Phase 39 closure; Plans
+  40-01 through 40-04 are complete and Plan 40-05 is executing.
 - Test evaluation and optional all-data deployment fitting remain Phase 41 work.
 
 </deferred>

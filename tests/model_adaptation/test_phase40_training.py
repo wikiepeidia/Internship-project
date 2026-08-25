@@ -2182,7 +2182,10 @@ def test_request_constructor_derives_qwen_controls_and_paths(tmp_path):
     assert config.learning_rate == controlled.optimizer.learning_rate
     assert config.max_steps == controlled.max_optimizer_steps
     assert config.save_steps == controlled.cadence.save_steps
-    assert config.registry_path == tmp_path / "work" / "unused-model-registry.json"
+    assert config.output_root == tmp_path / "work" / "qwen-lora"
+    assert config.registry_path == (
+        tmp_path / "work" / "qwen-lora" / "unused-model-registry.json"
+    )
 
 
 def test_registry_free_comparison_retains_failed_safety_evidence(tmp_path, monkeypatch):

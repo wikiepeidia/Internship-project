@@ -75,7 +75,7 @@
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
-- [ ] **Phase 40: Multi-Model Training Evidence** - Measure bounded RTX 5050 LoRA/QLoRA probes, then train fresh matched LoRA, QLoRA, and PhoBERT runs with auditable Colab logs and genuine curves.
+- [ ] **Phase 40: Multi-Model Training Evidence** - Measure bounded RTX 5050 LoRA/QLoRA probes, then train fresh matched LoRA, QLoRA, and PhoBERT runs on explicitly recorded accelerators with auditable logs and genuine curves.
 - [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.

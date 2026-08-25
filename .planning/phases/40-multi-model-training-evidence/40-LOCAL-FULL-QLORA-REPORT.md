@@ -1,40 +1,71 @@
 # Phase 40 Local Full QLoRA Run
 
-**Started:** 2026-08-25 08:59 +07:00
-**Status:** Running unattended; this file is an in-progress execution record, not a completion claim.
+**First attempt started:** 2026-08-25 08:59 +07:00
+
+**Clean v3 run started:** 2026-08-25 10:21 +07:00
+
+**Status:** Running unattended; this is an in-progress execution record, not a completion claim.
 
 ## Authority and route
 
-The operator selected a fresh step-zero full QLoRA run on the RTX 5050 after the bounded probe proved genuine four-bit training feasible. No probe adapter, checkpoint, or event stream was reused. The run consumes only the canonical 1,658-row training and 219-row validation members from the train/validation-only archive; Phase 40 does not open the reserved test partition.
+The operator selected a fresh step-zero full QLoRA run on the RTX 5050 after the bounded probe proved genuine four-bit training feasible. No probe adapter, checkpoint, or event stream was reused. The run consumes only the canonical 1,658-row training and 219-row validation members from the train/validation-only archive. The reserved evaluation partition remains outside this run.
 
 - Package root: `D:\PROJEct\AI MODELS\phase40-full-local-20260825`
-- Immutable result root: `transfer-root-v2\data\models\phase40\full\qwen-qlora`
-- Mutable trainer root: `work-v2\phase40-comparison\qwen3-4b-instruct-2507\trainer`
-- Request SHA-256: `93b49371db184f28b2fb362da94ce99298f64487820176d2b10f65871ed3b8b8`
-- Source archive SHA-256: `f7566931dfb6f28471dc0ca97c71e21eec4ae5a50471cc088794185816ba3e85`
+- Active immutable result root: `transfer-root-v3\data\models\phase40\full\qwen-qlora`
+- Active mutable trainer root: `work-v3\phase40-qwen-qlora-full-seed42-v1\phase40-comparison\qwen3-4b-instruct-2507\trainer`
+- Active source runtime: `source-runtime-v3`
+- Request SHA-256: `2512dbe6d7c5b8c16141ebdbdc848382e56b3a5737e8aeea51d7fb89447c643a`
+- Source archive SHA-256: `eae64f17383d749a7759391d766ad59b337d35155ae89744adeaba8631e71a66`
+- Source inventory SHA-256: `5903dd5d68881916424e0b529760c3e8810b89a7c207aa714f13171fccf02a3d`
 - Input archive SHA-256: `12136f9a79e7c9852f6b317f284a9a018710aa66af54de4714ec66e8cf92bf84`
 - Base revision: `cdbee75f17c01a7cc42f958dc650907174af0554`
-- Supervisor source SHA-256: `9ecc6ba3100a3e1119aecd8f0069b79c55ab98410e018ee698ee53153f5d8584`
+- Supervisor source SHA-256: `43c4b9db4923ba601f06fa01130f85f74313731a5954a6f86c5d6039d796675b`
+- Telemetry logger SHA-256: `1bc33f3726b57297a3cc5a69b36831bbd602edac680ba329224b14cf06231c70`
 
-The v2 request was re-sealed after fixing a Windows portability contradiction: raw evidence correctly rejects personal absolute paths, while the backend requires normalized absolute base-model paths. The operator now records sanitized relative arguments but resolves the base path internally. Focused operator regression passed 22/22 before launch.
+The sealed v3 package passed its deterministic preparation verifier, request/source/input verifier, and QLoRA doctor before launch. The doctor confirmed CUDA, `bitsandbytes==0.50.1`, the pinned base snapshot, and genuine four-bit run identity without downloading or replacing the model.
+
+## Preserved v2 attempt and restart reason
+
+The first local attempt was not discarded or rewritten as a success. It reached materially complete checkpoints 50 and 100 carrying adapter, optimizer, scheduler, RNG, trainer state, resume manifest, and sealed history. Neither checkpoint was admitted for an actual resume after the full verifier exposed the two operator defects below. Checkpoint 50 produced 219 ordered predictions with 192 correct and zero invalid outputs (87.67% validation accuracy). Checkpoint 100 produced 210 correct predictions with one invalid output (95.89% validation accuracy). These are intermediate validation observations, not final-model claims.
+
+Exact-resume testing then exposed two operator defects:
+
+1. The mutable output root omitted the run ID, so the strict resume verifier correctly rejected the checkpoint as outside its run-scoped work root.
+2. The operator reconstructed the controlled configuration through Python-object validation even though the sealed JSON contains enum and tuple representations; the backend's canonical JSON validator was already correct.
+
+The trainer was intentionally interrupted during the step-150 validation boundary so the defects could be repaired before a real crash required recovery. Its append-only terminal event records `failure_category=interrupted`, `error_type=KeyboardInterrupt`, step 150, and resource-state SHA-256 `94abbbcedaf57f8a106404d6d333687a68c29c3a33221c7c331b3950ee5f4c05`. The stopped event stream SHA-256 is `103db67231afffd71d19530ca09439cb02d3deb559fc21499f8557e5502deb2b`; the v2 system-telemetry SHA-256 is `d80171a8172170d2fc30ce61c9d4cfffd6ad98edaa4a55c84775bfcd01eac667`. The stopped mutable tree is preserved under `resume-work-v2\phase40-qwen-qlora-full-seed42-v1`; its telemetry remains `controller\system-telemetry.csv`. No v2 checkpoint is reused by v3.
+
+The repairs make the mutable output and registry run-ID scoped and make the operator call the same canonical JSON validation boundary as the backend. Focused regression passed before a new request/source package was sealed. A clean v3 run was chosen over hot-patching and resuming v2 so the active result has one unambiguous source authority from step zero.
 
 ## Frozen training controls
 
-The run uses genuine NF4 QLoRA with double quantization, BF16 compute, LoRA rank 16, alpha 32, dropout 0.05, batch size 1, gradient accumulation 4, effective batch 4, three epochs, and 1,245 planned optimizer steps. Logging occurs every 10 steps; validation and checkpoint generation occur every 50 steps and at the final step. Every checkpoint produces ordered predictions for all 219 validation rows.
+The run uses genuine NF4 QLoRA with double quantization, BF16 compute, LoRA rank 16, alpha 32, dropout 0.05, batch size 1, gradient accumulation 4, effective batch 4, three epochs, and 1,245 planned optimizer steps. Logging occurs every 10 steps; validation and checkpoint generation occur every 50 steps and at the final step. Every sealed checkpoint must produce ordered predictions for all 219 validation rows.
 
-## Verified live evidence snapshot
+## Clean v3 live snapshot
 
-Checkpoint 50 completed and is exact-resume safe: adapter, optimizer, scheduler, RNG state, trainer state, compatibility manifest, and sealed resume history are present. Its ordinary validation pass reported `eval_loss=0.4636` over 219 rows in 56.86 seconds. The checkpoint-specific prediction artifact contains exactly 219 ordered rows, all parse successfully, and 192 match their gold label (87.67% validation accuracy; no final-model claim).
+At 2026-08-25 10:25 +07:00, trainer PID 19772 had completed optimizer step 50. The initial single-step log reported loss 1.926; the five successive 10-step windows ending at steps 10, 20, 30, 40, and 50 reported 1.589, 0.8664, 0.7249, 0.6687, and 0.5759. The ordinary 219-row pass then completed with `eval_loss=0.4666831791` in 54.1474 seconds, and `checkpoint-50` was saved before deterministic prediction generation began. The optimizer portion reached step 50 in about 167 seconds; batch-one prediction generation remains the expected wall-time bottleneck. The earlier v2 cadence supports a conservative 12–13-hour full-run estimate if every 50-step generation pass remains similarly slow.
 
-The interval from optimizer step 50 to resumed step 51 was about 28 minutes 52 seconds. The 56.86-second loss pass was small relative to sequential batch-one deterministic generation, so validation generation—not optimization or memory—is currently the wall-time bottleneck. Step 100 later reported `eval_loss=0.4157`; its prediction generation was still running when this snapshot was written. The conservative initial end-to-end estimate is roughly 12–13 hours if later generation passes remain as slow as checkpoint 50.
+The first telemetry implementation was caught writing blank GPU fields because one `nvidia-smi` line was incorrectly indexed as a character. The four invalid startup samples and buggy logger are preserved as `controller\system-telemetry-v3-startup-invalid.csv` and `controller\phase40-system-telemetry-v3-startup-buggy.ps1`. Training was not interrupted. The corrected logger and supervisor were reattached at 10:22 +07:00.
 
-Telemetry snapshot through 2026-08-25 09:48:57 +07:00 (not final): 324 samples; peak device use 7,512 MiB; minimum device free memory 399 MiB; peak GPU temperature 79C; peak GPU power 85.84W; peak Python RSS 8,992,821,248 bytes; peak system-RAM use 21,781,864,448 bytes. No OOM, NaN, data-contract failure, or thermal stop had occurred. The final supervisor seal will replace this running snapshot with complete hashes and extrema.
+The corrected telemetry's first 17 samples recorded peak device use 7,512 MiB, minimum free device memory 399 MiB, peak GPU temperature 80C, peak Python RSS 2,360,541,184 bytes, and peak system-RAM use 16,356,241,408 bytes. These are running values, not the final seal. No OOM, NaN, data-contract failure, or thermal stop had occurred.
 
 ## Unattended recovery and export
 
-The hidden supervisor is copied under `controller\phase40-full-local-supervisor-v3.ps1`; its append-only attachment log is `controller\supervisor.log`. If the trainer exits without complete evidence, it ignores any half-sealed checkpoint and permits at most two retries from the newest exact `checkpoint-N` containing both the resume compatibility manifest and sealed history. It never uses a lexical `latest` target.
+The active supervisor is `controller\phase40-full-local-supervisor-v3-run.ps1`; its append-only attachment log is `controller\supervisor-v3-run.log`. If the trainer exits without complete evidence, it ignores any half-sealed checkpoint and permits at most two retries from the newest exact `checkpoint-N` containing both the resume compatibility manifest and sealed history. Every candidate must pass the strict request, input, base, run-ID, checkpoint-history, and hash verifier before resume.
 
-After complete run evidence verifies, the supervisor merges the mechanically selected adapter into the pinned base, converts Q8_0 with converter SHA-256 `f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4aac434999b55`, verifies the GGUF manifest, and performs the pinned `llama-cpp-python==0.3.23` CPU load smoke. It then stops only the exact telemetry logger and writes `controller\system-telemetry-summary.json` with resource extrema and hashes.
+After complete run evidence verifies, the supervisor merges the mechanically selected adapter into the pinned ordinary base, converts Q8_0 with converter SHA-256 `f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4aac434999b55`, verifies the GGUF manifest, and performs the pinned `llama-cpp-python==0.3.23` CPU load smoke. The final model is routed to `exports-v3\qwen-qlora-q8_0.gguf`; merge scratch stays in `gguf-work-v3`. The supervisor then stops only the exact telemetry logger and writes `controller\system-telemetry-summary-v3.json` with resource extrema and hashes.
+
+## Mixed-origin comparison handoff
+
+The finalizer can admit the local QLoRA bundle together with two externally executed bundles without a code change. All three must first be consolidated under `transfer-root-v3` at the request-canonical relative roots; absolute D-drive paths are rejected. Finalization must execute from the hash-bound `source-runtime-v3`, not a future drifted workspace. The schema class retains the historical name `ColabOperatorReturn`, but it validates run IDs, canonical roots, package decisions, and accelerator identities rather than requiring a Colab origin.
+
+| Run | Execution origin | Canonical root under `transfer-root-v3` | Accelerator |
+|---|---|---|---|
+| Qwen LoRA | Pending external run | `data/models/phase40/full/qwen-lora` | Pending |
+| Qwen QLoRA | Active local v3 run | `data/models/phase40/full/qwen-qlora` | NVIDIA GeForce RTX 5050 Laptop GPU |
+| PhoBERT | Pending external run | `data/models/phase40/full/phobert` | Pending |
+
+The generated Colab handoff remains byte-verified as a complete external fallback recipe and is not hand-edited. Once local QLoRA verifies, its QLoRA notebook is skipped. The request's fixed Drive path is a transfer mapping for external execution, not a claim that the Windows run traversed Drive; Windows platform, sanitized command, and hardware origin remain in local run evidence.
 
 ## Remaining completion gates
 

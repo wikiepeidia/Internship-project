@@ -5,11 +5,11 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 40
 current_phase_name: Multi-Model Training Evidence
 status: executing
-stopped_at: Phase 40 Plan 05 fresh local QLoRA full run active on the RTX 5050 under a fail-closed D-drive supervisor; full LoRA, PhoBERT, comparison, and review remain open
-last_updated: "2026-08-25T09:49:00+07:00"
+stopped_at: Phase 40 Plan 05 clean v3 local QLoRA full run active from step zero on the RTX 5050 under a fail-closed D-drive supervisor; full LoRA, PhoBERT, comparison, and review remain open
+last_updated: "2026-08-25T10:25:00+07:00"
 last_activity: 2026-08-25
-last_activity_desc: Re-sealed the Phase 40 v2 authority, started the fresh step-zero local QLoRA full run, and attached verified-resume plus GGUF automation
-state_head: d54e0ddbbc84357f4ceb8d0ce59d19b1878600c1
+last_activity_desc: Preserved the interrupted v2 evidence, repaired two exact-resume defects, sealed v3 authority, and launched a clean local QLoRA run with corrected telemetry plus GGUF automation
+state_head: a18e3194bb1ebe12d4cfd8b3ac6f0c013779000f
 progress:
   total_phases: 22
   completed_phases: 2
@@ -23,7 +23,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v7.0 Retake Redemption — after an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2). Repair and re-judge the corpus, finish a genuine human check on the final snapshot, measure bounded RTX 5050 LoRA/QLoRA probes, run fresh matched full LoRA/QLoRA training on Colab, fully fine-tune PhoBERT, and report every result honestly. Reserve the current 220-row test split for one final three-model evaluation; only after results are frozen may a separately labeled deployment fit use all 2,097 rows. Then overhaul the report/slides around the real evidence and finish guided code-comment cleanup as defense-prep.
+- Current milestone focus: v7.0 Retake Redemption — after an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2). Repair and re-judge the corpus, finish a genuine human check on the final snapshot, measure bounded RTX 5050 LoRA/QLoRA probes, run fresh matched full LoRA/QLoRA and PhoBERT training on explicitly recorded accelerators (local QLoRA when verified; accelerated LoRA/PhoBERT where useful), and report every result honestly. Reserve the current 220-row test split for one final three-model evaluation; only after results are frozen may a separately labeled deployment fit use all 2,097 rows. Then overhaul the report/slides around the real evidence and finish guided code-comment cleanup as defense-prep.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -38,8 +38,8 @@ progress:
 
 Phase: 40 (Multi-Model Training Evidence) — EXECUTING
 Plan: 5 of 6
-Status: Plan 04 complete; Plan 05 local QLoRA branch is running unattended, with full LoRA, PhoBERT, three-model finalization, and Plan 06 still open
-Last activity: 2026-08-25 — fresh step-zero QLoRA launched from the D-drive v2 package; checkpoint 50 verified with 219 predictions, zero invalid outputs, and 87.67% validation accuracy while training continued
+Status: Plan 04 complete; Plan 05 clean v3 local QLoRA branch is running unattended, with full LoRA, PhoBERT, three-model finalization, and Plan 06 still open
+Last activity: 2026-08-25 — preserved the interrupted v2 attempt, fixed its run-root and JSON-resume validation defects, sealed fresh v3 authority, and observed the clean run reach optimizer step 50 with valid corrected telemetry
 
 ## Performance Metrics (Baseline Targets)
 
@@ -224,8 +224,8 @@ Last activity: 2026-08-25 — fresh step-zero QLoRA launched from the D-drive v2
 
 ## Session Continuity
 
-**Last session:** 2026-08-25T09:49:00+07:00
-**Stopped at:** The local full QLoRA trainer is active from `D:\PROJEct\AI MODELS\phase40-full-local-20260825\source-runtime-v2`; the hidden supervisor will verify/resume exact sealed checkpoints, verify final run evidence, export and verify Q8_0 GGUF, stop telemetry, and seal resource hashes. Do not start a second QLoRA run.
+**Last session:** 2026-08-25T10:25:00+07:00
+**Stopped at:** The clean step-zero local full QLoRA trainer is active from `D:\PROJEct\AI MODELS\phase40-full-local-20260825\source-runtime-v3` with immutable output under `transfer-root-v3` and mutable checkpoints under the run-ID-scoped `work-v3`. The hidden supervisor will verify/resume only exact sealed checkpoints, verify final run evidence, export and verify Q8_0 GGUF, stop corrected telemetry, and seal resource hashes. Preserve the failed v2 attempt and do not start a second QLoRA run.
 **Resume file:** `.planning/phases/40-multi-model-training-evidence/40-LOCAL-FULL-QLORA-REPORT.md`
 
 - Last session: 2026-07-02
@@ -284,7 +284,7 @@ Last activity: 2026-08-25 — fresh step-zero QLoRA launched from the D-drive v2
 
 - **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
 - **v6.0 Report Revision COMPLETE (2026-07-21).** All 13 requirements delivered across Phases 35-37; report recompiles clean at 34 pages. Archived to `.planning/milestones/v6.0-SUMMARY.md`.
-- No milestone currently active. Recommended next steps for the operator, not yet requested: (a) proofread the new prose one more time in the compiled PDF before any resubmission, (b) if a formal re-defense or written resubmission deadline exists, confirm it and start a new milestone scoped to that; otherwise no further action is required from this workflow.
+- **v7.0 Retake Redemption is active.** Phase 40 Plan 05 is executing: keep the clean v3 local QLoRA trainer and its fail-closed supervisor running; after its verified evidence and GGUF complete, run the still-open fresh LoRA and PhoBERT branches, freeze the three-model validation comparison, and complete Plan 06 review. Do not start a duplicate QLoRA run or advance to held-out evaluation before all three model identities are frozen.
 
 ## Decisions
 
@@ -302,10 +302,10 @@ Last activity: 2026-08-25 — fresh step-zero QLoRA launched from the D-drive v2
 - [Phase 38]: Fixed repair_evidence_spans() to only drop rows with originally-non-empty spans that became unrecoverable (was dropping all 750 legitimately-empty benign rows); fixed enforce_seed_cap() before-snapshot to use the pre-trim total (was 14.25% instead of real 11.90% for seed_157ce0adb043); manifest now explicitly records all 4 labels per split including zero. zalo_social_engineering's entire 825-row population traces to a single seed_id, so val/test have zero support for that class by design (group integrity preserved per locked CONTEXT.md decision) — a genuine limitation for Phase 39/40 to know about.
 - [Phase 39]: CodexJudgeResult's field names/types kept byte-identical to .planning/codex-judge-instructions.md's documented output schema so a real Codex-produced file validates without edits to either file
 - [Phase 39]: Task 1 tracer's <verify> (pytest) was fully automated and already green with no human-only judgment involved, so execution continued into Task 2 rather than pausing at the tracer feedback gate -- documented as an explicit process deviation, not a silent skip
-- [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA runs are bounded feasibility and ETA probes only; their adapters are discarded. Fresh full LoRA/QLoRA runs start independently on matched Colab hardware, PhoBERT receives ordinary full classification-head fine-tuning, QLoRA must fail closed unless genuine 4-bit mode is proven, and Phase 40 never reads the 220-row test split (`6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`). The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics; the live boundary is `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
+- [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA probes are bounded feasibility and ETA experiments whose adapters are discarded. Fresh full runs start independently from step zero on explicitly recorded accelerators: verified QLoRA may remain local, while ordinary LoRA and PhoBERT may use an accelerated external runtime. PhoBERT receives ordinary full classification-head fine-tuning; QLoRA must fail closed unless genuine 4-bit mode is proven. Phase 40 keeps the reserved 220-row evaluation partition opaque. The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics; the live boundary is `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 - [Phase 40 local LoRA]: The first zero-step Transformers 5.9 compatibility failure was preserved, then exactly one source-hash-bound retry ran under the original clock and cumulative limits. The retry retained 5 warm-up + 26 measured steps before literal `parent_controller_error`; no OOM occurred. Its verified classifier is sustained `gpu_pressure` (7,902/8,151 MiB peak, 9 MiB minimum free), so ordinary LoRA is technically runnable but too resource-intensive for this laptop/deadline. Plan around 32 GB-class system RAM and more than 8 GB VRAM for usable full-run headroom; this is a practical recommendation, not a proven strict minimum. The provisional 18.42-18.88h compute ETA excludes evaluation/checkpoint overhead and does not guarantee completion. Recovery removed only the bounded runtime and retained no adapter/checkpoint. No further LoRA retry is authorized; resume 2026-08-25 with QLoRA gates and the 5+40 probe.
 - [Phase 40 local QLoRA]: The separately dated 2026-08-25 session passed the exact bitsandbytes/Torch/CUDA and genuine NF4 model proof, retained exactly 5 warm-up + 40 measured optimizer steps, and sealed `measured / evidence_target_reached`. Median step time was 3.462389s; measured validation/save overhead was 59.075746s; the locked 1,245-step formula projects 4,369.750238s (72.83m, estimate only). Peak device use was 7,516/8,151 MiB with 395 MiB free, peak system-RAM use was 22,136,381,440 bytes, and no OOM occurred. Runtime/checkpoints were discarded and the prior LoRA evidence tree stayed byte-identical.
-- [Phase 40 full-run routing, superseding the earlier Colab-only choice]: The fresh QLoRA full run now stays on the RTX 5050 because the genuine probe proved the mode feasible and local execution preserves Colab credit. It began at step zero and uses the unchanged matched 1,245-step controls; no disposable probe state was reused. Re-sealed request `93b49371db184f28b2fb362da94ce99298f64487820176d2b10f65871ed3b8b8`, source archive `f7566931dfb6f28471dc0ca97c71e21eec4ae5a50471cc088794185816ba3e85`, and train/validation-only input archive `12136f9a79e7c9852f6b317f284a9a018710aa66af54de4714ec66e8cf92bf84` are the live authority. The immutable result stays under `D:\PROJEct\AI MODELS\phase40-full-local-20260825\transfer-root-v2\data\models\phase40\full\qwen-qlora`; raw system telemetry stays outside it under `controller\system-telemetry.csv`. A hash-bound supervisor permits at most two exact verified resumes and runs GGUF export only after complete run-evidence verification. A successful verified local run satisfies the QLoRA full-run branch and must not be repeated on Colab; full LoRA and PhoBERT remain open.
+- [Phase 40 full-run routing, superseding the earlier Colab-only choice]: The fresh QLoRA full run stays on the RTX 5050 because the genuine probe proved the mode feasible and local execution preserves Colab credit. The v2 attempt reached safe intermediate checkpoints, then was intentionally interrupted at the step-150 validation boundary after exact-resume audits exposed an omitted run-ID work-root segment and non-canonical JSON reconstruction in the operator. Its failure event, checkpoints, and telemetry remain preserved and are not reused. The repaired v3 run started cleanly from step zero with request `2512dbe6d7c5b8c16141ebdbdc848382e56b3a5737e8aeea51d7fb89447c643a`, source archive `eae64f17383d749a7759391d766ad59b337d35155ae89744adeaba8631e71a66`, source inventory `5903dd5d68881916424e0b529760c3e8810b89a7c207aa714f13171fccf02a3d`, and unchanged train/validation-only input archive `12136f9a79e7c9852f6b317f284a9a018710aa66af54de4714ec66e8cf92bf84`. Its immutable result is under `D:\PROJEct\AI MODELS\phase40-full-local-20260825\transfer-root-v3\data\models\phase40\full\qwen-qlora`; mutable checkpoints are run-ID-scoped under `work-v3`, and corrected telemetry is `controller\system-telemetry-v3.csv`. A hash-bound supervisor permits at most two exact verified resumes and runs GGUF export only after complete run-evidence verification. A successful verified local run satisfies the QLoRA full-run branch and must not be repeated on Colab; full LoRA and PhoBERT remain open.
 
 ## Performance Metrics
 
