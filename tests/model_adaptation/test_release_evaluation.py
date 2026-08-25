@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,134 @@ def _build_row(gold_label: str, predicted_labels: list[str]) -> ReleaseEvaluatio
         split_provenance="data/splits/test.jsonl",
         reviewable_source_text="Tin nhan mau de phuc vu kiem thu Phase 5.",
     )
+
+
+def _reserved_test_split_path() -> str:
+    repo_root = os.path.normpath(
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(release_evaluation_module.__file__),
+                os.pardir,
+                os.pardir,
+            )
+        )
+    )
+    return os.path.normpath(os.path.join(repo_root, "data", "splits", "test.jsonl"))
+
+
+def _windows_namespace_alias(path: str, namespace: str = "?") -> str:
+    if path.startswith("\\\\"):
+        return f"\\\\{namespace}\\UNC\\{path[2:]}"
+    return f"\\\\{namespace}\\{path}"
+
+
+@pytest.mark.parametrize(
+    "reserved_alias",
+    [
+        os.path.join("data", "splits", "test.jsonl"),
+        os.path.join(".", "data", "splits", "..", "splits", "test.jsonl"),
+        _reserved_test_split_path(),
+        _reserved_test_split_path().replace("\\", "/"),
+        pytest.param(
+            _reserved_test_split_path().swapcase(),
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows case alias"),
+        ),
+        pytest.param(
+            _windows_namespace_alias(_reserved_test_split_path()),
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows device namespace"),
+        ),
+        pytest.param(
+            _windows_namespace_alias(_reserved_test_split_path(), namespace="."),
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows device namespace"),
+        ),
+        pytest.param(
+            f"{_reserved_test_split_path()}::$DATA",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows data stream"),
+        ),
+        pytest.param(
+            f"{_reserved_test_split_path()}:phase41-review",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows data stream"),
+        ),
+        pytest.param(
+            f"{_windows_namespace_alias(_reserved_test_split_path())}::$DATA",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows device namespace"),
+        ),
+    ],
+    ids=[
+        "relative",
+        "normalized-relative",
+        "absolute",
+        "slash-alias",
+        "case-alias",
+        "extended-namespace",
+        "device-namespace",
+        "default-data-stream",
+        "named-data-stream",
+        "namespace-data-stream",
+    ],
+)
+def test_release_evaluator_rejects_reserved_test_alias_before_any_collaborator(
+    reserved_alias: str,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    collaborator_calls: list[str] = []
+
+    def forbidden(name: str):
+        def fail(*args, **kwargs):
+            del args, kwargs
+            collaborator_calls.append(name)
+            raise AssertionError(f"{name} must not run before the reserved-split guard")
+
+        return fail
+
+    monkeypatch.setattr(release_evaluation_module, "audit_release_eval_support", forbidden("audit"))
+    monkeypatch.setattr(release_evaluation_module, "_resolve_analyze_callable", forbidden("runtime"))
+    monkeypatch.setattr(release_evaluation_module, "load_split_records", forbidden("loader"))
+
+    with pytest.raises(ValueError, match="reserved data/splits/test.jsonl"):
+        evaluate_release_split(
+            Path(reserved_alias),
+            analyze_text=forbidden("analyzer"),
+            progress_callback=forbidden("progress"),
+        )
+
+    assert collaborator_calls == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows device namespaces are platform-specific")
+@pytest.mark.parametrize("namespace", ["?", "."], ids=["extended", "device"])
+def test_lexical_absolute_path_normalizes_unc_namespace_aliases(namespace: str):
+    ordinary_unc = r"\\phase41-server\release-share\data\splits\test.jsonl"
+    namespace_unc = _windows_namespace_alias(ordinary_unc, namespace=namespace)
+
+    assert release_evaluation_module._lexical_absolute_path(
+        namespace_unc
+    ) == release_evaluation_module._lexical_absolute_path(ordinary_unc)
+
+
+def test_release_evaluator_allows_nonreserved_test_named_split(tmp_path: Path):
+    split_path = tmp_path / "test.jsonl"
+    _write_split(
+        split_path,
+        [_build_record("benign", "seed-nonreserved", "Hen gap tai van phong luc 3 gio.")],
+    )
+
+    snapshot = evaluate_release_split(
+        split_path,
+        audit=audit_release_eval_support(split_path=split_path),
+        analyze_text=lambda text, channel: AnalysisResult(
+            risk_tier="benign",
+            summary="Noi dung binh thuong.",
+            top_cues=[],
+            threat_labels=["benign"],
+            recommendations=["Khong can thuc hien hanh dong nao."],
+            backend_name="fake-runtime",
+            normalized_text=text.casefold(),
+        ),
+        snapshot_path=tmp_path / "snapshot.json",
+    )
+
+    assert snapshot.overall_metrics.evaluated_rows == 1
 
 
 def test_release_evaluator_uses_runtime_service_contract_boundary(tmp_path: Path):

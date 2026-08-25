@@ -21,22 +21,22 @@ from typing import Any
 
 EXPECTED_RUNTIME_ROOT = Path(r"D:\PROJEct\AI MODELS\phase40-full-local-20260825")
 EXPECTED_REQUEST_SHA256 = "2512dbe6d7c5b8c16141ebdbdc848382e56b3a5737e8aeea51d7fb89447c643a"
-EXPECTED_AMENDMENT_SHA256 = "9a19fdb0ac13855abe06d957129764651c4e49b8c75e44849c213475bbf5bbaa"
+EXPECTED_AMENDMENT_SHA256 = "c183415cee6aa4b0b45184dedede44097e89594a2e50c564280854ea377ebc84"
 EXPECTED_CONFIG_SHA256 = "f6bedc5ddc04ca50ba5f737aaf1003b3e27dac676d8082eba33d6cecd97df629"
 EXPECTED_SOURCE_ARCHIVE_SHA256 = "eae64f17383d749a7759391d766ad59b337d35155ae89744adeaba8631e71a66"
 EXPECTED_SOURCE_MANIFEST_SHA256 = "5903dd5d68881916424e0b529760c3e8810b89a7c207aa714f13171fccf02a3d"
-EXPECTED_CONTROLLER_SHA256 = "473fb1ae8c4ed154bbf918232ef79fbb04cb4cbeca9b2555fe7adb662812c9e4"
+EXPECTED_CONTROLLER_SHA256 = "63f47598fe81749b961ca7c5f056fe4e63925f2ad93f94f9beabafd047246b26"
 EXPECTED_CONTROLLER_PARSE_RECEIPT_SHA256 = (
-    "2b4c9bba6c41471b4510567a53ba530de2e9910fa72c965ed4410d9fb5c068f5"
+    "31614ba1d26bf7b334377e7b98eafd36e1e61230d99d18a05d7ba30a5b1e9ad0"
 )
 EXPECTED_CONTROLLER_PREFLIGHT_SHA256 = (
-    "5fe13c8c3ef3cd6ebb372d0c6e5616d7dfaee561c2ef1082918158723f99516d"
+    "7f11d2e964243ad329bc0ce18af05dd0e9594c809801fdce873208cc3895f8b2"
 )
 EXPECTED_TELEMETRY_SCRIPT_SHA256 = (
     "1bc33f3726b57297a3cc5a69b36831bbd602edac680ba329224b14cf06231c70"
 )
 EXPECTED_PYTHON_CACHE_ROOT = Path(
-    r"D:\PROJEct\AI MODELS\phase40-full-local-20260825\python-cache-v8-153d25ddc8e840668f07278492963ecb"
+    r"D:\PROJEct\AI MODELS\phase40-full-local-20260825\python-cache-v9-11a6227c284f478ba73dd1ae6fa129c1"
 )
 EXPECTED_CONTROLLER_LEASE_PATH = Path(
     r"D:\PROJEct\AI MODELS\phase40-full-local-20260825\controller\phase40-phobert-chain-controller.lease"
@@ -52,7 +52,7 @@ EXPECTED_PHOBERT_REVISION = "e966aac8cb889325e073aa5f28ff70aca4dbc8c3"
 PROCESS_IDENTITIES = (
     (19772, 134321016774482304, Path(r"C:\Users\wikiepeidia\AppData\Local\Programs\Python\Python313\python.exe"), "qwen-trainer"),
     (1576, 134321017671588653, Path(r"C:\Program Files\PowerShell\7\pwsh.exe"), "qwen-supervisor"),
-    (13180, 134321337277925629, Path(r"C:\Program Files\PowerShell\7\pwsh.exe"), "phobert-chain-controller"),
+    (20064, 134321351510583152, Path(r"C:\Program Files\PowerShell\7\pwsh.exe"), "phobert-chain-controller"),
 )
 
 
@@ -203,18 +203,18 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
         "amendment": repo_root / "data/models/phase40/two-full-model-scope-amendment.json",
         "request": repo_root / "data/models/phase40/full-run-request.json",
         "config": repo_root / "data/models/phase40/phobert-config.json",
-        "controller": runtime_root / "controller/phase40-qwen-to-phobert-chain-v8.ps1",
-        "controller_log": runtime_root / "controller/qwen-to-phobert-chain-v8.log",
-        "parse_receipt": runtime_root / "controller/controller-parse-v8.json",
-        "preflight": runtime_root / "controller/source-runtime-preflight-v8-armed.json",
+        "controller": runtime_root / "controller/phase40-qwen-to-phobert-chain-v9.ps1",
+        "controller_log": runtime_root / "controller/qwen-to-phobert-chain-v9.log",
+        "parse_receipt": runtime_root / "controller/controller-parse-v9.json",
+        "preflight": runtime_root / "controller/source-runtime-preflight-v9-armed.json",
         "telemetry_script": runtime_root / "controller/phase40-system-telemetry-v3.ps1",
         "base_manifest": runtime_root / "transfer-root-v3/data/models/phase40/base/phobert-base-v2.provenance.json",
         "source_archive": runtime_root / "transfer-root-v3/data/models/phase40/source/phase40-source.zip",
         "source_manifest": runtime_root / "transfer-root-v3/data/models/phase40/source/phase40-source-manifest.json",
     }
     metadata_paths = {
-        "controller_stdout": runtime_root / "controller/qwen-to-phobert-chain-v8.stdout.log",
-        "controller_stderr": runtime_root / "controller/qwen-to-phobert-chain-v8.stderr.log",
+        "controller_stdout": runtime_root / "controller/qwen-to-phobert-chain-v9.stdout.log",
+        "controller_stderr": runtime_root / "controller/qwen-to-phobert-chain-v9.stderr.log",
         "controller_lease": EXPECTED_CONTROLLER_LEASE_PATH,
     }
     for name, path in {**paths, **metadata_paths}.items():
@@ -328,7 +328,7 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
             and preflight.get("source_file_count") == 28
             and preflight.get("controller_sha256") == EXPECTED_CONTROLLER_SHA256
             and preflight.get("source_runtime")
-            == os.fspath(runtime_root / "source-runtime-v8")
+            == os.fspath(runtime_root / "source-runtime-v9")
             and preflight.get("telemetry_script_sha256")
             == EXPECTED_TELEMETRY_SCRIPT_SHA256
             and preflight.get("telemetry_script_parse_error_count") == 0

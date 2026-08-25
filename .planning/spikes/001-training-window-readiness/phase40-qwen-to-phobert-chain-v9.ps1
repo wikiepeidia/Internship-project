@@ -9,7 +9,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $packageRoot = 'D:\PROJEct\AI MODELS\phase40-full-local-20260825'
-$sourceRuntime = Join-Path $packageRoot 'source-runtime-v8'
+$sourceRuntime = Join-Path $packageRoot 'source-runtime-v9'
 $transferRoot = Join-Path $packageRoot 'transfer-root-v3'
 $controllerRoot = Join-Path $packageRoot 'controller'
 $requestPath = Join-Path $transferRoot 'data\models\phase40\full-run-request.json'
@@ -19,7 +19,7 @@ $inputArchive = Join-Path $transferRoot 'data\models\phase40\input\phase40-train
 $inputRoot = 'D:\content\phase40-input-v1'
 $baseModelPath = Join-Path $transferRoot 'data\models\phase40\base\phobert-base-v2'
 $baseManifestPath = Join-Path $transferRoot 'data\models\phase40\base\phobert-base-v2.provenance.json'
-$workParent = Join-Path $packageRoot 'phobert-work-v8'
+$workParent = Join-Path $packageRoot 'phobert-work-v9'
 $workRoot = Join-Path $workParent 'phase40-phobert-full-seed42-v1'
 $trainerRoot = Join-Path $workRoot 'trainer'
 $runRoot = Join-Path $transferRoot 'data\models\phase40\full\phobert'
@@ -27,17 +27,17 @@ $qwenRunRoot = Join-Path $transferRoot 'data\models\phase40\full\qwen-qlora'
 $qwenSummaryPath = Join-Path $controllerRoot 'system-telemetry-summary-v3.json'
 $qwenGgufManifestPath = Join-Path $packageRoot 'exports-v3\qwen-qlora-q8_0.gguf.manifest.json'
 $telemetryScript = Join-Path $controllerRoot 'phase40-system-telemetry-v3.ps1'
-$telemetryPath = Join-Path $controllerRoot 'system-telemetry-phobert-v8.csv'
-$telemetryStdout = Join-Path $controllerRoot 'telemetry-phobert-v8.stdout.log'
-$telemetryStderr = Join-Path $controllerRoot 'telemetry-phobert-v8.stderr.log'
-$telemetryStopPath = Join-Path $controllerRoot 'telemetry-phobert-v8.stop.json'
-$summaryPath = Join-Path $controllerRoot 'system-telemetry-summary-phobert-v8.json'
-$telemetryVerificationReceiptPath = Join-Path $controllerRoot 'system-telemetry-summary-phobert-v8.verification.json'
-$chainLog = Join-Path $controllerRoot 'qwen-to-phobert-chain-v8.log'
-$runtimePreflightPath = Join-Path $controllerRoot 'source-runtime-preflight-v8.json'
+$telemetryPath = Join-Path $controllerRoot 'system-telemetry-phobert-v9.csv'
+$telemetryStdout = Join-Path $controllerRoot 'telemetry-phobert-v9.stdout.log'
+$telemetryStderr = Join-Path $controllerRoot 'telemetry-phobert-v9.stderr.log'
+$telemetryStopPath = Join-Path $controllerRoot 'telemetry-phobert-v9.stop.json'
+$summaryPath = Join-Path $controllerRoot 'system-telemetry-summary-phobert-v9.json'
+$telemetryVerificationReceiptPath = Join-Path $controllerRoot 'system-telemetry-summary-phobert-v9.verification.json'
+$chainLog = Join-Path $controllerRoot 'qwen-to-phobert-chain-v9.log'
+$runtimePreflightPath = Join-Path $controllerRoot 'source-runtime-preflight-v9.json'
 $controllerLeasePath = Join-Path $controllerRoot 'phase40-phobert-chain-controller.lease'
 $pythonCacheInstanceId = [Guid]::NewGuid().ToString('N')
-$pythonCacheRoot = Join-Path $packageRoot ("python-cache-v8-{0}" -f $pythonCacheInstanceId)
+$pythonCacheRoot = Join-Path $packageRoot ("python-cache-v9-{0}" -f $pythonCacheInstanceId)
 $pythonExe = 'C:\Users\wikiepeidia\AppData\Local\Programs\Python\Python313\python.exe'
 $pwshExe = Join-Path $PSHOME 'pwsh.exe'
 $runId = 'phase40-phobert-full-seed42-v1'
@@ -293,7 +293,7 @@ function Assert-FrozenSourceRuntime {
         $pythonLaunchSequence = $script:pythonLaunchPreflightSequence
         $safeOperationName = [regex]::Replace($OperationName, '[^A-Za-z0-9._-]', '_')
         $stagePath = Join-Path $controllerRoot (
-            'source-runtime-preflight-v8-python-launch-{0}-{1}-{2:D3}-{3}.json' -f
+            'source-runtime-preflight-v9-python-launch-{0}-{1}-{2:D3}-{3}.json' -f
                 $controllerPid,
                 $controllerCreationUtcFileTimeTicks,
                 $pythonLaunchSequence,
@@ -301,7 +301,7 @@ function Assert-FrozenSourceRuntime {
         )
     }
     else {
-        $stagePath = Join-Path $controllerRoot "source-runtime-preflight-v8-$Stage.json"
+        $stagePath = Join-Path $controllerRoot "source-runtime-preflight-v9-$Stage.json"
     }
     $payload = [ordered]@{
         schema_version = 'phase40-source-runtime-preflight-v3'
@@ -346,8 +346,8 @@ function Invoke-PythonCaptured {
         [Parameter(Mandatory)][string[]]$Arguments,
         [Parameter(Mandatory)][string]$Name
     )
-    $stdoutPath = Join-Path $controllerRoot "$Name.phobert-v8.stdout.log"
-    $stderrPath = Join-Path $controllerRoot "$Name.phobert-v8.stderr.log"
+    $stdoutPath = Join-Path $controllerRoot "$Name.phobert-v9.stdout.log"
+    $stderrPath = Join-Path $controllerRoot "$Name.phobert-v9.stderr.log"
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $pythonExe
     $startInfo.WorkingDirectory = $sourceRuntime
@@ -470,7 +470,7 @@ function Invoke-PhoBertTraining {
         '--input-archive', '..\transfer-root-v3\data\models\phase40\input\phase40-train-validation.zip',
         '--extraction-root', '/content/phase40-input-v1',
         '--run-id', $runId,
-        '--output-root', '..\phobert-work-v8\phase40-phobert-full-seed42-v1',
+        '--output-root', '..\phobert-work-v9\phase40-phobert-full-seed42-v1',
         '--base-model-path', '..\transfer-root-v3\data\models\phase40\base\phobert-base-v2',
         '--base-model-manifest-path', '..\transfer-root-v3\data\models\phase40\base\phobert-base-v2.provenance.json'
     )) {
@@ -493,7 +493,7 @@ function Test-PhoBertRunComplete {
     if ($exitCode -ne 0) {
         return $false
     }
-    $stdoutPath = Join-Path $controllerRoot "$name.phobert-v8.stdout.log"
+    $stdoutPath = Join-Path $controllerRoot "$name.phobert-v9.stdout.log"
     try {
         $payload = Get-Content -LiteralPath $stdoutPath -Raw -Encoding utf8 |
             ConvertFrom-Json
@@ -855,7 +855,7 @@ function Write-PhoBertTelemetrySeal {
                     [System.Globalization.NumberStyles]::None,
                     [System.Globalization.CultureInfo]::InvariantCulture,
                     [ref]$pythonPid
-                ) -or $pythonPid -lt 0 -or $pythonPid -gt [int]::MaxValue) {
+                ) -or $pythonPid -le 0 -or $pythonPid -gt [int]::MaxValue) {
                     throw "PhoBERT telemetry row $rowIndex has an invalid python_pid value"
                 }
                 if (-not $rowPids.Add($pythonPid)) {

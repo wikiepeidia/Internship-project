@@ -65,9 +65,9 @@
 
 **Note:** Content-addition/clarity revision within the report's existing voice — not a rewrite. Closes six defense-transcript gaps in dependency order: problem framing (must exist before architecture text references it) -> architecture rationale (establishes verbalizer/generative-classification vocabulary the labeling section reuses) -> dataset/labeling methodology (single most-repeated transcript gap) -> consistency audit and citation verification (audits everything written, so runs last). Slides are LOCKED and out of scope; this milestone touches the thesis report only.
 
-- [ ] **Phase 35: Problem Framing & Architecture Rationale** - State the classification problem explicitly and justify the generative-classification architecture (QLoRA decoder vs. classification head; Qwen vs. PhoBERT).
-- [ ] **Phase 36: Dataset Construction & Labeling Methodology** - Add the explicit, unmissable labeling section: JSON schema, generation-time label assignment, worked example, train-vs-val/test label distinction.
-- [ ] **Phase 37: Consistency Audit & Citation Verification** - Reconcile all confusion-matrix/split counts against real evaluation artifacts, add error-analysis examples, verify citations, and confirm voice/scope guardrails hold.
+- [x] **Phase 35: Problem Framing & Architecture Rationale** - State the classification problem explicitly and justify the generative-classification architecture (QLoRA decoder vs. classification head; Qwen vs. PhoBERT). (completed 2026-07-21)
+- [x] **Phase 36: Dataset Construction & Labeling Methodology** - Add the explicit, unmissable labeling section: JSON schema, generation-time label assignment, worked example, train-vs-val/test label distinction. (completed 2026-07-21)
+- [x] **Phase 37: Consistency Audit & Citation Verification** - Reconcile all confusion-matrix/split counts against real evaluation artifacts, add error-analysis examples, verify citations, and confirm voice/scope guardrails hold. (completed 2026-07-21)
 
 ### v7.0 — Retake Redemption (target: retake defense ~2026-10-07, Wave 2)
 
@@ -814,7 +814,7 @@ Plans:
 3. A named subsection presents an honest Qwen-vs-PhoBERT comparison: task-shape (multi-field structured generation) as the primary argument, multilingual extension as secondary, and PhoBERT's genuine strengths (Vietnamese-specialized, strong single-label classification) acknowledged rather than dismissed.
 4. The report compiles clean with XeLaTeX (zero errors) after these additions, and no unrelated existing section's wording is altered.
 
-**Plans**: TBD
+**Plans**: 1/1 executed directly (see `.planning/milestones/v6.0-SUMMARY.md`)
 
 ### Phase 36: Dataset Construction & Labeling Methodology
 
@@ -829,7 +829,7 @@ Plans:
 4. The subsection explicitly distinguishes why the label field is required for training but not for the validation/test framing.
 5. The report compiles clean with XeLaTeX (zero errors) after these additions.
 
-**Plans**: TBD
+**Plans**: 1/1 executed directly (see `.planning/milestones/v6.0-SUMMARY.md`)
 
 ### Phase 37: Consistency Audit & Citation Verification
 
@@ -844,7 +844,7 @@ Plans:
 4. Every new academic claim introduced across Phases 35-36 has a verified BibTeX entry in `references.bib` and a `\cite{}` in text; existing citations in sections touched by this revision are spot-checked for accuracy.
 5. A side-by-side comparison of new vs. pre-existing prose shows consistent register (no vocabulary/tone shift); sections unrelated to a named gap remain untouched; the full report compiles clean with XeLaTeX (zero errors).
 
-**Plans**: TBD
+**Plans**: 1/1 executed directly (see `.planning/milestones/v6.0-SUMMARY.md`)
 
 ---
 

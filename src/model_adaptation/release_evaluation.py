@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Callable, Sequence
@@ -67,6 +68,49 @@ DEFAULT_EVALUATION_SNAPSHOT_PATH = Path(
 
 AnalyzeText = Callable[[str, ChannelName], AnalysisResult]
 ProgressCallback = Callable[[int, int], None]
+
+
+def _lexical_absolute_path(path: os.PathLike[str] | str) -> str:
+    """Return a platform-normalized absolute spelling without touching the path."""
+
+    normalized = os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
+    if os.name != "nt":
+        return normalized
+
+    # Win32 device namespaces are alternate lexical spellings for the same path.
+    # Strip them as strings, then normalize once more; never resolve or inspect them.
+    if normalized.startswith(("\\\\?\\unc\\", "\\\\.\\unc\\")):
+        normalized = "\\\\" + normalized[8:]
+    elif normalized.startswith(("\\\\?\\", "\\\\.\\")):
+        normalized = normalized[4:]
+    return os.path.normcase(os.path.normpath(os.path.abspath(normalized)))
+
+
+_RESERVED_TEST_SPLIT_PATH = _lexical_absolute_path(
+    os.path.join(
+        os.path.dirname(__file__),
+        os.pardir,
+        os.pardir,
+        "data",
+        "splits",
+        "test.jsonl",
+    )
+)
+
+
+def _reject_reserved_test_split(split_path: Path) -> None:
+    """Keep the legacy evaluator outside Phase 41's one-shot test authority."""
+
+    normalized_split_path = _lexical_absolute_path(split_path)
+    is_reserved_path = normalized_split_path == _RESERVED_TEST_SPLIT_PATH
+    is_reserved_windows_stream = os.name == "nt" and normalized_split_path.startswith(
+        f"{_RESERVED_TEST_SPLIT_PATH}:"
+    )
+    if is_reserved_path or is_reserved_windows_stream:
+        raise ValueError(
+            "The legacy release evaluator cannot consume the reserved "
+            "data/splits/test.jsonl split; use the Phase 41 one-shot authority."
+        )
 
 
 def _default_run_id() -> str:
@@ -199,6 +243,7 @@ def evaluate_release_split(
 ) -> ReleaseEvaluationSnapshot:
     """Evaluate one held-out split through the public runtime contract and save a snapshot."""
 
+    _reject_reserved_test_split(split_path)
     resolved_audit = audit if audit is not None else audit_release_eval_support(split_path=split_path)
     analyze = _resolve_analyze_callable(runtime_service, analyze_text)
     records: list[DatasetRecord] = load_split_records(split_path)
