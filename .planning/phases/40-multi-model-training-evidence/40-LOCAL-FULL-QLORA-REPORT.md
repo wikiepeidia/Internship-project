@@ -51,6 +51,16 @@ The first telemetry implementation was caught writing blank GPU fields because o
 
 The corrected telemetry's first 17 samples recorded peak device use 7,512 MiB, minimum free device memory 399 MiB, peak GPU temperature 80C, peak Python RSS 2,360,541,184 bytes, and peak system-RAM use 16,356,241,408 bytes. These are running values, not the final seal. No OOM, NaN, data-contract failure, or thermal stop had occurred.
 
+The earlier 72.83-minute probe figure must not be presented as this run's
+end-to-end duration. It extrapolated 1,245 optimizer steps and added only one
+measured validation/save overhead. This full evidence contract generates all
+219 ordered validation predictions at every 50-step checkpoint and at the
+final step. The observed live cadence therefore projects roughly 12.85 hours
+for the complete evidence pipeline, with generation rather than optimization
+dominating wall time. Because the run is still live, that figure and every
+resource/quality snapshot in this section are interim until the final bundle
+and telemetry summary verify.
+
 ## Unattended recovery and export
 
 The active supervisor is `controller\phase40-full-local-supervisor-v3-run.ps1`; its append-only attachment log is `controller\supervisor-v3-run.log`. If the trainer exits without complete evidence, it ignores any half-sealed checkpoint and permits at most two retries from the newest exact `checkpoint-N` containing both the resume compatibility manifest and sealed history. Every candidate must pass the strict request, input, base, run-ID, checkpoint-history, and hash verifier before resume.
@@ -65,17 +75,16 @@ The exact `vinai/phobert-base-v2` revision `e966aac8cb889325e073aa5f28ff70aca4db
 
 If admitted after Qwen, PhoBERT starts a fresh three-epoch classification-head run with the frozen batch size 16, maximum sequence length 256, FP16 controls, and 312 planned optimizer steps. Mutable output is isolated under `phobert-work-v3\phase40-phobert-full-seed42-v1`; immutable evidence returns to `transfer-root-v3\data\models\phase40\full\phobert`; telemetry is written separately to `controller\system-telemetry-phobert-v3.csv`. At most two resumes are allowed, each from an exact sealed `checkpoint-N` only after strict resume verification. Completion additionally requires graph rendering and a second full run-evidence verification. The configuration is preflighted but has not yet had a real VRAM probe; an OOM is preserved as a failed run rather than hidden by changing controls. The planning allowance is 15--45 minutes, with 60 minutes reserved.
 
-## Mixed-origin comparison handoff
+## User-approved two-model comparison handoff — 2026-08-25
 
-The finalizer can admit bundles from local and external accelerators without a code change. All three must first be consolidated under `transfer-root-v3` at the request-canonical relative roots; absolute D-drive paths are rejected. Finalization must execute from the hash-bound `source-runtime-v3`, not a future drifted workspace. The schema class retains the historical name `ColabOperatorReturn`, but it validates run IDs, canonical roots, package decisions, and accelerator identities rather than requiring a Colab origin.
+The primary quality comparison now admits exactly the two completed local bundles under `transfer-root-v3`: Qwen QLoRA and PhoBERT. Additive authority is `data/models/phase40/two-full-model-scope-amendment.json`, bound to immutable request SHA-256 `2512dbe6d7c5b8c16141ebdbdc848382e56b3a5737e8aeea51d7fb89447c643a`. Immutable `source-runtime-v3` remains the authority for the active training, GGUF, and PhoBERT chain and must never be patched with the later two-model finalizer. Comparison finalization instead requires a post-amendment repository tree whose exact allowlisted files verify against `comparison_finalizer_authority.source_tree_sha256` embedded in the amendment; that verified tree is a separate authority, not v3. Absolute D-drive paths remain outside the portable evidence identity. The immutable earlier request and its historically named `ColabOperatorReturn` schema are retained as provenance; their dormant Qwen LoRA slot is not proof of execution and is not a required comparison row under this dated scope amendment.
 
 | Run | Execution origin | Canonical root under `transfer-root-v3` | Accelerator |
 |---|---|---|---|
-| Qwen LoRA | Pending external run | `data/models/phase40/full/qwen-lora` | Pending |
 | Qwen QLoRA | Active local v3 run | `data/models/phase40/full/qwen-qlora` | NVIDIA GeForce RTX 5050 Laptop GPU |
 | PhoBERT | Queued local v3 run after verified Qwen/GGUF completion | `data/models/phase40/full/phobert` | NVIDIA GeForce RTX 5050 Laptop GPU |
 
-The generated Colab handoff remains byte-verified as a complete external fallback recipe and is not hand-edited. Once local QLoRA verifies, its QLoRA notebook is skipped. The request's fixed Drive path is a transfer mapping for external execution, not a claim that the Windows run traversed Drive; Windows platform, sanitized command, and hardware origin remain in local run evidence.
+The generated Colab handoff remains historical contingency documentation and was not executed. It is not part of the primary chain and does not authorize full ordinary LoRA. A QLoRA or PhoBERT contingency may be considered only if development-validation review is unacceptable and only before the reserved Phase 41 partition is opened. A held-out result may never be used to trigger Colab training, dataset repair, or checkpoint reselection. Windows platform, sanitized commands, and the actual laptop hardware remain in the local run evidence.
 
 ## Remaining completion gates
 
@@ -85,4 +94,5 @@ The generated Colab handoff remains byte-verified as a complete external fallbac
 - Q8_0 GGUF export and manifest verification pass, including the CPU load smoke.
 - Final telemetry is stopped and hash-sealed.
 - The queued PhoBERT run verifies, renders graphs, and seals its dedicated telemetry, or preserves an explicit terminal failure for review.
-- Full LoRA, the three-model validation comparison, and Plan 40-06 review remain separate open work; this unattended chain alone does not complete Phase 40.
+- The two-model QLoRA-versus-PhoBERT validation comparison and Plan 40-06 review remain separate open work; this unattended chain alone does not complete Phase 40.
+- No full ordinary-LoRA run remains: its sealed bounded probe is the final resource/ETA evidence for that branch.

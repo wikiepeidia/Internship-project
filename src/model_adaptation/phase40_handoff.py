@@ -8,6 +8,7 @@ Phase 40 input contract.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import asdict, dataclass
 import hashlib
 import io
@@ -30,6 +31,7 @@ from src.model_adaptation.phase40_contract import (
     Phase40DataContract,
     SplitIdentity,
     _build_snapshot,
+    _reject_redirecting_path_components,
 )
 from src.model_adaptation.phase40_metrics import (
     LABEL_ORDER,
@@ -46,6 +48,7 @@ from src.model_adaptation.phase40_evidence import (
     AcceleratorIdentity,
     EvidenceStatus,
     QwenConfigComparison,
+    QuantizationProofEvidence,
     ResumeControlledConfig,
     RunEvidence,
     TransferAuthorityEvidence,
@@ -58,7 +61,12 @@ from src.model_adaptation.phase40_graphs import (
     GraphRenderer,
     render_phase40_graphs,
 )
-from src.model_adaptation.phase40_modes import AdaptationMode, ModelFamily, RunKind
+from src.model_adaptation.phase40_modes import (
+    AdaptationMode,
+    ModelFamily,
+    ResolvedQwenMode,
+    RunKind,
+)
 from src.model_adaptation.registry import build_model_checksum
 
 
@@ -67,7 +75,8 @@ PHASE40_SOURCE_SCHEMA_VERSION = "phase40-source-bundle-v1"
 PHASE40_RUN_REQUEST_SCHEMA_VERSION = "phase40-full-run-request-v1"
 PHASE40_REVIEW_QUEUE_SCHEMA_VERSION = "phase40-review-queue-v1"
 PHASE40_HUMAN_REVIEW_SCHEMA_VERSION = "phase40-human-review-v1"
-PHASE40_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v1"
+PHASE40_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v2"
+PHASE40_SCOPE_AMENDMENT_SCHEMA_VERSION = "phase40-two-full-model-scope-amendment-v1"
 PHASE40_SNAPSHOT_ID_VERSION = "phase40-snapshot-row-id-v1"
 
 INPUT_MEMBER_NAMES = (
@@ -81,6 +90,7 @@ FIXED_INPUT_EXTRACTION_ROOT = "/content/phase40-input-v1"
 FIXED_SOURCE_ARCHIVE_PATH = "data/models/phase40/source/phase40-source.zip"
 FIXED_SOURCE_INVENTORY_PATH = "data/models/phase40/source/phase40-source-manifest.json"
 FIXED_RUN_REQUEST_PATH = "data/models/phase40/full-run-request.json"
+FIXED_SCOPE_AMENDMENT_PATH = "data/models/phase40/two-full-model-scope-amendment.json"
 FIXED_MATCHED_QWEN_CONFIG_PATH = "data/models/phase40/matched-qwen-config.json"
 FIXED_PHOBERT_CONFIG_PATH = "data/models/phase40/phobert-config.json"
 FIXED_GGUF_TOOL_AUTHORITY_PATH = "data/models/phase40/gguf-tool-authority.json"
@@ -88,6 +98,17 @@ FIXED_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-lora",
     "data/models/phase40/full/qwen-qlora",
     "data/models/phase40/full/phobert",
+)
+FIXED_ACTIVE_RETURNED_ROOTS = FIXED_RETURNED_ROOTS[1:]
+FIXED_LORA_PROBE_ROOT = (
+    "data/models/phase40/probes/rtx5050-local-decision/lora-retry-1"
+)
+FIXED_LORA_PROBE_FILES = (
+    "outcome.json",
+    "telemetry.jsonl",
+    "optimizer-events.jsonl",
+    "quantization-proof.json",
+    "discard-receipt.json",
 )
 PACKAGE_CANDIDATES = ("bitsandbytes==0.50.1", "matplotlib==3.11.1")
 PINNED_QWEN_MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
@@ -144,6 +165,53 @@ PHASE40_SOURCE_ALLOWLIST = (
     "src/runtime/__init__.py",
     "src/runtime/contracts.py",
 )
+# Additive authority for the amended comparison command.  Keep the historical
+# training allowlist above byte-for-byte stable because source-runtime-v3 and
+# the frozen full-run request are already bound to it.
+PHASE40_COMPARISON_FINALIZER_ENTRYPOINTS = ("src/model_adaptation/cli.py",)
+PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST = (
+    "pyproject.toml",
+    "src/__init__.py",
+    "src/config/__init__.py",
+    "src/config/settings.py",
+    "src/data_pipeline/__init__.py",
+    "src/data_pipeline/processing/__init__.py",
+    "src/data_pipeline/processing/normalizer.py",
+    "src/data_pipeline/schemas.py",
+    "src/model_adaptation/__init__.py",
+    "src/model_adaptation/catalog.py",
+    "src/model_adaptation/cli.py",
+    "src/model_adaptation/convert.py",
+    "src/model_adaptation/data.py",
+    "src/model_adaptation/doctor.py",
+    "src/model_adaptation/explanation_review.py",
+    "src/model_adaptation/phase40_callbacks.py",
+    "src/model_adaptation/phase40_contract.py",
+    "src/model_adaptation/phase40_evidence.py",
+    "src/model_adaptation/phase40_graphs.py",
+    "src/model_adaptation/phase40_handoff.py",
+    "src/model_adaptation/phase40_metrics.py",
+    "src/model_adaptation/phase40_modes.py",
+    "src/model_adaptation/phase40_notebooks.py",
+    "src/model_adaptation/pilot.py",
+    "src/model_adaptation/prompts.py",
+    "src/model_adaptation/registry.py",
+    "src/model_adaptation/release_evaluation.py",
+    "src/model_adaptation/release_gates.py",
+    "src/model_adaptation/release_readiness.py",
+    "src/model_adaptation/schemas.py",
+    "src/model_adaptation/training.py",
+    "src/runtime/__init__.py",
+    "src/runtime/analyzers/__init__.py",
+    "src/runtime/analyzers/accelerated.py",
+    "src/runtime/analyzers/base.py",
+    "src/runtime/analyzers/gguf.py",
+    "src/runtime/analyzers/heuristic.py",
+    "src/runtime/analyzers/local_model.py",
+    "src/runtime/analyzers/rules.py",
+    "src/runtime/contracts.py",
+    "src/runtime/service.py",
+)
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_RUN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
@@ -184,6 +252,20 @@ def _require_sha256(value: str, *, description: str) -> str:
     if not isinstance(value, str) or not _SHA256_RE.fullmatch(value):
         raise ValueError(f"{description} must be 64 lowercase hexadecimal characters")
     return value
+
+
+def _lexical_absolute(path: Path) -> Path:
+    return Path(os.path.abspath(os.path.normpath(os.fspath(path))))
+
+
+def _trusted_repo_root(repo_root: Path) -> Path:
+    """Return an existing lexical root after rejecting redirecting components."""
+
+    root = _lexical_absolute(Path(repo_root))
+    _reject_redirecting_path_components((root,))
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError("Phase 40 repository root is missing or redirects")
+    return root
 
 
 def _atomic_write_bytes(path: Path, payload: bytes) -> Path:
@@ -1010,10 +1092,11 @@ def load_frozen_phase40_run_request(
 ) -> RunRequest:
     """Load the sole canonical request and reverify both transfer authorities."""
 
-    root = Path(repo_root).resolve(strict=True)
+    root = _trusted_repo_root(repo_root)
     supplied = Path(request_path or (root / FIXED_RUN_REQUEST_PATH))
-    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / FIXED_RUN_REQUEST_PATH))))
-    absolute = Path(os.path.abspath(os.path.normpath(os.fspath(supplied))))
+    expected = _lexical_absolute(root / FIXED_RUN_REQUEST_PATH)
+    absolute = _lexical_absolute(supplied)
+    _reject_redirecting_path_components((absolute,))
     if absolute != expected or not absolute.is_file() or absolute.is_symlink():
         raise ValueError("full-run request path is not the canonical regular file")
     payload = absolute.read_bytes()
@@ -1021,6 +1104,624 @@ def load_frozen_phase40_run_request(
     if payload != _canonical_json_bytes(request.model_dump(mode="json")):
         raise RuntimeError("frozen full-run request bytes are not canonical")
     return verify_phase40_run_request(request, repo_root=root, verify_input=True)
+
+
+def require_canonical_phase40_run_request(
+    request: RunRequest,
+    *,
+    repo_root: Path,
+) -> RunRequest:
+    """Reload canonical raw request bytes and require object equality."""
+
+    supplied = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    canonical = load_frozen_phase40_run_request(repo_root=repo_root)
+    if supplied != canonical:
+        raise ValueError("supplied run request differs from the canonical frozen request")
+    return canonical
+
+
+class ProbeArtifactIdentity(BaseModel):
+    """One immutable file retained from the bounded local LoRA probe."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    relative_path: str
+    bytes: int = Field(gt=0)
+    sha256: str
+
+    @field_validator("relative_path")
+    @classmethod
+    def validate_relative_path(cls, value: str) -> str:
+        normalized = _safe_relative_path(value, description="LoRA probe artifact")
+        if normalized not in FIXED_LORA_PROBE_FILES:
+            raise ValueError("LoRA probe artifact is not in the fixed evidence set")
+        return normalized
+
+    @field_validator("sha256")
+    @classmethod
+    def validate_sha256(cls, value: str) -> str:
+        return _require_sha256(value, description="LoRA probe artifact hash")
+
+
+class LoraProbeAuthority(BaseModel):
+    """Hash authority for resource evidence; it never authorizes predictions."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    root: str = FIXED_LORA_PROBE_ROOT
+    artifacts: tuple[ProbeArtifactIdentity, ...]
+
+    @model_validator(mode="after")
+    def validate_exact_artifacts(self) -> "LoraProbeAuthority":
+        if self.root != FIXED_LORA_PROBE_ROOT:
+            raise ValueError("LoRA probe root is not the fixed local evidence root")
+        paths = tuple(artifact.relative_path for artifact in self.artifacts)
+        if paths != FIXED_LORA_PROBE_FILES:
+            raise ValueError("LoRA probe authority must bind the exact ordered evidence set")
+        return self
+
+    @property
+    def sha256(self) -> str:
+        return _sha256(
+            b"phase40-lora-probe-authority-v1\0"
+            + _canonical_json_bytes(self.model_dump(mode="json"))
+        )
+
+
+def _module_name_from_relative_path(relative_path: str) -> str:
+    path = PurePosixPath(relative_path)
+    parts = list(path.with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _comparison_finalizer_import_closure(repo_root: Path) -> tuple[str, ...]:
+    """Statically close all local Python imports of the comparison CLI."""
+
+    root = _trusted_repo_root(repo_root)
+    _reject_redirecting_path_components(
+        tuple(root / path for path in PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST)
+    )
+    module_paths: dict[str, tuple[str, Path]] = {}
+    for relative in PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST:
+        if relative.endswith(".py"):
+            module_paths[_module_name_from_relative_path(relative)] = (
+                relative,
+                root / relative,
+            )
+
+    queue = [
+        _module_name_from_relative_path(path)
+        for path in PHASE40_COMPARISON_FINALIZER_ENTRYPOINTS
+    ]
+    visited: set[str] = set()
+    relative_paths: set[str] = set()
+
+    def enqueue(module_name: str, *, required: bool = True) -> None:
+        if not module_name.startswith("src"):
+            return
+        if module_name not in module_paths:
+            if required:
+                raise ValueError(
+                    f"comparison finalizer imports an unbound local module: {module_name}"
+                )
+            return
+        queue.append(module_name)
+
+    while queue:
+        module_name = queue.pop()
+        if module_name in visited:
+            continue
+        if module_name not in module_paths:
+            raise ValueError(f"comparison finalizer local import is missing: {module_name}")
+        visited.add(module_name)
+        relative, path = module_paths[module_name]
+        relative_paths.add(relative)
+        module_parts = module_name.split(".")
+        for index in range(1, len(module_parts)):
+            enqueue(".".join(module_parts[:index]))
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="strict"))
+        except (SyntaxError, UnicodeDecodeError) as exc:
+            raise ValueError(f"comparison finalizer source is not parseable: {relative}") from exc
+        current_is_package = PurePosixPath(relative).name == "__init__.py"
+        current_package = module_parts if current_is_package else module_parts[:-1]
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    enqueue(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    keep = len(current_package) - (node.level - 1)
+                    if keep < 0:
+                        raise ValueError(f"invalid relative import in {relative}")
+                    base_parts = current_package[:keep]
+                    if node.module:
+                        base_parts += node.module.split(".")
+                    base = ".".join(base_parts)
+                else:
+                    base = node.module or ""
+                enqueue(base)
+                for alias in node.names:
+                    if alias.name != "*":
+                        enqueue(
+                            f"{base}.{alias.name}" if base else alias.name,
+                            required=False,
+                        )
+            elif (
+                isinstance(node, ast.Call)
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+                and node.args[0].value.startswith("src.")
+            ):
+                function = node.func
+                if (
+                    isinstance(function, ast.Name)
+                    and function.id == "__import__"
+                ) or (
+                    isinstance(function, ast.Attribute)
+                    and function.attr == "import_module"
+                ):
+                    enqueue(node.args[0].value)
+    return tuple(sorted(relative_paths))
+
+
+def _assert_comparison_finalizer_import_closed(repo_root: Path) -> None:
+    expected = {
+        path
+        for path in PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST
+        if path.endswith(".py")
+    }
+    actual = set(_comparison_finalizer_import_closure(repo_root))
+    if actual != expected:
+        raise ValueError(
+            "comparison finalizer authority is not import-closed; "
+            f"missing={sorted(actual - expected)}, extra={sorted(expected - actual)}"
+        )
+
+
+class ComparisonFinalizerAuthority(BaseModel):
+    """Separate live-source pin for code absent from training source-runtime-v3."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["phase40-comparison-finalizer-authority-v1"] = (
+        "phase40-comparison-finalizer-authority-v1"
+    )
+    runtime_origin: Literal["local_hash_pinned_source_not_training_runtime_v3"] = (
+        "local_hash_pinned_source_not_training_runtime_v3"
+    )
+    files: tuple[SourceInventoryEntry, ...]
+    source_tree_sha256: str
+
+    @field_validator("source_tree_sha256")
+    @classmethod
+    def validate_tree_hash(cls, value: str) -> str:
+        return _require_sha256(value, description="comparison finalizer source-tree hash")
+
+    @model_validator(mode="after")
+    def validate_file_set(self) -> "ComparisonFinalizerAuthority":
+        paths = tuple(file.path for file in self.files)
+        if paths != PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST:
+            raise ValueError("comparison finalizer authority must bind the exact source allowlist")
+        expected = _sha256(
+            b"phase40-comparison-finalizer-source-v1\0"
+            + _canonical_json_bytes([file.model_dump(mode="json") for file in self.files])
+        )
+        if self.source_tree_sha256 != expected:
+            raise ValueError("comparison finalizer source-tree hash differs from its inventory")
+        return self
+
+
+def _build_comparison_finalizer_authority(repo_root: Path) -> ComparisonFinalizerAuthority:
+    root = _trusted_repo_root(repo_root)
+    source_paths = tuple(root / relative for relative in PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST)
+    _reject_redirecting_path_components(source_paths)
+    _assert_comparison_finalizer_import_closed(root)
+    entries: list[SourceInventoryEntry] = []
+    for relative_path, path in zip(
+        PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST,
+        source_paths,
+        strict=True,
+    ):
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"comparison finalizer source is missing or unsafe: {relative_path}")
+        payload = path.read_bytes()
+        entries.append(
+            SourceInventoryEntry(
+                path=relative_path,
+                bytes=len(payload),
+                sha256=_sha256(payload),
+            )
+        )
+    files = tuple(entries)
+    return ComparisonFinalizerAuthority(
+        files=files,
+        source_tree_sha256=_sha256(
+            b"phase40-comparison-finalizer-source-v1\0"
+            + _canonical_json_bytes([file.model_dump(mode="json") for file in files])
+        ),
+    )
+
+
+def _verify_comparison_finalizer_authority(
+    authority: ComparisonFinalizerAuthority,
+    *,
+    repo_root: Path,
+) -> None:
+    actual = _build_comparison_finalizer_authority(repo_root)
+    if actual != authority:
+        raise ValueError("local comparison finalizer source differs from the scope amendment")
+
+
+class Phase40ScopeAmendment(BaseModel):
+    """Additive waiver that leaves the frozen three-run request byte-identical."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["phase40-two-full-model-scope-amendment-v1"] = (
+        PHASE40_SCOPE_AMENDMENT_SCHEMA_VERSION
+    )
+    original_run_request_path: Literal["data/models/phase40/full-run-request.json"] = (
+        FIXED_RUN_REQUEST_PATH
+    )
+    original_run_request_sha256: str
+    active_full_run_ids: tuple[str, str]
+    active_returned_roots: tuple[str, str] = FIXED_ACTIVE_RETURNED_ROOTS
+    waived_full_run_id: str
+    waived_returned_root: Literal["data/models/phase40/full/qwen-lora"] = (
+        FIXED_RETURNED_ROOTS[0]
+    )
+    full_lora_disposition: Literal["cancelled_before_start"] = "cancelled_before_start"
+    waiver_action: Literal["withdrawn"] = "withdrawn"
+    waiver_basis: Literal[
+        "bounded_local_probe_established_resource_pressure_and_deadline_mismatch"
+    ] = "bounded_local_probe_established_resource_pressure_and_deadline_mismatch"
+    lora_probe_authority: LoraProbeAuthority
+    comparison_finalizer_authority: ComparisonFinalizerAuthority
+    quality_model_run_ids: tuple[str, str]
+    review_model_run_ids: tuple[str, str]
+    execution_policy: Literal["local_primary"] = "local_primary"
+    colab_contingency_policy: Literal[
+        "validation_only_before_held_out_open_if_local_quality_unacceptable"
+    ] = "validation_only_before_held_out_open_if_local_quality_unacceptable"
+    no_held_out_boundary: Literal[True] = True
+
+    @field_validator("original_run_request_sha256")
+    @classmethod
+    def validate_request_hash(cls, value: str) -> str:
+        return _require_sha256(value, description="original run-request hash")
+
+    @field_validator("active_full_run_ids", "quality_model_run_ids", "review_model_run_ids")
+    @classmethod
+    def validate_run_ids(cls, value: tuple[str, str]) -> tuple[str, str]:
+        if len(set(value)) != 2 or any(not _SAFE_RUN_ID_RE.fullmatch(item) for item in value):
+            raise ValueError("two-model run IDs must be unique safe identifiers")
+        return value
+
+    @field_validator("waived_full_run_id")
+    @classmethod
+    def validate_waived_run_id(cls, value: str) -> str:
+        if not _SAFE_RUN_ID_RE.fullmatch(value):
+            raise ValueError("waived run ID must be a safe identifier")
+        return value
+
+    @model_validator(mode="after")
+    def validate_scope_policy(self) -> "Phase40ScopeAmendment":
+        if self.active_returned_roots != FIXED_ACTIVE_RETURNED_ROOTS:
+            raise ValueError("scope amendment must retain exactly QLoRA and PhoBERT roots")
+        if self.quality_model_run_ids != self.active_full_run_ids:
+            raise ValueError("quality comparison must contain exactly the two active full runs")
+        if self.review_model_run_ids != self.active_full_run_ids:
+            raise ValueError("human review must contain exactly the two active full runs")
+        if self.waived_full_run_id in self.active_full_run_ids:
+            raise ValueError("waived full LoRA run cannot appear in the active model set")
+        return self
+
+    @property
+    def sha256(self) -> str:
+        return _sha256(
+            b"phase40-two-full-model-scope-amendment-v1\0"
+            + _canonical_json_bytes(self.model_dump(mode="json"))
+        )
+
+
+class LoraProbeComparisonRecord(BaseModel):
+    """Mechanical resource-only summary derived from the sealed probe files."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_id: str
+    run_kind: Literal["probe"] = "probe"
+    adaptation_mode: Literal["lora"] = "lora"
+    full_run_disposition: Literal["cancelled_before_start"] = "cancelled_before_start"
+    evidence_authority_sha256: str
+    observed_optimizer_steps: int = Field(gt=0)
+    retained_optimizer_steps: int = Field(gt=0)
+    steady_state_step_seconds_median: float = Field(gt=0)
+    peak_device_vram_used_mib: float = Field(gt=0)
+    minimum_device_vram_free_mib: float = Field(ge=0)
+    peak_system_ram_used_bytes: float = Field(gt=0)
+    memory_constrained: Literal[True] = True
+    oom_observed: Literal[False] = False
+    feasibility_claim: Literal[
+        "technically_runnable_but_operationally_impractical_under_deadline"
+    ] = "technically_runnable_but_operationally_impractical_under_deadline"
+    discarded_runtime_path_absent: Literal[True] = True
+    comparison_eligible: Literal[False] = False
+    predictions_included: Literal[False] = False
+
+    @field_validator("evidence_authority_sha256")
+    @classmethod
+    def validate_authority_hash(cls, value: str) -> str:
+        return _require_sha256(value, description="LoRA probe authority hash")
+
+    @model_validator(mode="after")
+    def validate_probe_bounds(self) -> "LoraProbeComparisonRecord":
+        if self.retained_optimizer_steps > self.observed_optimizer_steps:
+            raise ValueError("retained LoRA probe steps cannot exceed observed steps")
+        return self
+
+
+def _regular_probe_artifact(root: Path, artifact: ProbeArtifactIdentity) -> Path:
+    path = root / artifact.relative_path
+    if not path.is_file() or path.is_symlink():
+        raise ValueError(f"LoRA probe artifact is missing or unsafe: {artifact.relative_path}")
+    payload = path.read_bytes()
+    if len(payload) != artifact.bytes or _sha256(payload) != artifact.sha256:
+        raise ValueError(f"LoRA probe artifact identity mismatch: {artifact.relative_path}")
+    return path
+
+
+def verify_lora_probe_authority(
+    authority: LoraProbeAuthority,
+    *,
+    repo_root: Path,
+) -> LoraProbeComparisonRecord:
+    """Verify the sealed bounded probe and derive resource claims without predictions."""
+
+    authority = (
+        authority
+        if isinstance(authority, LoraProbeAuthority)
+        else LoraProbeAuthority.model_validate(authority)
+    )
+    repository = _trusted_repo_root(repo_root)
+    root = repository / authority.root
+    artifact_paths = tuple(root / artifact.relative_path for artifact in authority.artifacts)
+    _reject_redirecting_path_components((root, *artifact_paths))
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError("fixed LoRA probe evidence root is missing or unsafe")
+    paths = {
+        artifact.relative_path: _regular_probe_artifact(root, artifact)
+        for artifact in authority.artifacts
+    }
+    try:
+        outcome = json.loads(paths["outcome.json"].read_text(encoding="utf-8", errors="strict"))
+        discard = json.loads(
+            paths["discard-receipt.json"].read_text(encoding="utf-8", errors="strict")
+        )
+        proof = QuantizationProofEvidence.model_validate_json(
+            paths["quantization-proof.json"].read_text(encoding="utf-8", errors="strict")
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("LoRA probe JSON evidence is invalid") from exc
+    if not isinstance(outcome, dict) or not isinstance(discard, dict):
+        raise ValueError("LoRA probe outcome/discard evidence must be JSON objects")
+    if (
+        proof.requested_mode != AdaptationMode.LORA
+        or proof.resolved_mode != ResolvedQwenMode.FULL_PRECISION_LORA
+        or proof.load_in_4bit
+        or proof.bitsandbytes_version is not None
+    ):
+        raise ValueError("LoRA probe quantization proof is not full-precision LoRA")
+    artifacts_by_name = {artifact.relative_path: artifact for artifact in authority.artifacts}
+    expected_outcome_refs = {
+        "telemetry.jsonl": ("telemetry", "telemetry_sha256"),
+        "optimizer-events.jsonl": ("optimizer_events", "optimizer_events_sha256"),
+        "quantization-proof.json": ("quantization_proof", "quantization_proof_sha256"),
+    }
+    for name, (path_key, hash_key) in expected_outcome_refs.items():
+        if (
+            outcome.get(path_key) != f"lora-retry-1/{name}"
+            or outcome.get(hash_key) != artifacts_by_name[name].sha256
+        ):
+            raise ValueError(f"LoRA probe outcome does not bind {name}")
+    embedded_discard = outcome.get("discard_receipt")
+    if embedded_discard != discard:
+        raise ValueError("LoRA probe outcome and discard receipt differ")
+    if (
+        discard.get("schema_version") != "phase40-discard-v1"
+        or discard.get("run_id") != "rtx5050-lora-retry-1"
+        or discard.get("path_absent") is not True
+        or discard.get("removal_result") != "removed"
+    ):
+        raise ValueError("LoRA probe runtime was not verifiably discarded")
+    if (
+        outcome.get("schema_version") != "phase40-local-outcome-v1"
+        or outcome.get("status") != "error"
+        or outcome.get("stop_reason") != "parent_controller_error"
+        or outcome.get("measured_target_reached") is not False
+        or outcome.get("losses_finite") is not True
+    ):
+        raise ValueError("LoRA probe outcome is not the bounded retained evidence contract")
+    memory = outcome.get("memory_pressure")
+    peaks = outcome.get("resource_peaks")
+    if (
+        not isinstance(memory, dict)
+        or memory.get("memory_constrained") is not True
+        or memory.get("classification") != "gpu_pressure"
+        or memory.get("oom_kind") is not None
+        or not isinstance(peaks, dict)
+    ):
+        raise ValueError("LoRA probe does not establish the required resource constraint")
+    for name in ("telemetry.jsonl", "optimizer-events.jsonl"):
+        payload = paths[name].read_text(encoding="utf-8", errors="strict")
+        if not payload.endswith("\n") or any(not line for line in payload.splitlines()):
+            raise ValueError(f"LoRA probe {name} is not complete JSONL")
+        try:
+            if any(not isinstance(json.loads(line), dict) for line in payload.splitlines()):
+                raise ValueError(f"LoRA probe {name} contains a non-object row")
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"LoRA probe {name} is invalid JSONL") from exc
+    try:
+        record = LoraProbeComparisonRecord(
+            run_id=discard["run_id"],
+            evidence_authority_sha256=authority.sha256,
+            observed_optimizer_steps=outcome["observed_optimizer_steps"],
+            retained_optimizer_steps=outcome["retained_optimizer_steps"],
+            steady_state_step_seconds_median=outcome["steady_state_step_seconds_median"],
+            peak_device_vram_used_mib=memory["peak_device_vram_used_mib"],
+            minimum_device_vram_free_mib=memory["minimum_device_vram_free_mib"],
+            peak_system_ram_used_bytes=peaks["system_ram_used_bytes"],
+            memory_constrained=True,
+            oom_observed=False,
+            discarded_runtime_path_absent=True,
+            comparison_eligible=False,
+            predictions_included=False,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("LoRA probe resource summary is incomplete or invalid") from exc
+    if record.observed_optimizer_steps >= 1245:
+        raise ValueError("LoRA resource evidence is not a bounded probe")
+    return record
+
+
+def build_phase40_scope_amendment(
+    request: RunRequest,
+    *,
+    repo_root: Path,
+) -> Phase40ScopeAmendment:
+    """Build the additive two-full-model waiver from fixed local evidence."""
+
+    request = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    verify_phase40_run_request(request, repo_root=repo_root, verify_input=True)
+    repository = _trusted_repo_root(repo_root)
+    probe_root = repository / FIXED_LORA_PROBE_ROOT
+    probe_paths = tuple(probe_root / name for name in FIXED_LORA_PROBE_FILES)
+    _reject_redirecting_path_components((probe_root, *probe_paths))
+    if any(not path.is_file() or path.is_symlink() for path in probe_paths):
+        raise ValueError("fixed LoRA probe evidence set is missing or unsafe")
+    artifacts = tuple(
+        ProbeArtifactIdentity(
+            relative_path=name,
+            bytes=path.stat().st_size,
+            sha256=_sha256(path.read_bytes()),
+        )
+        for name, path in zip(FIXED_LORA_PROBE_FILES, probe_paths, strict=True)
+    )
+    probe_authority = LoraProbeAuthority(artifacts=artifacts)
+    verify_lora_probe_authority(probe_authority, repo_root=repo_root)
+    by_mode = {
+        (run.model_family, run.adaptation_mode): run for run in request.runs
+    }
+    lora = by_mode[(ModelFamily.QWEN, AdaptationMode.LORA)]
+    qlora = by_mode[(ModelFamily.QWEN, AdaptationMode.QLORA)]
+    phobert = by_mode[(ModelFamily.PHOBERT, AdaptationMode.CLASSIFICATION_HEAD)]
+    active_ids = (qlora.run_id, phobert.run_id)
+    return Phase40ScopeAmendment(
+        original_run_request_sha256=_sha256(
+            _canonical_json_bytes(request.model_dump(mode="json"))
+        ),
+        active_full_run_ids=active_ids,
+        active_returned_roots=(qlora.returned_root, phobert.returned_root),
+        waived_full_run_id=lora.run_id,
+        waived_returned_root=lora.returned_root,
+        lora_probe_authority=probe_authority,
+        comparison_finalizer_authority=_build_comparison_finalizer_authority(repo_root),
+        quality_model_run_ids=active_ids,
+        review_model_run_ids=active_ids,
+    )
+
+
+def verify_phase40_scope_amendment(
+    amendment: Phase40ScopeAmendment,
+    *,
+    request: RunRequest,
+    repo_root: Path,
+) -> LoraProbeComparisonRecord:
+    amendment = (
+        amendment
+        if isinstance(amendment, Phase40ScopeAmendment)
+        else Phase40ScopeAmendment.model_validate(amendment)
+    )
+    request = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    expected_request_sha = _sha256(_canonical_json_bytes(request.model_dump(mode="json")))
+    if amendment.original_run_request_sha256 != expected_request_sha:
+        raise ValueError("scope amendment is bound to a different frozen run request")
+    by_mode = {
+        (run.model_family, run.adaptation_mode): run for run in request.runs
+    }
+    lora = by_mode[(ModelFamily.QWEN, AdaptationMode.LORA)]
+    qlora = by_mode[(ModelFamily.QWEN, AdaptationMode.QLORA)]
+    phobert = by_mode[(ModelFamily.PHOBERT, AdaptationMode.CLASSIFICATION_HEAD)]
+    active = (qlora, phobert)
+    if amendment.active_full_run_ids != tuple(run.run_id for run in active):
+        raise ValueError("scope amendment active run IDs differ from QLoRA and PhoBERT")
+    if amendment.active_returned_roots != tuple(run.returned_root for run in active):
+        raise ValueError("scope amendment active roots differ from the frozen request")
+    if (
+        amendment.waived_full_run_id != lora.run_id
+        or amendment.waived_returned_root != lora.returned_root
+    ):
+        raise ValueError("scope amendment does not waive exactly the frozen full LoRA run")
+    _verify_comparison_finalizer_authority(
+        amendment.comparison_finalizer_authority,
+        repo_root=repo_root,
+    )
+    return verify_lora_probe_authority(
+        amendment.lora_probe_authority,
+        repo_root=repo_root,
+    )
+
+
+def freeze_phase40_scope_amendment(
+    request: RunRequest,
+    *,
+    repo_root: Path,
+    output_path: Path | None = None,
+) -> Path:
+    root = _trusted_repo_root(repo_root)
+    frozen_request = load_frozen_phase40_run_request(repo_root=root)
+    request = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    if request != frozen_request:
+        raise ValueError("scope amendment request differs from the canonical frozen request")
+    amendment = build_phase40_scope_amendment(request, repo_root=root)
+    destination = Path(output_path or (root / FIXED_SCOPE_AMENDMENT_PATH))
+    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / FIXED_SCOPE_AMENDMENT_PATH))))
+    supplied = Path(os.path.abspath(os.path.normpath(os.fspath(destination))))
+    if supplied != expected:
+        raise ValueError("scope amendment output path is not canonical")
+    _reject_redirecting_path_components(
+        (supplied,) if supplied.exists() else (supplied.parent,)
+    )
+    payload = _canonical_json_bytes(amendment.model_dump(mode="json"))
+    path = _write_frozen_bytes(supplied, payload)
+    loaded = Phase40ScopeAmendment.model_validate_json(path.read_bytes())
+    verify_phase40_scope_amendment(loaded, request=request, repo_root=root)
+    return path
+
+
+def load_frozen_phase40_scope_amendment(
+    *,
+    request: RunRequest,
+    repo_root: Path,
+    amendment_path: Path | None = None,
+) -> Phase40ScopeAmendment:
+    root = _trusted_repo_root(repo_root)
+    supplied = Path(amendment_path or (root / FIXED_SCOPE_AMENDMENT_PATH))
+    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / FIXED_SCOPE_AMENDMENT_PATH))))
+    absolute = Path(os.path.abspath(os.path.normpath(os.fspath(supplied))))
+    _reject_redirecting_path_components((absolute,))
+    if absolute != expected or not absolute.is_file() or absolute.is_symlink():
+        raise ValueError("scope amendment path is not the canonical regular file")
+    payload = absolute.read_bytes()
+    amendment = Phase40ScopeAmendment.model_validate_json(payload)
+    if payload != _canonical_json_bytes(amendment.model_dump(mode="json")):
+        raise ValueError("scope amendment bytes are not canonical")
+    verify_phase40_scope_amendment(amendment, request=request, repo_root=root)
+    return amendment
 
 
 def transfer_authority_from_request(request: RunRequest) -> TransferAuthorityEvidence:
@@ -1103,29 +1804,40 @@ class ReturnedGpuIdentity(BaseModel):
         return stripped
 
 
-class ColabOperatorReturn(BaseModel):
+class LocalTwoModelOperatorReturn(BaseModel):
+    """Local-primary QLoRA/PhoBERT roots plus optional legacy package provenance."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    package_decisions: tuple[PackageDecision, PackageDecision]
+    package_decisions: tuple[PackageDecision, ...] = ()
     bundle_roots: tuple[ReturnedBundleRoot, ...] = ()
     gpu_identities: tuple[ReturnedGpuIdentity, ...] = ()
 
     @model_validator(mode="after")
-    def validate_return(self) -> "ColabOperatorReturn":
-        if tuple(decision.package for decision in self.package_decisions) != PACKAGE_CANDIDATES:
-            raise ValueError("operator return must contain both fixed package decisions in order")
-        approved = all(decision.decision == "approve" for decision in self.package_decisions)
-        if not approved:
-            if self.bundle_roots or self.gpu_identities:
-                raise ValueError("a rejected package return cannot claim bundles or GPU identities")
-            return self
-        if len(self.bundle_roots) != 3 or {root.path for root in self.bundle_roots} != set(FIXED_RETURNED_ROOTS):
-            raise ValueError("approved operator return requires exactly three canonical bundle roots")
+    def validate_return(self) -> "LocalTwoModelOperatorReturn":
+        if self.package_decisions and tuple(
+            decision.package for decision in self.package_decisions
+        ) != PACKAGE_CANDIDATES:
+            raise ValueError(
+                "legacy package provenance, when supplied, must contain both fixed pins in order"
+            )
+        if (
+            len(self.bundle_roots) != 2
+            or tuple(root.path for root in self.bundle_roots) != FIXED_ACTIVE_RETURNED_ROOTS
+        ):
+            raise ValueError(
+                "local operator return requires exactly QLoRA and PhoBERT bundle roots"
+            )
         root_ids = {root.run_id for root in self.bundle_roots}
         gpu_ids = {gpu.run_id for gpu in self.gpu_identities}
-        if len(self.gpu_identities) != 3 or root_ids != gpu_ids or len(root_ids) != 3:
-            raise ValueError("approved operator return requires one GPU identity per returned run")
+        if len(self.gpu_identities) != 2 or root_ids != gpu_ids or len(root_ids) != 2:
+            raise ValueError("local operator return requires one GPU identity per returned run")
         return self
+
+
+# Deprecated import compatibility.  The object no longer represents a Colab
+# approval gate; local run evidence is authoritative for runtime packages.
+ColabOperatorReturn = LocalTwoModelOperatorReturn
 
 
 class ComparisonRunRecord(BaseModel):
@@ -1149,6 +1861,8 @@ class ComparisonRunRecord(BaseModel):
     invalid_output_count: int = Field(ge=0)
     risky_recall_by_label: dict[str, float]
     gpu_identity: str
+    package_versions: dict[str, str]
+    required_tool_pins: dict[str, str]
 
     @field_validator("evidence_sha256", "resume_digest")
     @classmethod
@@ -1164,22 +1878,35 @@ class ComparisonRunRecord(BaseModel):
             raise ValueError("risky recall values must be probabilities")
         return {label: value[label] for label in RISKY_RECALL_FLOORS}
 
+    @field_validator("package_versions", "required_tool_pins")
+    @classmethod
+    def validate_runtime_packages(cls, value: dict[str, str]) -> dict[str, str]:
+        if not value or any(not key or not version for key, version in value.items()):
+            raise ValueError("runtime package/tool identities cannot be empty")
+        return dict(sorted(value.items()))
+
 
 class Phase40ComparisonManifest(BaseModel):
-    """Machine-readable outcome of package authority and three-run verification."""
+    """Machine-readable outcome of the amended two-full-model verification."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["phase40-comparison-v1"] = PHASE40_COMPARISON_SCHEMA_VERSION
+    schema_version: Literal["phase40-comparison-v2"] = PHASE40_COMPARISON_SCHEMA_VERSION
     status: Literal["complete", "prestart_failed"]
-    package_decisions: tuple[PackageDecision, PackageDecision]
+    package_decisions: tuple[PackageDecision, ...] = ()
+    original_run_request_sha256: str
+    scope_amendment_sha256: str
+    comparison_finalizer_source_sha256: str
+    execution_policy: Literal["local_primary"] = "local_primary"
+    full_lora_disposition: Literal["cancelled_before_start"] = "cancelled_before_start"
+    lora_probe: LoraProbeComparisonRecord
     source_archive_sha256: str
     source_inventory_sha256: str
     input_archive_sha256: str
     input_manifest_sha256: str
     validation_rows: int = Field(gt=0)
     runs: tuple[ComparisonRunRecord, ...]
-    qwen_config_comparison: QwenConfigComparison | None
+    qwen_config_comparison: QwenConfigComparison | None = None
     quality_comparison_admissible: bool
     hardware_confounded: bool | None
     speed_comparison_admissible: bool
@@ -1194,6 +1921,9 @@ class Phase40ComparisonManifest(BaseModel):
         "source_inventory_sha256",
         "input_archive_sha256",
         "input_manifest_sha256",
+        "original_run_request_sha256",
+        "scope_amendment_sha256",
+        "comparison_finalizer_source_sha256",
     )
     @classmethod
     def validate_authority_hashes(cls, value: str) -> str:
@@ -1225,8 +1955,14 @@ class Phase40ComparisonManifest(BaseModel):
             if self.failure_reason is None:
                 raise ValueError("pre-start failure requires an explicit reason")
             return self
-        if len(self.runs) != 3 or self.qwen_config_comparison is None:
-            raise ValueError("complete comparison requires all three verified runs")
+        if len(self.runs) != 2 or self.qwen_config_comparison is not None:
+            raise ValueError("complete comparison requires exactly QLoRA and PhoBERT full runs")
+        expected_models = (
+            (ModelFamily.QWEN, AdaptationMode.QLORA),
+            (ModelFamily.PHOBERT, AdaptationMode.CLASSIFICATION_HEAD),
+        )
+        if tuple((run.model_family, run.adaptation_mode) for run in self.runs) != expected_models:
+            raise ValueError("complete comparison run order must be QLoRA then PhoBERT")
         if self.failure_reason is not None:
             raise ValueError("complete comparison cannot contain a failure reason")
         if (
@@ -1235,16 +1971,15 @@ class Phase40ComparisonManifest(BaseModel):
             or self.selected_prediction_bundles_sha256 is None
         ):
             raise ValueError("complete comparison requires the deterministic review queue")
-        expected_quality = self.qwen_config_comparison.admissible and all(
+        expected_quality = all(
             run.comparison_eligible and run.safety_gate_passed for run in self.runs
         )
         if self.quality_comparison_admissible != expected_quality:
             raise ValueError("quality admissibility differs from config and run safety evidence")
-        if self.hardware_confounded != self.qwen_config_comparison.hardware_confounded:
-            raise ValueError("hardware confounding differs from the Qwen config comparison")
-        expected_speed = expected_quality and self.qwen_config_comparison.speed_comparison_admissible
-        if self.speed_comparison_admissible != expected_speed:
-            raise ValueError("speed admissibility differs from config, safety, and hardware evidence")
+        if self.hardware_confounded is None:
+            raise ValueError("complete comparison must state active-run hardware confounding")
+        if self.speed_comparison_admissible:
+            raise ValueError("probe-versus-full or cross-architecture speed claims are inadmissible")
         return self
 
 
@@ -1566,7 +2301,7 @@ def _regenerate_graph(
 
 def _comparison_report(manifest: Phase40ComparisonManifest) -> bytes:
     lines = [
-        "# Phase 40 Three-Model Comparison",
+        "# Phase 40 Local Two-Full-Model Comparison",
         "",
         f"Status: **{manifest.status}**",
         "",
@@ -1578,6 +2313,16 @@ def _comparison_report(manifest: Phase40ComparisonManifest) -> bytes:
         return ("\n".join(lines) + "\n").encode("utf-8")
     lines.extend(
         (
+            "Primary execution: local laptop. Colab is validation-only contingency before the held-out boundary is opened.",
+            "Training/run evidence remains governed by source-runtime-v3; this amended comparison runs only under its separate hash-pinned local finalizer authority.",
+            "Full Qwen LoRA was withdrawn and cancelled before its production run; its bounded local probe is resource evidence only and contributes no predictions.",
+            f"LoRA probe: observed_steps={manifest.lora_probe.observed_optimizer_steps}, "
+            f"retained_steps={manifest.lora_probe.retained_optimizer_steps}, "
+            f"median_step_seconds={manifest.lora_probe.steady_state_step_seconds_median:.3f}, "
+            f"peak_VRAM_MiB={manifest.lora_probe.peak_device_vram_used_mib:.1f}, "
+            f"minimum_free_VRAM_MiB={manifest.lora_probe.minimum_device_vram_free_mib:.1f}",
+            "The probe completed optimizer steps with finite loss and no OOM; the waiver is an operational resource/deadline decision, not a claim that LoRA cannot run.",
+            "",
             f"Validation rows per model: {manifest.validation_rows}",
             f"Quality comparison admissible: {manifest.quality_comparison_admissible}",
             f"Hardware-confounded timing/throughput: {manifest.hardware_confounded}",
@@ -1592,17 +2337,26 @@ def _comparison_report(manifest: Phase40ComparisonManifest) -> bytes:
         recall_text = ", ".join(
             f"{label}={value:.4f}" for label, value in run.risky_recall_by_label.items()
         )
+        package_text = ", ".join(
+            f"{name}={version}"
+            for name, version in run.package_versions.items()
+        )
+        tool_pin_text = ", ".join(
+            f"{name}={version}"
+            for name, version in run.required_tool_pins.items()
+        )
         lines.append(
             f"- `{run.run_id}` ({run.model_family.value}/{run.adaptation_mode.value}): "
             f"safety_gate={run.safety_gate_passed}, comparison_eligible={run.comparison_eligible}, "
             f"selected_step={run.selected_optimizer_step}, macro_F1={run.macro_f1:.4f}, "
             f"invalid_outputs={run.invalid_output_count}, risky_recall=[{recall_text}], "
-            f"GPU={run.gpu_identity}"
+            f"GPU={run.gpu_identity}, exact_run_packages=[{package_text}], "
+            f"required_tool_pins=[{tool_pin_text}]"
         )
     lines.extend(
         (
             "",
-            "All three submitted complete runs are retained, including any failed safety gate; a failed gate is never silently dropped or presented as a deployable winner.",
+            "Both submitted complete quality runs are retained, including any failed safety gate; a failed gate is never silently dropped or presented as a deployable winner.",
             "",
         )
     )
@@ -1618,12 +2372,19 @@ def verify_phase40_run_request(
     """Verify both immutable transfer authorities without consulting held-out data."""
 
     request = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
-    verify_phase40_source_bundle(repo_root=repo_root, reference=request.source_bundle)
+    root = _trusted_repo_root(repo_root)
+    authority_paths = (
+        root / request.source_bundle.repository_relative_archive_path,
+        root / request.source_bundle.repository_relative_inventory_path,
+        root / request.input_bundle.repository_relative_path,
+    )
+    _reject_redirecting_path_components(authority_paths)
+    verify_phase40_source_bundle(repo_root=root, reference=request.source_bundle)
     if verify_input:
         verify_phase40_input_bundle(
-            Path(repo_root) / request.input_bundle.repository_relative_path,
+            root / request.input_bundle.repository_relative_path,
             request.input_bundle,
-            repo_root=repo_root,
+            repo_root=root,
             materialize=False,
         )
     return request
@@ -1959,14 +2720,27 @@ def finalize_phase40_human_review(
     queue_rows: Sequence[ReviewQueueRow],
     reviewer_rows: Sequence[ReviewerReturnRow],
     *,
+    request: RunRequest,
+    repo_root: Path,
     contract: Phase40DataContract,
     prediction_bundles: Sequence[SelectedPredictionBundle],
     queue_manifest_path: Path,
     comparison_manifest_path: Path,
+    scope_amendment_path: Path,
     output_root: Path,
     vietnamese_fluent_attestation: bool,
     verify_only: bool = False,
 ) -> HumanReviewArtifacts:
+    canonical_request = require_canonical_phase40_run_request(
+        request,
+        repo_root=repo_root,
+    )
+    amendment = load_frozen_phase40_scope_amendment(
+        request=canonical_request,
+        repo_root=repo_root,
+        amendment_path=scope_amendment_path,
+    )
+    amendment_bytes = _lexical_absolute(scope_amendment_path).read_bytes()
     if vietnamese_fluent_attestation is not True:
         raise ValueError("human review requires a Vietnamese-fluent reviewer attestation")
     queue = tuple(
@@ -1996,6 +2770,18 @@ def finalize_phase40_human_review(
     if comparison.status != "complete":
         raise ValueError("human review requires a complete comparison manifest")
     if (
+        _sha256(amendment_bytes) != comparison.scope_amendment_sha256
+        or amendment.original_run_request_sha256 != comparison.original_run_request_sha256
+        or amendment.active_full_run_ids
+        != tuple(run.run_id for run in comparison.runs)
+        or amendment.review_model_run_ids != amendment.active_full_run_ids
+        or amendment.lora_probe_authority.sha256
+        != comparison.lora_probe.evidence_authority_sha256
+        or amendment.comparison_finalizer_authority.source_tree_sha256
+        != comparison.comparison_finalizer_source_sha256
+    ):
+        raise ValueError("human review scope differs from the frozen two-model amendment")
+    if (
         comparison.selected_prediction_bundles_sha256 is None
         or _sha256(_selected_prediction_bundles_bytes(prediction_bundles))
         != comparison.selected_prediction_bundles_sha256
@@ -2020,6 +2806,7 @@ def finalize_phase40_human_review(
         "queue_sha256": _sha256(queue_bytes),
         "notes_sha256": _sha256(notes_bytes),
         "comparison_manifest_sha256": _sha256(comparison_bytes),
+        "scope_amendment_sha256": _sha256(amendment_bytes),
         "review_queue_manifest_sha256": _sha256(Path(queue_manifest_path).read_bytes()),
         "phase39_data_contract_sha256": _contract_identity(contract),
         "validation_ordered_row_ids_sha256": _ordered_row_ids_sha256(
@@ -2131,17 +2918,22 @@ def write_phase40_review_queue(
 
 def _authorized_return_roots(
     request: RunRequest,
-    operator_return: ColabOperatorReturn,
+    operator_return: LocalTwoModelOperatorReturn,
+    amendment: Phase40ScopeAmendment,
     *,
     repo_root: Path,
 ) -> dict[str, Path]:
     """Validate every identity/path mapping before opening any returned root."""
 
-    request_by_id = {run.run_id: run for run in request.runs}
+    request_by_id = {
+        run.run_id: run
+        for run in request.runs
+        if run.run_id in amendment.active_full_run_ids
+    }
     returned_by_id = {root.run_id: root for root in operator_return.bundle_roots}
     gpu_ids = {gpu.run_id for gpu in operator_return.gpu_identities}
     if set(returned_by_id) != set(request_by_id) or gpu_ids != set(request_by_id):
-        raise ValueError("operator return run IDs differ from the frozen run request")
+        raise ValueError("operator return run IDs differ from the amended two-model scope")
     root = Path(os.path.abspath(os.path.normpath(os.fspath(repo_root))))
     authorized: dict[str, Path] = {}
     for run_id, requested in request_by_id.items():
@@ -2185,9 +2977,10 @@ def _write_or_verify_comparison_payloads(
 
 def finalize_phase40_comparison(
     request: RunRequest,
-    operator_return: ColabOperatorReturn,
+    operator_return: LocalTwoModelOperatorReturn,
     *,
     repo_root: Path,
+    scope_amendment_path: Path,
     output_root: Path,
     verify_only: bool = False,
     bundle_verifier: Callable[[Path], RunEvidence] = verify_phase40_bundle,
@@ -2195,23 +2988,35 @@ def finalize_phase40_comparison(
     renderer_name: str | None = None,
     renderer_version: str | None = None,
 ) -> ComparisonArtifacts:
-    """Re-verify three returned runs, reproduce graphs, and freeze comparison outputs."""
+    """Re-verify QLoRA and PhoBERT plus the resource-only LoRA probe."""
 
     request = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    request = require_canonical_phase40_run_request(
+        request,
+        repo_root=repo_root,
+    )
     operator_return = (
         operator_return
-        if isinstance(operator_return, ColabOperatorReturn)
-        else ColabOperatorReturn.model_validate(operator_return)
+        if isinstance(operator_return, LocalTwoModelOperatorReturn)
+        else LocalTwoModelOperatorReturn.model_validate(operator_return)
     )
-    authorized_roots: dict[str, Path] = {}
-    approved = all(
-        decision.decision == "approve" for decision in operator_return.package_decisions
+    amendment = load_frozen_phase40_scope_amendment(
+        request=request,
+        repo_root=repo_root,
+        amendment_path=scope_amendment_path,
     )
-    if approved:
-        # This lexical identity/path gate intentionally precedes every root read.
-        authorized_roots = _authorized_return_roots(
-            request, operator_return, repo_root=Path(repo_root)
-        )
+    lora_probe = verify_phase40_scope_amendment(
+        amendment,
+        request=request,
+        repo_root=repo_root,
+    )
+    amendment_payload = _lexical_absolute(scope_amendment_path).read_bytes()
+    amendment_sha256 = _sha256(amendment_payload)
+    # This lexical identity/path gate intentionally precedes every root read.
+    authorized_roots = _authorized_return_roots(
+        request, operator_return, amendment, repo_root=Path(repo_root)
+    )
+    _reject_redirecting_path_components(tuple(authorized_roots.values()))
 
     verify_phase40_source_bundle(repo_root=repo_root, reference=request.source_bundle)
     contract = verify_phase40_input_bundle(
@@ -2230,55 +3035,19 @@ def finalize_phase40_comparison(
         "single_training_seed_42_no_variance_or_significance_claim",
         "validation_only_no_held_out_test_claim",
         "zalo_validation_support_is_small_and_all_zalo_errors_require_review",
+        "full_lora_cancelled_before_start_after_bounded_local_resource_probe",
+        "lora_probe_has_no_predictions_and_supports_no_quality_claim",
+        "colab_is_validation_contingency_only_before_held_out_open",
     )
-    if not approved:
-        rejected = tuple(
-            decision for decision in operator_return.package_decisions if decision.decision == "reject"
-        )
-        reason = "; ".join(
-            f"{decision.package}: {decision.reason}" for decision in rejected
-        )
-        manifest = Phase40ComparisonManifest(
-            status="prestart_failed",
-            package_decisions=operator_return.package_decisions,
-            source_archive_sha256=request.source_bundle.archive_sha256,
-            source_inventory_sha256=request.source_bundle.inventory_sha256,
-            input_archive_sha256=request.input_bundle.archive_sha256,
-            input_manifest_sha256=request.input_bundle.manifest_sha256,
-            validation_rows=validation_rows,
-            runs=(),
-            qwen_config_comparison=None,
-            quality_comparison_admissible=False,
-            hardware_confounded=None,
-            speed_comparison_admissible=False,
-            review_queue_rows=0,
-            review_queue_sha256=None,
-            selected_prediction_bundles_sha256=None,
-            limitations=limitations,
-            failure_reason=f"Required package authority rejected before training: {reason}",
-        )
-        manifest_path, report_path = _write_or_verify_comparison_payloads(
-            output_root=output_root, manifest=manifest, verify_only=verify_only
-        )
-        return ComparisonArtifacts(
-            manifest_path,
-            report_path,
-            None,
-            None,
-            None,
-            None,
-            manifest,
-            (),
-        )
-
     request_by_id = {run.run_id: run for run in request.runs}
     gpu_by_id = {gpu.run_id: gpu for gpu in operator_return.gpu_identities}
-    evidences: dict[str, RunEvidence] = {}
-    configs: dict[str, ResumeControlledConfig] = {}
+    active_requests = tuple(
+        request_by_id[run_id] for run_id in amendment.active_full_run_ids
+    )
     prediction_bundles: list[SelectedPredictionBundle] = []
     run_records: list[ComparisonRunRecord] = []
     expected_transfer_authority = transfer_authority_from_request(request)
-    for requested in request.runs:
+    for requested in active_requests:
         run_root = authorized_roots[requested.run_id]
         if not run_root.is_dir() or run_root.is_symlink():
             raise RuntimeError(f"returned run root is missing or unsafe: {requested.run_id}")
@@ -2308,13 +3077,17 @@ def finalize_phase40_comparison(
             or identity.run_kind != RunKind.FULL
         ):
             raise RuntimeError("returned run experiment identity differs from the request")
-        _regenerate_graph(
+        graph = _regenerate_graph(
             run_root,
             evidence,
             renderer=renderer,
             renderer_name=renderer_name,
             renderer_version=renderer_version,
         )
+        if graph.renderer != "matplotlib" or graph.renderer_version != "3.11.1":
+            raise RuntimeError(
+                "returned run graph evidence is not pinned to matplotlib 3.11.1"
+            )
         evidence = bundle_verifier(run_root)
         config = _load_resume_config(run_root, evidence)
         request.control_template_by_run[requested.run_id].verify_runtime_config(config)
@@ -2351,8 +3124,21 @@ def finalize_phase40_comparison(
             label: next(row.recall for row in selected_metrics.per_class if row.label == label)
             for label in RISKY_RECALL_FLOORS
         }
-        evidences[requested.run_id] = evidence
-        configs[requested.run_id] = config
+        required_tool_pins = {"matplotlib": graph.renderer_version}
+        if identity.adaptation_mode == AdaptationMode.QLORA:
+            if (
+                evidence.quantization is None
+                or evidence.quantization.resolved_mode
+                != ResolvedQwenMode.FOUR_BIT_QLORA
+                or evidence.quantization.bitsandbytes_version != "0.50.1"
+                or evidence.package_versions.get("bitsandbytes") != "0.50.1"
+            ):
+                raise RuntimeError(
+                    "QLoRA run evidence is not pinned to bitsandbytes 0.50.1"
+                )
+            required_tool_pins["bitsandbytes"] = (
+                evidence.quantization.bitsandbytes_version
+            )
         prediction_bundles.append(prediction_bundle)
         evidence_path = run_root / "run-evidence.json"
         run_records.append(
@@ -2373,22 +3159,10 @@ def finalize_phase40_comparison(
                 invalid_output_count=selected_metrics.invalid_output_count,
                 risky_recall_by_label=risky_recall,
                 gpu_identity=gpu.accelerator,
+                package_versions=evidence.package_versions,
+                required_tool_pins=required_tool_pins,
             )
         )
-
-    qwen_by_mode = {
-        config.experiment_identity.adaptation_mode: config
-        for config in configs.values()
-        if config.experiment_identity.model_family == ModelFamily.QWEN
-    }
-    qwen_comparison = compare_qwen_configs(
-        qwen_by_mode[AdaptationMode.LORA], qwen_by_mode[AdaptationMode.QLORA]
-    )
-    if not qwen_comparison.admissible:
-        paths = ", ".join(
-            difference.path for difference in qwen_comparison.forbidden_differences
-        )
-        raise RuntimeError(f"Qwen full-run controls are not matched: {paths}")
 
     bundles = tuple(prediction_bundles)
     queue = build_phase40_review_queue(contract, bundles)
@@ -2399,22 +3173,28 @@ def finalize_phase40_comparison(
     all_runs_admissible = all(
         run.comparison_eligible and run.safety_gate_passed for run in run_records
     )
-    quality_admissible = qwen_comparison.admissible and all_runs_admissible
+    quality_admissible = all_runs_admissible
+    active_gpu_names = tuple(gpu_by_id[run.run_id].accelerator for run in active_requests)
+    hardware_confounded = len(set(active_gpu_names)) != 1
     manifest = Phase40ComparisonManifest(
         status="complete",
         package_decisions=operator_return.package_decisions,
+        original_run_request_sha256=amendment.original_run_request_sha256,
+        scope_amendment_sha256=amendment_sha256,
+        comparison_finalizer_source_sha256=(
+            amendment.comparison_finalizer_authority.source_tree_sha256
+        ),
+        lora_probe=lora_probe,
         source_archive_sha256=request.source_bundle.archive_sha256,
         source_inventory_sha256=request.source_bundle.inventory_sha256,
         input_archive_sha256=request.input_bundle.archive_sha256,
         input_manifest_sha256=request.input_bundle.manifest_sha256,
         validation_rows=validation_rows,
         runs=tuple(run_records),
-        qwen_config_comparison=qwen_comparison,
+        qwen_config_comparison=None,
         quality_comparison_admissible=quality_admissible,
-        hardware_confounded=qwen_comparison.hardware_confounded,
-        speed_comparison_admissible=(
-            quality_admissible and qwen_comparison.speed_comparison_admissible
-        ),
+        hardware_confounded=hardware_confounded,
+        speed_comparison_admissible=False,
         review_queue_rows=len(queue),
         review_queue_sha256=queue_sha256,
         selected_prediction_bundles_sha256=_sha256(selected_bundles_bytes),

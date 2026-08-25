@@ -5,12 +5,27 @@
 
 ---
 
+> **User-approved execution amendment — 2026-08-25:** The controlling
+> experiment now contains two complete local models: genuine Qwen QLoRA and a
+> full PhoBERT classification-head baseline. Ordinary Qwen LoRA ends at its
+> sealed laptop resource/ETA probe and is not a full-model quality row. The
+> primary order is local QLoRA, verified evidence and Q8_0 GGUF, local PhoBERT,
+> then a two-model validation comparison. The original three-run request and
+> Colab handoff remain immutable historical provenance. Colab is dormant unless
+> development validation is unacceptable before the reserved-test gate; it is
+> never activated or tuned in response to Phase 41 held-out results.
+> Training/GGUF/PhoBERT stay bound to immutable `source-runtime-v3`. The later
+> two-model finalizer runs only from a post-amendment repo tree whose exact
+> allowlisted files match `comparison_finalizer_authority.source_tree_sha256`
+> embedded in `data/models/phase40/two-full-model-scope-amendment.json`; v3 is
+> never patched.
+
 ## 1. System Classification
 
 **System Type:** Hybrid supervised NLP classification: Qwen generative structured classification plus PhoBERT encoder classification
 
 **Description:**
-This phase trains and documents three local/self-hosted Vietnamese financial-message classifiers: matched Qwen LoRA and genuine 4-bit QLoRA runs plus a PhoBERT sequence-classification baseline. Good means the runs are independently reproducible, use only the frozen training and validation partitions, preserve auditable raw evidence, and support honest comparison without touching the reserved test partition.
+This phase trains and documents two local/self-hosted Vietnamese financial-message classifiers: genuine 4-bit Qwen QLoRA and a PhoBERT sequence-classification baseline. A sealed ordinary-LoRA laptop probe documents resource pressure and ETA but does not supply a completed classifier or quality-comparison row. Good means the two full runs are independently reproducible, use only the frozen training and validation partitions, preserve auditable raw evidence, and support honest comparison without touching the reserved test partition.
 
 **Critical Failure Modes:**
 1. **Evaluation contamination:** any Phase 40 code reads the reserved 220-row test partition, or a `seed_id`/semantic root crosses train and validation. Either event invalidates model selection evidence rather than merely lowering its quality.
@@ -27,7 +42,7 @@ This phase trains and documents three local/self-hosted Vietnamese financial-mes
 
 **Industry Vertical:** Vietnamese retail-finance fraud prevention and consumer cybersecurity research
 
-**User Population:** In Phase 40, the immediate users are the student researcher, supervisors, and technical reviewers choosing and freezing three candidate checkpoints from development evidence. The later product population is Vietnamese users checking SMS, Zalo, and other financial messages; Phase 40 does not yet make a deployment or held-out performance claim.
+**User Population:** In Phase 40, the immediate users are the student researcher, supervisors, and technical reviewers choosing and freezing two candidate checkpoints from development evidence. The later product population is Vietnamese users checking SMS, Zalo, and other financial messages; Phase 40 does not yet make a deployment or held-out performance claim.
 
 **Stakes Level:** High
 
@@ -60,7 +75,7 @@ This phase trains and documents three local/self-hosted Vietnamese financial-mes
 **Source:** Phase 39 downstream data contract and report note; established project split-governance policy.
 
 **Dimension: Auditable model comparison**
-**Good (domain expert would accept):** Each validation number is tied to one immutable checkpoint hash, model revision, exact resolved configuration, raw prediction/log artifact, label order, and canonical split hash. LoRA and QLoRA differ only by the declared quantization treatment, and every graph is reproducible from retained events.
+**Good (domain expert would accept):** Each validation number is tied to one immutable checkpoint hash, model revision, exact resolved configuration, raw prediction/log artifact, label order, and canonical split hash. The QLoRA and PhoBERT full runs expose their architecture-specific controls, and every graph is reproducible from retained events. The bounded LoRA/QLoRA evidence is reported separately as a same-laptop resource comparison, not as a completed accuracy comparison.
 **Bad (domain expert would flag):** A graph has no raw source, modes or hardware are mislabeled, configuration differences are hidden, or speed differences across unlike GPUs are treated as model-quality evidence.
 **Stakes:** High
 **Source:** Phase 40 training-evidence requirements TRAIN-01 through TRAIN-06 and the frozen phase context.
@@ -78,7 +93,7 @@ This phase trains and documents three local/self-hosted Vietnamese financial-mes
 
 **Phase 40 scope:** The promoted research corpus is synthetic and Phase 40 is an internal training/validation experiment, not a bank service, automated blocking system, or financial-advice system. No sector rule identified in this research sets a classifier accuracy threshold for this experiment.
 
-**Project safety policy (not presented as law):** the reserved test remains unopened until Phase 41; train/validation paths and hashes are allowlisted; seed groups cannot cross splits; no external inference/judge API or telemetry receives message text; commands and evidence are sanitized; and invalid model output never defaults to benign. Colab use and future handling of real messages require a separate data-governance review rather than inheriting compliance from these validation controls.
+**Project safety policy (not presented as law):** the reserved test remains unopened until Phase 41; train/validation paths and hashes are allowlisted; seed groups cannot cross splits; no external inference/judge API or telemetry receives message text; commands and evidence are sanitized; and invalid model output never defaults to benign. Colab is a pre-test validation contingency only and is never a response to held-out results. Any Colab use and future handling of real messages require a separate data-governance review rather than inheriting compliance from these validation controls.
 
 ### Domain Expert Roles for Evaluation
 
@@ -105,10 +120,10 @@ This phase trains and documents three local/self-hosted Vietnamese financial-mes
 
 **Selected Framework:** Direct Hugging Face stack: Transformers Trainer + PEFT + Accelerate + PyTorch; bitsandbytes for QLoRA only
 
-**Version:** Transformers 5.9.0; PEFT 0.19.1; Accelerate 1.13.0; PyTorch 2.12.0+cu132; bitsandbytes must be pinned after a compatible version is proven
+**Version:** Transformers 5.9.0; PEFT 0.19.1; Accelerate 1.13.0; PyTorch 2.12.0+cu132; bitsandbytes 0.50.1
 
 **Rationale:**
-The repository already implements Qwen training with Trainer, PEFT, `LoraConfig`, and `BitsAndBytesConfig`. Extending that stack preserves experimental control, supports matched LoRA/QLoRA settings and PhoBERT sequence classification, exposes raw trainer state, and permits fail-closed quantization without adding orchestration abstractions.
+The repository already implements Qwen training with Trainer, PEFT, `LoraConfig`, and `BitsAndBytesConfig`. Extending that stack preserves experimental control, supports the sealed LoRA/QLoRA resource probe evidence, the full fail-closed QLoRA run, and PhoBERT sequence classification, while exposing raw trainer state without adding orchestration abstractions.
 
 **Alternatives Considered:**
 
@@ -133,7 +148,7 @@ The repository already implements Qwen training with Trainer, PEFT, `LoraConfig`
 python -m pip install "transformers==5.9.0" "peft==0.19.1" "accelerate==1.13.0" "pydantic>=2.13,<3"
 
 # QLoRA compatibility candidate only. Do not promote this into the project lock until the
-# exact host/Colab environment passes the 4-bit proof gate described below.
+# exact execution environment passes the 4-bit proof gate described below.
 python -m pip install --no-deps "bitsandbytes==0.50.1"
 ```
 
@@ -260,9 +275,10 @@ not import PEFT or bitsandbytes.
 2. **Training on the prompt itself:** the current `DataCollatorForLanguageModeling(mlm=False)`
    labels the whole instruction/prompt sequence. Build labels explicitly and set prompt and
    padding positions to `-100`, so Qwen loss is computed on the assistant JSON response only.
-3. **Unmatched comparisons:** changing seed, order, effective batch, sequence length, prompt,
-   LoRA targets, evaluation cadence, or hardware alongside quantization invalidates the
-   LoRA-versus-QLoRA attribution. Lock and diff the resolved configs before either full run.
+3. **Overstated LoRA/QLoRA attribution:** changing seed, order, effective batch, sequence length,
+   prompt, LoRA targets, evaluation cadence, or hardware would invalidate the bounded same-laptop
+   resource interpretation. Preserve and diff the sealed probe controls, but do not promote the
+   incomplete LoRA probe into a completed accuracy comparison.
 4. **Evidence that looks complete but is not:** `Trainer` callbacks can observe state but cannot
    rewrite the training loop. Synchronize CUDA before timing, retain `trainer_state.json` and
    raw logs, and test any narrow `Trainer` override against exactly Transformers 5.9.0.
@@ -288,7 +304,7 @@ notebooks/phase40/
 ├── qwen_lora_colab.ipynb
 ├── qwen_qlora_colab.ipynb
 └── phobert_colab.ipynb
-data/models/phase40/<run-id>/ # immutable, local/Colab artifacts; never committed as weights
+data/models/phase40/<run-id>/ # immutable local artifacts; contingency copies retain origin; never committed as weights
 ├── resolved-config.json
 ├── run-evidence.json
 ├── events.jsonl
@@ -316,16 +332,18 @@ data/models/phase40/<run-id>/ # immutable, local/Colab artifacts; never committe
 **Model Configuration:**
 
 - **Qwen base:** `Qwen/Qwen3-4B-Instruct-2507`, revision
-  `cdbee75f17c01a7cc42f958dc650907174af0554`. Both full runs start fresh from
-  this revision. Ordinary LoRA loads unquantized base weights in BF16 when supported (FP16
-  otherwise); QLoRA loads NF4 4-bit base weights with double quantization and the same compute
-  dtype. Only LoRA parameters are trainable in either run.
-- **Matched adapter controls:** `r=16`, `lora_alpha=32`, `lora_dropout=0.05`, `bias="none"`,
+  `cdbee75f17c01a7cc42f958dc650907174af0554`. The QLoRA full run starts fresh
+  from this revision and loads NF4 4-bit base weights with double quantization
+  and BF16 compute. Only LoRA adapter parameters are trainable. Ordinary LoRA
+  loaded the same pinned base unquantized only for the already sealed bounded
+  resource probe; it is not repeated as a full run.
+- **Adapter controls:** `r=16`, `lora_alpha=32`, `lora_dropout=0.05`, `bias="none"`,
   `task_type="CAUSAL_LM"`, and the repository's seven projection targets (`q/k/v/o`,
   `gate/up/down`). Dataset bytes/order, prompt formatter, response-only mask, seed, data seed,
   maximum length, effective batch, epochs/steps, optimizer, learning-rate schedule, warm-up,
-  evaluation/save/log cadence, and validation decoder are identical. The only intended
-  treatment difference is base-weight quantization.
+  evaluation/save/log cadence, and validation decoder are frozen for QLoRA.
+  Their historical LoRA counterpart remains available only for interpreting
+  the same-laptop resource probe; it is not a full-run quality treatment.
 - **Qwen starting run controls:** preserve the current `max_seq_length=1024`, per-device batch
   1, gradient accumulation 4, learning rate `2e-4`, logging every 10 optimizer steps, and
   evaluation/checkpoint every 50 steps unless a pre-run plan changes them once for both modes.
@@ -421,8 +439,9 @@ requires a `Trainer` override, keep it narrow and lock its method signature with
 
 **Tool Use:**
 
-- Transformers/PEFT/Accelerate/PyTorch execute locally or in Colab; bitsandbytes is loaded only by
-  the QLoRA factory. There is no web API, hosted inference, external experiment tracker, or secret.
+- Transformers/PEFT/Accelerate/PyTorch execute locally on the primary path; bitsandbytes is loaded
+  only by the QLoRA factory. A pre-test Colab contingency uses the same verified code and data
+  authority. There is no web API, hosted inference, external experiment tracker, or secret.
 - Pydantic validates the run evidence; `hashlib.sha256` identifies inputs/artifacts; scikit-learn
   computes the common four-class validation metrics; Matplotlib (or the existing graph utility)
   renders curves from JSONL. `report_to="none"` prevents implicit telemetry integrations.
@@ -573,15 +592,19 @@ and seed-group semantics.
 
 ### Cost and Latency Budget
 
-There is no per-call API charge: training and validation are local/Colab compute, so the monetary
-API budget is **$0**. One final Phase 40 validation pass is 219 rows per frozen model, or 657
-model-row evaluations across LoRA, QLoRA, and PhoBERT; its external-API cost remains $0. The
+There is no per-call API charge: primary training and validation are local compute, so the monetary
+API budget is **$0**. One final Phase 40 validation pass is 219 rows per frozen model, or 438
+model-row evaluations across QLoRA and PhoBERT; its external-API cost remains $0. The
 resource budget is measured, not guessed. Each laptop probe is capped at
 30-50 post-warm-up optimizer steps and reports median steady-state seconds/step, examples and
 tokens/second, peak allocated/reserved VRAM, and evaluation/checkpoint overhead. Projected local
 runtime equals the measured steady-state median times planned optimizer steps plus measured
-overhead and is labeled an estimate. Full Colab runs retain actual wall time and accelerator type;
-different GPU types make speed/VRAM comparisons hardware-confounded.
+overhead and is labeled an estimate. In particular, the 72.83-minute QLoRA figure includes the
+optimizer schedule and one measured evaluation/save overhead, not the repeated 219-row generation
+required by the full evidence cadence. The active local run currently projects roughly 12.85 hours
+end to end from observed cadence; that figure is interim until final evidence seals. An explicitly
+activated pre-test Colab contingency must retain actual wall time and accelerator type, and any
+cross-hardware efficiency observation is hardware-confounded.
 
 Do not cache training batches or generations across model artifacts in a way that changes measured
 work. It is safe to cache deterministic tokenization only when the cache key includes dataset SHA,
@@ -599,7 +622,7 @@ support and latency; only exact, fully keyed caches are admissible.
 Phase 40 is a development comparison, not a held-out performance claim. Its only reference set is
 the frozen 219-row validation split from the Phase 39 downstream contract. The reserved 220-row
 test split is not opened, parsed, hashed, sampled, or used for tuning, checkpoint selection, plots,
-or debugging until Phase 41. All three model families use one shared evaluator and the locked label
+or debugging until Phase 41. Both complete model families use one shared evaluator and the locked label
 order `bank_impersonation`, `zalo_social_engineering`, `task_scam`, `benign`.
 
 ### Dimensions
@@ -611,8 +634,8 @@ order `bank_impersonation`, `zalo_social_engineering`, `task_scam`, `benign`.
 | Harmful-scam catch rate by family | **PASS:** The report includes support, precision, recall, and F1 for every class; validation recall is at least 0.90 for `bank_impersonation`, 0.90 for `zalo_social_engineering`, and 0.80 for `task_scam`; every risky-to-`benign` and risky-to-`invalid_output` result is enumerated. **FAIL:** A floor is missed, a harmful miss is omitted, or aggregate scores conceal a weak class. These are development safety gates, not held-out claims. | Code plus human review of every harmful miss | Critical |
 | Scam-mechanism discrimination | **PASS:** A fixed confusion matrix exposes bank↔Zalo↔task errors, and error review shows decisions track claimed actor and requested action rather than isolated words such as “Zalo,” “OTP,” or “chuyển khoản.” **FAIL:** Channel or keyword shortcuts cause systematic family swaps, or those swaps are not shown. | Code plus Vietnamese-fluent human review | High |
 | Benign-boundary restraint | **PASS:** Benign support, precision, recall, and F1 are reported, every benign-to-risky error is available for review, and legitimate transaction/security notices are not automatically treated as scams because they mention banks, OTP, links, jobs, or money. **FAIL:** Benign errors are hidden or keyword-only behavior dominates. | Code plus Vietnamese-fluent human review | High |
-| Matched LoRA/QLoRA attribution | **PASS:** An automated config diff proves identical Qwen data bytes/order, base revision, formatter and response mask, label order, seeds, sequence length, effective batch, epochs/steps, adapter targets, optimizer/schedule, and log/eval/save cadence; base-weight quantization is the sole intended treatment difference. QLoRA additionally proves genuine NF4 4-bit loading and adapter gradients. **FAIL:** Any controlled field differs, comparison evidence is incomplete, or a QLoRA request resolves to ordinary LoRA. | Code | Critical |
-| PhoBERT baseline and common task completion | **PASS:** A real four-logit PhoBERT classification head is fully fine-tuned on the same train/validation contract, uses the locked label mapping, records preprocessing/truncation, and is evaluated by the same metric implementation. Three complete validation bundles exist and results are reported regardless of winner. **FAIL:** PhoBERT is prompt-classified, PEFT/QLoRA is added for novelty, label order drifts, or one model is suppressed because it loses. | Code plus human evidence review | Critical |
+| QLoRA validity and LoRA resource attribution | **PASS:** The full Qwen run proves genuine NF4 four-bit loading, frozen base weights, and adapter gradients under its frozen controls. The separate sealed LoRA and QLoRA probes retain their same-laptop controls and are used only for resource/ETA interpretation. **FAIL:** QLoRA silently resolves to ordinary LoRA, a probe artifact seeds the full run, 72.83 minutes is presented as observed end-to-end time, or the incomplete LoRA probe is promoted as a full-model quality result. | Code | Critical |
+| PhoBERT baseline and common task completion | **PASS:** A real four-logit PhoBERT classification head is fully fine-tuned on the same train/validation contract, uses the locked label mapping, records preprocessing/truncation, and is evaluated by the same metric implementation. Two complete validation bundles exist and results are reported regardless of winner. **FAIL:** PhoBERT is prompt-classified, PEFT/QLoRA is added for novelty, label order drifts, or one of the two complete models is suppressed because it loses. | Code plus human evidence review | Critical |
 | Training health, curves, and restartability | **PASS:** Train loss and validation loss are finite and timestamped against optimizer step; raw `events.jsonl` and `trainer_state.json` reproduce every curve; an interrupted full run resumes only after exact config/input/artifact compatibility checks; probes never resume or publish an adapter. **FAIL:** NaN/Inf appears, a graph lacks a raw source, logs are reconstructed manually, or an incompatible checkpoint is resumed. | Code | Critical |
 | Feasibility and hardware-aware efficiency | **PASS:** Each runnable RTX 5050 probe captures 30–50 post-warm-up optimizer steps, median steady-state step time, peak allocated/reserved VRAM, examples/s, tokens/s, and measured eval/save overhead; full runs retain actual hardware and wall time. Cross-GPU speed differences are labeled hardware-confounded. **FAIL:** ETA is presented as completed runtime, OOM is engineered, probe points enter a full curve, or unlike hardware is used for a causal speed claim. | Code plus human interpretation | High |
 | Run-to-run uncertainty | **PASS:** The primary experiment uses the predeclared single seed `42` for every model and explicitly states that seed variance and statistical superiority are not estimated; no t-test or significance claim is made. Any later repeat is reportable only as a complete matched seed set, with mean, standard deviation, and all raw runs retained. **FAIL:** one seed is presented as stable superiority, or unmatched cherry-picked repeats are compared. | Code plus human report review | High |
@@ -632,10 +655,11 @@ order `bank_impersonation`, `zalo_social_engineering`, `task_scam`, `benign`.
   raw events. A visually smoothed overlay is optional, but it must be labeled and may not replace
   the raw series. Metric tables, confusion matrices, curves, and efficiency plots carry source-log
   and model-artifact hashes.
-- Before comparing LoRA with QLoRA, a machine-readable admissibility report must pass the matched
-  configuration diff and genuine-QLoRA proof. PhoBERT is not claimed to have matched optimizer or
-  tokenization because it is a different architecture; its fair comparison boundary is the same
-  frozen data, label order, validation rows, seed declaration, and evaluator.
+- Before admitting QLoRA to the comparison, a machine-readable report must pass the
+  genuine-QLoRA proof, step-zero lineage, and complete evidence gates. PhoBERT is not claimed to
+  have matched optimizer or tokenization because it is a different architecture; its fair
+  comparison boundary is the same frozen data, label order, validation rows, seed declaration,
+  and evaluator. The sealed ordinary-LoRA probe appears only in the resource section.
 - The planned evidence is one full run per model at seed 42 because of the available compute and
   deadline. Report this single-run design as a limitation: it supports a measured case comparison,
   not a seed-robust ranking or statistical-significance claim.
@@ -727,7 +751,7 @@ deployed.
 | Family-boundary and benign errors | Review all Zalo errors, all benign→risky errors, and bank↔Zalo↔task confusion cells; add a deterministic per-class sample of correct cases for calibration | Document recurring shortcut pattern; any training change starts a new run and is applied symmetrically to matched Qwen modes where relevant |
 | Loss and optimization health | Analyze every raw train/eval event; no sampling | Stop/promote no checkpoint with NaN/Inf or missing curve provenance; diagnose divergence and retain failed-run evidence |
 | Resource and timing evidence | Capture every probe step after warm-up and all full-run timing/VRAM summaries | Recompute ETA from raw timings; annotate hardware confounding; never backfill or hand-edit measurements |
-| Artifact and graph integrity | Verify 100% of required files and hashes before registry publication and whenever evidence is copied from Colab | Quarantine incomplete/tampered bundles, regenerate graphs only from intact raw logs, and keep the failed verification report |
+| Artifact and graph integrity | Verify 100% of required files and hashes before registry publication and whenever evidence crosses a storage boundary | Quarantine incomplete/tampered bundles, regenerate graphs only from intact raw logs, and keep the failed verification report |
 | Seed uncertainty | One matched seed (`42`) for the required runs; repeat only as a complete predeclared seed set | Always publish the single-run limitation; prohibit variance, t-test, significance, or stable-superiority claims until matched repeats exist |
 
 ---
@@ -766,9 +790,10 @@ files read-only. Arize Phoenix is not configured for the offline-only reasons in
   `zalo_social_engineering` recall <0.90, `task_scam` recall <0.80, or
   `invalid_output_count > 0`. The run may remain as negative experimental evidence but is not
   described as release-ready.
-- **Comparison invalid:** any controlled Qwen field differs besides the declared base-weight
-  quantization treatment. Different accelerator types do not invalidate quality metrics, but they
-  suppress causal wall-time/throughput claims and require a hardware-confounded annotation.
+- **Comparison invalid:** either QLoRA or PhoBERT lacks its frozen architecture-specific controls,
+  exact input identity, or complete 219-row validation bundle. Different accelerator types in an
+  explicitly activated pre-test contingency do not invalidate quality metrics, but they suppress
+  causal wall-time/throughput claims and require a hardware-confounded annotation.
 - **Uncertainty warning:** fewer than two complete matched seeds (the planned state) forces the
   explicit single-run limitation and blocks significance or stability claims.
 

@@ -115,6 +115,7 @@ def test_cli_exposes_pilot_and_train_commands():
         "phase40-build-source-bundle",
         "phase40-finalize-comparison",
         "phase40-finalize-human-review",
+        "phase40-freeze-scope-amendment",
         "phase40-preflight",
         "phase40-render-graphs",
         "phase40-validate-notebooks",
@@ -169,6 +170,8 @@ def test_phase40_probe_and_review_cli_controls_parse_without_latest_alias(tmp_pa
             "phase40-finalize-human-review",
             "--request-path",
             str(tmp_path / "request.json"),
+            "--scope-amendment-path",
+            str(tmp_path / "scope-amendment.json"),
             "--comparison-manifest-path",
             str(tmp_path / "comparison.json"),
             "--selected-predictions-path",
@@ -193,11 +196,9 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
     request_path.write_text("{}", encoding="utf-8")
     sentinel_request = object()
 
-    class FakeRequest:
-        @classmethod
-        def model_validate_json(cls, payload):
-            assert payload == "{}"
-            return sentinel_request
+    def fake_load_request(*, repo_root, request_path: Path):
+        assert request_path == tmp_path / "request.json"
+        return sentinel_request
 
     captured = {}
 
@@ -210,7 +211,7 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
             report_path=tmp_path / "comparison-report.md",
         )
 
-    monkeypatch.setattr(cli_module, "RunRequest", FakeRequest)
+    monkeypatch.setattr(cli_module, "load_frozen_phase40_run_request", fake_load_request)
     monkeypatch.setattr(cli_module, "finalize_phase40_comparison", fake_finalize)
     argv = [
         "phase40-finalize-comparison",
@@ -218,13 +219,10 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
         str(request_path),
         "--output-root",
         str(tmp_path / "out"),
-        "--package-decision",
-        "bitsandbytes==0.50.1=approve",
-        "--package-decision",
-        "matplotlib==3.11.1=approve",
+        "--scope-amendment-path",
+        str(tmp_path / "scope-amendment.json"),
     ]
     for run_id, path in (
-        ("qwen-lora", "data/models/phase40/full/qwen-lora"),
         ("qwen-qlora", "data/models/phase40/full/qwen-qlora"),
         ("phobert", "data/models/phase40/full/phobert"),
     ):
@@ -232,7 +230,9 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
         argv.extend(("--gpu-identity", f"{run_id}=NVIDIA L4"))
     assert cli_module.main(argv) == 0
     assert captured["request"] is sentinel_request
-    assert len(captured["operator_return"].bundle_roots) == 3
+    assert len(captured["operator_return"].bundle_roots) == 2
+    assert captured["operator_return"].bundle_roots[0].run_id == "qwen-qlora"
+    assert captured["operator_return"].package_decisions == ()
 
 
 def test_cli_exposes_prepare_explanation_review_command():

@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -22,8 +23,12 @@ from src.model_adaptation.phase40_contract import (
     derive_snapshot_row_id,
 )
 from src.model_adaptation.phase40_handoff import (
+    FIXED_ACTIVE_RETURNED_ROOTS,
     FIXED_INPUT_REPOSITORY_PATH,
+    FIXED_LORA_PROBE_FILES,
+    FIXED_LORA_PROBE_ROOT,
     FIXED_RUN_REQUEST_PATH,
+    FIXED_SCOPE_AMENDMENT_PATH,
     FIXED_RETURNED_ROOTS,
     PACKAGE_CANDIDATES,
     PINNED_PHOBERT_REVISION,
@@ -42,11 +47,14 @@ from src.model_adaptation.phase40_handoff import (
     SelectedPredictionBundle,
     build_phase40_input_bundle,
     build_phase40_review_queue,
+    build_phase40_scope_amendment,
     build_phase40_source_bundle,
     finalize_phase40_comparison,
     finalize_phase40_human_review,
+    freeze_phase40_scope_amendment,
     freeze_phase40_run_request,
     load_frozen_phase40_run_request,
+    load_frozen_phase40_scope_amendment,
     verify_phase40_input_bundle,
     verify_phase40_review_queue,
     verify_phase40_source_bundle,
@@ -478,10 +486,13 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
     artifacts = finalize_phase40_human_review(
         queue,
         reviews,
+        request=fixture.request,
+        repo_root=fixture.repo,
         contract=fixture.contract,
         prediction_bundles=comparison.prediction_bundles,
         queue_manifest_path=comparison.review_queue_manifest_path,
         comparison_manifest_path=comparison.manifest_path,
+        scope_amendment_path=fixture.scope_amendment_path,
         output_root=tmp_path / "review",
         vietnamese_fluent_attestation=True,
     )
@@ -493,10 +504,13 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
     finalize_phase40_human_review(
         queue,
         reviews,
+        request=fixture.request,
+        repo_root=fixture.repo,
         contract=fixture.contract,
         prediction_bundles=comparison.prediction_bundles,
         queue_manifest_path=comparison.review_queue_manifest_path,
         comparison_manifest_path=comparison.manifest_path,
+        scope_amendment_path=fixture.scope_amendment_path,
         output_root=tmp_path / "review",
         vietnamese_fluent_attestation=True,
         verify_only=True,
@@ -511,16 +525,19 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         finalize_phase40_human_review(
             queue,
             tuple(reversed(reviews)),
+            request=fixture.request,
+            repo_root=fixture.repo,
             contract=fixture.contract,
             prediction_bundles=comparison.prediction_bundles,
             queue_manifest_path=comparison.review_queue_manifest_path,
             comparison_manifest_path=comparison.manifest_path,
+            scope_amendment_path=fixture.scope_amendment_path,
             output_root=tmp_path / "bad",
             vietnamese_fluent_attestation=True,
         )
 
 
-def test_operator_return_is_exact_and_rejection_cannot_claim_roots():
+def test_local_operator_return_is_exact_and_legacy_decisions_are_non_gating():
     approvals = (
         PackageDecision(package="bitsandbytes==0.50.1", decision="approve"),
         PackageDecision(package="matplotlib==3.11.1", decision="approve"),
@@ -528,12 +545,8 @@ def test_operator_return_is_exact_and_rejection_cannot_claim_roots():
     roots = tuple(
         ReturnedBundleRoot(run_id=run_id, path=path)
         for run_id, path in zip(
-            ("qwen-lora", "qwen-qlora", "phobert"),
-            (
-                "data/models/phase40/full/qwen-lora",
-                "data/models/phase40/full/qwen-qlora",
-                "data/models/phase40/full/phobert",
-            ),
+            ("qwen-qlora", "phobert"),
+            FIXED_ACTIVE_RETURNED_ROOTS,
             strict=True,
         )
     )
@@ -545,7 +558,7 @@ def test_operator_return_is_exact_and_rejection_cannot_claim_roots():
         package_decisions=approvals,
         bundle_roots=roots,
         gpu_identities=gpus,
-    ).bundle_roots) == 3
+    ).bundle_roots) == 2
 
     rejection = (
         PackageDecision(
@@ -555,11 +568,26 @@ def test_operator_return_is_exact_and_rejection_cannot_claim_roots():
         ),
         PackageDecision(package="matplotlib==3.11.1", decision="approve"),
     )
-    with pytest.raises(ValueError, match="cannot claim"):
+    legacy = ColabOperatorReturn(
+        package_decisions=rejection,
+        bundle_roots=roots,
+        gpu_identities=gpus,
+    )
+    assert legacy.package_decisions == rejection
+    assert ColabOperatorReturn(bundle_roots=roots, gpu_identities=gpus).package_decisions == ()
+    with pytest.raises(ValueError, match="exactly QLoRA and PhoBERT"):
         ColabOperatorReturn(
-            package_decisions=rejection,
-            bundle_roots=roots,
-            gpu_identities=gpus,
+            bundle_roots=(
+                ReturnedBundleRoot(
+                    run_id="qwen-lora",
+                    path="data/models/phase40/full/qwen-lora",
+                ),
+                *roots,
+            ),
+            gpu_identities=(
+                ReturnedGpuIdentity(run_id="qwen-lora", accelerator="NVIDIA H100 80GB"),
+                *gpus,
+            ),
         )
 
 
@@ -571,10 +599,65 @@ _FIXTURE_STEP = 1
 class _ComparisonFixture:
     repo: Path
     output_root: Path
+    scope_amendment_path: Path
     contract: Phase40DataContract
     request: RunRequest
     operator_return: ColabOperatorReturn
     evidence_by_run: dict[str, RunEvidence]
+
+
+def _write_lora_probe_fixture(repo: Path) -> None:
+    root = repo / FIXED_LORA_PROBE_ROOT
+    root.mkdir(parents=True)
+    telemetry = b'{"sequence":0,"device_vram_used_mib":7902}\n'
+    optimizer = b'{"optimizer_step":31,"step_seconds":53.2743492}\n'
+    proof = _quantization_proof(AdaptationMode.LORA).model_dump_json().encode("utf-8")
+    discard = {
+        "discarded_path_identity": "runtime",
+        "path_absent": True,
+        "pre_discard_sha256": "a" * 64,
+        "removal_result": "removed",
+        "run_id": "rtx5050-lora-retry-1",
+        "schema_version": "phase40-discard-v1",
+    }
+    discard_bytes = json.dumps(discard, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payloads = {
+        "telemetry.jsonl": telemetry,
+        "optimizer-events.jsonl": optimizer,
+        "quantization-proof.json": proof,
+        "discard-receipt.json": discard_bytes,
+    }
+    for name, payload in payloads.items():
+        (root / name).write_bytes(payload)
+    outcome = {
+        "schema_version": "phase40-local-outcome-v1",
+        "status": "error",
+        "stop_reason": "parent_controller_error",
+        "measured_target_reached": False,
+        "losses_finite": True,
+        "observed_optimizer_steps": 31,
+        "retained_optimizer_steps": 26,
+        "steady_state_step_seconds_median": 53.2743492,
+        "telemetry": "lora-retry-1/telemetry.jsonl",
+        "telemetry_sha256": hashlib.sha256(telemetry).hexdigest(),
+        "optimizer_events": "lora-retry-1/optimizer-events.jsonl",
+        "optimizer_events_sha256": hashlib.sha256(optimizer).hexdigest(),
+        "quantization_proof": "lora-retry-1/quantization-proof.json",
+        "quantization_proof_sha256": hashlib.sha256(proof).hexdigest(),
+        "discard_receipt": discard,
+        "memory_pressure": {
+            "classification": "gpu_pressure",
+            "memory_constrained": True,
+            "oom_kind": None,
+            "peak_device_vram_used_mib": 7902.0,
+            "minimum_device_vram_free_mib": 9.0,
+        },
+        "resource_peaks": {"system_ram_used_bytes": 22_479_200_256.0},
+    }
+    (root / "outcome.json").write_text(
+        json.dumps(outcome, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
 
 
 def _decoder() -> DecoderContractEvidence:
@@ -932,8 +1015,8 @@ def _write_complete_run(
     graph = render_phase40_graphs(
         run_root,
         renderer=_fixture_renderer,
-        renderer_name="fixture-renderer",
-        renderer_version="1.0",
+        renderer_name="matplotlib",
+        renderer_version="3.11.1",
     )
     artifact_values = [
         _artifact(run_root, "events", "events", "events.jsonl"),
@@ -1004,7 +1087,16 @@ def _write_complete_run(
         decoder_contract=config.decoder,
         decoder_contract_sha256=(config.decoder.sha256 if config.decoder else None),
         sanitized_argv=("train", f"--run-id={requested.run_id}"),
-        package_versions={"torch": "fixture"},
+        package_versions={
+            "python": "3.13.7",
+            "torch": "fixture-torch",
+            "transformers": "fixture-transformers",
+            **(
+                {"peft": "fixture-peft", "bitsandbytes": "0.50.1"}
+                if requested.adaptation_mode == AdaptationMode.QLORA
+                else {}
+            ),
+        },
         hardware=RuntimeHardwareEvidence(
             python_version="3.13.7",
             platform="fixture-linux",
@@ -1053,9 +1145,31 @@ def _build_comparison_fixture(
     repo = tmp_path / "repo"
     source_file = repo / "src" / "fixture_runtime.py"
     source_file.parent.mkdir(parents=True)
-    source_file.write_text("FIXTURE = True\n", encoding="utf-8")
+    (repo / "src" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "src" / "fixture_dependency.py").write_text(
+        "VALUE = True\n",
+        encoding="utf-8",
+    )
+    source_file.write_text(
+        "from src.fixture_dependency import VALUE\nFIXTURE = VALUE\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(
         handoff, "PHASE40_SOURCE_ALLOWLIST", ("src/fixture_runtime.py",)
+    )
+    monkeypatch.setattr(
+        handoff,
+        "PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST",
+        (
+            "src/__init__.py",
+            "src/fixture_dependency.py",
+            "src/fixture_runtime.py",
+        ),
+    )
+    monkeypatch.setattr(
+        handoff,
+        "PHASE40_COMPARISON_FINALIZER_ENTRYPOINTS",
+        ("src/fixture_runtime.py",),
     )
     contract = _contract(train_count=16, validation_count=219)
     built_input = build_phase40_input_bundle(
@@ -1117,6 +1231,12 @@ def _build_comparison_fixture(
         },
         no_held_out_boundary=True,
     )
+    freeze_phase40_run_request(request, repo_root=repo)
+    _write_lora_probe_fixture(repo)
+    scope_amendment_path = freeze_phase40_scope_amendment(
+        request,
+        repo_root=repo,
+    )
     approvals = tuple(
         PackageDecision(package=package, decision="approve")
         for package in PACKAGE_CANDIDATES
@@ -1126,10 +1246,12 @@ def _build_comparison_fixture(
         bundle_roots=tuple(
             ReturnedBundleRoot(run_id=run.run_id, path=run.returned_root)
             for run in runs
+            if run.returned_root in FIXED_ACTIVE_RETURNED_ROOTS
         ),
         gpu_identities=tuple(
             ReturnedGpuIdentity(run_id=run.run_id, accelerator=_FIXTURE_GPU)
             for run in runs
+            if run.returned_root in FIXED_ACTIVE_RETURNED_ROOTS
         ),
     )
     evidence_by_run = {}
@@ -1144,10 +1266,12 @@ def _build_comparison_fixture(
                 fail_safety=run.run_id == failing_run_id,
             )
             for run in runs
+            if run.returned_root in FIXED_ACTIVE_RETURNED_ROOTS
         }
     return _ComparisonFixture(
         repo=repo,
         output_root=repo / "data/models/phase40/comparison",
+        scope_amendment_path=scope_amendment_path,
         contract=contract,
         request=request,
         operator_return=operator_return,
@@ -1160,10 +1284,11 @@ def _finalize_fixture_comparison(fixture: _ComparisonFixture, **kwargs) -> Compa
         fixture.request,
         fixture.operator_return,
         repo_root=fixture.repo,
+        scope_amendment_path=fixture.scope_amendment_path,
         output_root=fixture.output_root,
         renderer=_fixture_renderer,
-        renderer_name="fixture-renderer",
-        renderer_version="1.0",
+        renderer_name="matplotlib",
+        renderer_version="3.11.1",
         **kwargs,
     )
 
@@ -1249,6 +1374,204 @@ def test_full_run_request_freezes_only_at_canonical_path_and_reverifies_authorit
         load_frozen_phase40_run_request(repo_root=fixture.repo)
 
 
+def test_scope_amendment_is_additive_hash_bound_and_probe_only(tmp_path, monkeypatch):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
+    request_bytes = (fixture.repo / FIXED_RUN_REQUEST_PATH).read_bytes()
+    amendment = load_frozen_phase40_scope_amendment(
+        request=fixture.request,
+        repo_root=fixture.repo,
+        amendment_path=fixture.scope_amendment_path,
+    )
+    assert fixture.scope_amendment_path == fixture.repo / FIXED_SCOPE_AMENDMENT_PATH
+    assert amendment.original_run_request_sha256 == hashlib.sha256(request_bytes).hexdigest()
+    assert amendment.active_full_run_ids == ("qwen-qlora", "phobert")
+    assert amendment.quality_model_run_ids == amendment.active_full_run_ids
+    assert amendment.review_model_run_ids == amendment.active_full_run_ids
+    assert amendment.waived_full_run_id == "qwen-lora"
+    assert amendment.waiver_action == "withdrawn"
+    assert amendment.full_lora_disposition == "cancelled_before_start"
+    assert amendment.execution_policy == "local_primary"
+    assert amendment.comparison_finalizer_authority.runtime_origin == (
+        "local_hash_pinned_source_not_training_runtime_v3"
+    )
+    assert tuple(
+        item.relative_path for item in amendment.lora_probe_authority.artifacts
+    ) == FIXED_LORA_PROBE_FILES
+    assert (fixture.repo / FIXED_RUN_REQUEST_PATH).read_bytes() == request_bytes
+
+    amendment_path = fixture.repo / FIXED_SCOPE_AMENDMENT_PATH
+    amendment_path.write_bytes(
+        amendment_path.read_bytes().replace(
+            amendment.original_run_request_sha256.encode("ascii"),
+            b"0" * 64,
+            1,
+        )
+    )
+    with pytest.raises(ValueError, match="different frozen run request"):
+        load_frozen_phase40_scope_amendment(
+            request=fixture.request,
+            repo_root=fixture.repo,
+        )
+
+
+@pytest.mark.parametrize("drift", ("finalizer-source", "probe-telemetry"))
+def test_scope_amendment_rejects_bound_authority_drift(tmp_path, monkeypatch, drift):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
+    if drift == "finalizer-source":
+        (fixture.repo / "src/fixture_dependency.py").write_text(
+            "VALUE = False\n",
+            encoding="utf-8",
+        )
+        expected = "finalizer source differs"
+    else:
+        telemetry = fixture.repo / FIXED_LORA_PROBE_ROOT / "telemetry.jsonl"
+        telemetry.write_bytes(telemetry.read_bytes() + b'{"sequence":1}\n')
+        expected = "artifact identity mismatch"
+    with pytest.raises(ValueError, match=expected):
+        load_frozen_phase40_scope_amendment(
+            request=fixture.request,
+            repo_root=fixture.repo,
+        )
+
+
+def test_comparison_finalizer_authority_rejects_unbound_local_import(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
+    (fixture.repo / "src/unbound_dependency.py").write_text(
+        "VALUE = True\n",
+        encoding="utf-8",
+    )
+    (fixture.repo / "src/fixture_runtime.py").write_text(
+        "from src.unbound_dependency import VALUE\nFIXTURE = VALUE\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="unbound local module"):
+        build_phase40_scope_amendment(
+            fixture.request,
+            repo_root=fixture.repo,
+        )
+
+
+@pytest.mark.parametrize("mutation", ("missing", "mutated", "supplied-object"))
+def test_finalizer_reloads_raw_canonical_request_before_bundle_read(
+    tmp_path,
+    monkeypatch,
+    mutation,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    request_path = fixture.repo / FIXED_RUN_REQUEST_PATH
+    supplied_request = fixture.request
+    if mutation == "missing":
+        request_path.unlink()
+    elif mutation == "mutated":
+        request_path.write_bytes(request_path.read_bytes() + b" ")
+    else:
+        supplied_request = fixture.request.model_copy(update={"git_commit": "different"})
+    opened: list[Path] = []
+
+    def forbidden_bundle_read(path: Path) -> RunEvidence:
+        opened.append(path)
+        raise AssertionError("bundle verifier must not run before canonical request reload")
+
+    with pytest.raises((FileNotFoundError, RuntimeError, ValueError)):
+        finalize_phase40_comparison(
+            supplied_request,
+            fixture.operator_return,
+            repo_root=fixture.repo,
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=fixture.output_root,
+            bundle_verifier=forbidden_bundle_read,
+            renderer=_fixture_renderer,
+            renderer_name="matplotlib",
+            renderer_version="3.11.1",
+        )
+    assert opened == []
+
+
+def test_human_review_reloads_raw_canonical_request_before_queue_or_bundle_use(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
+    request_path = fixture.repo / FIXED_RUN_REQUEST_PATH
+    request_path.write_bytes(request_path.read_bytes() + b" ")
+    with pytest.raises((RuntimeError, ValueError)):
+        finalize_phase40_human_review(
+            (),
+            (),
+            request=fixture.request,
+            repo_root=fixture.repo,
+            contract=fixture.contract,
+            prediction_bundles=(),
+            queue_manifest_path=fixture.repo / "must-not-read-queue-manifest.json",
+            comparison_manifest_path=fixture.repo / "must-not-read-comparison.json",
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=fixture.repo / "must-not-write-review",
+            vietnamese_fluent_attestation=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "redirected_gate",
+    ("amendment", "finalizer-source", "probe", "returned-root"),
+)
+def test_finalizer_gates_reject_redirecting_ancestor_components(
+    tmp_path,
+    monkeypatch,
+    redirected_gate,
+):
+    fixture = _build_comparison_fixture(
+        tmp_path,
+        monkeypatch,
+        create_runs=redirected_gate == "returned-root",
+    )
+    if redirected_gate == "amendment":
+        redirected = fixture.repo / "data/models/phase40"
+    elif redirected_gate == "finalizer-source":
+        redirected = fixture.repo / "src"
+    elif redirected_gate == "probe":
+        redirected = fixture.repo / "data/models/phase40/probes/rtx5050-local-decision"
+    else:
+        redirected = fixture.repo / "data/models/phase40/full"
+    real = redirected.with_name(f"{redirected.name}-real")
+    redirected.rename(real)
+    try:
+        os.symlink(real, redirected, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        real.rename(redirected)
+        pytest.skip(f"directory symlink unavailable: {exc}")
+
+    if redirected_gate != "returned-root":
+        operation = lambda: load_frozen_phase40_scope_amendment(
+            request=fixture.request,
+            repo_root=fixture.repo,
+        )
+    else:
+        opened: list[Path] = []
+
+        def forbidden_bundle_read(path: Path) -> RunEvidence:
+            opened.append(path)
+            raise AssertionError("redirected root must fail before bundle verification")
+
+        operation = lambda: finalize_phase40_comparison(
+            fixture.request,
+            fixture.operator_return,
+            repo_root=fixture.repo,
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=fixture.output_root,
+            bundle_verifier=forbidden_bundle_read,
+            renderer=_fixture_renderer,
+            renderer_name="matplotlib",
+            renderer_version="3.11.1",
+        )
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        operation()
+    if redirected_gate == "returned-root":
+        assert opened == []
+
+
 def test_finalize_comparison_succeeds_and_verify_only_is_byte_stable(
     tmp_path, monkeypatch
 ):
@@ -1257,8 +1580,31 @@ def test_finalize_comparison_succeeds_and_verify_only_is_byte_stable(
     assert artifacts.manifest.status == "complete"
     assert artifacts.manifest.validation_rows == 219
     assert artifacts.manifest.quality_comparison_admissible is True
-    assert artifacts.manifest.speed_comparison_admissible is True
-    assert len(artifacts.manifest.runs) == 3
+    assert artifacts.manifest.speed_comparison_admissible is False
+    assert tuple(run.run_id for run in artifacts.manifest.runs) == (
+        "qwen-qlora",
+        "phobert",
+    )
+    assert artifacts.manifest.lora_probe.comparison_eligible is False
+    assert artifacts.manifest.lora_probe.predictions_included is False
+    assert artifacts.manifest.lora_probe.oom_observed is False
+    assert artifacts.manifest.lora_probe.feasibility_claim == (
+        "technically_runnable_but_operationally_impractical_under_deadline"
+    )
+    by_run = {run.run_id: run for run in artifacts.manifest.runs}
+    assert by_run["qwen-qlora"].package_versions == (
+        fixture.evidence_by_run["qwen-qlora"].package_versions
+    )
+    assert by_run["phobert"].package_versions == (
+        fixture.evidence_by_run["phobert"].package_versions
+    )
+    assert by_run["qwen-qlora"].required_tool_pins == {
+        "bitsandbytes": "0.50.1",
+        "matplotlib": "3.11.1",
+    }
+    assert by_run["phobert"].required_tool_pins == {
+        "matplotlib": "3.11.1"
+    }
     assert artifacts.review_queue_path is not None
     assert artifacts.review_queue_manifest_path is not None
     assert artifacts.reviewer_template_path is not None
@@ -1277,38 +1623,27 @@ def test_finalize_comparison_succeeds_and_verify_only_is_byte_stable(
     assert tuple(path.read_bytes() for path in paths) == before
 
 
-def test_package_rejection_writes_prestart_failure_without_opening_bundle_roots(
+def test_local_comparison_needs_no_colab_package_approval(
     tmp_path, monkeypatch
 ):
-    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
-    rejected = ColabOperatorReturn(
-        package_decisions=(
-            PackageDecision(
-                package=PACKAGE_CANDIDATES[0],
-                decision="reject",
-                reason="Approved release evidence was unavailable.",
-            ),
-            PackageDecision(package=PACKAGE_CANDIDATES[1], decision="approve"),
-        )
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    local_return = ColabOperatorReturn(
+        bundle_roots=fixture.operator_return.bundle_roots,
+        gpu_identities=fixture.operator_return.gpu_identities,
     )
-    opened_roots: list[Path] = []
-
-    def forbidden_bundle_verifier(path: Path) -> RunEvidence:
-        opened_roots.append(path)
-        raise AssertionError("a package rejection must not open a returned bundle root")
-
     artifacts = finalize_phase40_comparison(
         fixture.request,
-        rejected,
+        local_return,
         repo_root=fixture.repo,
+        scope_amendment_path=fixture.scope_amendment_path,
         output_root=fixture.output_root,
-        bundle_verifier=forbidden_bundle_verifier,
+        renderer=_fixture_renderer,
+        renderer_name="matplotlib",
+        renderer_version="3.11.1",
     )
-    assert opened_roots == []
-    assert artifacts.manifest.status == "prestart_failed"
-    assert artifacts.manifest.quality_comparison_admissible is False
-    assert artifacts.prediction_bundles == ()
-    assert not any((fixture.repo / root).exists() for root in FIXED_RETURNED_ROOTS)
+    assert artifacts.manifest.status == "complete"
+    assert artifacts.manifest.package_decisions == ()
+    assert len(artifacts.prediction_bundles) == 2
 
 
 @pytest.mark.parametrize(
@@ -1344,7 +1679,7 @@ def test_finalize_comparison_rejects_returned_artifact_drift(
     mutate: Callable[[bytes], bytes],
 ):
     fixture = _build_comparison_fixture(tmp_path, monkeypatch)
-    target = fixture.repo / FIXED_RETURNED_ROOTS[0] / relative_path
+    target = fixture.repo / FIXED_RETURNED_ROOTS[1] / relative_path
     original = target.read_bytes()
     mutated = mutate(original)
     assert mutated != original, f"{drift_name} mutation must change bytes"
@@ -1362,7 +1697,6 @@ def test_failed_safety_run_is_retained_but_comparison_is_inadmissible(
     artifacts = _finalize_fixture_comparison(fixture)
     by_id = {run.run_id: run for run in artifacts.manifest.runs}
     assert tuple(run.run_id for run in artifacts.manifest.runs) == (
-        "qwen-lora",
         "qwen-qlora",
         "phobert",
     )

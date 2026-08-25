@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -15,8 +16,8 @@ from src.model_adaptation.explanation_review import build_manual_review_pack
 from src.model_adaptation.pilot import run_pilot
 from src.model_adaptation.phase40_contract import preflight_phase40_inputs
 from src.model_adaptation.phase40_handoff import (
-    ColabOperatorReturn,
     InputBundleReference,
+    LocalTwoModelOperatorReturn,
     PackageDecision,
     Phase40ComparisonManifest,
     ReturnedBundleRoot,
@@ -29,6 +30,9 @@ from src.model_adaptation.phase40_handoff import (
     build_phase40_source_bundle,
     finalize_phase40_comparison,
     finalize_phase40_human_review,
+    freeze_phase40_scope_amendment,
+    load_frozen_phase40_run_request,
+    load_frozen_phase40_scope_amendment,
     load_phase40_selected_prediction_bundles,
     transfer_authority_from_request,
     verify_phase40_input_bundle,
@@ -138,6 +142,7 @@ def _resolve_candidate_alias(candidate_arg: str, selection: PilotSelection) -> s
 def _add_phase40_review_authority_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--request-path", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--scope-amendment-path", type=Path, required=True)
     parser.add_argument("--comparison-manifest-path", type=Path, required=True)
     parser.add_argument("--selected-predictions-path", type=Path, required=True)
     parser.add_argument("--queue-path", type=Path, required=True)
@@ -599,11 +604,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     phase40_comparison_parser = subparsers.add_parser(
         "phase40-finalize-comparison",
-        help="Reverify returned full runs and freeze the three-model comparison",
+        help="Reverify local QLoRA/PhoBERT plus the resource-only LoRA probe",
     )
     phase40_comparison_parser.add_argument("--request-path", type=Path, required=True)
     phase40_comparison_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     phase40_comparison_parser.add_argument("--output-root", type=Path, required=True)
+    phase40_comparison_parser.add_argument(
+        "--scope-amendment-path", type=Path, required=True
+    )
     phase40_comparison_parser.add_argument(
         "--package-decision",
         action="append",
@@ -618,6 +626,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     phase40_comparison_parser.add_argument("--verify-only", action="store_true")
     phase40_comparison_parser.set_defaults(handler=handle_phase40_finalize_comparison)
+
+    phase40_scope_parser = subparsers.add_parser(
+        "phase40-freeze-scope-amendment",
+        help="Freeze the request-bound local two-full-model scope waiver",
+    )
+    phase40_scope_parser.add_argument("--request-path", type=Path, required=True)
+    phase40_scope_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase40_scope_parser.set_defaults(handler=handle_phase40_freeze_scope_amendment)
 
     phase40_queue_parser = subparsers.add_parser(
         "phase40-verify-review-queue",
@@ -951,11 +967,26 @@ def handle_phase40_render_graphs(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
-    request = RunRequest.model_validate_json(
-        args.request_path.read_text(encoding="utf-8", errors="strict")
+def handle_phase40_freeze_scope_amendment(args: argparse.Namespace) -> int:
+    request = load_frozen_phase40_run_request(
+        repo_root=args.repo_root,
+        request_path=args.request_path,
     )
-    operator_return = ColabOperatorReturn(
+    path = freeze_phase40_scope_amendment(
+        request,
+        repo_root=args.repo_root,
+    )
+    display_path = path.relative_to(Path(args.repo_root).resolve(strict=True)).as_posix()
+    print(f"Phase 40 two-model scope amendment frozen: {display_path}")
+    return 0
+
+
+def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
+    request = load_frozen_phase40_run_request(
+        repo_root=args.repo_root,
+        request_path=args.request_path,
+    )
+    operator_return = LocalTwoModelOperatorReturn(
         package_decisions=tuple(
             _parse_package_decision(value) for value in args.package_decision
         ),
@@ -968,6 +999,7 @@ def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
         request,
         operator_return,
         repo_root=args.repo_root,
+        scope_amendment_path=args.scope_amendment_path,
         output_root=args.output_root,
         verify_only=args.verify_only,
     )
@@ -979,10 +1011,10 @@ def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
 
 
 def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
-    request = RunRequest.model_validate_json(
-        args.request_path.read_text(encoding="utf-8", errors="strict")
+    request = load_frozen_phase40_run_request(
+        repo_root=args.repo_root,
+        request_path=args.request_path,
     )
-    verify_phase40_run_request(request, repo_root=args.repo_root)
     contract = verify_phase40_input_bundle(
         Path(args.repo_root) / request.input_bundle.repository_relative_path,
         request.input_bundle,
@@ -992,6 +1024,18 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
     comparison = Phase40ComparisonManifest.model_validate_json(
         args.comparison_manifest_path.read_text(encoding="utf-8", errors="strict")
     )
+    amendment = load_frozen_phase40_scope_amendment(
+        request=request,
+        repo_root=args.repo_root,
+        amendment_path=args.scope_amendment_path,
+    )
+    if (
+        hashlib.sha256(args.scope_amendment_path.read_bytes()).hexdigest()
+        != comparison.scope_amendment_sha256
+        or amendment.original_run_request_sha256
+        != comparison.original_run_request_sha256
+    ):
+        raise ValueError("comparison manifest differs from the frozen scope amendment")
     bundles = load_phase40_selected_prediction_bundles(
         args.selected_predictions_path,
         comparison_manifest=comparison,
@@ -1002,16 +1046,14 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
         contract=contract,
         prediction_bundles=bundles,
     )
-    return contract, comparison, bundles, queue
+    return request, contract, comparison, bundles, queue
 
 
 def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
-    _, comparison, _, queue = _load_phase40_review_authorities(args)
+    _, _, comparison, _, queue = _load_phase40_review_authorities(args)
     if comparison.review_queue_sha256 is None:
         raise ValueError("comparison manifest has no review-queue identity")
     queue_payload = args.queue_path.read_bytes()
-    import hashlib
-
     if hashlib.sha256(queue_payload).hexdigest() != comparison.review_queue_sha256:
         raise ValueError("review queue file hash differs from the comparison manifest")
     print(f"Phase 40 review queue verified: rows={len(queue)} path={args.queue_path}")
@@ -1019,15 +1061,18 @@ def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
 
 
 def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
-    contract, _, bundles, queue = _load_phase40_review_authorities(args)
+    request, contract, _, bundles, queue = _load_phase40_review_authorities(args)
     reviews = _load_jsonl_models(args.reviewer_return_path, ReviewerReturnRow)
     artifacts = finalize_phase40_human_review(
         queue,
         reviews,
+        request=request,
+        repo_root=args.repo_root,
         contract=contract,
         prediction_bundles=bundles,
         queue_manifest_path=args.queue_manifest_path,
         comparison_manifest_path=args.comparison_manifest_path,
+        scope_amendment_path=args.scope_amendment_path,
         output_root=args.output_root,
         vietnamese_fluent_attestation=args.vietnamese_fluent_attestation,
         verify_only=args.verify_only,

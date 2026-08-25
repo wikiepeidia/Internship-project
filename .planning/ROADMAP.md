@@ -71,12 +71,12 @@
 
 ### v7.0 — Retake Redemption (target: retake defense ~2026-10-07, Wave 2)
 
-**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically-voiced report, defense-ready code) rather than another polish pass. Real sequencing dependencies, not phase-number order alone, govern execution: data repair must complete and be verified before the Codex quality re-judge and before any of the three training runs; the quality re-judge is cross-family relative to the original Claude generation lineage, with a disclosed same-family exception for the surviving GPT/Codex-authored Zalo reconstructions, and the three training runs both depend only on the repaired corpus, not on each other, so they can proceed in either order or in parallel — both are intended to land inside the ~1-month Codex CLI access window (expires ~2026-09-06, one month from 2026-08-06); the held-out evaluation phase depends on all three trainings finishing, since it evaluates them together exactly once on the reserved test split; the report overhaul and slide overhaul both depend on that training/evaluation evidence and can run in parallel with each other (report is additionally gated on a pending external reference-report artifact — see Phase 42); code cleanup is sequenced last, immediately before the retake defense, so it reflects the final repaired data and training code.
+**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically voiced report, and defense-ready code). Real sequencing dependencies, not phase-number order alone, govern execution: data repair and re-judging precede training; the two fresh full models are local Qwen QLoRA followed by local PhoBERT; and the completed ordinary-LoRA probe supplies resource/ETA evidence only. Colab is a version-pinned validation-stage contingency, not the primary training route, and any decision to use it must close before the reserved test is opened. Phase 41 then evaluates the two frozen full models exactly once; its result cannot trigger tuning or dataset repair on the same holdout. The report and slide overhauls share that evidence and can proceed in parallel (the report is additionally gated on a pending reference-report artifact — see Phase 42); code cleanup remains last so it reflects the final data and training code.
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
-- [ ] **Phase 40: Multi-Model Training Evidence** - Measure bounded RTX 5050 LoRA/QLoRA probes, then train fresh matched LoRA, QLoRA, and PhoBERT runs on explicitly recorded accelerators with auditable logs and genuine curves.
-- [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate all three finalized models exactly once against the reserved test split and report the results plainly.
+- [ ] **Phase 40: Multi-Model Training Evidence** - Preserve the bounded RTX 5050 LoRA/QLoRA resource probes, then finish fresh full local Qwen QLoRA and PhoBERT runs with auditable logs and genuine curves; make no full-LoRA accuracy claim.
+- [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate the two finalized full models exactly once against the reserved test split and report the results plainly.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
 - [ ] **Phase 44: Code Cleanup & Defense Prep** - Guided file-by-file walkthrough where the student writes their own replacement comments, covering SHA-256/manifest-integrity explicitly; sequenced last, right before the retake.
@@ -850,7 +850,7 @@ Plans:
 
 ## Milestone v7.0: Retake Redemption (Phases 38-44) (Phase Details)
 
-**Milestone Goal:** After an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2) on genuine, hard-to-fake evidence rather than another polish pass. Repair the corpus's structural bugs against concrete gates, independently re-judge it (Codex + manual human check), train and honestly compare real LoRA/QLoRA/PhoBERT models, evaluate the reserved test split exactly once across all three, overhaul the report (voice-gated on a real reference report) and slides around the real evidence, and close with a guided code-cleanup pass that doubles as the student's own defense cheatsheet.
+**Milestone Goal:** After an F grade, rebuild credibility for a full retake defense (~2026-10-07, Wave 2) on genuine, hard-to-fake evidence. Repair the corpus against concrete gates, independently re-judge it (Codex plus a manual human check), preserve measured ordinary-LoRA resource evidence without inventing a full-run accuracy result, train and honestly compare full local Qwen QLoRA and PhoBERT models, evaluate the reserved test split exactly once across those two frozen models, overhaul the report and slides around the real evidence, and close with a guided code-cleanup pass that doubles as the student's own defense cheatsheet.
 
 ### Phase 38: Corpus Repair & Split Governance
 
@@ -895,18 +895,18 @@ Plans:
 
 ### Phase 40: Multi-Model Training Evidence
 
-**Goal**: Three real, independently trained models exist with genuine logged training curves — answering "why QLoRA and not just LoRA" and "why Qwen and not PhoBERT" with measured data instead of literature citation.
+**Goal**: Two fresh full local models—genuine Qwen QLoRA and PhoBERT—plus one bounded ordinary-LoRA feasibility probe provide logged evidence for the RTX 5050 adaptation decision without claiming unmeasured full-LoRA accuracy.
 **Depends on**: Phase 39 (training starts only after Phase 39's final-snapshot human and report gates close; Phase 42 is not a training prerequisite)
 **Requirements**: TRAIN-01, TRAIN-02, TRAIN-03, TRAIN-04, TRAIN-05, TRAIN-06
 **Success Criteria** (what must be TRUE):
 
 1. The input contract is frozen to `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`: 1,658 training rows, 219 validation rows, and 220 held-out test rows, with split SHA-256 values `5fa46382db8fb477ef91ec4ba770bf3f8756df9f98b9950fdf5bc1f6ff402e8b`, `746ae6edb5008a8be8e9ef9d65f89fc44e559f99f28cd8d6a77f203ea5986d3c`, and `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`. Phase 40 verifies those identities before work begins and never reads test rows for training, tuning, checkpoint selection, or graph generation.
-2. Bounded LoRA and QLoRA probes run on the RTX 5050 for 30–50 post-warm-up optimizer steps where the mode can start. They record the real outcome (success or genuine failure), median steady-state step time, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead. The local ETA is explicitly an extrapolation, and all probe adapters are discarded rather than resumed by any full run.
-3. Fresh full Qwen LoRA and QLoRA runs start from the same pinned base-model revision and exact matched controls. The verified full QLoRA route may remain local on the RTX 5050; full LoRA may use Colab because its local probe showed severe memory pressure and an 18.4–18.9-hour compute-only estimate. Dataset hashes/order, random seed, maximum sequence length, effective batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence remain identical; base-weight quantization is the intended treatment difference. Wall-clock speed and throughput across unlike accelerators are hardware-confounded, while validation-quality comparison remains admissible.
+2. Bounded LoRA and QLoRA probes target 30–50 post-warm-up optimizer steps on the RTX 5050. If a bounded controller terminates earlier, the preserved terminal status and measured window remain the result rather than being rerun to manufacture completion. Both probes record the real outcome, median steady-state step time where measurable, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead; local ETAs are labeled extrapolations, and all probe adapters are discarded rather than resumed by any full run.
+3. The bounded ordinary-LoRA result remains target-hardware feasibility/resource evidence only: no full LoRA is required, its disposable adapter is not reused, and no LoRA accuracy claim is made. Fresh full Qwen QLoRA and PhoBERT runs execute locally on the RTX 5050 from step zero against the frozen train/validation identities. Colab remains an optional contingency only if validation is unacceptable before the reserved test is opened; any fallback must start fresh, preserve its distinct hardware provenance, and refreeze model identities before Phase 41. Any validation-driven dataset repair changes the data contract, invalidates both prior model identities for the final comparison, and likewise requires fresh training and a new freeze before test access.
 4. QLoRA fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`; missing CUDA, `bitsandbytes`, or `BitsAndBytesConfig` must stop the run instead of silently producing ordinary LoRA.
 5. A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data. QLoRA is not applied to PhoBERT merely to create another quantized run.
-6. Side-by-side LoRA-vs-QLoRA and PhoBERT-vs-Qwen comparisons use training curves and validation metrics only in this phase, and report results honestly regardless of which model scores higher.
-7. Each run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. A Git commit identifier is not required in this bundle.
+6. LoRA-versus-QLoRA conclusions are limited to same-laptop feasibility, step-time, memory, temperature, power, and ETA evidence. Full validation-quality comparison is Qwen QLoRA versus PhoBERT only, and reports results honestly regardless of which model scores higher.
+7. Each full run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. The incomplete LoRA probe retains its explicit terminal status and resource evidence rather than pretending to be a full run. A Git commit identifier is not required in these bundles.
 8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
 **Plans**: 4/6 complete (in progress)
@@ -936,14 +936,14 @@ Plans:
 
 ### Phase 41: Held-Out Evaluation Discipline
 
-**Goal**: The reserved test split is evaluated exactly once, after all three models are finalized, producing one honest final three-way comparison before any optional all-data deployment fit.
-**Depends on**: Phase 40 (all three trainings must be complete — this phase evaluates them together, once)
+**Goal**: The reserved test split is evaluated exactly once against the finalized local Qwen QLoRA and PhoBERT models, after validation-stage contingency decisions are closed, producing one honest two-model comparison before any optional all-data deployment fit.
+**Depends on**: Phase 40 (both full local models and their validation review must be complete; any Colab fallback decision must be resolved before this phase opens the reserved test)
 **Requirements**: EVAL-08, EVAL-09
 **Success Criteria** (what must be TRUE):
 
-1. The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated against all three finalized models (LoRA, QLoRA, PhoBERT) in one evaluation run under identical conditions, with a timestamped log proving the reserved split was touched only this once.
-2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for all three models plainly, including an explicit, unhedged statement if PhoBERT or LoRA outscores the deployed QLoRA system on any metric.
-3. Only after the held-out comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,097 rows. That model is labeled a post-evaluation all-data fit, kept separate from the evaluated checkpoints, and receives no claim of an unbiased test score unless a new external holdout is obtained.
+1. The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated against the two finalized full models (Qwen QLoRA and PhoBERT) in one evaluation run under identical data-handling conditions, with a timestamped log proving the reserved split was touched only this once. The bounded LoRA probe is ineligible for quality evaluation.
+2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for both models plainly, including an explicit, unhedged statement if PhoBERT outscores the deployed QLoRA system on any metric.
+3. Held-out results are terminal evidence, not a tuning signal: poor test performance is reported honestly and cannot trigger dataset repair, retraining, threshold selection, or repeated evaluation on the same partition. Any later corrected experiment requires a newly acquired untouched holdout for an unbiased claim. Only after the comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,097 rows; it is labeled a post-evaluation all-data fit and receives no claim of an unbiased test score.
 
 **Plans**: TBD
 
@@ -974,7 +974,7 @@ Plans:
 
 1. The deck's section structure follows the real pipeline stages: get data → train → GGUF → eval.
 2. Slides covering the training and evaluation results use progressive `\pause` reveals rather than exposing all content at once.
-3. The real LoRA/QLoRA/PhoBERT graphs from Phase 40/41 (not illustrative placeholders) are embedded in the relevant slides.
+3. The real ordinary-LoRA probe resource/ETA evidence plus full QLoRA and PhoBERT graphs from Phase 40/41 (not illustrative placeholders) are embedded in the relevant slides.
 4. The prior LOCKED deck is archived (dated backup file or branch) and the new deck compiles clean with XeLaTeX, with LOCKED status explicitly and only lifted for this milestone.
 
 **Plans**: TBD

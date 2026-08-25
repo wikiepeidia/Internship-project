@@ -1,7 +1,7 @@
 # Requirements: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
 
 **Defined:** 2026-03-18
-**Updated:** 2026-06-18 (v3.0 — Supervisor Comments + Literature Review)
+**Updated:** 2026-08-25 (v7.0 — local two-model training amendment)
 
 ## v3.0 Requirements — Supervisor Comments & Department Standards
 
@@ -652,17 +652,19 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Real Multi-Model Training Evidence
 
-- [ ] **TRAIN-01**: A bounded non-quantized LoRA probe on the RTX 5050 records genuine feasibility, steady-state timing, ETA, VRAM, and throughput; its adapter is discarded, then a fresh full LoRA run trains from step zero on an explicitly recorded accelerator with a retained raw log and curve.
-- [ ] **TRAIN-02**: A bounded RTX 5050 QLoRA probe records the same measurements; its adapter is discarded, then a fresh full 4-bit QLoRA run trains from step zero either locally under the verified evidence pipeline or on matched Colab hardware, and fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`.
-- [ ] **TRAIN-03**: Full Qwen LoRA and QLoRA runs use identical pinned data/order, base revision, seed, sequence length, effective batch, epochs, optimizer/schedule, and evaluation cadence, differing intentionally in base-weight quantization; comparisons include curves, validation metrics, VRAM, and throughput, with wall time and throughput identified as hardware-confounded whenever accelerators differ.
+**Scope amendment (accepted 2026-08-25):** the deliverable is two fresh full local models (Qwen genuine QLoRA and PhoBERT) plus a bounded ordinary-LoRA resource probe whose adapter is discarded. The previous full ordinary-LoRA accuracy-run requirement is withdrawn, not passed. Colab is outside the primary training path and remains available only as a version-pinned validation-stage recovery contingency before the reserved test is opened.
+
+- [x] **TRAIN-01**: A bounded non-quantized LoRA probe on the RTX 5050 records genuine feasibility, steady-state timing, ETA, VRAM, system RAM, temperature, power, and throughput, then discards its probe adapter. The former requirement for a fresh full ordinary-LoRA accuracy run is explicitly withdrawn by the 2026-08-25 local two-model scope amendment; it is not represented as a completed full training run.
+- [ ] **TRAIN-02**: A bounded RTX 5050 QLoRA probe records the same measurements and discards its adapter; a separate fresh full Qwen run then trains from step zero on the local RTX 5050 under the verified evidence pipeline and fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`. The retained Qwen artifact is the genuine full QLoRA model, exported to GGUF after verification.
+- [ ] **TRAIN-03**: The former full-run LoRA-vs-QLoRA accuracy comparison is superseded. The report compares ordinary LoRA and QLoRA only as bounded, same-laptop resource-feasibility probes (VRAM, system RAM, throughput, temperature/power, and extrapolated ETA), makes no LoRA-vs-QLoRA accuracy claim, and identifies QLoRA as the only full Qwen training route retained in scope.
 - [ ] **TRAIN-04**: A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data with a logged curve; QLoRA is not added to PhoBERT solely for novelty.
-- [ ] **TRAIN-05**: PhoBERT vs. Qwen/QLoRA compared with real measured numbers, reported honestly regardless of outcome.
-- [ ] **TRAIN-06**: Every graph is generated from retained raw logs, and every run keeps dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped logs, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and validation metrics; no Git commit identifier is required.
+- [ ] **TRAIN-05**: The two fresh full local models — PhoBERT classification head and Qwen genuine QLoRA — are compared with real measured validation numbers, reported honestly regardless of outcome; the bounded ordinary-LoRA probe is reported only as resource evidence.
+- [ ] **TRAIN-06**: Every graph is generated from retained raw logs. Both fresh full local runs and the bounded LoRA/QLoRA probes retain dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, local hardware plus CUDA/package versions, timestamped logs, peak VRAM/system RAM, temperature/power where captured, throughput, applicable `trainer_state`, adapter/checkpoint hashes, and validation metrics. Any contingency Colab artifact must be isolated, version-pinned, and labeled as external recovery evidence rather than silently mixed with the primary local runs; no Git commit identifier is required.
 
 ### Held-Out Evaluation Discipline
 
-- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated exactly once, after all three models are finalized, under identical conditions.
-- [ ] **EVAL-09**: Final held-out results for all three models are frozen and reported plainly, including any case where PhoBERT or LoRA outscores the deployed system; any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
+- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated exactly once, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. Colab remains an optional validation-stage contingency only before this partition is opened; held-out test results must never trigger retraining, dataset repair, or model selection.
+- [ ] **EVAL-09**: Final held-out results for both full models are frozen and reported plainly, including a PhoBERT win over the deployed Qwen system. The ordinary-LoRA probe receives no held-out accuracy claim. Any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
 
 ### Report Overhaul
 
@@ -685,7 +687,7 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 - [ ] **CODE-03**: SHA-256/manifest-integrity concept explicitly covered in the walkthrough (confirmed live-defense gap).
 - [ ] **CODE-04**: Sequenced last, immediately before the retake.
 
-**Out of scope:** adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); chasing a specific page count as a goal; treating a PhoBERT/LoRA win over the deployed system as a problem to explain away.
+**Out of scope:** adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); chasing a specific page count as a goal; treating a PhoBERT win over the deployed system as a problem to explain away; inventing a full-LoRA accuracy result from the bounded resource probe.
 
 ## v7.0 Traceability
 
@@ -699,14 +701,14 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | JUDGE-01 | Phase 39 | Complete |
 | JUDGE-02 | Phase 39 | Complete |
 | JUDGE-03 | Phase 39 | Complete |
-| TRAIN-01 | Phase 40 | Pending |
-| TRAIN-02 | Phase 40 | Pending |
-| TRAIN-03 | Phase 40 | Pending |
-| TRAIN-04 | Phase 40 | Pending |
-| TRAIN-05 | Phase 40 | Pending |
-| TRAIN-06 | Phase 40 | Pending |
-| EVAL-08 | Phase 41 | Pending |
-| EVAL-09 | Phase 41 | Pending |
+| TRAIN-01 | Phase 40 | Complete (bounded probe); former full-LoRA clause withdrawn 2026-08-25 |
+| TRAIN-02 | Phase 40 | In progress (fresh full local QLoRA) |
+| TRAIN-03 | Phase 40 | Pending (resource-only comparison; full-LoRA accuracy comparison superseded) |
+| TRAIN-04 | Phase 40 | Pending (fresh full local PhoBERT) |
+| TRAIN-05 | Phase 40 | Pending (two-full-model validation comparison) |
+| TRAIN-06 | Phase 40 | Pending (local evidence package; Colab contingency isolated) |
+| EVAL-08 | Phase 41 | Pending (one-time two-model held-out evaluation) |
+| EVAL-09 | Phase 41 | Pending (two-model result freeze; no LoRA accuracy claim) |
 | REPORT-03 | Phase 42 | Pending |
 | REPORT-04 | Phase 42 | Pending |
 | REPORT-05 | Phase 42 | Pending |

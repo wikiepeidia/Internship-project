@@ -33,9 +33,11 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - [x] Complete the Codex quality pass on the repaired corpus with a joinable structured JSONL bundle, explicitly disclose that 296 surviving GPT/Codex-authored Zalo reconstructions share the judge family, and pair it with a genuine manual 100-example human check.
 - [x] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
-- [ ] Run bounded LoRA/QLoRA probes on the RTX 5050, retain the fresh full QLoRA run locally when its verified probe supports it, and use Colab only where the ordinary-LoRA/PhoBERT route or recovery genuinely benefits.
-- [ ] Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data.
-- [ ] Run the current reserved 220-row test split exactly once, at the end, across all three trained models; only afterward may a separate deployment model use all 2,097 rows.
+- [x] Complete the bounded ordinary-LoRA resource probe on the RTX 5050 and discard its adapter; the former full ordinary-LoRA accuracy run is withdrawn, not claimed as completed.
+- [ ] Finish the fresh full genuine 4-bit Qwen QLoRA run locally, verify its evidence, and export its retained deployment artifact to GGUF.
+- [ ] Fully fine-tune and graph a fresh local PhoBERT classification-head baseline on the same frozen training/validation data.
+- [ ] Compare the two full local models on validation, using Colab only as a version-pinned recovery contingency before the reserved test is opened if validation quality makes recovery necessary.
+- [ ] Run the current reserved 220-row test split exactly once, at the end, across Qwen QLoRA and PhoBERT; test results must never trigger retraining or dataset repair, and only afterward may a separate deployment model use all 2,097 rows.
 - [ ] Overhaul the report in an authentic USTH-student voice, chapter by chapter, once the reference report arrives.
 - [ ] Overhaul the slides around real pipeline stages with real graphs and progressive reveals.
 - [ ] Guided code-comment cleanup as defense-prep, sequenced last.
@@ -47,14 +49,15 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 
 ## Context
 
-The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The initial data pipeline will scrape seed threats from Vietnam NCSC, expand to 2,000-3,000 synthetic JSONL samples via frontier LLM API, then fine-tune an open local model family with LoRA through a 4B-primary path for 8GB VRAM, quantize selected artifacts to GGUF for local inference, and evaluate against an F1 target of >= 0.85 with recall emphasized.
+The project addresses two core failures in cloud LLM use for fraud checks: privacy risk when users paste sensitive financial text, and weak recognition of local Vietnamese scam patterns, slang, and spoofing tactics. Input sources are copied raw text from channels such as SMS, Zalo, Messenger, Telegram, and Facebook. Threat classes in scope include bank impersonation with malicious domains, account-takeover/social-engineering scams (including compromised contact trust abuse), and "light work, high pay" employment task scams. The data pipeline collects and expands Vietnamese seed threats into a governed synthetic JSONL corpus. The current adaptation path measures ordinary LoRA only as a bounded local feasibility probe, then trains two fresh full models on the RTX 5050 laptop: genuine 4-bit Qwen QLoRA for structured generation and a PhoBERT classification-head baseline. The selected Qwen artifact is quantized to GGUF for local inference, and both full models are evaluated with recall emphasized against the F1 target of >= 0.85.
 
 ## Constraints
 
 - **Input Scope**: Raw text only (Vietnamese + mixed Vietnamese-English) — maintain strict v1 boundaries and reduce implementation surface.
 - **Privacy**: Offline-capable inference for user-facing checks — sensitive financial text should not require cloud API submission.
 - **Deployment Target**: Consumer laptops (CPU/iGPU) as baseline with GGUF quantization; optional prosumer GPU acceleration — maximize practical accessibility.
-- **Model Strategy**: Parameter-efficient LoRA fine-tuning on an open-source local model family with a 4B-primary path and optional larger comparison candidates — balance capability with local deployment feasibility.
+- **Model Strategy**: Two fresh full local models — Qwen3-4B-Instruct-2507 with genuine 4-bit QLoRA and a PhoBERT classification head — plus one discarded-adapter ordinary-LoRA resource probe; no full-LoRA accuracy claim.
+- **Compute Boundary**: Primary training and evidence come from the RTX 5050 laptop. Colab is retained only as a version-pinned validation-stage recovery contingency before the reserved test is opened, never as a response to held-out test results.
 - **Data Source Dependency**: NCSC seed extraction quality impacts downstream synthetic data quality — pipeline reliability is critical.
 - **Evaluation Policy**: Recall-first release gate with explicit explanation review and paired markdown plus JSON artifacts — reduce dangerous false negatives without hiding review context.
 
@@ -70,10 +73,11 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Lock `qwen3-4b-instruct-2507` as the laptop baseline winner and `qwen3.5-4b` as the runner-up for local training/deployment | Larger local pilot on 33 balanced validated samples kept the 4B baseline rule while favoring the best latency and memory fit under the 8GB-VRAM target | Accepted 2026-05-14 |
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
+| Amend Phase 40 to two full local models plus one bounded ordinary-LoRA probe | The local LoRA probe established genuine resource pressure and an impractical ETA; completing Qwen QLoRA and PhoBERT on the target laptop preserves hardware provenance and saves the remaining delivery time. The former full-LoRA accuracy requirement is withdrawn rather than marked passed. Colab remains only a pre-test validation contingency. | Accepted 2026-08-25 |
 
 ## Current Milestone: v7.0 Retake Redemption
 
-**Goal:** Rebuild the project's credibility for a full retake defense (target ~2026-10-07, Wave 2) after an F grade. The defense transcript's most damaging complaint wasn't the report's tone — it was that nothing in the visible evidence (no training graph, uniformly "succeeded" data/eval story, code comments that read as scaffolded) proved the student actually did the work. This milestone produces genuine, hard-to-fake evidence (real training curves across three trained models, a repaired corpus with disclosed structural bugs, a restored real failure-and-recovery story, an authentically-voiced report, and a code-cleanup pass that doubles as defense-prep) rather than another polish pass on already-existing content.
+**Goal:** Rebuild the project's credibility for a full retake defense (target ~2026-10-07, Wave 2) after an F grade. The defense transcript's most damaging complaint wasn't the report's tone — it was that nothing in the visible evidence (no training graph, uniformly "succeeded" data/eval story, code comments that read as scaffolded) proved the student actually did the work. This milestone produces genuine, hard-to-fake evidence: real curves for two fresh full local models, a measured and honestly bounded ordinary-LoRA feasibility probe, a repaired corpus with disclosed structural bugs, a restored real failure-and-recovery story, an authentically voiced report, and a code-cleanup pass that doubles as defense preparation.
 
 **Target features:**
 
@@ -81,16 +85,18 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - Complete the Codex quality pass on the repaired corpus, disclose its same-family limitation for 296 surviving reconstructed Zalo rows, and pair it with a genuine manual 100-example human check by a Vietnamese-fluent reviewer.
 - Cut the t-test (too statistically sophisticated to be a plausible undergraduate's own idea); replace with plain descriptive quality stats plus the new manual-check results.
 - Restore the genuine `task_scam` 0.44→0.871 recall-recovery story into the report — real, evidenced, and previously scrubbed by an earlier guardrail rule that (in hindsight) made the report read as suspiciously frictionless.
-- Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then start fresh matched full runs from step zero. The verified QLoRA full run may remain on the laptop to preserve Colab credit, while ordinary LoRA may route to Colab because of its measured local pressure. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation; cross-device speed remains hardware-confounded.
-- Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data — answering "why Qwen not PhoBERT" with a measured number, not just an architectural argument. Any result (including PhoBERT or LoRA outscoring the shipped system on raw classification) is reported honestly; the thesis's claim was never "Qwen is the best classifier."
-- Reserve the current 220-row test split (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) for one final three-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,097 rows without claiming an unbiased test score. The live boundary is machine-bound in `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
+- Preserve the completed bounded LoRA/QLoRA probe evidence from the RTX 5050 (VRAM, system RAM, throughput, temperature/power, and extrapolated local ETA), discard both probe adapters, and state clearly that the ordinary-LoRA probe was not a full accuracy run. The former full-LoRA requirement is withdrawn rather than retroactively called successful.
+- Complete a fresh full genuine 4-bit Qwen QLoRA run from step zero on the RTX 5050, verify its raw evidence, and export the retained deployment model to GGUF.
+- Fully fine-tune and graph a fresh local PhoBERT classification-head baseline on the same frozen training/validation data — answering "why Qwen not PhoBERT" with a measured number, not just an architectural argument. A PhoBERT win is reported honestly; the thesis's claim was never "Qwen is the best classifier."
+- Keep Colab only as a version-pinned recovery contingency if validation-stage evidence is unacceptable before the test is opened. It is not part of the primary training claim and cannot be triggered by held-out test results.
+- Reserve the current 220-row test split (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) for one final two-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,097 rows without claiming an unbiased test score. The live boundary is machine-bound in `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 - Overhaul the report chapter by chapter in an authentic USTH-student voice — student-drafted passages that Claude tightens without altering structure or word choice — gated on a real passed-student reference report the user is sourcing. Derive `WRITING_GUARDRAILS_REPORT.md` from that reference once it arrives.
 - Overhaul the slides around the real pipeline stages (get data → train → GGUF → eval) with real graphs from the retrains above, using progressive `\pause` reveals; slides come off LOCKED status for this milestone only.
 - Guided, file-by-file code-comment cleanup as defense-prep: Claude walks the student through each file, the student writes their own understanding back in as comments — building both a clean codebase and a personal cheatsheet. Sequenced last, right before the retake.
 
-**Explicit non-goals:** not adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); not treating a PhoBERT- or LoRA-favorable result as a problem to explain away; not chasing a specific page count as its own goal.
+**Explicit non-goals:** no full ordinary-LoRA training or LoRA accuracy claim; no cloud training in the primary evidence path; no retraining, dataset repair, or model selection in response to the reserved-test result; not adopting the leakage-compromised Hugging Face SMS dataset into training (cited as due-diligence evidence only); not treating a PhoBERT-favorable result as a problem to explain away; not chasing a specific page count as its own goal.
 
-**Timeline:** data repair + all three training runs inside the ~1-month Codex access window; report/slides/code-cleanup in the following weeks; retake defense ~2026-10-07.
+**Timeline:** finish the local Qwen QLoRA and PhoBERT runs first, spend the following day on validation comparison and evidence/report integration, then open the reserved test once only after both model identities are frozen; report/slides/code-cleanup follow on the compressed delivery path before the retake defense.
 
 ## Completed Milestone: v6.0 Report Revision
 
@@ -226,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-08-25 after routing the fresh full QLoRA run to the verified RTX 5050 path and re-sealing the Phase 40 source authority
+Last updated: 2026-08-25 after approving the local two-model Phase 40 scope: full Qwen QLoRA plus full PhoBERT, with ordinary LoRA retained only as a bounded resource-feasibility probe and Colab as a pre-test validation contingency
