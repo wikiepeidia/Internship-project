@@ -1,15 +1,15 @@
-by th---
+---
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 40
 current_phase_name: Multi-Model Training Evidence
 status: executing
-stopped_at: Phase 40 local LoRA path sealed as too resource-intensive for this laptop/deadline; resume 2026-08-25 with QLoRA gates and the 5+40 probe
-last_updated: "2026-08-24T19:59:20+07:00"
-last_activity: 2026-08-24
-last_activity_desc: Phase 40 local LoRA decision sealed; 32 GB-class RAM and more than 8 GB VRAM recommended, with a non-guaranteed 18.42-18.88h compute ETA; QLoRA starts next session
-state_head: b629c5ef0f4880c7d6fa6006c606cfb2bc318672
+stopped_at: Phase 40 Plan 04 complete and Plan 05 launch handoff frozen; awaiting explicit Colab package/model authority and the three fresh full notebook runs
+last_updated: "2026-08-25T08:11:28+07:00"
+last_activity: 2026-08-25
+last_activity_desc: Sealed the genuine RTX 5050 QLoRA probe and froze the matched Colab full-training, graph, evidence, and GGUF handoff
+state_head: d54e0ddbbc84357f4ceb8d0ce59d19b1878600c1
 progress:
   total_phases: 22
   completed_phases: 2
@@ -37,9 +37,9 @@ progress:
 ## Current Position
 
 Phase: 40 (Multi-Model Training Evidence) — EXECUTING
-Plan: 4 of 6
-Status: Paused after sealing the local LoRA resource decision; resume 2026-08-25 with QLoRA package gates and the genuine 5+40 probe
-Last activity: 2026-08-24 — bounded LoRA ran for 29m42s, reached sustained GPU pressure without OOM, and was sealed as operationally unattractive for this laptop/deadline
+Plan: 5 of 6
+Status: Plan 04 complete; Plan 05 Task 1 launch artifacts verified, now waiting at the explicit Colab human-action checkpoint
+Last activity: 2026-08-25 — genuine QLoRA reached 5+40 steps and projected 72.83 minutes locally; fresh matched Colab notebooks and verified Q8_0 export/download cells are frozen
 
 ## Performance Metrics (Baseline Targets)
 
@@ -224,9 +224,9 @@ Last activity: 2026-08-24 — bounded LoRA ran for 29m42s, reached sustained GPU
 
 ## Session Continuity
 
-**Last session:** 2026-08-24T19:59:20+07:00
-**Stopped at:** Local LoRA is sealed as too resource-intensive for the current laptop/deadline. Resume 2026-08-25 with the existing package-authority/runtime gates, then the genuine QLoRA 5+40 probe; do not run another ordinary-LoRA retry.
-**Resume file:** `.planning/quick/260824-l7f-revise-phase-40-and-implement-a-monitore/260824-l7f-PLAN.md`
+**Last session:** 2026-08-25T08:11:28+07:00
+**Stopped at:** The laptop QLoRA probe and local verification are complete. The train/validation-only Colab request is frozen; resume at Plan 40-05 Task 2 by opening each canonical notebook in a fresh Colab runtime and making the explicit package/model authority decisions.
+**Resume file:** `.planning/phases/40-multi-model-training-evidence/40-COLAB-RUN-HANDOFF.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -304,6 +304,8 @@ Last activity: 2026-08-24 — bounded LoRA ran for 29m42s, reached sustained GPU
 - [Phase 39]: Task 1 tracer's <verify> (pytest) was fully automated and already green with no human-only judgment involved, so execution continued into Task 2 rather than pausing at the tracer feedback gate -- documented as an explicit process deviation, not a silent skip
 - [Phase 40 planning]: Local RTX 5050 LoRA/QLoRA runs are bounded feasibility and ETA probes only; their adapters are discarded. Fresh full LoRA/QLoRA runs start independently on matched Colab hardware, PhoBERT receives ordinary full classification-head fine-tuning, QLoRA must fail closed unless genuine 4-bit mode is proven, and Phase 40 never reads the 220-row test split (`6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`). The retained evidence bundle omits a Git commit identifier but includes dataset hashes, commands/configuration, environment, raw logs, curves, resource measurements, trainer state, artifact hashes, and validation metrics; the live boundary is `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 - [Phase 40 local LoRA]: The first zero-step Transformers 5.9 compatibility failure was preserved, then exactly one source-hash-bound retry ran under the original clock and cumulative limits. The retry retained 5 warm-up + 26 measured steps before literal `parent_controller_error`; no OOM occurred. Its verified classifier is sustained `gpu_pressure` (7,902/8,151 MiB peak, 9 MiB minimum free), so ordinary LoRA is technically runnable but too resource-intensive for this laptop/deadline. Plan around 32 GB-class system RAM and more than 8 GB VRAM for usable full-run headroom; this is a practical recommendation, not a proven strict minimum. The provisional 18.42-18.88h compute ETA excludes evaluation/checkpoint overhead and does not guarantee completion. Recovery removed only the bounded runtime and retained no adapter/checkpoint. No further LoRA retry is authorized; resume 2026-08-25 with QLoRA gates and the 5+40 probe.
+- [Phase 40 local QLoRA]: The separately dated 2026-08-25 session passed the exact bitsandbytes/Torch/CUDA and genuine NF4 model proof, retained exactly 5 warm-up + 40 measured optimizer steps, and sealed `measured / evidence_target_reached`. Median step time was 3.462389s; measured validation/save overhead was 59.075746s; the locked 1,245-step formula projects 4,369.750238s (72.83m, estimate only). Peak device use was 7,516/8,151 MiB with 395 MiB free, peak system-RAM use was 22,136,381,440 bytes, and no OOM occurred. Runtime/checkpoints were discarded and the prior LoRA evidence tree stayed byte-identical.
+- [Phase 40 Colab routing]: Despite local QLoRA feasibility, the operator selected fresh step-zero Colab execution for complete comparable logs, curves, checkpoints, validation bundles, and verified Q8_0 export rather than claiming a speed necessity. Request `072936f418aea3e30bb9fdc391e9dae23b98f50ce84eb4c396e7dccdb5f71c2d` binds matched 1,245-step Qwen LoRA/QLoRA controls, the 312-step PhoBERT control, train/validation-only input archive `12136f9a79e7c9852f6b317f284a9a018710aa66af54de4714ec66e8cf92bf84`, and source archive `a36e17138756e13632fcb7d720e39d65c25d19d6a06d4512af557f139ec2093a`. Browser download remains an explicit post-verification notebook action; Drive is the durable unattended copy.
 
 ## Performance Metrics
 
