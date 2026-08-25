@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import ast
 import hashlib
 import json
 import math
@@ -79,6 +80,11 @@ _PHASE40_REVIEW_RELATIVE = Path(
 _PHASE40_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-qlora",
     "data/models/phase40/full/phobert",
+)
+_PHASE41_ENTRY_MODULES = (
+    "src.model_adaptation.cli",
+    "src.model_adaptation.phase41_evaluation",
+    "src.model_adaptation.phase41_protocols",
 )
 
 # One code-fixed, repository-local registry prevents replay when the same
@@ -1602,14 +1608,80 @@ def verify_only(output_root: Path) -> dict[str, object]:
     return result
 
 
+def _local_module_path(repository_root: Path, module: str) -> Path | None:
+    relative = Path(*module.split("."))
+    module_path = repository_root / relative.with_suffix(".py")
+    package_path = repository_root / relative / "__init__.py"
+    if module_path.is_file():
+        return module_path
+    if package_path.is_file():
+        return package_path
+    return None
+
+
+def _phase41_source_import_closure(repository_root: Path) -> tuple[str, ...]:
+    """Return the exact repository-Python closure reachable from the fixed CLI.
+
+    The shared CLI has eager imports for older commands, so those modules are
+    part of the executable startup surface even though the launcher fixes the
+    selected verb.  Inventorying the real transitive closure is safer than
+    claiming that only the three Phase 41 files can execute.
+    """
+
+    pending = list(_PHASE41_ENTRY_MODULES)
+    visited: set[str] = set()
+    relative_paths: set[str] = set()
+
+    def enqueue(module: str) -> None:
+        if module.startswith("src") and module not in visited and module not in pending:
+            pending.append(module)
+
+    while pending:
+        module = pending.pop()
+        if module in visited:
+            continue
+        visited.add(module)
+        path = _local_module_path(repository_root, module)
+        if path is None:
+            continue
+        relative_paths.add(path.relative_to(repository_root).as_posix())
+        parts = module.split(".")
+        for end in range(1, len(parts)):
+            enqueue(".".join(parts[:end]))
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="strict"))
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            raise ContractError(f"execution source cannot be parsed: {path}") from exc
+        package_parts = parts if path.name == "__init__.py" else parts[:-1]
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    enqueue(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    keep = len(package_parts) - node.level + 1
+                    if keep < 0:
+                        raise ContractError("execution source has an invalid relative import")
+                    base_parts = package_parts[:keep]
+                    if node.module:
+                        base_parts.extend(node.module.split("."))
+                    base = ".".join(base_parts)
+                else:
+                    base = node.module or ""
+                if base:
+                    enqueue(base)
+                    for alias in node.names:
+                        if alias.name != "*":
+                            candidate = f"{base}.{alias.name}"
+                            if _local_module_path(repository_root, candidate) is not None:
+                                enqueue(candidate)
+    return tuple(sorted(relative_paths))
+
+
 def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tuple[Path, str]:
     _require_sha256(declared_tree_sha256, "execution source tree")
     repository_root = Path(__file__).resolve().parents[2]
-    relative_files = (
-        "src/model_adaptation/phase41_evaluation.py",
-        "src/model_adaptation/phase41_protocols.py",
-        "src/model_adaptation/cli.py",
-    )
+    relative_files = _phase41_source_import_closure(repository_root)
     inventory: list[dict[str, object]] = []
     for relative in relative_files:
         candidate = repository_root / relative
@@ -1639,9 +1711,7 @@ def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tupl
                 "sha256": _sha256(launcher_bytes),
             },
             "closed_import_roots": [
-                "src.model_adaptation.phase41_evaluation",
-                "src.model_adaptation.phase41_protocols",
-                "src.model_adaptation.cli",
+                *_PHASE41_ENTRY_MODULES,
             ],
             "alternate_evaluators_permitted": False,
         }
@@ -1775,9 +1845,16 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
     if source["alternate_evaluators_permitted"] is not False:
         raise ContractError("execution source permits an alternate evaluator")
     repository_root = Path(__file__).resolve().parents[2]
+    if source["closed_import_roots"] != list(_PHASE41_ENTRY_MODULES):
+        raise ContractError("execution source entry-module roots drifted")
     files = source["files"]
     if not isinstance(files, list) or not files:
         raise ContractError("execution source inventory is empty")
+    expected_relative_files = _phase41_source_import_closure(repository_root)
+    if tuple(
+        item.get("path") if isinstance(item, dict) else None for item in files
+    ) != expected_relative_files:
+        raise ContractError("execution source inventory is not the exact import closure")
     verified_inventory: list[dict[str, object]] = []
     for item in files:
         if not isinstance(item, dict) or set(item) != {"path", "bytes", "sha256"}:

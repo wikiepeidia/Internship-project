@@ -108,6 +108,44 @@ def test_frozen_protocols_match_phase40_qwen_and_phobert_inference_policies():
     )
 
 
+def test_production_runtime_identity_requires_exact_packages_and_cuda_index():
+    authority = build_synthetic_protocol_authority(_models())
+    qwen_body = json.loads(canonical_json_bytes(authority.qwen.body))
+    phobert_body = json.loads(canonical_json_bytes(authority.phobert.body))
+    qwen_body["runtime"] = {
+        "python": "3.12.4",
+        "packages": {
+            "torch": "2.8.0",
+            "transformers": "4.55.0",
+            "peft": "0.17.0",
+            "bitsandbytes": "0.50.1",
+            "huggingface-hub": "0.34.4",
+        },
+        "device": "cuda:0",
+    }
+    from src.model_adaptation.phase41_protocols import build_protocol_authority
+
+    build_protocol_authority(qwen_body, phobert_body)
+
+    qwen_body["runtime"]["device"] = "cuda"
+    with pytest.raises(ProtocolContractError, match="production runtime identity"):
+        build_protocol_authority(qwen_body, phobert_body)
+
+    qwen_body["runtime"]["device"] = "cuda:0"
+    del qwen_body["runtime"]["packages"]["huggingface-hub"]
+    with pytest.raises(ProtocolContractError, match="production runtime identity"):
+        build_protocol_authority(qwen_body, phobert_body)
+
+
+def test_qwen_loader_rejects_overlength_input_before_generation():
+    source = Path("src/model_adaptation/phase41_protocols.py").read_text(encoding="utf-8")
+    guard = 'if input_length > int(authority.qwen.body["max_sequence_length"]):'
+    generate = "qwen_model.generate(**encoded, **generation_controls)"
+    assert guard in source
+    assert source.index(guard) < source.index(generate)
+    assert "qwen_input_exceeds_frozen_max_sequence_length" in source
+
+
 def test_prepare_rejects_protocol_artifact_identity_drift(tmp_path):
     models = _models()
     protocols = build_synthetic_protocol_authority(models)
@@ -163,6 +201,16 @@ def test_execution_source_manifest_binds_inventory_and_launcher(tmp_path):
     assert len(manifest["launcher"]["sha256"]) == 64
     assert manifest["files"]
     assert all(set(row) == {"path", "bytes", "sha256"} for row in manifest["files"])
+    source_paths = {row["path"] for row in manifest["files"]}
+    assert "src/model_adaptation/phase41_evaluation.py" in source_paths
+    assert "src/model_adaptation/phase41_protocols.py" in source_paths
+    assert "src/model_adaptation/registry.py" in source_paths
+    assert "src/model_adaptation/release_evaluation.py" in source_paths
+    assert manifest["closed_import_roots"] == [
+        "src.model_adaptation.cli",
+        "src.model_adaptation.phase41_evaluation",
+        "src.model_adaptation.phase41_protocols",
+    ]
     assert len(manifest["source_tree_sha256"]) == 64
 
 

@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import importlib.metadata
 import json
 from pathlib import Path
+import platform
 import re
 from types import MappingProxyType
 from typing import Callable, Mapping, Sequence, TYPE_CHECKING
@@ -170,6 +172,12 @@ _LABELS = (
     "task_scam",
     "benign",
 )
+_QWEN_RUNTIME_PACKAGES = frozenset(
+    {"torch", "transformers", "peft", "bitsandbytes", "huggingface-hub"}
+)
+_PHOBERT_RUNTIME_PACKAGES = frozenset(
+    {"torch", "transformers", "underthesea", "huggingface-hub"}
+)
 
 
 def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
@@ -256,8 +264,31 @@ def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
     packages = runtime["packages"]
     if not isinstance(packages, dict) or not packages:
         raise ProtocolContractError(f"{role} runtime package identity is incomplete")
-    if role == "phobert" and packages.get("underthesea") != body["segmenter_version"]:
-        raise ProtocolContractError("PhoBERT segmenter package/version drifted")
+    python_identity = runtime["python"]
+    device = runtime["device"]
+    if python_identity == "synthetic":
+        expected = (
+            {"fake"}
+            if role == "qwen"
+            else {"fake", "underthesea"}
+        )
+        if set(packages) != expected or device != "cpu-fake":
+            raise ProtocolContractError(f"{role} synthetic runtime identity drifted")
+    else:
+        expected = _QWEN_RUNTIME_PACKAGES if role == "qwen" else _PHOBERT_RUNTIME_PACKAGES
+        if (
+            not isinstance(python_identity, str)
+            or not re.fullmatch(r"\d+\.\d+\.\d+", python_identity)
+            or set(packages) != expected
+            or any(not isinstance(version, str) or not version for version in packages.values())
+            or not isinstance(device, str)
+            or not re.fullmatch(r"cuda:\d+", device)
+        ):
+            raise ProtocolContractError(f"{role} production runtime identity drifted")
+        if role == "qwen" and packages["bitsandbytes"] != "0.50.1":
+            raise ProtocolContractError("Qwen bitsandbytes version drifted")
+        if role == "phobert" and packages["underthesea"] != body["segmenter_version"]:
+            raise ProtocolContractError("PhoBERT segmenter package/version drifted")
     smoke = body["synthetic_smoke"]
     if not isinstance(smoke, dict) or set(smoke) != {"input_sha256", "expected_state"}:
         raise ProtocolContractError(f"{role} synthetic smoke authority is incomplete")
@@ -495,8 +526,6 @@ def load_phase41_production_predictors(
     and verify-only commands cannot allocate GPU memory or load a model.
     """
 
-    import importlib.metadata
-
     from src.model_adaptation.registry import build_model_checksum
 
     authority = load_protocol_authority(output_root)
@@ -515,6 +544,11 @@ def load_phase41_production_predictors(
     def verify_packages(protocol: FrozenInferenceProtocol) -> None:
         runtime = protocol.body["runtime"]
         assert isinstance(runtime, Mapping)
+        expected_python = runtime["python"]
+        if platform.python_version() != expected_python:
+            raise ProtocolContractError(
+                f"{protocol.role} Python runtime drifted"
+            )
         packages = runtime["packages"]
         if not isinstance(packages, Mapping) or not packages:
             raise ProtocolContractError(f"{protocol.role} runtime packages are missing")
@@ -578,6 +612,22 @@ def load_phase41_production_predictors(
     except ImportError as exc:  # pragma: no cover - depends on run-only environment
         raise ProtocolContractError("Phase 41 model runtime dependencies are unavailable") from exc
 
+    def frozen_cuda_device(protocol: FrozenInferenceProtocol):  # noqa: ANN202
+        identity = str(protocol.body["runtime"]["device"])
+        if not torch.cuda.is_available():
+            raise ProtocolContractError(
+                f"{protocol.role} frozen CUDA device is unavailable"
+            )
+        index = int(identity.removeprefix("cuda:"))
+        if index < 0 or index >= torch.cuda.device_count():
+            raise ProtocolContractError(
+                f"{protocol.role} frozen CUDA device is unavailable: {identity}"
+            )
+        return torch.device(identity), index
+
+    qwen_device, qwen_device_index = frozen_cuda_device(authority.qwen)
+    phobert_device, _ = frozen_cuda_device(authority.phobert)
+
     qwen_base_root = Path(
         snapshot_download(
             repo_id=str(authority.qwen.body["base_model_id"]),
@@ -640,11 +690,13 @@ def load_phase41_production_predictors(
         qwen_base_root,
         local_files_only=True,
         trust_remote_code=False,
-        device_map="auto",
+        device_map={"": qwen_device_index},
     )
     qwen_model = PeftModel.from_pretrained(
         qwen_base, qwen_model_root, is_trainable=False
     )
+    if next(qwen_model.parameters()).device != qwen_device:
+        raise ProtocolContractError("Qwen model did not load on the frozen CUDA device")
     qwen_model.eval()
 
     phobert_tokenizer = AutoTokenizer.from_pretrained(
@@ -655,10 +707,9 @@ def load_phase41_production_predictors(
         local_files_only=True,
         trust_remote_code=False,
     )
-    phobert_device = torch.device(
-        "cuda" if str(authority.phobert.body["runtime"]["device"]).startswith("cuda") else "cpu"
-    )
     phobert_model.to(phobert_device)
+    if next(phobert_model.parameters()).device != phobert_device:
+        raise ProtocolContractError("PhoBERT model did not load on the frozen CUDA device")
     phobert_model.eval()
 
     from src.model_adaptation.phase41_evaluation import (
@@ -695,6 +746,16 @@ def load_phase41_production_predictors(
             target_device = next(qwen_model.parameters()).device
             encoded = {key: value.to(target_device) for key, value in encoded.items()}
             input_length = int(encoded["input_ids"].shape[-1])
+            if input_length > int(authority.qwen.body["max_sequence_length"]):
+                predictions.append(
+                    Prediction(
+                        row.row_id,
+                        "invalid_output",
+                        "",
+                        "qwen_input_exceeds_frozen_max_sequence_length",
+                    )
+                )
+                continue
             generation_controls = {
                 "do_sample": decoder["do_sample"],
                 "num_return_sequences": decoder["num_return_sequences"],

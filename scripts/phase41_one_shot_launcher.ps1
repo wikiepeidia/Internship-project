@@ -66,15 +66,21 @@ if ($Manifest.launcher.path -cne "scripts/phase41_one_shot_launcher.ps1") {
 if ($Manifest.launcher.sha256 -cne $LauncherSha256) {
     throw "Launcher self-hash differs from the execution source authority"
 }
+$CleanPrefix = $CleanRoot.TrimEnd('\') + '\'
+$ExpectedSourcePaths = [System.Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal
+)
 foreach ($SourceFile in $Manifest.files) {
     $RelativePath = [string]$SourceFile.path
     if ([System.IO.Path]::IsPathRooted($RelativePath) -or $RelativePath.Contains("..")) {
         throw "Execution source inventory path escaped"
     }
     $Candidate = [System.IO.Path]::GetFullPath((Join-Path $CleanRoot $RelativePath))
-    $CleanPrefix = $CleanRoot.TrimEnd('\') + '\'
     if (-not $Candidate.StartsWith($CleanPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Execution source inventory escaped the clean runtime"
+    }
+    if (-not $ExpectedSourcePaths.Add($RelativePath.Replace('\', '/'))) {
+        throw "Execution source inventory contains a duplicate path"
     }
     if (-not [System.IO.File]::Exists($Candidate)) {
         throw "Execution source inventory file is absent: $RelativePath"
@@ -87,6 +93,24 @@ foreach ($SourceFile in $Manifest.files) {
     $CandidateSha256 = (Get-FileHash -LiteralPath $Candidate -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($CandidateInfo.Length -ne [long]$SourceFile.bytes -or $CandidateSha256 -cne [string]$SourceFile.sha256) {
         throw "Execution source inventory bytes drifted: $RelativePath"
+    }
+}
+foreach ($Directory in Get-ChildItem -LiteralPath $CleanRoot -Directory -Recurse -Force) {
+    if (($Directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Clean runtime contains an unbound reparse directory"
+    }
+}
+$ActualSourcePaths = @(
+    Get-ChildItem -LiteralPath $CleanRoot -File -Recurse -Force | ForEach-Object {
+        $_.FullName.Substring($CleanPrefix.Length).Replace('\', '/')
+    }
+)
+if ($ActualSourcePaths.Count -ne $ExpectedSourcePaths.Count) {
+    throw "Clean runtime file set differs from the execution source inventory"
+}
+foreach ($ActualPath in $ActualSourcePaths) {
+    if (-not $ExpectedSourcePaths.Contains($ActualPath)) {
+        throw "Clean runtime contains an unbound source file: $ActualPath"
     }
 }
 
