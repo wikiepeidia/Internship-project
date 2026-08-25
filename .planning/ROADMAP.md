@@ -901,15 +901,15 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
 1. The input contract is frozen to `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`: 1,658 training rows, 219 validation rows, and 220 held-out test rows, with split SHA-256 values `5fa46382db8fb477ef91ec4ba770bf3f8756df9f98b9950fdf5bc1f6ff402e8b`, `746ae6edb5008a8be8e9ef9d65f89fc44e559f99f28cd8d6a77f203ea5986d3c`, and `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`. Phase 40 verifies those identities before work begins and never reads test rows for training, tuning, checkpoint selection, or graph generation.
-2. Bounded LoRA and QLoRA probes run on the RTX 5050 for 30–50 post-warm-up optimizer steps where the mode can start. They record the real outcome (success or genuine failure), median steady-state step time, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead. The local ETA is explicitly an extrapolation, and all probe adapters are discarded rather than resumed on Colab.
-3. Fresh full Qwen LoRA and QLoRA runs start from the same pinned base-model revision on the same Colab accelerator type where available. Dataset hashes/order, random seed, maximum sequence length, effective batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence are identical; base-weight quantization is the intended experimental difference. If the accelerator types differ, wall-clock speed is reported as hardware-confounded rather than as a direct algorithm comparison.
+2. Bounded LoRA and QLoRA probes run on the RTX 5050 for 30–50 post-warm-up optimizer steps where the mode can start. They record the real outcome (success or genuine failure), median steady-state step time, peak allocated/reserved VRAM, throughput, and measured evaluation/checkpoint overhead. The local ETA is explicitly an extrapolation, and all probe adapters are discarded rather than resumed by any full run.
+3. Fresh full Qwen LoRA and QLoRA runs start from the same pinned base-model revision and exact matched controls. The verified full QLoRA route may remain local on the RTX 5050; full LoRA may use Colab because its local probe showed severe memory pressure and an 18.4–18.9-hour compute-only estimate. Dataset hashes/order, random seed, maximum sequence length, effective batch size, epochs, optimizer, learning-rate schedule, and evaluation cadence remain identical; base-weight quantization is the intended treatment difference. Wall-clock speed and throughput across unlike accelerators are hardware-confounded, while validation-quality comparison remains admissible.
 4. QLoRA fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`; missing CUDA, `bitsandbytes`, or `BitsAndBytesConfig` must stop the run instead of silently producing ordinary LoRA.
 5. A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data. QLoRA is not applied to PhoBERT merely to create another quantized run.
 6. Side-by-side LoRA-vs-QLoRA and PhoBERT-vs-Qwen comparisons use training curves and validation metrics only in this phase, and report results honestly regardless of which model scores higher.
 7. Each run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. A Git commit identifier is not required in this bundle.
 8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
-**Plans**: 3/6 complete (in progress)
+**Plans**: 4/6 complete (in progress)
 **Wave 1**
 
 - [x] 40-01-PLAN.md
@@ -924,7 +924,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 40-04-PLAN.md
+- [x] 40-04-PLAN.md
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -1037,7 +1037,7 @@ Plans:
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
-| 40. Multi-Model Training Evidence | 3/6 | In Progress|  |
+| 40. Multi-Model Training Evidence | 4/6 | In Progress|  |
 | 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |

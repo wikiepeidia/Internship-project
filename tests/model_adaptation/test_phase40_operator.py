@@ -717,6 +717,9 @@ def test_qwen_command_uses_only_typed_request_archive_contract_and_new_runner(
     assert operator.main(argv) == 0
     assert seen["build"]["data_contract"] is contract
     assert seen["build"]["run_request"] is request
+    assert seen["build"]["base_model_path"] == (
+        tmp_path / "data/models/phase40/base/qwen3-4b-instruct-2507"
+    ).resolve()
     assert seen["build"]["base_model_manifest_path"] == (
         tmp_path / "data/models/phase40/base/qwen3-4b-instruct-2507.provenance.json"
     ).resolve()

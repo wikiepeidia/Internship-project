@@ -77,6 +77,10 @@ The child completed with `measured / evidence_target_reached`. Its event verifie
 
 The result shows that full QLoRA is locally feasible under the tested controls and is dramatically faster than ordinary LoRA on this laptop. It does not prove that a fresh 1,245-step run will finish in exactly 72.83 minutes, because the value is an extrapolation and longer-run overhead/thermal behavior may differ. Per the operator's execution choice, Phase 40 still ports the identical Qwen controls to a fresh step-zero Colab QLoRA run so the retained full logs, curves, checkpoints, validation outputs, and GGUF export share the canonical comparison workflow. Colab is therefore an evidence-packaging/reproducibility route, not justified by a false claim that this measured laptop QLoRA probe was too slow.
 
+### Later routing note
+
+After this immutable probe report was sealed, the operator changed the fresh full QLoRA route back to the laptop to preserve Colab credit. That later decision does not alter any probe measurement above. The full run starts independently at step zero, keeps the same frozen controls and evidence cadence, and is reported separately in `40-LOCAL-FULL-QLORA-REPORT.md`. If its complete bundle verifies, it satisfies the QLoRA full-run branch and is not repeated on Colab.
+
 ## Evidence references
 
 - First attempt: `data/models/phase40/probes/rtx5050-local-decision/lora/`

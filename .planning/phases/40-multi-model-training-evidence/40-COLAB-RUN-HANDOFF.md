@@ -22,9 +22,9 @@ Qwen GGUF export uses `gguf==0.19.0`, the request-independent reviewed converter
 
 ## Frozen identities
 
-- Request SHA-256: `072936f418aea3e30bb9fdc391e9dae23b98f50ce84eb4c396e7dccdb5f71c2d`
+- Request SHA-256: `93b49371db184f28b2fb362da94ce99298f64487820176d2b10f65871ed3b8b8`
 - Input archive SHA-256: `12136f9a79e7c9852f6b317f284a9a018710aa66af54de4714ec66e8cf92bf84`
-- Source archive SHA-256: `a36e17138756e13632fcb7d720e39d65c25d19d6a06d4512af557f139ec2093a`
+- Source archive SHA-256: `f7566931dfb6f28471dc0ca97c71e21eec4ae5a50471cc088794185816ba3e85`
 - QLoRA full steps: `1245`
 
 A complete run may resume only from one exact compatibility-verified checkpoint. A fresh run always starts at step zero.

@@ -12,6 +12,19 @@ local feasibility on the RTX 5050, executes fresh full training on Colab, and
 produces curves plus validation comparisons. It does not evaluate or inspect
 the held-out test rows; that belongs exclusively to Phase 41.
 
+### Execution amendment — 2026-08-25
+
+The operator changed the full QLoRA route after the genuine RTX 5050 probe
+proved four-bit training feasible. The fresh full QLoRA run starts locally at
+step zero from the same pinned base and frozen controls, under the same
+train/validation-only evidence contract; it does not reuse a probe adapter or
+checkpoint. Colab remains available for ordinary LoRA, PhoBERT, or recovery,
+but a complete verified local QLoRA run satisfies that branch and must not be
+duplicated on Colab merely to obtain graphs. Raw logs, checkpoint generations,
+validation metrics, system/GPU telemetry, and GGUF verification provide the
+required evidence locally. Any speed comparison against a model trained on a
+different accelerator is explicitly hardware-confounded.
+
 </domain>
 
 <decisions>

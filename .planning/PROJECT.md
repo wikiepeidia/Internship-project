@@ -33,7 +33,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - [x] Complete the Codex quality pass on the repaired corpus with a joinable structured JSONL bundle, explicitly disclose that 296 surviving GPT/Codex-authored Zalo reconstructions share the judge family, and pair it with a genuine manual 100-example human check.
 - [x] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
-- [ ] Run bounded LoRA/QLoRA probes on the RTX 5050 for honest feasibility and ETA measurements, then train and graph fresh matched full LoRA/QLoRA runs on Colab.
+- [ ] Run bounded LoRA/QLoRA probes on the RTX 5050, retain the fresh full QLoRA run locally when its verified probe supports it, and use Colab only where the ordinary-LoRA/PhoBERT route or recovery genuinely benefits.
 - [ ] Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data.
 - [ ] Run the current reserved 220-row test split exactly once, at the end, across all three trained models; only afterward may a separate deployment model use all 2,097 rows.
 - [ ] Overhaul the report in an authentic USTH-student voice, chapter by chapter, once the reference report arrives.
@@ -81,7 +81,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - Complete the Codex quality pass on the repaired corpus, disclose its same-family limitation for 296 surviving reconstructed Zalo rows, and pair it with a genuine manual 100-example human check by a Vietnamese-fluent reviewer.
 - Cut the t-test (too statistically sophisticated to be a plausible undergraduate's own idea); replace with plain descriptive quality stats plus the new manual-check results.
 - Restore the genuine `task_scam` 0.44→0.871 recall-recovery story into the report — real, evidenced, and previously scrubbed by an earlier guardrail rule that (in hindsight) made the report read as suspiciously frictionless.
-- Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then train fresh matched full LoRA and QLoRA runs on the same Colab accelerator type where available. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation.
+- Measure bounded LoRA and QLoRA probes on the RTX 5050 for real feasibility, VRAM, throughput, and extrapolated local ETA; discard those probe adapters, then start fresh matched full runs from step zero. The verified QLoRA full run may remain on the laptop to preserve Colab credit, while ordinary LoRA may route to Colab because of its measured local pressure. This answers "why QLoRA and not just LoRA" with controlled evidence rather than a literature citation; cross-device speed remains hardware-confounded.
 - Fully fine-tune and graph a real PhoBERT classification-head baseline on the same frozen training/validation data — answering "why Qwen not PhoBERT" with a measured number, not just an architectural argument. Any result (including PhoBERT or LoRA outscoring the shipped system on raw classification) is reported honestly; the thesis's claim was never "Qwen is the best classifier."
 - Reserve the current 220-row test split (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) for one final three-model evaluation. After those results and checkpoint identities are frozen, an optional separately labeled deployment fit may use all 2,097 rows without claiming an unbiased test score. The live boundary is machine-bound in `.planning/phases/39-independent-quality-re-judge/39-DOWNSTREAM-DATA-CONTRACT.json`.
 - Overhaul the report chapter by chapter in an authentic USTH-student voice — student-drafted passages that Claude tightens without altering structure or word choice — gated on a real passed-student reference report the user is sourcing. Derive `WRITING_GUARDRAILS_REPORT.md` from that reference once it arrives.
@@ -226,4 +226,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-08-21 after promoting the 2,097-row Phase 39 corpus and refreshing the manifest-bound Phase 40/41 data contract
+Last updated: 2026-08-25 after routing the fresh full QLoRA run to the verified RTX 5050 path and re-sealing the Phase 40 source authority

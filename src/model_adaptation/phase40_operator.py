@@ -681,8 +681,12 @@ def handle_doctor(args: argparse.Namespace) -> int:
     base_model_snapshot = _validate_base_model_cli_paths(
         repo_root=repo_root,
         model_family=args.model_family,
-        base_model_path=args.base_model_path,
-        base_model_manifest_path=args.base_model_manifest_path,
+        # Keep the recorded argv relative/sanitized while giving the training
+        # backend the normalized absolute snapshot paths its provenance gate
+        # requires.  This matters on Windows, where a D-drive local transfer
+        # package cannot place personal absolute paths in immutable evidence.
+        base_model_path=_lexical_absolute(args.base_model_path),
+        base_model_manifest_path=_lexical_absolute(args.base_model_manifest_path),
         model_id=model_id,
         model_revision=model_revision,
     )
@@ -837,8 +841,8 @@ def handle_train_qwen(args: argparse.Namespace) -> int:
         data_contract=contract,
         repo_root=repo_root,
         work_root=_lexical_absolute(args.output_root),
-        base_model_path=args.base_model_path,
-        base_model_manifest_path=args.base_model_manifest_path,
+        base_model_path=_lexical_absolute(args.base_model_path),
+        base_model_manifest_path=_lexical_absolute(args.base_model_manifest_path),
         sanitized_argv=raw_argv,
         resume_from_checkpoint=(
             None
