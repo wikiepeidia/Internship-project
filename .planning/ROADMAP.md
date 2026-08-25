@@ -1018,7 +1018,15 @@ Plans:
 3. At least one walkthrough entry explicitly covers the SHA-256/manifest-integrity concept, closing the confirmed live-defense gap.
 4. This phase's work is the last committed activity in the milestone, landing after Phase 42/43 completion and immediately before the retake defense date (~2026-10-07).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+
+- [ ] 44-01-PLAN.md -- Exact upstream closure, defense-time authorization, architecture coverage audit, and walkthrough guard
+- [ ] 44-02-PLAN.md -- Blocking student-authored data and two-model training walkthrough
+- [ ] 44-03-PLAN.md -- Blocking student-authored integrity, evaluation, and local-runtime walkthrough
+- [ ] 44-04-PLAN.md -- Hash-bound final student authorship and defense-readiness attestation
+- [ ] 44-05-PLAN.md -- Verbatim cheatsheet, manifest, and post-commit final-order seal
 
 ---
 
