@@ -538,7 +538,10 @@ class _ImmutableTreeLease:
             )
         kernel32 = self._handle_kernel32
         invalid = ctypes.c_void_p(-1).value
-        desired_access = 0x80000000 if deny_write else 0x00000080
+        # GENERIC_READ is required even for ancestry handles.  A handle opened
+        # with FILE_READ_ATTRIBUTES alone does not deny a direct directory
+        # rename on current Windows, despite omitting FILE_SHARE_DELETE.
+        desired_access = 0x80000000
         share_mode = 0x00000001 if deny_write else 0x00000003
         handle = kernel32.CreateFileW(
             str(target),

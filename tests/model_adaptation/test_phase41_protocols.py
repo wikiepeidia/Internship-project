@@ -471,6 +471,67 @@ def test_access_denied_ancestor_never_uses_token_relative_acl_fallback(
     assert fake.closed
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows ancestor handles required")
+@pytest.mark.parametrize("target_depth", range(4))
+def test_root_and_each_synthetic_ancestor_deny_direct_transient_rename(
+    tmp_path, monkeypatch, target_depth
+):
+    import src.model_adaptation.phase41_protocols as phase41_protocols
+
+    anchor = (tmp_path / "lease-anchor").absolute()
+    root = anchor / "ancestor-a" / "ancestor-b" / "base-snapshot"
+    root.mkdir(parents=True)
+    (root / "model.safetensors").write_bytes(b"trusted")
+    targets = (root, root.parent, root.parent.parent, anchor)
+    target = targets[target_depth]
+    parked = target.with_name(f"{target.name}-parked")
+    begin_rename = threading.Event()
+    rename_finished = threading.Event()
+    rename_succeeded: list[bool] = []
+    attack_errors: list[OSError] = []
+
+    def attacker() -> None:
+        assert begin_rename.wait(5), "lease never reached the rename attack point"
+        try:
+            target.rename(parked)
+        except OSError as exc:
+            attack_errors.append(exc)
+        else:  # pragma: no cover - reachable only if ancestry locking regresses
+            rename_succeeded.append(True)
+            parked.rename(target)
+        finally:
+            rename_finished.set()
+
+    original_inventory = phase41_protocols._tree_inventory
+    synchronized = False
+
+    def synchronized_inventory(path: Path):
+        nonlocal synchronized
+        if Path(path) == root and not synchronized:
+            synchronized = True
+            begin_rename.set()
+            assert rename_finished.wait(5), "direct rename attack did not finish"
+        return original_inventory(path)
+
+    monkeypatch.setattr(
+        phase41_protocols,
+        "_tree_inventory",
+        synchronized_inventory,
+    )
+    attack = threading.Thread(target=attacker, daemon=True)
+    attack.start()
+    lease = _ImmutableTreeLease(root, description="direct-rename synthetic root")
+    try:
+        lease.assert_intact()
+    finally:
+        lease.close()
+        attack.join(5)
+
+    assert not attack.is_alive()
+    assert attack_errors and isinstance(attack_errors[0], PermissionError)
+    assert rename_succeeded == []
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
 def test_ancestor_swap_to_equal_shape_redirect_is_blocked_before_inventory(
     tmp_path, monkeypatch
