@@ -1,10 +1,10 @@
 # Phase 40 Local RTX 5050 Probe Report
 
-Status: LoRA resource run completed its bounded local window and its recovery-only evidence seal verifies. The local LoRA path is closed for this deadline; QLoRA has not been started by this report and work resumes on 2026-08-25.
+Status: Both local decision branches are sealed. The ordinary-LoRA run retained an honest incomplete resource-pressure outcome; the separately dated genuine QLoRA probe reached its exact 5+40-step target, verified, and discarded every runtime/model artifact.
 
 ## Claim boundary
 
-This run is feasibility and resource evidence only. It is not a completed LoRA training run, an accuracy evaluation, a validation comparison, or proof that LoRA is impossible. The held-out partition was not used. No adapter or checkpoint from this disposable run may seed a later run.
+These runs are feasibility and resource evidence only. They are not completed full-training runs, an accuracy comparison, or proof that LoRA is impossible. The QLoRA ETA is an extrapolation from its bounded same-machine probe, not an observed full-run duration. The held-out partition was not used. No adapter or checkpoint from either disposable run may seed a later run.
 
 ## Environment and controls
 
@@ -46,11 +46,36 @@ The mechanical memory classifier is `gpu_pressure`, with basis `three_consecutiv
 
 ## Decision
 
-Ordinary LoRA is technically runnable on this laptop, but it operates with effectively no device-memory headroom and a provisional compute-only schedule near 18.4–18.9 hours. That makes a fresh full local LoRA run operationally unattractive for the current deadline. The next local experiment should be the already authorized genuine QLoRA 5+40 probe; its own measurements, not this LoRA extrapolation or historical recollection, must decide whether the full QLoRA run stays local or moves to Colab.
+Ordinary LoRA is technically runnable on this laptop, but it operates with effectively no device-memory headroom and a provisional compute-only schedule near 18.4–18.9 hours. That makes a fresh full local LoRA run operationally unattractive for the current deadline. The separately dated QLoRA experiment below supplies the required independent measurement; its result supersedes any historical recollection about QLoRA speed.
 
 For planning and defense wording, ordinary LoRA is therefore treated as too resource-intensive on the tested laptop. A **32 GB-class system-RAM configuration and more than 8 GB of VRAM are recommended** for a reliable full run with usable headroom. This is a practical recommendation, not a benchmarked strict minimum: telemetry observed 20.94 GiB peak system-RAM use on a 31.61 GiB host, while the 8,151 MiB GPU reached 7,902 MiB used and only 9 MiB minimum free. Likewise, the 18.42–18.88-hour figure is an incomplete-window compute extrapolation that excludes evaluation and checkpoint overhead; it does not guarantee that a full run would finish successfully. The bounded probe itself ended with `parent_controller_error` before its evidence-step target, although no OOM occurred.
 
-Handoff sealed on 2026-08-24. No further ordinary-LoRA retry is authorized for this decision window. Phase 40 resumes on 2026-08-25 with the existing QLoRA package-authority/runtime gates followed by the genuine QLoRA 5+40 probe.
+The ordinary-LoRA handoff was sealed on 2026-08-24. No further ordinary-LoRA retry is authorized for that decision window.
+
+## Separately dated genuine QLoRA probe — 2026-08-25
+
+The fresh root `data/models/phase40/probes/rtx5050-qlora-session-20260825/` started a new immutable 7,200-second clock. Before model load it hash-linked the complete prior LoRA evidence tree, rebound the canonical train/validation snapshots and pinned Qwen base, bound the dated operator source, and reverified the approved `bitsandbytes==0.50.1` setup receipt. Every stage subsequently rechecked those identities.
+
+The model-level proof resolved the requested mode as `4bit-qlora`: NF4 plus double quantization was active, 252 `Linear4bit` modules were present, the base weights were frozen, 504 adapter tensors were the only trainables, and the pre-step backward pass found 504 finite adapter gradients with 252 nonzero gradients. There was no semantic fallback to ordinary LoRA.
+
+| Measure | Retained value | Interpretation |
+|---|---:|---|
+| Optimizer steps | 45 observed | Exactly 5 excluded warm-up + 40 measured steps |
+| Measured step time | median 3.462389s | Forty ordered post-warm-up measurements |
+| Throughput | 1.12034 examples/s; 346.98349 tokens/s | Measured only over the retained 40-step window |
+| Validation overhead | 57.9618s | One measured validation pass; `eval_loss=0.467213` is a runtime-health value, not a final accuracy claim |
+| Checkpoint overhead | 1.113946s | One isolated measured save |
+| Projected 1,245-step local runtime | 4,369.750238s (72m49.750s; 1.214h) | Median step time x 1,245 plus measured validation/save overhead; estimate only |
+| Device VRAM | peak 7,516 / 8,151 MiB; minimum 395 MiB free | High utilization but no OOM and no declared pressure failure |
+| Torch memory | peak allocated 5,993,058,304 bytes; peak reserved 7,646,216,192 bytes | Allocator telemetry, not relabeled as physical VRAM |
+| Process RSS | peak 8,733,491,200 bytes (8.13 GiB) | Training-process host memory |
+| System RAM | peak used 22,136,381,440 bytes; minimum available 11,807,109,120 bytes | No system-RAM OOM |
+| GPU utilization / temperature / power | peak 97% / 89C / 90.36W | Sustained real GPU execution; no thermal stop was recorded |
+| OOM | none observed | The exact evidence target completed |
+
+The child completed with `measured / evidence_target_reached`. Its event verifier accepted exactly 45 ordered optimizer steps, one validation event, one checkpoint event, finite losses, and a canonical `run_end`. The controller then hashed and removed the disposable runtime; neither `runtime` nor any checkpoint directory remains. The final five-stage ledger and 22-artifact manifest reverify against the unchanged historical source tree.
+
+The result shows that full QLoRA is locally feasible under the tested controls and is dramatically faster than ordinary LoRA on this laptop. It does not prove that a fresh 1,245-step run will finish in exactly 72.83 minutes, because the value is an extrapolation and longer-run overhead/thermal behavior may differ. Per the operator's execution choice, Phase 40 still ports the identical Qwen controls to a fresh step-zero Colab QLoRA run so the retained full logs, curves, checkpoints, validation outputs, and GGUF export share the canonical comparison workflow. Colab is therefore an evidence-packaging/reproducibility route, not justified by a false claim that this measured laptop QLoRA probe was too slow.
 
 ## Evidence references
 
@@ -63,3 +88,16 @@ Handoff sealed on 2026-08-24. No further ordinary-LoRA retry is authorized for t
 - Final retry outcome SHA-256, as sealed in the append-only ledger: `749ac7523088726afa9fa27d8e3b575b5d5358e4bf26df549025b1dd55114a3f`.
 - Runtime discard pre-image SHA-256: `aaf5f47cec79ecbb7aa13f29c210037b9b7865d61d1dbfcf01d36d19f2d31871`; the receipt verifies `runtime` is absent.
 - Final verification: recovery idempotence PASS; Python compilation PASS; `git diff --check` PASS; model-adaptation tests 455/455 PASS.
+
+### QLoRA evidence references
+
+- Dated session root: `data/models/phase40/probes/rtx5050-qlora-session-20260825/`.
+- Operator source SHA-256 bound at preflight: `1787da088ff5d31cbcf439e4b9c7ef76809e6701ba1da5c2f706a4b15760868c`.
+- Historical LoRA source-tree SHA-256 before/after every stage: `46bce0f7e3807f62465c84492e524327e0df9b5cf8beaf938bd7f101109e9271`.
+- QLoRA optimizer-event SHA-256: `60e8c573e9763cab0f8073a47889ea678c69309d1defa3247e2ee671383bee72`.
+- Quantization-proof SHA-256: `aca5a27ecbcf47f25500e5ec011566caa6478e6253a78eb5451a0d4ca93cd4ef`.
+- Telemetry SHA-256: `d0a3cdf734a92977070b4efee348087c6c475d32a33d281e2a2896e0439cf3a0`.
+- Outcome SHA-256: `456d385e48fe0cf63e89c4aa5714aa016c93bb3b846c50f86fd3dee68213edce`.
+- Final ledger SHA-256: `418403f154f9efaa7ad71c8aeb44d8bd68088b44dad7d3b386fda71822f640a3`.
+- Session-manifest SHA-256: `ef992ddd7f0af03df2ca44c352f044e042d5d9c963afa7b89366ec22aeb4a795`.
+- Final verification: session verifier PASS; runtime absent; checkpoints absent; GPU memory released.
