@@ -145,7 +145,7 @@ _SPECS: dict[str, _NotebookSpec] = {
 
 _CANONICAL_SOURCE_DIGESTS = {
     "phobert_colab.ipynb": "d18f4f59b3256afc3c41141f053857606c5d6699462593e3e56ef746b1acdee9",
-    "qwen_lora_colab.ipynb": "0bf7b6de4eb71fecd2048ee67f67d40fc20f8c3c08960b6f9fb56579625f3b45",
+    "qwen_lora_colab.ipynb": "388bd18091d5092262eab5e693bbf05d651e1f7b08c6698cf5ebeeec9dd10ab4",
     "qwen_qlora_colab.ipynb": "011e6bdebbbe27cb7129bde5be483eb8bd66eb086a073ef32d3a23293820a39e",
 }
 
@@ -634,6 +634,22 @@ def _validate_role_contracts(
             "Verified request-bound bundle ready for unchanged return",
         ),
     }
+    if spec.filename == "qwen_lora_colab.ipynb":
+        required_by_role["request-verify"] += (
+            "OPERATOR_LOG_ROOT_PREEXISTED",
+            "OPERATOR_LOG_ATTEMPT_ROOT",
+            "uuid.uuid4().hex",
+            "OPERATOR_LOG_ATTEMPT_ROOT.mkdir(parents=False, exist_ok=False)",
+            'log_path = OPERATOR_LOG_ATTEMPT_ROOT /',
+            'log_path.open("x"',
+        )
+        required_by_role["resume-policy"] += (
+            "OPERATOR_LOG_ROOT_PREEXISTED",
+            "automatic or latest resume is forbidden",
+            "exact resume requires the original append-only operator-log root",
+            "Path(EXACT_RESUME_CHECKPOINT)",
+            "is_absolute",
+        )
     if spec.model_family == "phobert":
         required_by_role["full-run"] += ("classification-head",)
     else:

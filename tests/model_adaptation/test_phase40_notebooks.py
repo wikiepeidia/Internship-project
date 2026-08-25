@@ -374,6 +374,65 @@ def test_full_profiles_logs_fresh_runtime_and_qwen_gguf_download_are_closed() ->
             assert "files.download" not in code
 
 
+def test_lora_existing_operator_logs_defer_to_explicit_exact_resume_gate() -> None:
+    notebook = _load("qwen_lora_colab.ipynb")
+    request_source = _source(_cell(notebook, "request-verify"))
+    resume_source = _source(_cell(notebook, "resume-policy"))
+
+    assert "OPERATOR_LOG_ROOT_PREEXISTED = OPERATOR_LOG_ROOT.exists()" in request_source
+    assert "if OPERATOR_LOG_ROOT.exists():\n    raise RuntimeError" not in request_source
+    assert "resume-attempt-{uuid.uuid4().hex}" in request_source
+    assert (
+        "OPERATOR_LOG_ATTEMPT_ROOT.mkdir(parents=False, exist_ok=False)"
+        in request_source
+    )
+    assert 'log_path = OPERATOR_LOG_ATTEMPT_ROOT /' in request_source
+    assert 'log_path.open("x"' in request_source
+
+    existing_log_gate = resume_source.index("if OPERATOR_LOG_ROOT_PREEXISTED:")
+    exact_verifier = resume_source.index('run_cli(("phase40-verify-resume"')
+    assert existing_log_gate < exact_verifier
+    assert "automatic or latest resume is forbidden" in resume_source
+    assert "exact resume requires the original append-only operator-log root" in resume_source
+    assert "EXACT_RESUME_VERIFIED = False" in resume_source
+    assert "EXACT_RESUME_CHECKPOINT = Path(EXACT_RESUME_CHECKPOINT)" in resume_source
+    assert "EXACT_RESUME_CHECKPOINT.is_absolute()" in resume_source
+
+
+@pytest.mark.parametrize(
+    ("role", "old", "new", "expected_code"),
+    (
+        (
+            "request-verify",
+            "OPERATOR_LOG_ATTEMPT_ROOT.mkdir(parents=False, exist_ok=False)",
+            "OPERATOR_LOG_ATTEMPT_ROOT.mkdir(parents=False, exist_ok=True)",
+            "missing-request-verify-contract",
+        ),
+        (
+            "request-verify",
+            "log_path = OPERATOR_LOG_ATTEMPT_ROOT /",
+            "log_path = OPERATOR_LOG_ROOT /",
+            "missing-request-verify-contract",
+        ),
+        (
+            "resume-policy",
+            "automatic or latest resume is forbidden",
+            "implicit resume is allowed",
+            "missing-resume-policy-contract",
+        ),
+    ),
+)
+def test_lora_resume_log_safety_mutations_fail_closed(
+    tmp_path: Path,
+    role: str,
+    old: str,
+    new: str,
+    expected_code: str,
+) -> None:
+    path = _mutate_role(tmp_path, role=role, old=old, new=new)
+    assert expected_code in _codes(path)
+
+
 def test_malformed_or_duplicate_key_json_fails_without_execution(tmp_path: Path) -> None:
     path = tmp_path / "qwen_lora_colab.ipynb"
     path.write_text('{"nbformat":4,"nbformat":4}', encoding="utf-8")
