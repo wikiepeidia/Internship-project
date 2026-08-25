@@ -1,4 +1,4 @@
-"""Operator-facing CLI for Phase 3 pilot, training, and conversion workflows."""
+"""Operator-facing CLI for model adaptation and the Phase 41 one-shot authority."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from src.config.settings import get_settings
 from src.model_adaptation.catalog import build_default_catalog
 from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
 from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
-from src.model_adaptation.explanation_review import build_manual_review_pack
 from src.model_adaptation.pilot import run_pilot
 from src.model_adaptation.phase40_contract import preflight_phase40_inputs
 from src.model_adaptation.phase40_handoff import (
@@ -42,14 +41,10 @@ from src.model_adaptation.phase40_handoff import (
 from src.model_adaptation.phase40_evidence import verify_phase40_bundle
 from src.model_adaptation.phase40_graphs import render_phase40_graphs
 from src.model_adaptation.phase40_modes import AdaptationMode, RunKind
-from src.model_adaptation.release_evaluation import evaluate_release_split
-from src.model_adaptation.release_gates import write_release_artifacts, synthesize_release_verdict
 from src.model_adaptation.registry import load_model_registry, save_model_registry
 from src.model_adaptation.schemas import (
-    ExplanationReviewPack,
     ModelRegistry,
     PilotSelection,
-    ReleaseEvaluationSnapshot,
 )
 from src.model_adaptation.training import build_training_config, run_training
 
@@ -68,30 +63,6 @@ def _default_split_path(split_name: str) -> Path:
 
 def _default_registry_path() -> Path:
     return get_settings().model_registry_path
-
-
-def _default_phase_five_snapshot_path() -> Path:
-    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json")
-
-
-def _default_phase_five_split_path() -> Path:
-    settings = get_settings()
-    repaired_holdout = settings.data_dir / "splits" / "recovered-balanced" / "val.jsonl"
-    if repaired_holdout.exists():
-        return repaired_holdout
-    return _default_split_path("val")
-
-
-def _default_phase_five_review_pack_path() -> Path:
-    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-explanation-review-pack.json")
-
-
-def _default_phase_five_report_dir() -> Path:
-    return Path(".planning/phases/05-recall-priority-evaluation-and-release-gates")
-
-
-def _default_phase_five_manifest_dir() -> Path:
-    return Path("data/manifests")
 
 
 def _build_dry_run_pilot_rows() -> list[dict[str, object]]:
@@ -446,95 +417,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_parser.set_defaults(handler=handle_doctor)
 
-    evaluate_release_parser = subparsers.add_parser(
-        "evaluate-release-split",
-        help="Run the Phase 5 held-out evaluation and save the snapshot as it progresses",
-    )
-    evaluate_release_parser.add_argument(
-        "--split-path",
-        type=Path,
-        default=None,
-        help="Held-out split JSONL path to evaluate",
-    )
-    evaluate_release_parser.add_argument(
-        "--snapshot-path",
-        type=Path,
-        default=_default_phase_five_snapshot_path(),
-        help="Output path for the saved evaluation snapshot",
-    )
-    evaluate_release_parser.add_argument(
-        "--run-id",
-        default=None,
-        help="Optional stable run id recorded in the snapshot",
-    )
-    evaluate_release_parser.add_argument(
-        "--progress-every",
-        type=int,
-        default=1,
-        help="Print progress every N evaluated rows; use 0 to disable progress output",
-    )
-    evaluate_release_parser.add_argument(
-        "--checkpoint-every",
-        type=int,
-        default=1,
-        help="Rewrite the snapshot every N evaluated rows; use 0 to disable intermediate checkpoints",
-    )
-    evaluate_release_parser.set_defaults(handler=handle_evaluate_release_split)
-
-    review_parser = subparsers.add_parser(
-        "prepare-explanation-review",
-        help="Build the risky-only Phase 5 explanation review pack from a saved evaluation snapshot",
-    )
-    review_parser.add_argument(
-        "--snapshot-path",
-        type=Path,
-        default=_default_phase_five_snapshot_path(),
-        help="Saved evaluation snapshot JSON path",
-    )
-    review_parser.add_argument(
-        "--output-path",
-        type=Path,
-        default=_default_phase_five_review_pack_path(),
-        help="Output path for the phase-local explanation review pack",
-    )
-    review_parser.add_argument(
-        "--sample-size",
-        type=int,
-        default=None,
-        help="Optional cap for deterministic risky-row sampling",
-    )
-    review_parser.set_defaults(handler=handle_prepare_explanation_review)
-
-    release_eval_parser = subparsers.add_parser(
-        "release-eval",
-        help="Synthesize the final Phase 5 release verdict from the saved snapshot and completed review pack",
-    )
-    release_eval_parser.add_argument(
-        "--snapshot-path",
-        type=Path,
-        default=_default_phase_five_snapshot_path(),
-        help="Saved evaluation snapshot JSON path",
-    )
-    release_eval_parser.add_argument(
-        "--review-pack-path",
-        type=Path,
-        default=_default_phase_five_review_pack_path(),
-        help="Completed explanation review pack JSON path",
-    )
-    release_eval_parser.add_argument(
-        "--report-dir",
-        type=Path,
-        default=_default_phase_five_report_dir(),
-        help="Output directory for the phase-local markdown report",
-    )
-    release_eval_parser.add_argument(
-        "--manifest-dir",
-        type=Path,
-        default=_default_phase_five_manifest_dir(),
-        help="Output directory for the machine-readable release artifact",
-    )
-    release_eval_parser.set_defaults(handler=handle_release_eval)
-
     phase40_preflight_parser = subparsers.add_parser(
         "phase40-preflight",
         help="Authorize the canonical Phase 40 train and validation snapshots",
@@ -696,6 +578,12 @@ def build_parser() -> argparse.ArgumentParser:
     phase41_prepare_parser.add_argument(
         "--phase40-review-manifest-path", type=Path, required=True
     )
+    phase41_prepare_parser.add_argument(
+        "--deployment-fit-choice",
+        required=True,
+        choices=["deferred", "authorized_post_evaluation_fit"],
+        help="Precommit the post-evaluation deployment-fit disposition before authorization",
+    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -733,11 +621,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     phase41_disposition_parser.add_argument(
         "--output-root", type=Path, default=Path("data/models/phase41")
-    )
-    phase41_disposition_parser.add_argument(
-        "--choice",
-        required=True,
-        choices=["deferred", "authorized_post_evaluation_fit"],
     )
     phase41_disposition_parser.set_defaults(
         handler=handle_phase41_freeze_deployment_fit_disposition
@@ -904,66 +787,6 @@ def handle_doctor(args: argparse.Namespace) -> int:
     )
     print(format_training_doctor_report(status))
     return 0 if status.ready else 1
-
-
-def handle_evaluate_release_split(args: argparse.Namespace) -> int:
-    """Evaluate one held-out split through the runtime and save a Phase 5 snapshot."""
-
-    progress_every = args.progress_every if args.progress_every > 0 else None
-    checkpoint_every = args.checkpoint_every if args.checkpoint_every > 0 else None
-
-    def _emit_progress(current: int, total: int) -> None:
-        if progress_every is None:
-            return
-        if current == 1 or current == total or current % progress_every == 0:
-            print(f"Phase 5 evaluation progress: {current}/{total}")
-
-    split_path = args.split_path or _default_phase_five_split_path()
-    snapshot = evaluate_release_split(
-        split_path,
-        snapshot_path=args.snapshot_path,
-        run_id=args.run_id,
-        progress_callback=_emit_progress if progress_every is not None else None,
-        checkpoint_interval=checkpoint_every,
-    )
-    print(
-        f"Evaluation snapshot ready: rows={snapshot.overall_metrics.evaluated_rows} "
-        f"verdict={snapshot.audit.verdict} snapshot={args.snapshot_path}"
-    )
-    return 0
-
-
-def handle_prepare_explanation_review(args: argparse.Namespace) -> int:
-    """Generate the pre-verdict risky-only explanation review pack for Phase 5."""
-
-    snapshot = ReleaseEvaluationSnapshot.model_validate_json(args.snapshot_path.read_text(encoding="utf-8"))
-    pack = build_manual_review_pack(
-        snapshot,
-        snapshot_path=args.snapshot_path,
-        sample_size=args.sample_size,
-    )
-    args.output_path.parent.mkdir(parents=True, exist_ok=True)
-    args.output_path.write_text(pack.model_dump_json(indent=2), encoding="utf-8")
-    print(f"Explanation review pack ready: {args.output_path}")
-    return 0
-
-
-def handle_release_eval(args: argparse.Namespace) -> int:
-    """Run the final Phase 5 release verdict synthesis and artifact writing flow."""
-
-    snapshot = ReleaseEvaluationSnapshot.model_validate_json(args.snapshot_path.read_text(encoding="utf-8"))
-    review_pack = ExplanationReviewPack.model_validate_json(args.review_pack_path.read_text(encoding="utf-8"))
-    artifact = synthesize_release_verdict(snapshot, review_pack)
-    report_path, manifest_path = write_release_artifacts(
-        artifact,
-        report_dir=args.report_dir,
-        manifest_dir=args.manifest_dir,
-    )
-    print(
-        f"Release eval complete: verdict={artifact.verdict} "
-        f"report={report_path} manifest={manifest_path}"
-    )
-    return 0
 
 
 def handle_phase40_preflight(args: argparse.Namespace) -> int:
@@ -1225,6 +1048,7 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
         phase39_contract_path=args.phase39_contract_path,
         phase40_comparison_manifest_path=args.phase40_comparison_manifest_path,
         phase40_review_manifest_path=args.phase40_review_manifest_path,
+        deployment_fit_choice=args.deployment_fit_choice,
     )
     print(
         f"Phase 41 prepared: request={prepared.path} "
@@ -1271,20 +1095,10 @@ def handle_phase41_run_once(args: argparse.Namespace) -> int:
 
 def handle_phase41_freeze_deployment_fit_disposition(args: argparse.Namespace) -> int:
     from src.model_adaptation.phase41_evaluation import (
-        DeploymentFitDisposition,
         freeze_deployment_fit_disposition,
-        selected_phase41_checkpoint_identities,
     )
 
-    path = freeze_deployment_fit_disposition(
-        args.output_root,
-        DeploymentFitDisposition(
-            choice=args.choice,
-            selected_checkpoint_identities=selected_phase41_checkpoint_identities(
-                args.output_root
-            ),
-        ),
-    )
+    path = freeze_deployment_fit_disposition(args.output_root)
     print(f"Phase 41 deployment-fit disposition frozen: {path}")
     return 0
 
@@ -1301,7 +1115,7 @@ def handle_phase41_verify_evidence(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entrypoint for the Phase 3 and Phase 5 operator tooling."""
+    """CLI entrypoint for the model-adaptation operator tooling."""
 
     parser = build_parser()
     args = parser.parse_args(argv)

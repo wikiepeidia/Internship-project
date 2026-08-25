@@ -7,20 +7,13 @@ import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from src.model_adaptation.registry import save_model_registry
 from src.model_adaptation.schemas import (
-    ExplanationReviewItem,
-    ExplanationReviewPack,
-    LOCKED_RELEASE_LABELS,
-    HeldOutSupportAudit,
     ModelRegistry,
-    OverallMetricSummary,
-    PerLabelMetricRow,
     PilotSelection,
-    ReleaseEvaluationRow,
-    ReleaseEvaluationSnapshot,
 )
-from src.runtime.contracts import SuspiciousCue
 
 
 def _load_cli_module():
@@ -40,65 +33,6 @@ def _write_registry(path: Path) -> None:
     save_model_registry(registry, path)
 
 
-def _write_snapshot(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    audit = HeldOutSupportAudit(
-        evaluated_split_path=Path("data/splits/val.jsonl"),
-        support_by_label={label: 1 for label in LOCKED_RELEASE_LABELS},
-        blocker_reasons=[],
-    )
-    snapshot = ReleaseEvaluationSnapshot(
-        run_id="phase5-run-001",
-        evaluated_split_path=Path("data/splits/val.jsonl"),
-        audit=audit,
-        overall_metrics=OverallMetricSummary(macro_f1=0.8, weighted_f1=0.9, evaluated_rows=1),
-        per_label_metrics=[
-            PerLabelMetricRow(label=label, precision=1.0, recall=1.0, f1=1.0, support=1)
-            for label in LOCKED_RELEASE_LABELS
-        ],
-        rows=[
-            ReleaseEvaluationRow(
-                gold_label="bank_impersonation",
-                predicted_labels=["bank_impersonation"],
-                risk_tier="high-risk",
-                summary="Tin nhan gia danh ngan hang va yeu cau OTP.",
-                top_cues=[SuspiciousCue(span="OTP", reason="Tin nhan nhac ma OTP", cue_type="otp_request")],
-                recommendations=["Khong chia se OTP cho nguoi gui tin nhan."],
-                backend_name="fake-runtime",
-                split_provenance="data/splits/val.jsonl",
-                reviewable_source_text="VPBank yeu cau OTP de xac minh giao dich.",
-            )
-        ],
-    )
-    path.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
-
-
-def _write_review_pack(path: Path, *, run_id: str = "phase5-run-001", review_completed: bool = True) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pack = ExplanationReviewPack(
-        run_id=run_id,
-        source_snapshot_path=Path(".planning/phases/05-recall-priority-evaluation-and-release-gates/05-evaluation-snapshot.json"),
-        items=[
-            ExplanationReviewItem(
-                row_index=0,
-                gold_label="bank_impersonation",
-                predicted_labels=["bank_impersonation"],
-                risk_tier="high-risk",
-                reviewable_text="VPBank yeu cau OTP de xac minh giao dich.",
-                top_cues=[SuspiciousCue(span="OTP", reason="Tin nhan nhac ma OTP", cue_type="otp_request")],
-                recommendations=["Khong chia se OTP cho nguoi gui tin nhan."],
-                deterministic_blocker_reasons=[],
-                deterministic_flag_reasons=[],
-                reviewer_blocker_reasons=[],
-                reviewer_flag_reasons=[],
-            )
-        ],
-        review_completed=review_completed,
-        review_notes="approved" if review_completed else None,
-    )
-    path.write_text(pack.model_dump_json(indent=2), encoding="utf-8")
-
-
 def test_cli_exposes_pilot_and_train_commands():
     cli_module = _load_cli_module()
     parser = cli_module.build_parser()
@@ -110,7 +44,6 @@ def test_cli_exposes_pilot_and_train_commands():
     assert sorted(subparsers_action.choices.keys()) == [
         "convert",
         "doctor",
-        "evaluate-release-split",
         "phase40-build-input-bundle",
         "phase40-build-source-bundle",
         "phase40-finalize-comparison",
@@ -130,8 +63,6 @@ def test_cli_exposes_pilot_and_train_commands():
         "phase41-verify-evidence",
         "phase41-verify-preauthorization",
         "pilot",
-        "prepare-explanation-review",
-        "release-eval",
         "train",
     ]
 
@@ -292,7 +223,7 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
     assert captured["operator_return"].package_decisions == ()
 
 
-def test_cli_exposes_prepare_explanation_review_command():
+def test_cli_removes_all_legacy_public_evaluation_commands():
     cli_module = _load_cli_module()
     parser = cli_module.build_parser()
 
@@ -300,18 +231,16 @@ def test_cli_exposes_prepare_explanation_review_command():
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
 
-    assert "prepare-explanation-review" in subparsers_action.choices
-
-
-def test_cli_exposes_evaluate_release_split_command():
-    cli_module = _load_cli_module()
-    parser = cli_module.build_parser()
-
-    subparsers_action = next(
-        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
-    )
-
-    assert "evaluate-release-split" in subparsers_action.choices
+    legacy_commands = {
+        "evaluate-release-split",
+        "prepare-explanation-review",
+        "release-eval",
+    }
+    assert legacy_commands.isdisjoint(subparsers_action.choices)
+    assert not hasattr(cli_module, "handle_evaluate_release_split")
+    assert not hasattr(cli_module, "evaluate_release_split")
+    assert not hasattr(cli_module, "handle_prepare_explanation_review")
+    assert not hasattr(cli_module, "handle_release_eval")
 
 
 def test_default_split_path_prefers_retained_lineage_when_present(tmp_path, monkeypatch):
@@ -519,156 +448,31 @@ def test_convert_command_resolves_baseline_winner_alias(tmp_path, monkeypatch, c
     assert "Conversion dry-run complete" in captured_output.out
 
 
-def test_prepare_explanation_review_command_prints_saved_pack_path(tmp_path, capsys):
-    cli_module = _load_cli_module()
-    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
-    output_path = tmp_path / "05-explanation-review-pack.json"
-    _write_snapshot(snapshot_path)
-
-    exit_code = cli_module.main(
-        [
-            "prepare-explanation-review",
-            "--snapshot-path",
-            str(snapshot_path),
-            "--output-path",
-            str(output_path),
-        ]
-    )
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    assert str(output_path) in captured.out
-
-
-def test_evaluate_release_split_command_prints_progress_and_snapshot_path(tmp_path, monkeypatch, capsys):
-    cli_module = _load_cli_module()
-    split_path = tmp_path / "recovered-balanced-val.jsonl"
-    split_path.write_text("", encoding="utf-8")
-    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
-    _write_snapshot(snapshot_path)
-    snapshot = ReleaseEvaluationSnapshot.model_validate_json(snapshot_path.read_text(encoding="utf-8"))
-    captured: dict[str, object] = {}
-
-    def fake_evaluate_release_split(split_path_arg, **kwargs):
-        captured["split_path"] = split_path_arg
-        captured["snapshot_path"] = kwargs["snapshot_path"]
-        captured["run_id"] = kwargs["run_id"]
-        captured["checkpoint_interval"] = kwargs["checkpoint_interval"]
-        progress_callback = kwargs.get("progress_callback")
-        if progress_callback is not None:
-            progress_callback(1, 3)
-            progress_callback(3, 3)
-        return snapshot.model_copy(update={"evaluated_split_path": split_path_arg, "run_id": kwargs["run_id"]})
-
-    monkeypatch.setattr(cli_module, "evaluate_release_split", fake_evaluate_release_split)
-
-    exit_code = cli_module.main(
-        [
+@pytest.mark.parametrize(
+    ("command", "arguments"),
+    [
+        (
             "evaluate-release-split",
-            "--split-path",
-            str(split_path),
-            "--snapshot-path",
-            str(snapshot_path),
-            "--run-id",
-            "phase5-run-123",
-            "--progress-every",
-            "1",
-            "--checkpoint-every",
-            "2",
-        ]
-    )
-    captured_output = capsys.readouterr()
-
-    assert exit_code == 0
-    assert captured["split_path"] == split_path
-    assert captured["snapshot_path"] == snapshot_path
-    assert captured["run_id"] == "phase5-run-123"
-    assert captured["checkpoint_interval"] == 2
-    assert "Phase 5 evaluation progress: 1/3" in captured_output.out
-    assert "Phase 5 evaluation progress: 3/3" in captured_output.out
-    assert "Evaluation snapshot ready:" in captured_output.out
-    assert str(snapshot_path) in captured_output.out
-
-
-def test_cli_exposes_release_eval_command():
-    cli_module = _load_cli_module()
-    parser = cli_module.build_parser()
-
-    subparsers_action = next(
-        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
-    )
-
-    assert "release-eval" in subparsers_action.choices
-
-
-def test_release_eval_command_prints_verdict_and_artifact_paths(tmp_path, capsys):
-    cli_module = _load_cli_module()
-    snapshot_path = tmp_path / "05-evaluation-snapshot.json"
-    review_pack_path = tmp_path / "05-explanation-review-pack.json"
-    report_dir = tmp_path / "phase"
-    manifest_dir = tmp_path / "manifests"
-    _write_snapshot(snapshot_path)
-    _write_review_pack(review_pack_path)
-
-    exit_code = cli_module.main(
-        [
+            ["--split-path", "synthetic-hardlink-or-reparse-alias.jsonl"],
+        ),
+        (
+            "prepare-explanation-review",
+            ["--snapshot-path", "synthetic-hardlink-or-reparse-alias.jsonl"],
+        ),
+        (
             "release-eval",
-            "--snapshot-path",
-            str(snapshot_path),
-            "--review-pack-path",
-            str(review_pack_path),
-            "--report-dir",
-            str(report_dir),
-            "--manifest-dir",
-            str(manifest_dir),
-        ]
-    )
-    captured = capsys.readouterr()
+            ["--snapshot-path", "synthetic-hardlink-or-reparse-alias.jsonl"],
+        ),
+    ],
+)
+def test_legacy_evaluation_cli_routes_are_not_recognized(
+    command: str, arguments: list[str]
+):
+    cli_module = _load_cli_module()
+    with pytest.raises(SystemExit) as exc_info:
+        cli_module.main([command, *arguments])
 
-    assert exit_code == 0
-    assert "verdict=" in captured.out
-    assert str(report_dir) in captured.out
-    assert str(manifest_dir) in captured.out
-
-
-    def test_release_eval_command_rejects_incomplete_or_mismatched_review_pack(tmp_path):
-        cli_module = _load_cli_module()
-        snapshot_path = tmp_path / "05-evaluation-snapshot.json"
-        incomplete_review_pack_path = tmp_path / "05-explanation-review-pack-incomplete.json"
-        mismatched_review_pack_path = tmp_path / "05-explanation-review-pack-mismatch.json"
-        _write_snapshot(snapshot_path)
-        _write_review_pack(incomplete_review_pack_path, review_completed=False)
-        _write_review_pack(mismatched_review_pack_path, run_id="phase5-run-999")
-
-        with pytest.raises(ValueError, match="incomplete"):
-            cli_module.main(
-                [
-                    "release-eval",
-                    "--snapshot-path",
-                    str(snapshot_path),
-                    "--review-pack-path",
-                    str(incomplete_review_pack_path),
-                    "--report-dir",
-                    str(tmp_path / "phase"),
-                    "--manifest-dir",
-                    str(tmp_path / "manifests"),
-                ]
-            )
-
-        with pytest.raises(ValueError, match="run_id"):
-            cli_module.main(
-                [
-                    "release-eval",
-                    "--snapshot-path",
-                    str(snapshot_path),
-                    "--review-pack-path",
-                    str(mismatched_review_pack_path),
-                    "--report-dir",
-                    str(tmp_path / "phase"),
-                    "--manifest-dir",
-                    str(tmp_path / "manifests"),
-                ]
-            )
+    assert exc_info.value.code == 2
 
 
 def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
@@ -694,3 +498,119 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
     assert option_strings == {"-h", "--help", "--output-root"}
     forbidden = {"--split-path", "--model-path", "--registry-root", "--retry"}
     assert option_strings.isdisjoint(forbidden)
+
+    prepare_parser = subparsers_action.choices["phase41-prepare-evaluation"]
+    prepare_options = {
+        option
+        for action in prepare_parser._actions
+        for option in action.option_strings
+    }
+    assert "--deployment-fit-choice" in prepare_options
+
+    disposition_parser = subparsers_action.choices[
+        "phase41-freeze-deployment-fit-disposition"
+    ]
+    disposition_options = {
+        option
+        for action in disposition_parser._actions
+        for option in action.option_strings
+    }
+    assert disposition_options == {"-h", "--help", "--output-root"}
+    assert "--choice" not in disposition_options
+
+
+@pytest.mark.parametrize(
+    "choice", ["deferred", "authorized_post_evaluation_fit"]
+)
+def test_phase41_prepare_cli_requires_valid_deployment_fit_precommit(choice: str):
+    parser = _load_cli_module().build_parser()
+    required_authorities = [
+        "--phase39-contract-path",
+        "phase39-contract.json",
+        "--phase40-comparison-manifest-path",
+        "phase40-comparison.json",
+        "--phase40-review-manifest-path",
+        "phase40-review.json",
+    ]
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["phase41-prepare-evaluation", *required_authorities])
+
+    args = parser.parse_args(
+        [
+            "phase41-prepare-evaluation",
+            *required_authorities,
+            "--deployment-fit-choice",
+            choice,
+        ]
+    )
+
+    assert args.deployment_fit_choice == choice
+
+
+def test_phase41_prepare_cli_rejects_unknown_deployment_fit_precommit():
+    parser = _load_cli_module().build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "phase41-prepare-evaluation",
+                "--phase39-contract-path",
+                "phase39-contract.json",
+                "--phase40-comparison-manifest-path",
+                "phase40-comparison.json",
+                "--phase40-review-manifest-path",
+                "phase40-review.json",
+                "--deployment-fit-choice",
+                "choose-after-results",
+            ]
+        )
+
+
+def test_phase41_prepare_handler_forwards_deployment_fit_precommit(monkeypatch):
+    cli_module = _load_cli_module()
+    import src.model_adaptation.phase41_evaluation as evaluation_module
+
+    captured: dict[str, object] = {}
+
+    def fake_prepare(output_root, **kwargs):
+        captured["output_root"] = output_root
+        captured.update(kwargs)
+        return SimpleNamespace(
+            path=Path("synthetic-prepared-request.json"),
+            prepared_sha256="a" * 64,
+        )
+
+    monkeypatch.setattr(
+        evaluation_module, "prepare_phase41_from_canonical_authorities", fake_prepare
+    )
+    args = SimpleNamespace(
+        output_root=Path("synthetic-output"),
+        repo_root=Path("synthetic-repository"),
+        phase39_contract_path=Path("phase39-contract.json"),
+        phase40_comparison_manifest_path=Path("phase40-comparison.json"),
+        phase40_review_manifest_path=Path("phase40-review.json"),
+        deployment_fit_choice="deferred",
+    )
+
+    assert cli_module.handle_phase41_prepare_evaluation(args) == 0
+    assert captured["deployment_fit_choice"] == "deferred"
+
+
+def test_phase41_disposition_handler_cannot_supply_post_result_choice(monkeypatch):
+    cli_module = _load_cli_module()
+    import src.model_adaptation.phase41_evaluation as evaluation_module
+
+    captured: list[Path] = []
+
+    def fake_freeze(output_root):
+        captured.append(output_root)
+        return Path("synthetic-deployment-fit-disposition.json")
+
+    monkeypatch.setattr(
+        evaluation_module, "freeze_deployment_fit_disposition", fake_freeze
+    )
+    args = SimpleNamespace(output_root=Path("synthetic-output"))
+
+    assert cli_module.handle_phase41_freeze_deployment_fit_disposition(args) == 0
+    assert captured == [Path("synthetic-output")]
