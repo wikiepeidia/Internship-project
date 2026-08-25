@@ -312,11 +312,38 @@ def test_added_file_between_hash_and_loader_is_detected(tmp_path):
         return object()
 
     try:
-        with pytest.raises(ProtocolContractError, match="inventory changed"):
+        with pytest.raises(ProtocolContractError, match="changed during"):
             _run_with_immutable_leases((lease,), hostile_loader)
     finally:
         lease.close()
     assert called == ["loader"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows change fence required")
+def test_transient_add_consume_delete_during_loader_permanently_taints_lease(tmp_path):
+    root = (tmp_path / "transient-loader-root").absolute()
+    root.mkdir()
+    (root / "model.bin").write_bytes(b"sealed")
+    lease = _ImmutableTreeLease(root, description="transient hostile loader")
+    lease.bind_semantic_identity("b" * 64)
+    consumed: list[bytes] = []
+
+    def hostile_loader():
+        injected = root / "config.json"
+        injected.write_bytes(b'{"architectures":["InjectedModel"]}')
+        consumed.append(injected.read_bytes())
+        injected.unlink()
+        return "loaded-injected-config"
+
+    try:
+        with pytest.raises(ProtocolContractError, match="changed during"):
+            _run_with_immutable_leases((lease,), hostile_loader)
+        assert not (root / "config.json").exists()
+        with pytest.raises(ProtocolContractError, match="changed during"):
+            lease.assert_intact()
+    finally:
+        lease.close()
+    assert consumed == [b'{"architectures":["InjectedModel"]}']
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
@@ -334,6 +361,26 @@ def test_base_snapshot_semantic_identity_stays_locked_for_lifetime(tmp_path):
         lease.assert_intact()
     finally:
         lease.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
+def test_base_snapshot_rejects_reparse_point_in_any_path_ancestor(
+    tmp_path, monkeypatch
+):
+    import src.model_adaptation.phase41_protocols as phase41_protocols
+
+    root = (tmp_path / "parent" / "base-snapshot").absolute()
+    root.mkdir(parents=True)
+    (root / "model.safetensors").write_bytes(b"base")
+    redirecting_parent = root.parent
+    original = phase41_protocols._path_is_redirecting
+    monkeypatch.setattr(
+        phase41_protocols,
+        "_path_is_redirecting",
+        lambda path: Path(path) == redirecting_parent or original(path),
+    )
+    with pytest.raises(ProtocolContractError, match="ancestry.*reparse"):
+        _ImmutableTreeLease(root, description="PhoBERT base snapshot")
 
 
 def test_qwen_loader_rejects_overlength_input_before_generation():

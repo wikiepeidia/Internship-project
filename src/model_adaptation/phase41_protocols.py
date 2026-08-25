@@ -419,6 +419,13 @@ class _ImmutableTreeLease:
         "_handles",
         "_identity_sha256",
         "_closed",
+        "_changed",
+        "_watch_kernel32",
+        "_watch_handle",
+        "_watch_event",
+        "_watch_buffer",
+        "_watch_bytes",
+        "_watch_overlapped",
     )
 
     def __init__(
@@ -435,12 +442,27 @@ class _ImmutableTreeLease:
             )
         self.root = Path(root)
         self.description = description
+        if any(
+            _path_is_redirecting(part)
+            for part in (self.root, *self.root.parents)
+        ):
+            raise ProtocolContractError(
+                f"{description} path ancestry contains a reparse point"
+            )
         self._inventory = _tree_inventory(self.root)
         self._handles: list[object] = []
         self._identity_sha256: str | None = None
         self._closed = False
+        self._changed = False
+        self._watch_kernel32 = None
+        self._watch_handle = None
+        self._watch_event = None
+        self._watch_buffer = None
+        self._watch_bytes = None
+        self._watch_overlapped = None
         try:
             self._acquire_windows_handles()
+            self._start_windows_change_fence()
             if _tree_inventory(self.root) != self._inventory:
                 raise ProtocolContractError(
                     f"{description} changed while lifetime locks were acquired"
@@ -495,6 +517,122 @@ class _ImmutableTreeLease:
                 )
             self._handles.append((kernel32, handle))
 
+    def _start_windows_change_fence(self) -> None:
+        import ctypes
+        from ctypes import wintypes
+
+        class Overlapped(ctypes.Structure):
+            _fields_ = [
+                ("Internal", ctypes.c_size_t),
+                ("InternalHigh", ctypes.c_size_t),
+                ("Offset", wintypes.DWORD),
+                ("OffsetHigh", wintypes.DWORD),
+                ("hEvent", wintypes.HANDLE),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateFileW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        kernel32.CreateFileW.restype = wintypes.HANDLE
+        kernel32.CreateEventW.argtypes = [
+            wintypes.LPVOID,
+            wintypes.BOOL,
+            wintypes.BOOL,
+            wintypes.LPCWSTR,
+        ]
+        kernel32.CreateEventW.restype = wintypes.HANDLE
+        kernel32.ReadDirectoryChangesW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.BOOL,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            ctypes.POINTER(Overlapped),
+            wintypes.LPVOID,
+        ]
+        kernel32.ReadDirectoryChangesW.restype = wintypes.BOOL
+        kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.CancelIoEx.argtypes = [wintypes.HANDLE, ctypes.POINTER(Overlapped)]
+        kernel32.CancelIoEx.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        invalid = ctypes.c_void_p(-1).value
+        watch_handle = kernel32.CreateFileW(
+            str(self.root),
+            0x00000001,  # FILE_LIST_DIRECTORY
+            0x00000007,  # share read/write/delete; the watcher records mutation
+            None,
+            3,  # OPEN_EXISTING
+            0x02000000 | 0x40000000,  # BACKUP_SEMANTICS | OVERLAPPED
+            None,
+        )
+        if watch_handle == invalid:
+            raise ProtocolContractError(
+                f"{self.description} could not open its directory-change fence"
+            )
+        event = kernel32.CreateEventW(None, True, False, None)
+        if not event:
+            kernel32.CloseHandle(watch_handle)
+            raise ProtocolContractError(
+                f"{self.description} could not create its directory-change event"
+            )
+        buffer = ctypes.create_string_buffer(65536)
+        returned = wintypes.DWORD(0)
+        overlapped = Overlapped()
+        overlapped.hEvent = event
+        queued = kernel32.ReadDirectoryChangesW(
+            watch_handle,
+            buffer,
+            len(buffer),
+            True,
+            0x0000015F,  # names, attributes, size, writes, creation, security
+            ctypes.byref(returned),
+            ctypes.byref(overlapped),
+            None,
+        )
+        if not queued and ctypes.get_last_error() != 997:  # ERROR_IO_PENDING
+            kernel32.CloseHandle(event)
+            kernel32.CloseHandle(watch_handle)
+            raise ProtocolContractError(
+                f"{self.description} could not arm its directory-change fence"
+            )
+        self._watch_kernel32 = kernel32
+        self._watch_handle = watch_handle
+        self._watch_event = event
+        self._watch_buffer = buffer
+        self._watch_bytes = returned
+        self._watch_overlapped = overlapped
+
+    def _assert_change_fence_clean(self) -> None:
+        if (
+            self._watch_kernel32 is None
+            or self._watch_handle is None
+            or self._watch_event is None
+        ):
+            raise ProtocolContractError(
+                f"{self.description} directory-change fence is unavailable"
+            )
+        status = self._watch_kernel32.WaitForSingleObject(self._watch_event, 0)
+        if status == 0:  # WAIT_OBJECT_0
+            self._changed = True
+        elif status != 258:  # WAIT_TIMEOUT
+            raise ProtocolContractError(
+                f"{self.description} directory-change fence failed"
+            )
+        if self._changed:
+            raise ProtocolContractError(
+                f"{self.description} changed during its lifetime lease"
+            )
+
     @property
     def identity_sha256(self) -> str:
         if self._identity_sha256 is None:
@@ -513,6 +651,7 @@ class _ImmutableTreeLease:
     def assert_intact(self) -> None:
         if self._closed or not self._handles:
             raise ProtocolContractError(f"{self.description} lifetime lease is closed")
+        self._assert_change_fence_clean()
         if _tree_inventory(self.root) != self._inventory:
             raise ProtocolContractError(
                 f"{self.description} inventory changed during its lifetime lease"
@@ -522,6 +661,23 @@ class _ImmutableTreeLease:
         if self._closed:
             return
         self._closed = True
+        if (
+            self._watch_kernel32 is not None
+            and self._watch_handle is not None
+            and self._watch_overlapped is not None
+        ):
+            import ctypes
+
+            self._watch_kernel32.CancelIoEx(
+                self._watch_handle,
+                ctypes.byref(self._watch_overlapped),
+            )
+        if self._watch_kernel32 is not None and self._watch_event is not None:
+            self._watch_kernel32.CloseHandle(self._watch_event)
+        if self._watch_kernel32 is not None and self._watch_handle is not None:
+            self._watch_kernel32.CloseHandle(self._watch_handle)
+        self._watch_event = None
+        self._watch_handle = None
         while self._handles:
             kernel32, handle = self._handles.pop()
             kernel32.CloseHandle(handle)
