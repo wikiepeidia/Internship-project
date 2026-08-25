@@ -428,7 +428,6 @@ class _ImmutableTreeLease:
         "_watch_overlapped",
         "_handle_kernel32",
         "_handle_info_type",
-        "_acl_protected_ancestors",
     )
 
     def __init__(
@@ -460,7 +459,6 @@ class _ImmutableTreeLease:
         self._watch_overlapped = None
         self._handle_kernel32 = None
         self._handle_info_type = None
-        self._acl_protected_ancestors: tuple[Path, ...] = ()
         try:
             self._configure_windows_handle_api()
             self._acquire_ancestor_handles()
@@ -521,8 +519,6 @@ class _ImmutableTreeLease:
             ctypes.POINTER(ByHandleFileInformation),
         ]
         kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
-        kernel32.GetFileAttributesW.argtypes = [wintypes.LPCWSTR]
-        kernel32.GetFileAttributesW.restype = wintypes.DWORD
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
         self._handle_kernel32 = kernel32
@@ -533,8 +529,7 @@ class _ImmutableTreeLease:
         target: Path,
         *,
         deny_write: bool,
-        allow_acl_protected: bool = False,
-    ) -> object | None:
+    ) -> object:
         import ctypes
 
         if self._handle_kernel32 is None or self._handle_info_type is None:
@@ -556,8 +551,6 @@ class _ImmutableTreeLease:
         )
         if handle == invalid:
             code = ctypes.get_last_error()
-            if allow_acl_protected and code == 5:  # ERROR_ACCESS_DENIED
-                return None
             raise ProtocolContractError(
                 f"{self.description} could not lock path ancestry/tree: "
                 f"winerror={code}"
@@ -591,96 +584,19 @@ class _ImmutableTreeLease:
                 f"{self.description} held path is reparse-pointed or type-drifted"
             )
 
-    def _assert_acl_protected_ancestor(self, target: Path) -> None:
-        """Prove an unopenable ancestor cannot be retargeted by this token."""
-
-        import ctypes
-
-        if self._handle_kernel32 is None:
-            raise ProtocolContractError(
-                f"{self.description} Windows handle API is unavailable"
-            )
-        kernel32 = self._handle_kernel32
-        invalid = ctypes.c_void_p(-1).value
-        attributes = int(kernel32.GetFileAttributesW(str(target)))
-        if (
-            attributes == 0xFFFFFFFF
-            or not attributes & 0x00000010
-            or attributes & 0x00000400
-        ):
-            raise ProtocolContractError(
-                f"{self.description} protected ancestor is absent or redirecting"
-            )
-
-        mutation_probes = (
-            (target, 0x40000000),  # GENERIC_WRITE / reparse mutation
-            (target, 0x00000002),  # FILE_WRITE_DATA / FILE_ADD_FILE
-            (target, 0x00000004),  # FILE_APPEND_DATA / FILE_ADD_SUBDIRECTORY
-            (target, 0x00000010),  # FILE_WRITE_EA
-            (target, 0x00000040),  # FILE_DELETE_CHILD
-            (target, 0x00000100),  # FILE_WRITE_ATTRIBUTES
-            (target, 0x00010000),  # DELETE / rename target
-            (target, 0x00040000),  # WRITE_DAC
-            (target, 0x00080000),  # WRITE_OWNER
-            (target.parent, 0x00000040),  # FILE_DELETE_CHILD
-            (target.parent, 0x00000002),  # FILE_ADD_FILE
-            (target.parent, 0x00000004),  # FILE_ADD_SUBDIRECTORY
-            (target.parent, 0x00040000),  # parent WRITE_DAC
-            (target.parent, 0x00080000),  # parent WRITE_OWNER
-        )
-        for probe_path, desired_access in mutation_probes:
-            handle = kernel32.CreateFileW(
-                str(probe_path),
-                desired_access,
-                0x00000007,  # probe only; do not create a sharing conflict
-                None,
-                3,
-                0x00200000 | 0x02000000,
-                None,
-            )
-            if handle != invalid:
-                kernel32.CloseHandle(handle)
-                raise ProtocolContractError(
-                    f"{self.description} has an unlocked mutable path ancestor"
-                )
-            if ctypes.get_last_error() != 5:  # only ACL denial proves protection
-                raise ProtocolContractError(
-                    f"{self.description} ancestor immutability is unproven"
-                )
-
     def _acquire_ancestor_handles(self) -> None:
         held_ancestors = []
-        protected_ancestors = []
         for ancestor in reversed((self.root, *self.root.parents)):
             handle = self._open_locked_path(
                 ancestor,
                 deny_write=False,
-                allow_acl_protected=True,
             )
-            if handle is None:
-                self._assert_acl_protected_ancestor(ancestor)
-                protected_ancestors.append(ancestor)
-            else:
-                held_ancestors.append(handle)
+            held_ancestors.append(handle)
         for handle in held_ancestors:
             self._validate_locked_path(
                 handle,
                 expected_directory=True,
             )
-        self._acl_protected_ancestors = tuple(protected_ancestors)
-
-    def _assert_acl_protected_ancestors(self) -> None:
-        for ancestor in self._acl_protected_ancestors:
-            handle = self._open_locked_path(
-                ancestor,
-                deny_write=False,
-                allow_acl_protected=True,
-            )
-            if handle is not None:
-                raise ProtocolContractError(
-                    f"{self.description} protected ancestor access changed"
-                )
-            self._assert_acl_protected_ancestor(ancestor)
 
     def _acquire_windows_handles(self) -> None:
         for relative, kind, _ in self._inventory:
@@ -689,10 +605,6 @@ class _ImmutableTreeLease:
                 target,
                 deny_write=True,
             )
-            if handle is None:  # pragma: no cover - strict tree opens never allow this
-                raise ProtocolContractError(
-                    f"{self.description} immutable tree handle is unavailable"
-                )
             self._validate_locked_path(
                 handle,
                 expected_directory=kind == "directory",
@@ -832,7 +744,6 @@ class _ImmutableTreeLease:
     def assert_intact(self) -> None:
         if self._closed or not self._handles:
             raise ProtocolContractError(f"{self.description} lifetime lease is closed")
-        self._assert_acl_protected_ancestors()
         self._assert_change_fence_clean()
         if _tree_inventory(self.root) != self._inventory:
             raise ProtocolContractError(

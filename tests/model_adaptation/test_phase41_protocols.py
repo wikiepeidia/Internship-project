@@ -364,6 +364,56 @@ def test_base_snapshot_semantic_identity_stays_locked_for_lifetime(tmp_path):
         lease.close()
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows ancestor handles required")
+def test_access_denied_ancestor_never_uses_token_relative_acl_fallback(
+    tmp_path, monkeypatch
+):
+    import ctypes
+
+    root = (tmp_path / "denied-parent" / "base-snapshot").absolute()
+    root.mkdir(parents=True)
+    (root / "model.safetensors").write_bytes(b"base")
+    denied_ancestor = root.parent
+    invalid_handle = ctypes.c_void_p(-1).value
+
+    class FakeKernel32:
+        def __init__(self) -> None:
+            self.next_handle = 100
+            self.closed: list[int] = []
+
+        def CreateFileW(self, path, *_args):
+            if Path(path) == denied_ancestor:
+                ctypes.set_last_error(5)
+                return invalid_handle
+            self.next_handle += 1
+            return self.next_handle
+
+        def CloseHandle(self, handle):
+            self.closed.append(handle)
+            return True
+
+    fake = FakeKernel32()
+
+    def configure_fake_handle_api(lease):
+        lease._handle_kernel32 = fake
+        lease._handle_info_type = object
+
+    monkeypatch.setattr(
+        _ImmutableTreeLease,
+        "_configure_windows_handle_api",
+        configure_fake_handle_api,
+    )
+    with pytest.raises(ProtocolContractError, match="winerror=5"):
+        _ImmutableTreeLease(root, description="denied synthetic ancestor")
+
+    source = Path("src/model_adaptation/phase41_protocols.py").read_text(
+        encoding="utf-8"
+    )
+    assert "allow_acl_protected" not in source
+    assert "_assert_acl_protected_ancestor" not in source
+    assert fake.closed
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
 def test_ancestor_swap_to_equal_shape_redirect_is_blocked_before_inventory(
     tmp_path, monkeypatch
