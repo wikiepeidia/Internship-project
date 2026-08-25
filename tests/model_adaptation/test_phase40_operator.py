@@ -797,6 +797,130 @@ def _phobert_controlled() -> SimpleNamespace:
     )
 
 
+def _relative_phobert_base_model_args() -> tuple[str, ...]:
+    return (
+        "--base-model-path",
+        "data/models/phase40/base/phobert-base-v2",
+        "--base-model-manifest-path",
+        "data/models/phase40/base/phobert-base-v2.provenance.json",
+    )
+
+
+def _install_phobert_resume_cli_fakes(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    runtime_accelerator: object,
+) -> tuple[dict[str, object], SimpleNamespace]:
+    placeholder = SimpleNamespace(
+        accelerator_type="operator-supplied",
+        accelerator_name="operator-supplied",
+    )
+    requested = _phobert_controlled()
+    requested.accelerator = placeholder
+    template = _Template(requested)
+    run = _run(
+        "phobert",
+        "phobert",
+        "classification-head",
+        returned_root="data/models/phase40/full/phobert",
+    )
+    request = _request(run, template)
+    request.input_bundle = SimpleNamespace(
+        repository_relative_path="data/models/phase40/phase40-train-validation.zip",
+        drive_path="/content/drive/MyDrive/internship-phase40/phase40-train-validation.zip",
+    )
+    contract = SimpleNamespace(validation_snapshot=object())
+    base_model_snapshot = object()
+    seen: dict[str, object] = {
+        "accelerators": [],
+        "archive_calls": [],
+        "resume_calls": [],
+        "run_calls": [],
+    }
+
+    class FakeConfig:
+        __dataclass_fields__ = {"work_root": object()}
+
+        def __init__(self, **kwargs) -> None:  # noqa: ANN003
+            self.values = kwargs
+            seen["config"] = kwargs
+
+    class FakeDependencies:
+        pass
+
+    resolved_dependencies = SimpleNamespace(accelerator=runtime_accelerator)
+
+    def resolve_dependencies(value):  # noqa: ANN001, ANN202
+        assert isinstance(value, FakeDependencies)
+        seen["dependency_resolution"] = value
+        return resolved_dependencies
+
+    def build_control(config, supplied_contract, *, accelerator):  # noqa: ANN001, ANN202
+        assert supplied_contract is contract
+        seen["accelerators"].append(accelerator)
+        return SimpleNamespace(accelerator=accelerator)
+
+    manifest = SimpleNamespace(
+        model_dump=lambda **kwargs: {"checkpoint_step": 50, "run_id": "phobert"}
+    )
+
+    def verify_resume(path, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        seen["resume_calls"].append((path, kwargs))
+        return manifest, ()
+
+    result = SimpleNamespace(
+        selection=SimpleNamespace(safety_gate_passed=True),
+        evidence=SimpleNamespace(status=SimpleNamespace(value="complete")),
+    )
+
+    def run_training(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        seen["run_calls"].append((args, kwargs))
+        return result
+
+    fake_phobert = SimpleNamespace(
+        PhoBertTrainingConfig=FakeConfig,
+        PhoBertTrainingDependencies=FakeDependencies,
+        _resolve_default_dependencies=resolve_dependencies,
+        build_phobert_controlled_config=build_control,
+        verify_phobert_resume_checkpoint=verify_resume,
+        run_phobert_training=run_training,
+    )
+    fake_handoff = SimpleNamespace(transfer_authority_from_request=lambda value: "authority")
+    real_evidence = operator._import_module("src.model_adaptation.phase40_evidence")
+
+    def import_module(name):  # noqa: ANN001, ANN202
+        if name.endswith("phase40_handoff"):
+            return fake_handoff
+        if name.endswith("phase40_evidence"):
+            return real_evidence
+        return fake_phobert
+
+    def verify_archive(**kwargs):  # noqa: ANN003, ANN202
+        seen["archive_calls"].append(kwargs)
+        return contract
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        operator,
+        "_load_verified_request",
+        lambda *args, **kwargs: (request, tmp_path.resolve()),
+    )
+    monkeypatch.setattr(operator, "_verify_materialized_input", lambda *args: None)
+    monkeypatch.setattr(operator, "_verify_input_archive", verify_archive)
+    monkeypatch.setattr(
+        operator,
+        "_validate_base_model_cli_paths",
+        lambda **kwargs: base_model_snapshot,
+    )
+    monkeypatch.setattr(operator, "_import_module", import_module)
+    seen["resolved_dependencies"] = resolved_dependencies
+    seen["base_model_snapshot"] = base_model_snapshot
+    seen["contract"] = contract
+    seen["placeholder"] = placeholder
+    return seen, request
+
+
 def test_phobert_command_builds_all_controls_from_request_and_uses_work_root(
     tmp_path: Path,
     monkeypatch,
@@ -830,10 +954,15 @@ def test_phobert_command_builds_all_controls_from_request_and_uses_work_root(
         selection=SimpleNamespace(safety_gate_passed=True),
         evidence=SimpleNamespace(status=SimpleNamespace(value="complete")),
     )
+
+    def run_training(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        seen["run"] = (args, kwargs)
+        return result
+
     fake_phobert = SimpleNamespace(
         PhoBertTrainingConfig=FakeConfig,
         build_phobert_controlled_config=build_control,
-        run_phobert_training=lambda *args, **kwargs: result,
+        run_phobert_training=run_training,
     )
     fake_handoff = SimpleNamespace(transfer_authority_from_request=lambda value: "authority")
     monkeypatch.setattr(
@@ -881,7 +1010,220 @@ def test_phobert_command_builds_all_controls_from_request_and_uses_work_root(
         tmp_path / "data/models/phase40/base/phobert-base-v2.provenance.json"
     ).resolve()
     assert template.verified == [controlled]
+    assert "dependencies" not in seen["run"][1]
     assert json.loads(capsys.readouterr().out)["status"] == "complete"
+
+
+def test_verify_phobert_resume_cli_uses_local_archive_and_runtime_accelerator(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    runtime_accelerator = SimpleNamespace(
+        accelerator_type="cuda",
+        accelerator_name="NVIDIA GeForce RTX 5050 Laptop GPU",
+        compute_capability="12.0",
+        total_memory_bytes=8_545_128_448,
+    )
+    seen, request = _install_phobert_resume_cli_fakes(
+        tmp_path,
+        monkeypatch,
+        runtime_accelerator=runtime_accelerator,
+    )
+    checkpoint = Path("work/phobert/trainer/checkpoint-50")
+    checkpoint.mkdir(parents=True)
+    argv = (
+        "phase40-verify-resume",
+        "--request-path",
+        "data/models/phase40/full-run-request.json",
+        "--repo-root",
+        ".",
+        "--run-id",
+        "phobert",
+        "--checkpoint",
+        checkpoint.as_posix(),
+        "--input-root",
+        "data/models/phase40/input",
+    ) + _relative_phobert_base_model_args()
+
+    assert operator.main(argv) == 0
+
+    archive_call = seen["archive_calls"][0]
+    expected_archive = (
+        tmp_path / request.input_bundle.repository_relative_path
+    ).resolve()
+    assert archive_call["archive_path"] == expected_archive
+    assert str(archive_call["archive_path"]) != request.input_bundle.drive_path
+    assert archive_call["materialize"] is False
+    assert seen["accelerators"] == [seen["placeholder"], runtime_accelerator]
+    resume_path, resume_kwargs = seen["resume_calls"][0]
+    assert resume_path == checkpoint.resolve()
+    assert resume_kwargs["controlled_config"].accelerator is runtime_accelerator
+    assert seen["config"]["sanitized_argv"] == argv
+    assert str(tmp_path) not in " ".join(argv)
+    assert "\\" not in " ".join(argv)
+    assert json.loads(capsys.readouterr().out)["resume_compatible"] is True
+
+
+def test_train_phobert_resume_cli_reuses_preverified_runtime_dependencies(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    runtime_accelerator = SimpleNamespace(
+        accelerator_type="cuda",
+        accelerator_name="NVIDIA GeForce RTX 5050 Laptop GPU",
+        compute_capability="12.0",
+        total_memory_bytes=8_545_128_448,
+    )
+    seen, _ = _install_phobert_resume_cli_fakes(
+        tmp_path,
+        monkeypatch,
+        runtime_accelerator=runtime_accelerator,
+    )
+    checkpoint = Path("work/phobert/trainer/checkpoint-50")
+    checkpoint.mkdir(parents=True)
+    argv = (
+        "phase40-train-phobert",
+        "--request-path",
+        "data/models/phase40/full-run-request.json",
+        "--repo-root",
+        ".",
+        "--input-archive",
+        "data/models/phase40/phase40-train-validation.zip",
+        "--extraction-root",
+        "data/models/phase40/input",
+        "--run-id",
+        "phobert",
+        "--output-root",
+        "work/phobert",
+        "--resume-from-checkpoint",
+        checkpoint.as_posix(),
+    ) + _relative_phobert_base_model_args()
+
+    assert operator.main(argv) == 0
+
+    assert seen["accelerators"] == [seen["placeholder"], runtime_accelerator]
+    assert seen["resume_calls"][0][1]["controlled_config"].accelerator is runtime_accelerator
+    run_args, run_kwargs = seen["run_calls"][0]
+    assert run_args[1] is seen["contract"]
+    assert run_kwargs["dependencies"] is seen["resolved_dependencies"]
+    assert seen["config"]["sanitized_argv"] == argv
+    assert json.loads(capsys.readouterr().out)["status"] == "complete"
+
+
+def test_train_phobert_resume_cli_rejects_placeholder_accelerator_before_backend(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    unresolved = SimpleNamespace(
+        accelerator_type="operator-supplied",
+        accelerator_name="operator-supplied",
+    )
+    seen, _ = _install_phobert_resume_cli_fakes(
+        tmp_path,
+        monkeypatch,
+        runtime_accelerator=unresolved,
+    )
+    checkpoint = Path("work/phobert/trainer/checkpoint-50")
+    checkpoint.mkdir(parents=True)
+    argv = (
+        "phase40-train-phobert",
+        "--request-path",
+        "data/models/phase40/full-run-request.json",
+        "--repo-root",
+        ".",
+        "--input-archive",
+        "data/models/phase40/phase40-train-validation.zip",
+        "--extraction-root",
+        "data/models/phase40/input",
+        "--run-id",
+        "phobert",
+        "--output-root",
+        "work/phobert",
+        "--resume-from-checkpoint",
+        checkpoint.as_posix(),
+    ) + _relative_phobert_base_model_args()
+
+    assert operator.main(argv) == 1
+    assert seen["resume_calls"] == []
+    assert seen["run_calls"] == []
+
+
+@pytest.mark.parametrize(
+    "runtime_accelerator",
+    (
+        SimpleNamespace(
+            accelerator_type="cpu",
+            accelerator_name="CPU",
+            compute_capability=None,
+            total_memory_bytes=0,
+        ),
+        SimpleNamespace(
+            accelerator_type="cuda",
+            accelerator_name="NVIDIA GeForce RTX 5050 Laptop GPU",
+            compute_capability=None,
+            total_memory_bytes=8_545_128_448,
+        ),
+        SimpleNamespace(
+            accelerator_type="cuda",
+            accelerator_name="NVIDIA GeForce RTX 5050 Laptop GPU",
+            compute_capability="12.0",
+            total_memory_bytes=0,
+        ),
+    ),
+)
+def test_phobert_resume_dependency_resolution_rejects_non_live_cuda_identity(
+    runtime_accelerator,
+) -> None:
+    class FakeDependencies:
+        pass
+
+    backend = SimpleNamespace(
+        PhoBertTrainingDependencies=FakeDependencies,
+        _resolve_default_dependencies=lambda dependencies: SimpleNamespace(
+            accelerator=runtime_accelerator
+        ),
+    )
+    with pytest.raises(RuntimeError, match="concrete live CUDA"):
+        operator._resolve_phobert_runtime_dependencies(backend)
+
+
+def test_train_phobert_cli_rejects_windows_absolute_argv_before_archive_open(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    runtime_accelerator = SimpleNamespace(
+        accelerator_type="cuda",
+        accelerator_name="NVIDIA GeForce RTX 5050 Laptop GPU",
+        compute_capability="12.0",
+        total_memory_bytes=8_545_128_448,
+    )
+    seen, _ = _install_phobert_resume_cli_fakes(
+        tmp_path,
+        monkeypatch,
+        runtime_accelerator=runtime_accelerator,
+    )
+    argv = (
+        "phase40-train-phobert",
+        "--request-path",
+        "data/models/phase40/full-run-request.json",
+        "--repo-root",
+        ".",
+        "--input-archive",
+        "data/models/phase40/phase40-train-validation.zip",
+        "--extraction-root",
+        "data/models/phase40/input",
+        "--run-id",
+        "phobert",
+        "--output-root",
+        "C:/Users/student/phase40-work",
+    ) + _relative_phobert_base_model_args()
+
+    assert operator.main(argv) == 1
+    assert seen["archive_calls"] == []
+    assert seen["resume_calls"] == []
+    assert seen["run_calls"] == []
 
 
 def test_evidence_command_verifies_complete_bundle_lazily(tmp_path: Path, monkeypatch, capsys) -> None:

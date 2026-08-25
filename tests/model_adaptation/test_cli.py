@@ -190,6 +190,57 @@ def test_phase40_probe_and_review_cli_controls_parse_without_latest_alias(tmp_pa
     assert human.vietnamese_fluent_attestation is True
 
 
+def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
+    tmp_path, monkeypatch
+):
+    cli_module = _load_cli_module()
+    reviewer_return_path = tmp_path / "reviewer-return.jsonl"
+    original_bytes = b'  {"assessment":"ambiguous"}\r\n'
+    reviewer_return_path.write_bytes(original_bytes)
+    sentinels = tuple(object() for _ in range(5))
+    queue_bytes = b'{"model_run_id":"qwen-qlora"}\n'
+    sentinel_reviews = (object(),)
+    captured = {}
+
+    monkeypatch.setattr(
+        cli_module,
+        "_load_phase40_review_authorities",
+        lambda args: (*sentinels, queue_bytes),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_load_jsonl_models_from_bytes",
+        lambda payload, path, model_type: sentinel_reviews,
+    )
+
+    def fake_finalize(queue, reviews, **kwargs):
+        captured["queue"] = queue
+        captured["reviews"] = reviews
+        captured.update(kwargs)
+        return SimpleNamespace(
+            notes_path=tmp_path / "human-review-notes.jsonl",
+            report_path=tmp_path / "human-review-report.md",
+        )
+
+    monkeypatch.setattr(cli_module, "finalize_phase40_human_review", fake_finalize)
+    args = SimpleNamespace(
+        reviewer_return_path=reviewer_return_path,
+        repo_root=tmp_path,
+        queue_manifest_path=tmp_path / "queue-manifest.json",
+        comparison_manifest_path=tmp_path / "comparison.json",
+        scope_amendment_path=tmp_path / "scope-amendment.json",
+        output_root=tmp_path / "out",
+        vietnamese_fluent_attestation=True,
+        verify_only=False,
+    )
+
+    assert cli_module.handle_phase40_finalize_human_review(args) == 0
+    assert captured["queue"] is sentinels[4]
+    assert captured["reviews"] is sentinel_reviews
+    assert captured["queue_bytes"] == queue_bytes
+    assert captured["reviewer_return_bytes"] == original_bytes
+
+
 def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypatch):
     cli_module = _load_cli_module()
     request_path = tmp_path / "request.json"

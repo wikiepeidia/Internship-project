@@ -148,21 +148,44 @@ def _add_phase40_review_authority_arguments(parser: argparse.ArgumentParser) -> 
     parser.add_argument("--queue-path", type=Path, required=True)
 
 
-def _load_jsonl_models(path: Path, model_type):  # noqa: ANN001
-    if not path.is_file() or path.stat().st_size == 0:
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _load_jsonl_models_from_bytes(payload: bytes, path: Path, model_type):  # noqa: ANN001
+    if not payload:
         raise ValueError(f"required JSONL input is missing or empty: {path}")
-    payload = path.read_text(encoding="utf-8", errors="strict")
-    if not payload.endswith("\n"):
+    try:
+        text = payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"JSONL input is not strict UTF-8: {path}") from exc
+    if not text.endswith("\n"):
         raise ValueError(f"JSONL input has a partial final record: {path}")
     rows = []
-    for index, line in enumerate(payload.splitlines()):
+    for index, line in enumerate(text.splitlines()):
         if not line:
             raise ValueError(f"JSONL input contains an empty row: {path}")
         try:
-            rows.append(model_type.model_validate_json(line))
+            parsed = json.loads(line, object_pairs_hook=_reject_duplicate_json_keys)
+            if not isinstance(parsed, dict):
+                raise ValueError("JSONL row must be one object")
+            rows.append(model_type.model_validate(parsed))
         except Exception as exc:
             raise ValueError(f"invalid JSONL row {index}: {path}") from exc
     return tuple(rows)
+
+
+def _load_jsonl_models(path: Path, model_type):  # noqa: ANN001
+    if not path.is_file():
+        raise ValueError(f"required JSONL input is missing or empty: {path}")
+    return _load_jsonl_models_from_bytes(path.read_bytes(), path, model_type)
 
 
 def _parse_package_decision(value: str) -> PackageDecision:
@@ -1040,29 +1063,45 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
         args.selected_predictions_path,
         comparison_manifest=comparison,
     )
-    queue = _load_jsonl_models(args.queue_path, ReviewQueueRow)
+    try:
+        queue_bytes = args.queue_path.read_bytes()
+    except OSError as exc:
+        raise ValueError(
+            f"required JSONL input is missing or unreadable: {args.queue_path}"
+        ) from exc
+    queue = _load_jsonl_models_from_bytes(
+        queue_bytes,
+        args.queue_path,
+        ReviewQueueRow,
+    )
     verify_phase40_review_queue(
         queue,
         contract=contract,
         prediction_bundles=bundles,
     )
-    return request, contract, comparison, bundles, queue
+    return request, contract, comparison, bundles, queue, queue_bytes
 
 
 def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
-    _, _, comparison, _, queue = _load_phase40_review_authorities(args)
+    _, _, comparison, _, queue, queue_bytes = _load_phase40_review_authorities(args)
     if comparison.review_queue_sha256 is None:
         raise ValueError("comparison manifest has no review-queue identity")
-    queue_payload = args.queue_path.read_bytes()
-    if hashlib.sha256(queue_payload).hexdigest() != comparison.review_queue_sha256:
+    if hashlib.sha256(queue_bytes).hexdigest() != comparison.review_queue_sha256:
         raise ValueError("review queue file hash differs from the comparison manifest")
     print(f"Phase 40 review queue verified: rows={len(queue)} path={args.queue_path}")
     return 0
 
 
 def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
-    request, contract, _, bundles, queue = _load_phase40_review_authorities(args)
-    reviews = _load_jsonl_models(args.reviewer_return_path, ReviewerReturnRow)
+    request, contract, _, bundles, queue, queue_bytes = (
+        _load_phase40_review_authorities(args)
+    )
+    reviewer_return_bytes = args.reviewer_return_path.read_bytes()
+    reviews = _load_jsonl_models_from_bytes(
+        reviewer_return_bytes,
+        args.reviewer_return_path,
+        ReviewerReturnRow,
+    )
     artifacts = finalize_phase40_human_review(
         queue,
         reviews,
@@ -1074,6 +1113,8 @@ def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
         comparison_manifest_path=args.comparison_manifest_path,
         scope_amendment_path=args.scope_amendment_path,
         output_root=args.output_root,
+        queue_bytes=queue_bytes,
+        reviewer_return_bytes=reviewer_return_bytes,
         vietnamese_fluent_attestation=args.vietnamese_fluent_attestation,
         verify_only=args.verify_only,
     )

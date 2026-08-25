@@ -578,6 +578,41 @@ def _verify_phobert_resume_checkpoint(
     return manifest.model_dump(mode="json")
 
 
+def _resolve_phobert_runtime_dependencies(phobert: ModuleType) -> Any:
+    """Resolve the exact backend dependency set used by one resumed run.
+
+    Resume compatibility includes the live accelerator identity.  The request
+    template deliberately contains only an ``operator-supplied`` placeholder,
+    so using ``materialize_for_validation()`` here would compute a different
+    resume digest from the backend's later runtime resolution.
+    """
+
+    dependencies_type = getattr(phobert, "PhoBertTrainingDependencies", None)
+    resolver = getattr(phobert, "_resolve_default_dependencies", None)
+    if not isinstance(dependencies_type, type) or not callable(resolver):
+        raise RuntimeError("PhoBERT backend lacks deterministic runtime dependency resolution")
+    resolved = resolver(dependencies_type())
+    accelerator = getattr(resolved, "accelerator", None)
+    accelerator_type = getattr(accelerator, "accelerator_type", None)
+    accelerator_name = getattr(accelerator, "accelerator_name", None)
+    compute_capability = getattr(accelerator, "compute_capability", None)
+    total_memory_bytes = getattr(accelerator, "total_memory_bytes", None)
+    if (
+        accelerator_type != "cuda"
+        or not isinstance(accelerator_name, str)
+        or not accelerator_name
+        or not isinstance(compute_capability, str)
+        or not compute_capability
+        or isinstance(total_memory_bytes, bool)
+        or not isinstance(total_memory_bytes, int)
+        or total_memory_bytes <= 0
+    ):
+        raise RuntimeError(
+            "PhoBERT resume requires one concrete live CUDA accelerator identity"
+        )
+    return resolved
+
+
 def _verify_resume_checkpoint(
     checkpoint: Path,
     *,
@@ -740,7 +775,9 @@ def handle_verify_resume(args: argparse.Namespace) -> int:
     if model_family == "phobert":
         contract = _verify_input_archive(
             request=request,
-            archive_path=Path(request.input_bundle.drive_path),
+            archive_path=_lexical_absolute(
+                repo_root / request.input_bundle.repository_relative_path
+            ),
             repo_root=repo_root,
             extraction_root=args.input_root,
             materialize=False,
@@ -763,12 +800,11 @@ def handle_verify_resume(args: argparse.Namespace) -> int:
             base_model_path=args.base_model_path,
             base_model_manifest_path=args.base_model_manifest_path,
         )
+        runtime_dependencies = _resolve_phobert_runtime_dependencies(phobert)
         controlled = phobert.build_phobert_controlled_config(
             config,
             contract,
-            accelerator=request.control_template_by_run[
-                selected.run_id
-            ].materialize_for_validation().accelerator,
+            accelerator=runtime_dependencies.accelerator,
         )
         payload = _verify_phobert_resume_checkpoint(
             checkpoint,
@@ -1005,13 +1041,13 @@ def handle_train_phobert(args: argparse.Namespace) -> int:
         base_model_path=args.base_model_path,
         base_model_manifest_path=args.base_model_manifest_path,
     )
+    runtime_dependencies: Any | None = None
     if resume is not None:
+        runtime_dependencies = _resolve_phobert_runtime_dependencies(phobert)
         controlled = phobert.build_phobert_controlled_config(
             config,
             contract,
-            accelerator=request.control_template_by_run[
-                selected.run_id
-            ].materialize_for_validation().accelerator,
+            accelerator=runtime_dependencies.accelerator,
         )
         _verify_phobert_resume_checkpoint(
             resume,
@@ -1021,11 +1057,15 @@ def handle_train_phobert(args: argparse.Namespace) -> int:
             validation_snapshot=contract.validation_snapshot,
             base_model_snapshot=base_model_snapshot,
         )
-    result = phobert.run_phobert_training(
-        config,
-        contract,
-        requested_control_template=request.control_template_by_run[selected.run_id],
-    )
+    training_kwargs: dict[str, object] = {
+        "requested_control_template": request.control_template_by_run[selected.run_id]
+    }
+    if runtime_dependencies is not None:
+        # Reuse the exact dependency identity that authorized the checkpoint.
+        # The fresh-run call remains byte-for-byte equivalent to its prior
+        # backend invocation and lets the backend resolve its own dependencies.
+        training_kwargs["dependencies"] = runtime_dependencies
+    result = phobert.run_phobert_training(config, contract, **training_kwargs)
     print(
         json.dumps(
             {

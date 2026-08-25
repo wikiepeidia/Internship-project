@@ -73,11 +73,19 @@ from src.model_adaptation.registry import build_model_checksum
 PHASE40_INPUT_SCHEMA_VERSION = "phase40-input-bundle-v1"
 PHASE40_SOURCE_SCHEMA_VERSION = "phase40-source-bundle-v1"
 PHASE40_RUN_REQUEST_SCHEMA_VERSION = "phase40-full-run-request-v1"
-PHASE40_REVIEW_QUEUE_SCHEMA_VERSION = "phase40-review-queue-v1"
-PHASE40_HUMAN_REVIEW_SCHEMA_VERSION = "phase40-human-review-v1"
+PHASE40_REVIEW_QUEUE_SCHEMA_VERSION = "phase40-review-queue-v2"
+PHASE40_HUMAN_REVIEW_SCHEMA_VERSION = "phase40-human-review-v2"
 PHASE40_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v2"
 PHASE40_SCOPE_AMENDMENT_SCHEMA_VERSION = "phase40-two-full-model-scope-amendment-v1"
 PHASE40_SNAPSHOT_ID_VERSION = "phase40-snapshot-row-id-v1"
+PHASE40_COMPARISON_LIMITATIONS = (
+    "single_training_seed_42_no_variance_or_significance_claim",
+    "validation_only_no_held_out_test_claim",
+    "zalo_validation_support_is_small_and_all_zalo_errors_require_review",
+    "full_lora_cancelled_before_start_after_bounded_local_resource_probe",
+    "lora_probe_has_no_predictions_and_supports_no_quality_claim",
+    "colab_is_validation_contingency_only_before_held_out_open",
+)
 
 INPUT_MEMBER_NAMES = (
     "phase40-input-manifest.json",
@@ -218,7 +226,10 @@ _SAFE_RUN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
 _SECRET_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer|credential|password|secret|token)"
 )
-_WINDOWS_ABSOLUTE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+_WINDOWS_ABSOLUTE_RE = re.compile(r"[A-Za-z]:[\\/]")
+_PERSONAL_PATH_RE = re.compile(
+    r"(?i)(?:[A-Za-z]:[\\/]|/(?:home|users)/|\\users\\)"
+)
 _SLICE_ORDER = (
     "invalid_output",
     "risky_to_benign",
@@ -235,6 +246,18 @@ ReviewSlice = Literal[
     "risky_cross_confusion",
     "correct_calibration_sample",
 ]
+_REVIEW_ASSESSMENT_ORDER = (
+    "prediction_supported",
+    "prediction_unsupported",
+    "gold_label_concern",
+    "ambiguous",
+)
+ReviewAssessment = Literal[
+    "prediction_supported",
+    "prediction_unsupported",
+    "gold_label_concern",
+    "ambiguous",
+]
 
 
 def _canonical_json_bytes(value: object) -> bytes:
@@ -242,6 +265,28 @@ def _canonical_json_bytes(value: object) -> bytes:
         json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         + "\n"
     ).encode("utf-8")
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _strict_json_object(payload: bytes, *, description: str) -> dict[str, object]:
+    try:
+        text = payload.decode("utf-8", errors="strict")
+        value = json.loads(text, object_pairs_hook=_reject_duplicate_json_keys)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"{description} is not strict duplicate-free JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{description} must be one JSON object")
+    return value
 
 
 def _sha256(payload: bytes) -> str:
@@ -1763,7 +1808,7 @@ class PackageDecision(BaseModel):
         stripped = " ".join(value.split())
         if not stripped or len(stripped) > 300 or _SECRET_RE.search(stripped):
             raise ValueError("package reason must be short, non-secret text")
-        if _WINDOWS_ABSOLUTE_RE.search(stripped) or "/Users/" in stripped or "\\Users\\" in stripped:
+        if _PERSONAL_PATH_RE.search(stripped):
             raise ValueError("package reason cannot contain a personal absolute path")
         return stripped
 
@@ -1799,7 +1844,7 @@ class ReturnedGpuIdentity(BaseModel):
     @classmethod
     def sanitize_accelerator(cls, value: str) -> str:
         stripped = " ".join(value.split())
-        if _SECRET_RE.search(stripped) or _WINDOWS_ABSOLUTE_RE.search(stripped):
+        if _SECRET_RE.search(stripped) or _PERSONAL_PATH_RE.search(stripped):
             raise ValueError("GPU identity contains secret or personal-path material")
         return stripped
 
@@ -2083,14 +2128,11 @@ def _prediction_row_from_payload(
         raise ValueError("PhoBERT prediction row requires a locked argmax state")
     if LABEL_ORDER[max(range(len(logits)), key=lambda index: logits[index])] != predicted:
         raise ValueError("PhoBERT argmax state does not match retained raw logits")
-    raw_prediction = json.dumps(
-        {"label": predicted}, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
-    return Phase40PredictionRow.from_raw(
+    return Phase40PredictionRow.from_phobert_logits(
         validation_row_id=validation_row_id,
         sequence_index=sequence_index,
         gold_label=gold_label,
-        raw_prediction=raw_prediction,
+        logits=tuple(float(value) for value in logits),
         artifact_identity=artifact_identity,
         checkpoint_step=checkpoint_step,
     )
@@ -2588,7 +2630,7 @@ def verify_phase40_review_queue(
 class ReviewQueueManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["phase40-review-queue-v1"] = PHASE40_REVIEW_QUEUE_SCHEMA_VERSION
+    schema_version: Literal["phase40-review-queue-v2"] = PHASE40_REVIEW_QUEUE_SCHEMA_VERSION
     rows: int = Field(gt=0)
     queue_sha256: str
     reviewer_template_sha256: str
@@ -2613,22 +2655,59 @@ class ReviewerReturnRow(BaseModel):
 
     model_run_id: str
     validation_row_id: str
-    decision: Literal["confirmed", "questioned", "unclear"]
-    note_vi: str = Field(min_length=1, max_length=2000)
+    canonical_sequence: int = Field(ge=0)
+    raw_message: str = Field(min_length=1)
+    source_row_sha256: str
+    gold_label: str
+    predicted_label: str
+    selected_checkpoint_identity: str = Field(min_length=1)
+    model_artifact_identity: str = Field(min_length=1)
+    slice_tags: tuple[ReviewSlice, ...]
+    assessment: ReviewAssessment
+    mechanism_note_vi: str = Field(min_length=1, max_length=2000)
+    shortcut_pattern_note_vi: str | None = Field(
+        default=None, min_length=1, max_length=2000
+    )
 
-    @field_validator("note_vi")
+    @field_validator("mechanism_note_vi", "shortcut_pattern_note_vi")
     @classmethod
-    def validate_note(cls, value: str) -> str:
+    def validate_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         stripped = " ".join(value.split())
         if not stripped:
             raise ValueError("review note cannot be blank")
-        if _SECRET_RE.search(stripped) or _WINDOWS_ABSOLUTE_RE.search(stripped):
+        if (
+            _SECRET_RE.search(stripped)
+            or _PERSONAL_PATH_RE.search(stripped)
+        ):
             raise ValueError("review note contains secret or personal-path material")
         return stripped
+
+    @model_validator(mode="after")
+    def validate_queue_identity(self) -> "ReviewerReturnRow":
+        # Reuse the frozen queue schema so reviewer returns cannot weaken any
+        # source, label, prediction, artifact, or slice-tag invariant.
+        self.as_queue_row()
+        return self
 
     @property
     def key(self) -> tuple[str, str]:
         return self.model_run_id, self.validation_row_id
+
+    def as_queue_row(self) -> ReviewQueueRow:
+        return ReviewQueueRow(
+            model_run_id=self.model_run_id,
+            validation_row_id=self.validation_row_id,
+            canonical_sequence=self.canonical_sequence,
+            raw_message=self.raw_message,
+            source_row_sha256=self.source_row_sha256,
+            gold_label=self.gold_label,
+            predicted_label=self.predicted_label,
+            selected_checkpoint_identity=self.selected_checkpoint_identity,
+            model_artifact_identity=self.model_artifact_identity,
+            slice_tags=self.slice_tags,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -2648,6 +2727,365 @@ def _review_jsonl(rows: Sequence[ReviewerReturnRow]) -> bytes:
     return b"".join(
         _canonical_json_bytes(row.model_dump(mode="json")) for row in rows
     )
+
+
+def _reviewer_template_jsonl(rows: Sequence[ReviewQueueRow]) -> bytes:
+    return b"".join(
+        _canonical_json_bytes(
+            {
+                "model_run_id": row.model_run_id,
+                "validation_row_id": row.validation_row_id,
+                "canonical_sequence": row.canonical_sequence,
+                "raw_message": row.raw_message,
+                "source_row_sha256": row.source_row_sha256,
+                "gold_label": row.gold_label,
+                "predicted_label": row.predicted_label,
+                "selected_checkpoint_identity": row.selected_checkpoint_identity,
+                "model_artifact_identity": row.model_artifact_identity,
+                "slice_tags": list(row.slice_tags),
+                "assessment": "ambiguous",
+                "mechanism_note_vi": "",
+                "shortcut_pattern_note_vi": None,
+            }
+        )
+        for row in rows
+    )
+
+
+def _reviewer_rows_from_original_bytes(payload: bytes) -> tuple[ReviewerReturnRow, ...]:
+    """Parse the exact reviewer-return artifact without canonicalizing its bytes."""
+
+    if not isinstance(payload, bytes) or not payload:
+        raise ValueError("original reviewer-return bytes are required")
+    try:
+        text = payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError("reviewer return is not strict UTF-8") from exc
+    if not text.endswith("\n"):
+        raise ValueError("reviewer return has a partial final record")
+    lines = text.splitlines()
+    if not lines or any(not line for line in lines):
+        raise ValueError("reviewer return contains an empty row")
+    rows: list[ReviewerReturnRow] = []
+    try:
+        for line in lines:
+            parsed = json.loads(line, object_pairs_hook=_reject_duplicate_json_keys)
+            if not isinstance(parsed, dict):
+                raise ValueError("reviewer-return row must be one JSON object")
+            rows.append(ReviewerReturnRow.model_validate(parsed))
+    except Exception as exc:
+        raise ValueError("original reviewer-return bytes fail schema validation") from exc
+    return tuple(rows)
+
+
+def _assessment_counts(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+) -> dict[str, int]:
+    return {
+        assessment: sum(review.assessment == assessment for _, review in pairs)
+        for assessment in _REVIEW_ASSESSMENT_ORDER
+    }
+
+
+def _disagreement_counts(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+) -> dict[str, int]:
+    return {
+        "frozen_prediction_differs_from_gold": sum(
+            queue_row.predicted_label != queue_row.gold_label
+            for queue_row, _ in pairs
+        ),
+        "reviewer_prediction_unsupported": sum(
+            review.assessment == "prediction_unsupported" for _, review in pairs
+        ),
+        "reviewer_gold_label_concern": sum(
+            review.assessment == "gold_label_concern" for _, review in pairs
+        ),
+        "reviewer_ambiguous": sum(
+            review.assessment == "ambiguous" for _, review in pairs
+        ),
+    }
+
+
+def _note_counts(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+    field_name: Literal["mechanism_note_vi", "shortcut_pattern_note_vi"],
+) -> list[dict[str, object]]:
+    counts: dict[str, int] = {}
+    for _, review in pairs:
+        note = getattr(review, field_name)
+        if note is not None:
+            counts[note] = counts.get(note, 0) + 1
+    return [
+        {"note_vi": note, "rows": count}
+        for note, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+
+
+def _review_group_summary(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+) -> dict[str, object]:
+    return {
+        "rows": len(pairs),
+        "assessment_counts": _assessment_counts(pairs),
+        "disagreement_counts": _disagreement_counts(pairs),
+        "mechanism_note_counts": _note_counts(pairs, "mechanism_note_vi"),
+        "shortcut_pattern_note_counts": _note_counts(
+            pairs, "shortcut_pattern_note_vi"
+        ),
+    }
+
+
+def _human_review_summary(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+    *,
+    comparison: Phase40ComparisonManifest,
+) -> dict[str, object]:
+    return {
+        "overall": _review_group_summary(pairs),
+        "per_model": [
+            {
+                "model_run_id": run.run_id,
+                **_review_group_summary(
+                    tuple(pair for pair in pairs if pair[0].model_run_id == run.run_id)
+                ),
+            }
+            for run in comparison.runs
+        ],
+        "per_slice": [
+            {
+                "slice": slice_tag,
+                **_review_group_summary(
+                    tuple(pair for pair in pairs if slice_tag in pair[0].slice_tags)
+                ),
+            }
+            for slice_tag in _SLICE_ORDER
+        ],
+    }
+
+
+def _append_group_report(
+    lines: list[str],
+    summary: Mapping[str, object],
+) -> None:
+    lines.append(f"Reviewed rows: {summary['rows']}")
+    lines.append("")
+    lines.append("Assessment counts:")
+    assessment_counts = summary["assessment_counts"]
+    assert isinstance(assessment_counts, Mapping)
+    for assessment in _REVIEW_ASSESSMENT_ORDER:
+        lines.append(f"- `{assessment}`: {assessment_counts[assessment]}")
+    lines.append("")
+    lines.append("Disagreement indicators:")
+    disagreement_counts = summary["disagreement_counts"]
+    assert isinstance(disagreement_counts, Mapping)
+    for name, count in disagreement_counts.items():
+        lines.append(f"- `{name}`: {count}")
+    lines.append("")
+    for heading, key in (
+        ("Mechanism observations", "mechanism_note_counts"),
+        ("Shortcut-pattern observations", "shortcut_pattern_note_counts"),
+    ):
+        lines.append(f"{heading}:")
+        observations = summary[key]
+        assert isinstance(observations, list)
+        if observations:
+            for observation in observations:
+                assert isinstance(observation, Mapping)
+                rendered = json.dumps(observation["note_vi"], ensure_ascii=False)
+                lines.append(f"- {observation['rows']} x {rendered}")
+        else:
+            lines.append("- None recorded.")
+        lines.append("")
+
+
+def _human_review_report(
+    pairs: Sequence[tuple[ReviewQueueRow, ReviewerReturnRow]],
+    *,
+    summary: Mapping[str, object],
+    limitations: Sequence[str],
+) -> bytes:
+    lines = [
+        "# Phase 40 Vietnamese Validation Review",
+        "",
+        "Vietnamese-fluent reviewer attestation: **confirmed**",
+        "",
+        "The review is observational only. Frozen labels, predictions, raw "
+        "outputs, metrics, safety gates, and checkpoint selection were not edited.",
+        "",
+        "## Overall summary",
+        "",
+    ]
+    overall = summary["overall"]
+    assert isinstance(overall, Mapping)
+    _append_group_report(lines, overall)
+    lines.extend(("## Per-model summary", ""))
+    per_model = summary["per_model"]
+    assert isinstance(per_model, list)
+    for model in per_model:
+        assert isinstance(model, Mapping)
+        lines.extend((f"### `{model['model_run_id']}`", ""))
+        _append_group_report(lines, model)
+    lines.extend(("## Per-slice summary", ""))
+    per_slice = summary["per_slice"]
+    assert isinstance(per_slice, list)
+    for slice_summary in per_slice:
+        assert isinstance(slice_summary, Mapping)
+        lines.extend((f"### `{slice_summary['slice']}`", ""))
+        _append_group_report(lines, slice_summary)
+    lines.extend(("## Row observations", ""))
+    for queue_row, review in pairs:
+        shortcut = ""
+        if review.shortcut_pattern_note_vi is not None:
+            shortcut = (
+                "; shortcut="
+                + json.dumps(review.shortcut_pattern_note_vi, ensure_ascii=False)
+            )
+        lines.append(
+            f"- `{queue_row.model_run_id}` / `{queue_row.validation_row_id}`: "
+            f"**{review.assessment}**; mechanism="
+            f"{json.dumps(review.mechanism_note_vi, ensure_ascii=False)}{shortcut}"
+        )
+    lines.extend(("", "## Limitations", ""))
+    for limitation in limitations:
+        lines.append(f"- `{limitation}`")
+    lines.extend(
+        (
+            "",
+            "These observations use development validation data and a single "
+            "training seed; they support no held-out-test, variance, significance, "
+            "relabeling, or checkpoint-reselection claim.",
+            "",
+        )
+    )
+    return "\n".join(lines).encode("utf-8")
+
+
+def _reverify_human_review_model_bundles(
+    comparison: Phase40ComparisonManifest,
+    *,
+    request: RunRequest,
+    repo_root: Path,
+    contract: Phase40DataContract,
+    prediction_bundles: Sequence[SelectedPredictionBundle],
+) -> None:
+    """Re-prove the frozen model evidence before qualitative publication."""
+
+    root = _trusted_repo_root(repo_root)
+    request_by_id = {run.run_id: run for run in request.runs}
+    bundles = tuple(prediction_bundles)
+    if tuple(bundle.model_run_id for bundle in bundles) != tuple(
+        run.run_id for run in comparison.runs
+    ):
+        raise ValueError("human-review prediction-bundle order differs from comparison")
+    expected_transfer_authority = transfer_authority_from_request(request)
+    for record, bundle in zip(comparison.runs, bundles, strict=True):
+        requested = request_by_id.get(record.run_id)
+        if requested is None or record.returned_root != requested.returned_root:
+            raise ValueError("comparison run root differs from the frozen request")
+        run_root = _lexical_absolute(root / PurePosixPath(record.returned_root))
+        try:
+            run_root.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("comparison run root escaped the repository") from exc
+        _reject_redirecting_path_components((run_root,))
+        if not run_root.is_dir() or run_root.is_symlink():
+            raise ValueError("comparison run root is missing or unsafe")
+        for required in request.expected_bundle_files:
+            required_path = run_root / PurePosixPath(required)
+            if (
+                not required_path.exists()
+                or required_path.is_symlink()
+                or (required_path.is_file() and required_path.stat().st_size == 0)
+            ):
+                raise ValueError(
+                    f"comparison run required evidence is missing: {record.run_id}/{required}"
+                )
+
+        evidence = verify_phase40_bundle(run_root)
+        evidence_path = run_root / "run-evidence.json"
+        if build_model_checksum(evidence_path) != record.evidence_sha256:
+            raise ValueError("comparison run-evidence hash drifted before human review")
+        identity = evidence.experiment_identity
+        if (
+            evidence.status != EvidenceStatus.COMPLETE
+            or evidence.run_kind != RunKind.FULL
+            or evidence.run_id != record.run_id
+            or evidence.transfer_authority != expected_transfer_authority
+            or identity.model_family != record.model_family
+            or identity.adaptation_mode != record.adaptation_mode
+            or identity.run_kind != RunKind.FULL
+            or identity.model_family != requested.model_family
+            or identity.adaptation_mode != requested.adaptation_mode
+        ):
+            raise ValueError("comparison run identity drifted before human review")
+
+        config = _load_resume_config(run_root, evidence)
+        request.control_template_by_run[record.run_id].verify_runtime_config(config)
+        if (
+            evidence.model_revision != config.model_revision
+            or config.accelerator.accelerator_name != record.gpu_identity
+        ):
+            raise ValueError("comparison model/config/GPU identity drifted")
+        for split, member in zip(
+            evidence.splits,
+            request.input_bundle.data_members,
+            strict=True,
+        ):
+            if (
+                split.logical_name != member.logical_name
+                or split.records != member.records
+                or split.bytes != member.bytes
+                or split.sha256 != member.sha256
+                or split.ordered_row_ids_sha256 != member.ordered_row_ids_sha256
+            ):
+                raise ValueError("comparison split identity drifted before human review")
+
+        recomputed_selection, recomputed_metrics = _recompute_checkpoint_selection(
+            run_root,
+            evidence,
+            contract.validation_snapshot,
+        )
+        retained_bundle = _load_selected_prediction_bundle(run_root, evidence)
+        _prediction_by_snapshot(retained_bundle, contract.validation_snapshot)
+        if retained_bundle != bundle:
+            raise ValueError("selected prediction bundle drifted before human review")
+        selected = evidence.selected_checkpoint
+        if selected is None:
+            raise ValueError("selected checkpoint is missing before human review")
+        selected_metrics = recomputed_metrics[
+            (recomputed_selection.selected_step, recomputed_selection.selected_artifact_identity)
+        ]
+        expected_metrics = _run_metric_summary(selected_metrics)
+        risky_recall = {
+            label: next(
+                row.recall for row in selected_metrics.per_class if row.label == label
+            )
+            for label in RISKY_RECALL_FLOORS
+        }
+        expected_tool_pins = {
+            "matplotlib": next(iter(evidence.graph_provenance)).renderer_version
+        }
+        if identity.adaptation_mode == AdaptationMode.QLORA:
+            if evidence.quantization is None:
+                raise ValueError("QLoRA quantization proof is missing before human review")
+            expected_tool_pins["bitsandbytes"] = evidence.quantization.bitsandbytes_version
+        if (
+            record.resume_digest != evidence.resume_digest
+            or record.selected_checkpoint_identity != selected.artifact_identity
+            or record.selected_optimizer_step != selected.optimizer_step
+            or record.safety_gate_passed != selected.safety_gate_passed
+            or record.comparison_eligible != evidence.comparison_eligible
+            or record.validation_rows != len(retained_bundle.predictions)
+            or record.validation_metrics != evidence.validation_metrics
+            or evidence.validation_metrics != expected_metrics
+            or record.macro_f1 != selected_metrics.macro_f1
+            or record.invalid_output_count != selected_metrics.invalid_output_count
+            or record.risky_recall_by_label != risky_recall
+            or record.package_versions != evidence.package_versions
+            or record.required_tool_pins != expected_tool_pins
+        ):
+            raise ValueError("comparison metrics/safety/tool evidence drifted before human review")
 
 
 def _selected_prediction_bundles_bytes(
@@ -2678,9 +3116,14 @@ def load_phase40_selected_prediction_bundles(
     ):
         raise ValueError("selected prediction bundle artifact hash mismatch")
     try:
-        payload = json.loads(payload_bytes.decode("utf-8", errors="strict"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError("selected prediction bundle artifact is not strict JSON") from exc
+        payload = json.loads(
+            payload_bytes.decode("utf-8", errors="strict"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(
+            "selected prediction bundle artifact is not strict duplicate-free JSON"
+        ) from exc
     if not isinstance(payload, list) or len(payload) != len(comparison_manifest.runs):
         raise ValueError("selected prediction bundle artifact has the wrong model count")
     family_by_run = {run.run_id: run.model_family for run in comparison_manifest.runs}
@@ -2700,7 +3143,10 @@ def load_phase40_selected_prediction_bundles(
                 model_artifact_identity=item.get("model_artifact_identity"),
                 selected_checkpoint_identity=item.get("selected_checkpoint_identity"),
                 predictions=tuple(
-                    _prediction_row_from_payload(row, model_family=ModelFamily.QWEN)
+                    _prediction_row_from_payload(
+                        row,
+                        model_family=family_by_run[run_id],
+                    )
                     if isinstance(row, Mapping)
                     else (_ for _ in ()).throw(
                         ValueError("selected prediction row must be one object")
@@ -2713,7 +3159,10 @@ def load_phase40_selected_prediction_bundles(
         run.run_id for run in comparison_manifest.runs
     ):
         raise ValueError("selected prediction bundles are reordered")
-    return tuple(bundles)
+    result = tuple(bundles)
+    if payload_bytes != _selected_prediction_bundles_bytes(result):
+        raise ValueError("selected prediction bundle artifact is not canonical JSON")
+    return result
 
 
 def finalize_phase40_human_review(
@@ -2728,6 +3177,8 @@ def finalize_phase40_human_review(
     comparison_manifest_path: Path,
     scope_amendment_path: Path,
     output_root: Path,
+    queue_bytes: bytes,
+    reviewer_return_bytes: bytes,
     vietnamese_fluent_attestation: bool,
     verify_only: bool = False,
 ) -> HumanReviewArtifacts:
@@ -2752,23 +3203,53 @@ def finalize_phase40_human_review(
         contract=contract,
         prediction_bundles=prediction_bundles,
     )
+    canonical_queue_bytes = _queue_jsonl(queue)
+    if not isinstance(queue_bytes, bytes) or queue_bytes != canonical_queue_bytes:
+        raise ValueError(
+            "original review-queue bytes are not canonical or differ from parsed queue rows"
+        )
     reviews = tuple(
         row if isinstance(row, ReviewerReturnRow) else ReviewerReturnRow.model_validate(row)
         for row in reviewer_rows
     )
+    original_reviews = _reviewer_rows_from_original_bytes(reviewer_return_bytes)
+    if original_reviews != reviews:
+        raise ValueError("original reviewer-return bytes differ from parsed reviewer rows")
     queue_keys = tuple(row.key for row in queue)
     review_keys = tuple(row.key for row in reviews)
     if len(set(queue_keys)) != len(queue_keys):
         raise ValueError("review queue contains duplicate model-row keys")
     if review_keys != queue_keys or len(set(review_keys)) != len(review_keys):
         raise ValueError("reviewer return must cover every queue key exactly in canonical order")
+    if any(
+        review.as_queue_row() != queue_row
+        for queue_row, review in zip(queue, reviews, strict=True)
+    ):
+        raise ValueError("reviewer return immutable queue fields differ from the queue")
 
-    queue_bytes = _queue_jsonl(queue)
     notes_bytes = _review_jsonl(reviews)
     comparison_bytes = Path(comparison_manifest_path).read_bytes()
-    comparison = Phase40ComparisonManifest.model_validate_json(comparison_bytes)
+    comparison = Phase40ComparisonManifest.model_validate(
+        _strict_json_object(comparison_bytes, description="comparison manifest")
+    )
+    if comparison_bytes != _canonical_json_bytes(comparison.model_dump(mode="json")):
+        raise ValueError("comparison manifest is not canonical JSON")
     if comparison.status != "complete":
         raise ValueError("human review requires a complete comparison manifest")
+    comparison_report_path = Path(comparison_manifest_path).with_name(
+        "comparison-report.md"
+    )
+    if (
+        not comparison_report_path.is_file()
+        or comparison_report_path.is_symlink()
+        or comparison_report_path.read_bytes() != _comparison_report(comparison)
+    ):
+        raise ValueError("comparison report differs from the frozen manifest")
+    if (
+        comparison.review_queue_rows != len(queue)
+        or comparison.review_queue_sha256 != _sha256(queue_bytes)
+    ):
+        raise ValueError("human-review queue differs from the frozen comparison")
     if (
         _sha256(amendment_bytes) != comparison.scope_amendment_sha256
         or amendment.original_run_request_sha256 != comparison.original_run_request_sha256
@@ -2781,33 +3262,88 @@ def finalize_phase40_human_review(
         != comparison.comparison_finalizer_source_sha256
     ):
         raise ValueError("human review scope differs from the frozen two-model amendment")
+    expected_request_sha256 = _sha256(
+        _canonical_json_bytes(canonical_request.model_dump(mode="json"))
+    )
+    expected_lora_probe = verify_phase40_scope_amendment(
+        amendment,
+        request=canonical_request,
+        repo_root=repo_root,
+    )
+    expected_validation_rows = len(contract.validation_snapshot.rows)
+    expected_hardware_confounded = len(
+        {run.gpu_identity for run in comparison.runs}
+    ) != 1
+    if (
+        comparison.original_run_request_sha256 != expected_request_sha256
+        or comparison.source_archive_sha256
+        != canonical_request.source_bundle.archive_sha256
+        or comparison.source_inventory_sha256
+        != canonical_request.source_bundle.inventory_sha256
+        or comparison.input_archive_sha256
+        != canonical_request.input_bundle.archive_sha256
+        or comparison.input_manifest_sha256
+        != canonical_request.input_bundle.manifest_sha256
+        or expected_validation_rows
+        != canonical_request.input_bundle.data_members[1].records
+        or comparison.validation_rows != expected_validation_rows
+        or comparison.lora_probe != expected_lora_probe
+        or comparison.hardware_confounded != expected_hardware_confounded
+        or comparison.limitations != PHASE40_COMPARISON_LIMITATIONS
+        or comparison.execution_policy != amendment.execution_policy
+        or comparison.full_lora_disposition != amendment.full_lora_disposition
+    ):
+        raise ValueError(
+            "human review comparison provenance differs from live frozen authorities"
+        )
+    _reverify_human_review_model_bundles(
+        comparison,
+        request=canonical_request,
+        repo_root=repo_root,
+        contract=contract,
+        prediction_bundles=prediction_bundles,
+    )
     if (
         comparison.selected_prediction_bundles_sha256 is None
         or _sha256(_selected_prediction_bundles_bytes(prediction_bundles))
         != comparison.selected_prediction_bundles_sha256
     ):
         raise ValueError("human-review predictions differ from the frozen comparison")
-    queue_manifest = ReviewQueueManifest.model_validate_json(
-        Path(queue_manifest_path).read_text(encoding="utf-8", errors="strict")
+    queue_manifest_bytes = Path(queue_manifest_path).read_bytes()
+    queue_manifest = ReviewQueueManifest.model_validate(
+        _strict_json_object(queue_manifest_bytes, description="review queue manifest")
     )
+    if queue_manifest_bytes != _canonical_json_bytes(queue_manifest.model_dump(mode="json")):
+        raise ValueError("review queue manifest is not canonical JSON")
     if (
         queue_manifest.rows != len(queue)
         or queue_manifest.queue_sha256 != _sha256(queue_bytes)
+        or queue_manifest.reviewer_template_sha256
+        != _sha256(_reviewer_template_jsonl(queue))
         or queue_manifest.comparison_manifest_sha256 != _sha256(comparison_bytes)
         or queue_manifest.phase39_data_contract_sha256 != _contract_identity(contract)
         or queue_manifest.validation_ordered_row_ids_sha256
         != _ordered_row_ids_sha256(contract.validation_snapshot)
     ):
         raise ValueError("review queue provenance differs from comparison/input authorities")
+    pairs = tuple(zip(queue, reviews, strict=True))
+    summary = _human_review_summary(pairs, comparison=comparison)
+    report_bytes = _human_review_report(
+        pairs,
+        summary=summary,
+        limitations=comparison.limitations,
+    )
     manifest = {
         "schema_version": PHASE40_HUMAN_REVIEW_SCHEMA_VERSION,
         "vietnamese_fluent_attestation": True,
         "rows": len(queue),
         "queue_sha256": _sha256(queue_bytes),
+        "reviewer_return_sha256": _sha256(reviewer_return_bytes),
         "notes_sha256": _sha256(notes_bytes),
+        "report_sha256": _sha256(report_bytes),
         "comparison_manifest_sha256": _sha256(comparison_bytes),
         "scope_amendment_sha256": _sha256(amendment_bytes),
-        "review_queue_manifest_sha256": _sha256(Path(queue_manifest_path).read_bytes()),
+        "review_queue_manifest_sha256": _sha256(queue_manifest_bytes),
         "phase39_data_contract_sha256": _contract_identity(contract),
         "validation_ordered_row_ids_sha256": _ordered_row_ids_sha256(
             contract.validation_snapshot
@@ -2827,22 +3363,10 @@ def finalize_phase40_human_review(
                 ]
             )
         ),
+        "summary": summary,
+        "limitations": list(comparison.limitations),
     }
     manifest_bytes = _canonical_json_bytes(manifest)
-    report_lines = [
-        "# Phase 40 Vietnamese Validation Review",
-        "",
-        f"Reviewed rows: {len(queue)}",
-        "",
-        "The notes are observational only; frozen labels, predictions, and checkpoint selection were not edited.",
-        "",
-    ]
-    for queue_row, review in zip(queue, reviews, strict=True):
-        report_lines.append(
-            f"- `{queue_row.model_run_id}` / `{queue_row.validation_row_id}`: "
-            f"**{review.decision}** — {review.note_vi}"
-        )
-    report_bytes = ("\n".join(report_lines) + "\n").encode("utf-8")
     root = Path(output_root)
     artifacts = HumanReviewArtifacts(
         root / "human-review-notes.jsonl",
@@ -2877,17 +3401,7 @@ def write_phase40_review_queue(
     if not rows:
         raise ValueError("review queue cannot be empty")
     queue_bytes = _queue_jsonl(rows)
-    template_bytes = b"".join(
-        _canonical_json_bytes(
-            {
-                "model_run_id": row.model_run_id,
-                "validation_row_id": row.validation_row_id,
-                "decision": "unclear",
-                "note_vi": "",
-            }
-        )
-        for row in rows
-    )
+    template_bytes = _reviewer_template_jsonl(rows)
     manifest = ReviewQueueManifest(
         rows=len(rows),
         queue_sha256=_sha256(queue_bytes),
@@ -3031,14 +3545,7 @@ def finalize_phase40_comparison(
     if validation_rows != 219:
         raise RuntimeError("Phase 40 comparison requires exactly 219 validation rows per model")
 
-    limitations = (
-        "single_training_seed_42_no_variance_or_significance_claim",
-        "validation_only_no_held_out_test_claim",
-        "zalo_validation_support_is_small_and_all_zalo_errors_require_review",
-        "full_lora_cancelled_before_start_after_bounded_local_resource_probe",
-        "lora_probe_has_no_predictions_and_supports_no_quality_claim",
-        "colab_is_validation_contingency_only_before_held_out_open",
-    )
+    limitations = PHASE40_COMPARISON_LIMITATIONS
     request_by_id = {run.run_id: run for run in request.runs}
     gpu_by_id = {gpu.run_id: gpu for gpu in operator_return.gpu_identities}
     active_requests = tuple(

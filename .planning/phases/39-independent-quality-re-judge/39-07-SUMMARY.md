@@ -68,6 +68,10 @@ status: complete
 - Removed the retired t-test/current-quality claims and replaced them with descriptive judge statistics plus the human-review result.
 - Corrected thesis, slide, table, evidence-map, and defense wording so older model metrics are visibly historical and the current 220-row test stays reserved.
 
+## Post-Closeout Correction (2026-08-25)
+
+The two historical statements above used “untouched” too broadly. Phase 39 corpus-quality work inspected rows later promoted into the 220-row test partition, and the thesis methodology chapter subsequently quoted one promoted-test row. The accurate boundary is that this partition remained excluded from model training, tuning, checkpoint selection, threshold selection, and model evaluation until Phase 41. Phase 41 may make one post-freeze two-model evaluation pass, must disclose the earlier human/content exposure, and may not use its results to trigger repair, retraining, threshold changes, contingency activation, or model selection.
+
 ## Final Evidence
 
 - Manifest SHA-256: `e55d768b5aad05ba6946fbb0e7ed248180186b7cbaad21d257a134e2f1b3dbad`.

@@ -105,6 +105,7 @@ class Phase40PredictionRow:
     decoder_do_sample: bool = False
     decoder_num_return_sequences: int = 1
     decoder_max_new_tokens: int = 256
+    phobert_logits: tuple[float, ...] | None = None
 
     def __post_init__(self) -> None:
         self._validate_raw_parse_consistency()
@@ -132,6 +133,22 @@ class Phase40PredictionRow:
             or self.decoder_max_new_tokens != 256
         ):
             raise ValueError("Phase 40 decoder controls are immutable")
+        if self.phobert_logits is not None:
+            if len(self.phobert_logits) != len(LABEL_ORDER) or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                for value in self.phobert_logits
+            ):
+                raise ValueError("PhoBERT metric row requires four finite raw logits")
+            argmax_state = LABEL_ORDER[
+                max(
+                    range(len(self.phobert_logits)),
+                    key=lambda index: self.phobert_logits[index],
+                )
+            ]
+            if self.parsed_state.value != argmax_state:
+                raise ValueError("PhoBERT metric-row state differs from retained raw logits")
 
     def _validate_raw_parse_consistency(self) -> None:
         if not isinstance(self.raw_prediction, str):
@@ -171,7 +188,59 @@ class Phase40PredictionRow:
             checkpoint_step=checkpoint_step,
         )
 
+    @classmethod
+    def from_phobert_logits(
+        cls,
+        *,
+        validation_row_id: str | None,
+        sequence_index: int,
+        gold_label: str,
+        logits: tuple[float, ...],
+        artifact_identity: str,
+        checkpoint_step: int,
+    ) -> "Phase40PredictionRow":
+        if validation_row_id is None:
+            raise ValueError("validation_row_id must come from a validation snapshot")
+        normalized_logits = tuple(logits)
+        if len(normalized_logits) != len(LABEL_ORDER) or any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            for value in normalized_logits
+        ):
+            raise ValueError("PhoBERT prediction requires four finite raw logits")
+        predicted = LABEL_ORDER[
+            max(range(len(normalized_logits)), key=lambda index: normalized_logits[index])
+        ]
+        raw_prediction = json.dumps(
+            {"label": predicted},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return cls(
+            validation_row_id=validation_row_id,
+            sequence_index=sequence_index,
+            gold_label=gold_label,
+            raw_prediction=raw_prediction,
+            parsed_state=PredictionState(predicted),
+            parser_exception=None,
+            artifact_identity=artifact_identity,
+            checkpoint_step=checkpoint_step,
+            phobert_logits=normalized_logits,
+        )
+
     def as_json_dict(self) -> dict[str, object]:
+        if self.phobert_logits is not None:
+            return {
+                "validation_row_id": self.validation_row_id,
+                "sequence_index": self.sequence_index,
+                "gold_label": self.gold_label,
+                "logits": list(self.phobert_logits),
+                "argmax_state": self.parsed_state.value,
+                "artifact_identity": self.artifact_identity,
+                "checkpoint_step": self.checkpoint_step,
+            }
         return {
             "validation_row_id": self.validation_row_id,
             "sequence_index": self.sequence_index,

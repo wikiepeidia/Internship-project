@@ -121,12 +121,26 @@ def test_operator_and_reviewer_free_text_is_single_line() -> None:
     review = ReviewerReturnRow(
         model_run_id="qwen-lora",
         validation_row_id="validation-row-1",
-        decision="questioned",
-        note_vi="cần\n  xem lại\tngữ cảnh",
+        canonical_sequence=1,
+        raw_message="Tin nhắn kiểm thử.",
+        source_row_sha256="1" * 64,
+        gold_label="benign",
+        predicted_label="bank_impersonation",
+        selected_checkpoint_identity="checkpoint-1",
+        model_artifact_identity="artifact-1",
+        slice_tags=("benign_to_risky",),
+        assessment="prediction_unsupported",
+        mechanism_note_vi="cần\n  xem lại\tngữ cảnh",
+        shortcut_pattern_note_vi="dựa\n  quá nhiều\tvào từ khóa",
     )
 
     assert decision.reason == "không chấp thuận trên máy này"
-    assert review.note_vi == "cần xem lại ngữ cảnh"
+    assert review.mechanism_note_vi == "cần xem lại ngữ cảnh"
+    assert review.shortcut_pattern_note_vi == "dựa quá nhiều vào từ khóa"
+    with pytest.raises(ValidationError):
+        ReviewerReturnRow.model_validate(
+            {**review.model_dump(mode="json"), "assessment": "confirmed"}
+        )
 
 
 def _snapshot(split_name: str, count: int) -> CanonicalSplitSnapshot:
@@ -463,6 +477,35 @@ def test_review_queue_covers_all_slices_binds_messages_and_deduplicates(tmp_path
         )
 
 
+def _review_return(
+    row: ReviewQueueRow,
+    *,
+    assessment: str = "prediction_supported",
+    shortcut_pattern_note_vi: str | None = None,
+) -> ReviewerReturnRow:
+    return ReviewerReturnRow(
+        **row.model_dump(mode="json"),
+        assessment=assessment,
+        mechanism_note_vi="Đã đối chiếu toàn bộ ngữ cảnh và giữ nguyên kết quả.",
+        shortcut_pattern_note_vi=shortcut_pattern_note_vi,
+    )
+
+
+def _reviewer_return_bytes(rows: tuple[ReviewerReturnRow, ...]) -> bytes:
+    return b"".join(
+        (
+            json.dumps(
+                row.model_dump(mode="json"),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n"
+        ).encode("utf-8")
+        for row in rows
+    )
+
+
 def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
     tmp_path, monkeypatch
 ):
@@ -474,14 +517,28 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         ReviewQueueRow.model_validate_json(line)
         for line in comparison.review_queue_path.read_text(encoding="utf-8").splitlines()
     )
+    assessments = (
+        "prediction_supported",
+        "prediction_unsupported",
+        "gold_label_concern",
+        "ambiguous",
+    )
     reviews = tuple(
-        ReviewerReturnRow(
-            model_run_id=row.model_run_id,
-            validation_row_id=row.validation_row_id,
-            decision="confirmed",
-            note_vi="Đã đối chiếu ngữ cảnh đầy đủ và giữ nguyên kết quả.",
+        _review_return(
+            row,
+            assessment=assessments[index % len(assessments)],
+            shortcut_pattern_note_vi=(
+                "Mô hình có thể dựa quá nhiều vào từ khóa."
+                if index % 2 == 0
+                else None
+            ),
         )
-        for row in queue
+        for index, row in enumerate(queue)
+    )
+    canonical_review_bytes = _reviewer_return_bytes(reviews)
+    canonical_queue_bytes = comparison.review_queue_path.read_bytes()
+    original_bytes = b"".join(
+        b" " + line + b"\n" for line in canonical_review_bytes.splitlines()
     )
     artifacts = finalize_phase40_human_review(
         queue,
@@ -494,6 +551,8 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         comparison_manifest_path=comparison.manifest_path,
         scope_amendment_path=fixture.scope_amendment_path,
         output_root=tmp_path / "review",
+        queue_bytes=canonical_queue_bytes,
+        reviewer_return_bytes=original_bytes,
         vietnamese_fluent_attestation=True,
     )
     before = tuple(path.read_bytes() for path in (
@@ -501,6 +560,47 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         artifacts.manifest_path,
         artifacts.report_path,
     ))
+    manifest = json.loads(artifacts.manifest_path.read_text(encoding="utf-8"))
+    report_bytes = artifacts.report_path.read_bytes()
+    assert manifest["schema_version"] == "phase40-human-review-v2"
+    assert manifest["vietnamese_fluent_attestation"] is True
+    assert manifest["reviewer_return_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+    assert manifest["notes_sha256"] == hashlib.sha256(before[0]).hexdigest()
+    assert manifest["report_sha256"] == hashlib.sha256(report_bytes).hexdigest()
+    assert manifest["reviewer_return_sha256"] != manifest["notes_sha256"]
+    assert manifest["limitations"] == list(comparison.manifest.limitations)
+    summary = manifest["summary"]
+    assert summary["overall"]["rows"] == len(queue)
+    assert sum(summary["overall"]["assessment_counts"].values()) == len(queue)
+    assert [entry["model_run_id"] for entry in summary["per_model"]] == [
+        run.run_id for run in comparison.manifest.runs
+    ]
+    assert [entry["slice"] for entry in summary["per_slice"]] == [
+        "invalid_output",
+        "risky_to_benign",
+        "zalo_involved_misclassification",
+        "benign_to_risky",
+        "risky_cross_confusion",
+        "correct_calibration_sample",
+    ]
+    assert summary["overall"]["mechanism_note_counts"] == [
+        {
+            "note_vi": "Đã đối chiếu toàn bộ ngữ cảnh và giữ nguyên kết quả.",
+            "rows": len(queue),
+        }
+    ]
+    report = report_bytes.decode("utf-8")
+    for heading in (
+        "Vietnamese-fluent reviewer attestation: **confirmed**",
+        "## Overall summary",
+        "## Per-model summary",
+        "## Per-slice summary",
+        "## Row observations",
+        "## Limitations",
+    ):
+        assert heading in report
+    assert "single_training_seed_42_no_variance_or_significance_claim" in report
+    assert "development validation data and a single training seed" in report
     finalize_phase40_human_review(
         queue,
         reviews,
@@ -512,6 +612,8 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         comparison_manifest_path=comparison.manifest_path,
         scope_amendment_path=fixture.scope_amendment_path,
         output_root=tmp_path / "review",
+        queue_bytes=canonical_queue_bytes,
+        reviewer_return_bytes=original_bytes,
         vietnamese_fluent_attestation=True,
         verify_only=True,
     )
@@ -520,6 +622,45 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
         artifacts.manifest_path,
         artifacts.report_path,
     )) == before
+
+    with pytest.raises(ValueError, match="artifact verification failed"):
+        finalize_phase40_human_review(
+            queue,
+            reviews,
+            request=fixture.request,
+            repo_root=fixture.repo,
+            contract=fixture.contract,
+            prediction_bundles=comparison.prediction_bundles,
+            queue_manifest_path=comparison.review_queue_manifest_path,
+            comparison_manifest_path=comparison.manifest_path,
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=tmp_path / "review",
+            queue_bytes=canonical_queue_bytes,
+            reviewer_return_bytes=b" " + original_bytes,
+            vietnamese_fluent_attestation=True,
+            verify_only=True,
+        )
+
+    mutated_reviews = list(reviews)
+    mutated_reviews[0] = mutated_reviews[0].model_copy(
+        update={"raw_message": "Nội dung hàng đợi bị thay đổi."}
+    )
+    with pytest.raises(ValueError, match="immutable queue fields differ"):
+        finalize_phase40_human_review(
+            queue,
+            tuple(mutated_reviews),
+            request=fixture.request,
+            repo_root=fixture.repo,
+            contract=fixture.contract,
+            prediction_bundles=comparison.prediction_bundles,
+            queue_manifest_path=comparison.review_queue_manifest_path,
+            comparison_manifest_path=comparison.manifest_path,
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=tmp_path / "mutated-review",
+            queue_bytes=canonical_queue_bytes,
+            reviewer_return_bytes=_reviewer_return_bytes(tuple(mutated_reviews)),
+            vietnamese_fluent_attestation=True,
+        )
 
     with pytest.raises(ValueError, match="cover every queue key"):
         finalize_phase40_human_review(
@@ -533,7 +674,31 @@ def test_human_review_requires_exact_ordered_coverage_and_is_verify_only_stable(
             comparison_manifest_path=comparison.manifest_path,
             scope_amendment_path=fixture.scope_amendment_path,
             output_root=tmp_path / "bad",
+            queue_bytes=canonical_queue_bytes,
+            reviewer_return_bytes=b"".join(
+                b" " + line + b"\n"
+                for line in _reviewer_return_bytes(tuple(reversed(reviews))).splitlines()
+            ),
             vietnamese_fluent_attestation=True,
+        )
+
+    artifacts.report_path.write_bytes(report_bytes + b"tampered\n")
+    with pytest.raises(ValueError, match="artifact verification failed"):
+        finalize_phase40_human_review(
+            queue,
+            reviews,
+            request=fixture.request,
+            repo_root=fixture.repo,
+            contract=fixture.contract,
+            prediction_bundles=comparison.prediction_bundles,
+            queue_manifest_path=comparison.review_queue_manifest_path,
+            comparison_manifest_path=comparison.manifest_path,
+            scope_amendment_path=fixture.scope_amendment_path,
+            output_root=tmp_path / "review",
+            queue_bytes=canonical_queue_bytes,
+            reviewer_return_bytes=original_bytes,
+            vietnamese_fluent_attestation=True,
+            verify_only=True,
         )
 
 
@@ -1509,6 +1674,8 @@ def test_human_review_reloads_raw_canonical_request_before_queue_or_bundle_use(
             comparison_manifest_path=fixture.repo / "must-not-read-comparison.json",
             scope_amendment_path=fixture.scope_amendment_path,
             output_root=fixture.repo / "must-not-write-review",
+            queue_bytes=b"",
+            reviewer_return_bytes=b"{}\n",
             vietnamese_fluent_attestation=True,
         )
 
@@ -1706,3 +1873,306 @@ def test_failed_safety_run_is_retained_but_comparison_is_inadmissible(
     assert artifacts.manifest.quality_comparison_admissible is False
     assert artifacts.manifest.speed_comparison_admissible is False
     assert "qwen-qlora" in artifacts.report_path.read_text(encoding="utf-8")
+
+
+def _fixture_human_review_rows(
+    comparison: ComparisonArtifacts,
+) -> tuple[tuple[ReviewQueueRow, ...], tuple[ReviewerReturnRow, ...], bytes]:
+    assert comparison.review_queue_path is not None
+    queue = tuple(
+        ReviewQueueRow.model_validate_json(line)
+        for line in comparison.review_queue_path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+    )
+    reviews = tuple(_review_return(row) for row in queue)
+    return queue, reviews, _reviewer_return_bytes(reviews)
+
+
+def _finalize_fixture_human_review(
+    fixture: _ComparisonFixture,
+    comparison: ComparisonArtifacts,
+    *,
+    output_root: Path,
+    queue_bytes: bytes | None = None,
+    reviewer_return_bytes: bytes | None = None,
+):
+    queue, reviews, canonical_review_bytes = _fixture_human_review_rows(comparison)
+    assert comparison.review_queue_path is not None
+    assert comparison.review_queue_manifest_path is not None
+    return finalize_phase40_human_review(
+        queue,
+        reviews,
+        request=fixture.request,
+        repo_root=fixture.repo,
+        contract=fixture.contract,
+        prediction_bundles=comparison.prediction_bundles,
+        queue_manifest_path=comparison.review_queue_manifest_path,
+        comparison_manifest_path=comparison.manifest_path,
+        scope_amendment_path=fixture.scope_amendment_path,
+        output_root=output_root,
+        queue_bytes=(
+            comparison.review_queue_path.read_bytes()
+            if queue_bytes is None
+            else queue_bytes
+        ),
+        reviewer_return_bytes=(
+            canonical_review_bytes
+            if reviewer_return_bytes is None
+            else reviewer_return_bytes
+        ),
+        vietnamese_fluent_attestation=True,
+    )
+
+
+def test_human_review_rejects_noncanonical_exact_queue_bytes(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    assert comparison.review_queue_path is not None
+    original = comparison.review_queue_path.read_bytes()
+    noncanonical = b" " + original
+
+    with pytest.raises(ValueError, match="review-queue bytes are not canonical"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / "noncanonical-queue",
+            queue_bytes=noncanonical,
+        )
+
+
+def _write_mutated_comparison(
+    comparison: ComparisonArtifacts,
+    payload: dict[str, object],
+) -> None:
+    import src.model_adaptation.phase40_handoff as handoff
+
+    manifest = handoff.Phase40ComparisonManifest.model_validate(payload)
+    comparison.manifest_path.write_bytes(
+        handoff._canonical_json_bytes(manifest.model_dump(mode="json"))
+    )
+    comparison.report_path.write_bytes(handoff._comparison_report(manifest))
+
+
+def test_human_review_rejects_duplicate_key_in_exact_reviewer_return_bytes(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    _, _, original = _fixture_human_review_rows(comparison)
+    duplicated = original.replace(
+        b'"assessment":"prediction_supported"',
+        b'"assessment":"prediction_supported","assessment":"ambiguous"',
+        1,
+    )
+    assert duplicated != original
+
+    with pytest.raises(ValueError, match="fail schema validation"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / "duplicate-review-key",
+            reviewer_return_bytes=duplicated,
+        )
+
+
+@pytest.mark.parametrize("field", ("review_queue_rows", "review_queue_sha256"))
+def test_human_review_rejects_comparison_queue_identity_drift_with_matching_report(
+    tmp_path,
+    monkeypatch,
+    field: str,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    payload = comparison.manifest.model_dump(mode="json")
+    payload[field] = (
+        payload["review_queue_rows"] + 1
+        if field == "review_queue_rows"
+        else "0" * 64
+    )
+    _write_mutated_comparison(comparison, payload)
+
+    with pytest.raises(ValueError, match="queue differs from the frozen comparison"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / f"comparison-{field}-drift",
+        )
+
+
+def test_human_review_rejects_reviewer_template_hash_drift(tmp_path, monkeypatch):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    assert comparison.review_queue_manifest_path is not None
+    queue_manifest_path = comparison.review_queue_manifest_path
+    payload = json.loads(queue_manifest_path.read_text(encoding="utf-8"))
+    payload["reviewer_template_sha256"] = "0" * 64
+    queue_manifest_path.write_bytes(
+        (
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n"
+        ).encode("utf-8")
+    )
+
+    with pytest.raises(ValueError, match="review queue provenance differs"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / "template-hash-drift",
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "source_archive_sha256",
+        "source_inventory_sha256",
+        "input_archive_sha256",
+        "input_manifest_sha256",
+        "validation_rows",
+        "hardware_confounded",
+        "lora_probe",
+        "limitations",
+    ),
+)
+def test_human_review_rejects_comparison_provenance_drift_with_matching_report(
+    tmp_path,
+    monkeypatch,
+    field: str,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    payload = comparison.manifest.model_dump(mode="json")
+    if field in {
+        "source_archive_sha256",
+        "source_inventory_sha256",
+        "input_archive_sha256",
+        "input_manifest_sha256",
+    }:
+        payload[field] = "0" * 64
+    elif field == "validation_rows":
+        payload[field] = payload[field] + 1
+    elif field == "hardware_confounded":
+        payload[field] = not payload[field]
+    elif field == "lora_probe":
+        payload[field]["peak_device_vram_used_mib"] += 1.0
+    else:
+        payload[field].append("unexpected_unfrozen_limitation")
+    _write_mutated_comparison(comparison, payload)
+
+    with pytest.raises(ValueError, match="provenance differs from live frozen authorities"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / f"comparison-{field}-provenance-drift",
+        )
+
+
+def test_human_review_rejects_live_run_evidence_trailing_byte_drift(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    evidence_path = fixture.repo / FIXED_RETURNED_ROOTS[1] / "run-evidence.json"
+    evidence_path.write_bytes(evidence_path.read_bytes() + b" ")
+
+    with pytest.raises(ValueError, match="run-evidence hash drifted"):
+        _finalize_fixture_human_review(
+            fixture,
+            comparison,
+            output_root=tmp_path / "run-evidence-byte-drift",
+        )
+
+
+def test_selected_prediction_bundle_loader_parses_qwen_and_phobert_payloads(
+    tmp_path,
+    monkeypatch,
+):
+    from src.model_adaptation.phase40_handoff import (
+        load_phase40_selected_prediction_bundles,
+    )
+
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    assert comparison.selected_prediction_bundles_path is not None
+    selected_path = comparison.selected_prediction_bundles_path
+    raw_payload = json.loads(selected_path.read_text(encoding="utf-8"))
+    qwen_rows = raw_payload[0]["predictions"]
+    phobert_rows = raw_payload[1]["predictions"]
+    assert json.loads(qwen_rows[0]["raw_prediction"])["label"] in LABEL_ORDER
+    assert qwen_rows[0]["decoder"] == {
+        "do_sample": False,
+        "max_new_tokens": 256,
+        "num_return_sequences": 1,
+    }
+    assert len(phobert_rows[0]["logits"]) == len(LABEL_ORDER)
+    assert phobert_rows[0]["argmax_state"] in LABEL_ORDER
+
+    loaded = load_phase40_selected_prediction_bundles(
+        selected_path,
+        comparison_manifest=comparison.manifest,
+    )
+    assert loaded == comparison.prediction_bundles
+    assert tuple(bundle.model_run_id for bundle in loaded) == (
+        "qwen-qlora",
+        "phobert",
+    )
+
+
+def test_selected_prediction_bundle_loader_rejects_duplicate_and_noncanonical_bytes(
+    tmp_path,
+    monkeypatch,
+):
+    from src.model_adaptation.phase40_handoff import (
+        load_phase40_selected_prediction_bundles,
+    )
+
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    comparison = _finalize_fixture_comparison(fixture)
+    assert comparison.selected_prediction_bundles_path is not None
+    original = comparison.selected_prediction_bundles_path.read_bytes()
+
+    duplicate = original.replace(
+        b'"model_run_id":"qwen-qlora"',
+        b'"model_run_id":"qwen-qlora","model_run_id":"qwen-qlora"',
+        1,
+    )
+    assert duplicate != original
+    duplicate_path = tmp_path / "selected-predictions-duplicate.json"
+    duplicate_path.write_bytes(duplicate)
+    duplicate_manifest = comparison.manifest.model_copy(
+        update={
+            "selected_prediction_bundles_sha256": hashlib.sha256(duplicate).hexdigest()
+        }
+    )
+    with pytest.raises(ValueError, match="strict duplicate-free JSON"):
+        load_phase40_selected_prediction_bundles(
+            duplicate_path,
+            comparison_manifest=duplicate_manifest,
+        )
+
+    noncanonical = b" " + original
+    noncanonical_path = tmp_path / "selected-predictions-noncanonical.json"
+    noncanonical_path.write_bytes(noncanonical)
+    noncanonical_manifest = comparison.manifest.model_copy(
+        update={
+            "selected_prediction_bundles_sha256": hashlib.sha256(
+                noncanonical
+            ).hexdigest()
+        }
+    )
+    with pytest.raises(ValueError, match="not canonical JSON"):
+        load_phase40_selected_prediction_bundles(
+            noncanonical_path,
+            comparison_manifest=noncanonical_manifest,
+        )

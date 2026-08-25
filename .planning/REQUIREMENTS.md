@@ -663,7 +663,7 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Held-Out Evaluation Discipline
 
-- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) is evaluated exactly once, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. Colab remains an optional validation-stage contingency only before this partition is opened; held-out test results must never trigger retraining, dataset repair, or model selection.
+- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) receives exactly one model-evaluation pass, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. The final evidence discloses known prior human/content exposure from corpus-quality review and thesis drafting instead of claiming literal untouchedness. Colab remains an optional validation-stage contingency only before model-evaluation access; held-out results must never trigger retraining, dataset repair, threshold selection, or model selection.
 - [ ] **EVAL-09**: Final held-out results for both full models are frozen and reported plainly, including a PhoBERT win over the deployed Qwen system. The ordinary-LoRA probe receives no held-out accuracy claim. Any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
 
 ### Report Overhaul
