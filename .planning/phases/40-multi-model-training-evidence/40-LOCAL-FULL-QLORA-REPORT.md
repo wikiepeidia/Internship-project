@@ -4,7 +4,7 @@
 
 **Clean v3 run started:** 2026-08-25 10:21 +07:00
 
-**Status:** Running unattended; this is an in-progress execution record, not a completion claim.
+**Status:** Qwen QLoRA running unattended; verified Qwen-to-PhoBERT continuation armed. This is an in-progress execution record, not a completion claim.
 
 ## Authority and route
 
@@ -45,6 +45,8 @@ The run uses genuine NF4 QLoRA with double quantization, BF16 compute, LoRA rank
 
 At 2026-08-25 10:25 +07:00, trainer PID 19772 had completed optimizer step 50. The initial single-step log reported loss 1.926; the five successive 10-step windows ending at steps 10, 20, 30, 40, and 50 reported 1.589, 0.8664, 0.7249, 0.6687, and 0.5759. The ordinary 219-row pass then completed with `eval_loss=0.4666831791` in 54.1474 seconds, and `checkpoint-50` was saved before deterministic prediction generation began. The optimizer portion reached step 50 in about 167 seconds; batch-one prediction generation remains the expected wall-time bottleneck. The earlier v2 cadence supports a conservative 12–13-hour full-run estimate if every 50-step generation pass remains similarly slow.
 
+At 2026-08-25 11:28 +07:00, step-100 generation had completed and optimization had resumed at step 122 of 1,245. Step-100 `eval_loss` improved to `0.4101715684`; its ordered 219-row generation contained zero invalid outputs and 213 correct predictions (`97.2603%` validation accuracy). This remains an intermediate observation, not a final-model score. Trainer PID 19772, telemetry PID 15308, and supervisor PID 1576 were alive, with no failure event, traceback, OOM, or runtime error. The observed 50-step generation cadence moved the estimated Qwen training finish to approximately 23:30--00:30 +07:00, followed by an estimated 0.5--1.5 hours for evidence finalization and GGUF conversion; both are planning estimates only.
+
 The first telemetry implementation was caught writing blank GPU fields because one `nvidia-smi` line was incorrectly indexed as a character. The four invalid startup samples and buggy logger are preserved as `controller\system-telemetry-v3-startup-invalid.csv` and `controller\phase40-system-telemetry-v3-startup-buggy.ps1`. Training was not interrupted. The corrected logger and supervisor were reattached at 10:22 +07:00.
 
 The corrected telemetry's first 17 samples recorded peak device use 7,512 MiB, minimum free device memory 399 MiB, peak GPU temperature 80C, peak Python RSS 2,360,541,184 bytes, and peak system-RAM use 16,356,241,408 bytes. These are running values, not the final seal. No OOM, NaN, data-contract failure, or thermal stop had occurred.
@@ -55,15 +57,23 @@ The active supervisor is `controller\phase40-full-local-supervisor-v3-run.ps1`; 
 
 After complete run evidence verifies, the supervisor merges the mechanically selected adapter into the pinned ordinary base, converts Q8_0 with converter SHA-256 `f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4aac434999b55`, verifies the GGUF manifest, and performs the pinned `llama-cpp-python==0.3.23` CPU load smoke. The final model is routed to `exports-v3\qwen-qlora-q8_0.gguf`; merge scratch stays in `gguf-work-v3`. The supervisor then stops only the exact telemetry logger and writes `controller\system-telemetry-summary-v3.json` with resource extrema and hashes.
 
+## Queued local PhoBERT continuation
+
+At 2026-08-25 11:29 +07:00, hidden controller PID 10784 was armed from `controller\phase40-qwen-to-phobert-chain-v3.ps1` (SHA-256 `72504a49aa10dd7d81ff12f263503a0d6dcbea7d7e8b4d0e93446cf3b4382ae7`). It does not compete with the active Qwen process. It first waits for supervisor PID 1576 to terminate, then requires Qwen's final telemetry status to be `complete`, independently re-verifies the immutable Qwen run and GGUF manifest/load smoke, confirms the original trainer is gone, and requires three consecutive GPU-memory samples at or below 2,048 MiB before PhoBERT may start. Startup was verified from `controller\qwen-to-phobert-chain-v3.log`; controller stderr was empty.
+
+The exact `vinai/phobert-base-v2` revision `e966aac8cb889325e073aa5f28ff70aca4dbc8c3` is already present under `transfer-root-v3\data\models\phase40\base\phobert-base-v2`. Its provenance manifest SHA-256 is `b94e490259cdb42f0fa6c177421519bb4a3944d2693e249bcf8e358cb92dc3f6`, and the snapshot-content SHA-256 is `7f84123042ddb5c78ea174a3a4b8951ca6714321bf7b902641157bf155093ae6`. The sealed v3 doctor passed CUDA, dependency, request, input, base-snapshot, and provenance checks before the chain was armed.
+
+If admitted after Qwen, PhoBERT starts a fresh three-epoch classification-head run with the frozen batch size 16, maximum sequence length 256, FP16 controls, and 312 planned optimizer steps. Mutable output is isolated under `phobert-work-v3\phase40-phobert-full-seed42-v1`; immutable evidence returns to `transfer-root-v3\data\models\phase40\full\phobert`; telemetry is written separately to `controller\system-telemetry-phobert-v3.csv`. At most two resumes are allowed, each from an exact sealed `checkpoint-N` only after strict resume verification. Completion additionally requires graph rendering and a second full run-evidence verification. The configuration is preflighted but has not yet had a real VRAM probe; an OOM is preserved as a failed run rather than hidden by changing controls. The planning allowance is 15--45 minutes, with 60 minutes reserved.
+
 ## Mixed-origin comparison handoff
 
-The finalizer can admit the local QLoRA bundle together with two externally executed bundles without a code change. All three must first be consolidated under `transfer-root-v3` at the request-canonical relative roots; absolute D-drive paths are rejected. Finalization must execute from the hash-bound `source-runtime-v3`, not a future drifted workspace. The schema class retains the historical name `ColabOperatorReturn`, but it validates run IDs, canonical roots, package decisions, and accelerator identities rather than requiring a Colab origin.
+The finalizer can admit bundles from local and external accelerators without a code change. All three must first be consolidated under `transfer-root-v3` at the request-canonical relative roots; absolute D-drive paths are rejected. Finalization must execute from the hash-bound `source-runtime-v3`, not a future drifted workspace. The schema class retains the historical name `ColabOperatorReturn`, but it validates run IDs, canonical roots, package decisions, and accelerator identities rather than requiring a Colab origin.
 
 | Run | Execution origin | Canonical root under `transfer-root-v3` | Accelerator |
 |---|---|---|---|
 | Qwen LoRA | Pending external run | `data/models/phase40/full/qwen-lora` | Pending |
 | Qwen QLoRA | Active local v3 run | `data/models/phase40/full/qwen-qlora` | NVIDIA GeForce RTX 5050 Laptop GPU |
-| PhoBERT | Pending external run | `data/models/phase40/full/phobert` | Pending |
+| PhoBERT | Queued local v3 run after verified Qwen/GGUF completion | `data/models/phase40/full/phobert` | NVIDIA GeForce RTX 5050 Laptop GPU |
 
 The generated Colab handoff remains byte-verified as a complete external fallback recipe and is not hand-edited. Once local QLoRA verifies, its QLoRA notebook is skipped. The request's fixed Drive path is a transfer mapping for external execution, not a claim that the Windows run traversed Drive; Windows platform, sanitized command, and hardware origin remain in local run evidence.
 
@@ -74,4 +84,5 @@ The generated Colab handoff remains byte-verified as a complete external fallbac
 - Selected checkpoint, 219-row predictions, metrics, graphs, and adapter hashes all reconcile.
 - Q8_0 GGUF export and manifest verification pass, including the CPU load smoke.
 - Final telemetry is stopped and hash-sealed.
-- Full LoRA, PhoBERT, the three-model validation comparison, and Plan 40-06 review remain separate open work; this run alone does not complete Phase 40.
+- The queued PhoBERT run verifies, renders graphs, and seals its dedicated telemetry, or preserves an explicit terminal failure for review.
+- Full LoRA, the three-model validation comparison, and Plan 40-06 review remain separate open work; this unattended chain alone does not complete Phase 40.
