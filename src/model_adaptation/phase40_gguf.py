@@ -19,7 +19,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import shutil
 import stat
@@ -34,6 +34,19 @@ from src.model_adaptation.registry import build_model_checksum
 
 
 SCHEMA_VERSION = "phase40-gguf-export-v1"
+QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION = (
+    "phase40-qwen-gguf-verification-receipt-v1"
+)
+QWEN_GGUF_VERIFICATION_RECEIPT_FILENAME = "qwen-gguf-verification-receipt.json"
+QWEN_GGUF_VERIFICATION_RECEIPT_RELATIVE_PATH = PurePosixPath(
+    "data/models/phase40/qwen-gguf-verification-receipt.json"
+)
+_PHASE40_RUN_REQUEST_RELATIVE_PATH = PurePosixPath(
+    "data/models/phase40/full-run-request.json"
+)
+_PHASE40_SCOPE_AMENDMENT_RELATIVE_PATH = PurePosixPath(
+    "data/models/phase40/two-full-model-scope-amendment.json"
+)
 OUTTYPE = "q8_0"
 CONVERTER_FILENAME = "convert_hf_to_gguf.py"
 CONVERTER_PACKAGE_NAME = "gguf"
@@ -42,6 +55,11 @@ CONVERTER_SCRIPT_SHA256 = "f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4a
 LLAMA_CPP_PYTHON_VERSION = "0.3.23"
 BASE_PROVENANCE_FILENAME = "phase40-base-model-provenance.json"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_PORTABLE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
+_PORTABLE_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_PERSONAL_ABSOLUTE_PATH_RE = re.compile(
+    r"(?i)(?:^[A-Z]:[\\/]|^\\\\|^/(?:home|Users)/|[A-Z]:[\\/]Users[\\/])"
+)
 _REDIRECTING_REPARSE_TAGS = frozenset(
     {
         getattr(stat, "IO_REPARSE_TAG_SYMLINK", 0xA000000C),
@@ -72,6 +90,15 @@ class BaseSnapshotVerifier(Protocol):
         expected_model_revision: str,
         manifest_path: Path | None,
     ) -> Any: ...
+
+
+class GGUFExportManifestVerifier(Protocol):
+    def __call__(
+        self,
+        manifest_path: Path,
+        *,
+        rerun_load_smoke: bool,
+    ) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +153,16 @@ class GGUFExportResult:
     manifest_path: Path
     output_sha256: str
     manifest: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class GGUFVerificationContext:
+    """Code-fixed Phase 40 identities expected by the portable receipt."""
+
+    request_sha256: str
+    scope_amendment_sha256: str
+    selected_run_id: str
+    selected_checkpoint_identity: str
 
 
 def _absolute(path: Path) -> Path:
@@ -260,6 +297,56 @@ def _safe_fact(value: object, *, where: str) -> str:
     return value
 
 
+def _reject_lexical_traversal(path: Path, *, where: str) -> None:
+    text = os.fspath(path)
+    if not isinstance(text, str) or not text or "\x00" in text:
+        raise ValueError(f"{where} must be a non-empty filesystem path")
+    normalized_separators = text.replace("\\", "/")
+    if ".." in PurePosixPath(normalized_separators).parts:
+        raise ValueError(f"{where} must not contain path traversal")
+
+
+def _portable_id(value: object, *, where: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not _PORTABLE_ID_RE.fullmatch(value)
+        or value in {".", ".."}
+    ):
+        raise ValueError(f"{where} must be a portable identifier")
+    return value
+
+
+def _portable_filename(value: object, *, where: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not _PORTABLE_FILENAME_RE.fullmatch(value)
+        or PurePosixPath(value).name != value
+        or PureWindowsPath(value).name != value
+        or value in {".", ".."}
+    ):
+        raise ValueError(f"{where} must be one portable filename")
+    return value
+
+
+def _reject_absolute_path_leakage(value: object, *, where: str) -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            _reject_absolute_path_leakage(child, where=f"{where}.{key}")
+        return
+    if isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_absolute_path_leakage(child, where=f"{where}[{index}]")
+        return
+    if not isinstance(value, str):
+        return
+    if (
+        _PERSONAL_ABSOLUTE_PATH_RE.search(value)
+        or PureWindowsPath(value).is_absolute()
+        or PurePosixPath(value).is_absolute()
+    ):
+        raise ValueError(f"{where} leaks an absolute filesystem path")
+
+
 def _utc_text(value: datetime) -> str:
     if not isinstance(value, datetime):
         raise TypeError("clock must return datetime")
@@ -277,6 +364,13 @@ def _parse_utc(value: object, *, where: str) -> datetime:
         raise RuntimeError(f"{where} is not a valid timestamp") from exc
     if parsed.tzinfo is None:
         raise RuntimeError(f"{where} must be timezone-aware")
+    return parsed
+
+
+def _parse_canonical_utc(value: object, *, where: str) -> datetime:
+    parsed = _parse_utc(value, where=where)
+    if _utc_text(parsed) != value:
+        raise RuntimeError(f"{where} must use canonical UTC formatting")
     return parsed
 
 
@@ -1065,6 +1159,477 @@ def verify_phase40_gguf_export(
     return payload
 
 
+_GGUF_RECEIPT_TOP_LEVEL_KEYS = {
+    "schema_version",
+    "status",
+    "verified_at_utc",
+    "upstream",
+    "selection",
+    "export",
+    "converter",
+    "load_smoke",
+    "receipt_sha256",
+}
+_GGUF_RECEIPT_UPSTREAM_KEYS = {
+    "request_sha256",
+    "scope_amendment_sha256",
+}
+_GGUF_RECEIPT_SELECTION_KEYS = {
+    "model_family",
+    "run_kind",
+    "adaptation_mode",
+    "model_id",
+    "model_revision",
+    "run_id",
+    "selected_checkpoint",
+}
+_GGUF_RECEIPT_CHECKPOINT_KEYS = {
+    "optimizer_step",
+    "artifact_identity",
+    "safety_gate_passed",
+}
+_GGUF_RECEIPT_EXPORT_KEYS = {
+    "manifest_filename",
+    "manifest_sha256",
+    "manifest_schema_version",
+    "manifest_status",
+    "outtype",
+    "gguf_filename",
+    "gguf_bytes",
+    "gguf_sha256",
+}
+_GGUF_RECEIPT_CONVERTER_KEYS = {
+    "authority_type",
+    "package_name",
+    "package_version",
+    "script_filename",
+    "script_sha256",
+}
+_GGUF_RECEIPT_SMOKE_KEYS = {"original_export", "independent_rerun"}
+_GGUF_RECEIPT_ORIGINAL_SMOKE_KEYS = {
+    "passed",
+    "loader",
+    "loader_version",
+    "detail_sha256",
+    "record_sha256",
+}
+_GGUF_RECEIPT_RERUN_SMOKE_KEYS = {
+    "passed",
+    "verifier",
+    "rerun_load_smoke",
+    "manifest_sha256",
+}
+
+
+def _validated_gguf_verification_context(
+    context: GGUFVerificationContext,
+) -> dict[str, Any]:
+    if not isinstance(context, GGUFVerificationContext):
+        raise TypeError("context must be GGUFVerificationContext")
+    upstream = {
+        "request_sha256": _require_sha256(
+            context.request_sha256,
+            where="request SHA-256",
+        ),
+        "scope_amendment_sha256": _require_sha256(
+            context.scope_amendment_sha256,
+            where="scope amendment SHA-256",
+        ),
+    }
+    _portable_id(context.selected_run_id, where="selected Qwen run ID")
+    _portable_id(
+        context.selected_checkpoint_identity,
+        where="selected Qwen checkpoint identity",
+    )
+    return upstream
+
+
+def _strict_verified_export_manifest(
+    manifest_path: Path,
+    *,
+    manifest_verifier: GGUFExportManifestVerifier | None,
+) -> tuple[Path, bytes, dict[str, Any]]:
+    requested_path = Path(manifest_path)
+    _reject_lexical_traversal(requested_path, where="GGUF export manifest path")
+    if not requested_path.is_absolute():
+        raise ValueError("GGUF export manifest path must be absolute")
+    path = _regular_file(requested_path, description="GGUF export manifest")
+    manifest_filename = _portable_filename(path.name, where="GGUF export manifest filename")
+    if not manifest_filename.endswith(".gguf.manifest.json"):
+        raise ValueError("GGUF export manifest filename is not canonical")
+    before = path.read_bytes()
+    verifier = verify_phase40_gguf_export if manifest_verifier is None else manifest_verifier
+    verified = verifier(path, rerun_load_smoke=True)
+    if not isinstance(verified, Mapping):
+        raise TypeError("GGUF export manifest verifier must return a mapping")
+    after = _regular_file(path, description="GGUF export manifest").read_bytes()
+    if after != before:
+        raise RuntimeError("GGUF export manifest changed during independent verification")
+    payload = _load_json_exact(path)
+    if after != _canonical_json_bytes(payload):
+        raise RuntimeError("GGUF export manifest is not canonical JSON")
+    if dict(verified) != payload:
+        raise RuntimeError("GGUF export verifier result differs from the manifest bytes")
+    return path, after, payload
+
+
+def _require_absolute_manifest_path(value: object, *, where: str) -> Path:
+    if not isinstance(value, str):
+        raise ValueError(f"{where} must be an absolute path string")
+    lexical = Path(value)
+    _reject_lexical_traversal(lexical, where=where)
+    if not lexical.is_absolute():
+        raise ValueError(f"{where} must be absolute")
+    return lexical
+
+
+def _build_qwen_gguf_receipt_core(
+    *,
+    manifest_path: Path,
+    manifest_bytes: bytes,
+    manifest: Mapping[str, Any],
+    context: GGUFVerificationContext,
+    verified_at_utc: str,
+) -> dict[str, Any]:
+    upstream = _validated_gguf_verification_context(context)
+    verified_at = _parse_canonical_utc(verified_at_utc, where="verified_at_utc")
+    _require_exact_keys(manifest, _TOP_LEVEL_KEYS, where="GGUF export manifest")
+    if (
+        manifest.get("schema_version") != SCHEMA_VERSION
+        or manifest.get("status") != "complete"
+        or manifest.get("outtype") != OUTTYPE
+    ):
+        raise RuntimeError("GGUF export manifest is not a complete locked Q8_0 export")
+    started = _parse_canonical_utc(manifest.get("started_at_utc"), where="started_at_utc")
+    completed = _parse_canonical_utc(
+        manifest.get("completed_at_utc"),
+        where="completed_at_utc",
+    )
+    if completed < started or verified_at < completed:
+        raise RuntimeError("GGUF receipt chronology is invalid")
+
+    source = manifest.get("source")
+    if not isinstance(source, Mapping):
+        raise RuntimeError("GGUF export source must be an object")
+    _require_exact_keys(source, _SOURCE_KEYS, where="GGUF export source")
+    for field in ("run_root", "base_model_path", "base_manifest_path"):
+        _require_absolute_manifest_path(source.get(field), where=f"source.{field}")
+    if (
+        source.get("model_family") != ModelFamily.QWEN.value
+        or source.get("run_kind") != RunKind.FULL.value
+        or source.get("adaptation_mode") != "qlora"
+        or source.get("run_id") != context.selected_run_id
+    ):
+        raise RuntimeError("GGUF export is not the context-selected full Qwen QLoRA run")
+    checkpoint = source.get("selected_checkpoint")
+    if not isinstance(checkpoint, Mapping):
+        raise RuntimeError("GGUF export selected checkpoint must be an object")
+    _require_exact_keys(checkpoint, _GGUF_RECEIPT_CHECKPOINT_KEYS, where="selected checkpoint")
+    optimizer_step = checkpoint.get("optimizer_step")
+    if (
+        isinstance(optimizer_step, bool)
+        or not isinstance(optimizer_step, int)
+        or optimizer_step < 1
+        or checkpoint.get("artifact_identity") != context.selected_checkpoint_identity
+        or checkpoint.get("safety_gate_passed") is not True
+    ):
+        raise RuntimeError("GGUF export selected checkpoint differs from the approved selection")
+    model_id = _safe_fact(source.get("model_id"), where="source.model_id")
+    model_revision = _portable_id(source.get("model_revision"), where="source.model_revision")
+
+    output = manifest.get("output")
+    if not isinstance(output, Mapping):
+        raise RuntimeError("GGUF export output must be an object")
+    _require_exact_keys(output, {"path", "bytes", "sha256"}, where="GGUF export output")
+    output_path = _require_absolute_manifest_path(output.get("path"), where="output.path")
+    output_filename = _portable_filename(output_path.name, where="GGUF output filename")
+    if not output_filename.endswith(".gguf"):
+        raise RuntimeError("GGUF output filename must end in .gguf")
+    output_bytes = output.get("bytes")
+    if isinstance(output_bytes, bool) or not isinstance(output_bytes, int) or output_bytes < 1:
+        raise RuntimeError("GGUF output byte count is invalid")
+    output_sha256 = _require_sha256(output.get("sha256"), where="GGUF output SHA-256")
+
+    tool = manifest.get("tool")
+    if not isinstance(tool, Mapping):
+        raise RuntimeError("GGUF converter authority must be an object")
+    _require_absolute_manifest_path(tool.get("converter_path"), where="tool.converter_path")
+    if (
+        tool.get("authority_type") != "pypi-package-script-hash"
+        or tool.get("package_name") != CONVERTER_PACKAGE_NAME
+        or tool.get("package_version") != CONVERTER_PACKAGE_VERSION
+        or tool.get("converter_filename") != CONVERTER_FILENAME
+    ):
+        raise RuntimeError("GGUF converter authority differs from the locked converter")
+    converter_sha256 = _require_sha256(
+        tool.get("converter_sha256"),
+        where="converter script SHA-256",
+    )
+
+    smoke = manifest.get("load_smoke")
+    if not isinstance(smoke, Mapping):
+        raise RuntimeError("GGUF original load smoke must be an object")
+    _require_exact_keys(
+        smoke,
+        {"passed", "loader", "loader_version", "detail"},
+        where="GGUF original load smoke",
+    )
+    if smoke.get("passed") is not True:
+        raise RuntimeError("GGUF original export load smoke did not pass")
+    loader = _safe_fact(smoke.get("loader"), where="load_smoke.loader")
+    loader_version = _safe_fact(
+        smoke.get("loader_version"),
+        where="load_smoke.loader_version",
+    )
+    detail = _safe_fact(smoke.get("detail"), where="load_smoke.detail")
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    core: dict[str, Any] = {
+        "schema_version": QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION,
+        "status": "verified",
+        "verified_at_utc": verified_at_utc,
+        "upstream": upstream,
+        "selection": {
+            "model_family": ModelFamily.QWEN.value,
+            "run_kind": RunKind.FULL.value,
+            "adaptation_mode": "qlora",
+            "model_id": model_id,
+            "model_revision": model_revision,
+            "run_id": context.selected_run_id,
+            "selected_checkpoint": {
+                "optimizer_step": optimizer_step,
+                "artifact_identity": context.selected_checkpoint_identity,
+                "safety_gate_passed": True,
+            },
+        },
+        "export": {
+            "manifest_filename": _portable_filename(
+                manifest_path.name,
+                where="GGUF export manifest filename",
+            ),
+            "manifest_sha256": manifest_sha256,
+            "manifest_schema_version": SCHEMA_VERSION,
+            "manifest_status": "complete",
+            "outtype": OUTTYPE,
+            "gguf_filename": output_filename,
+            "gguf_bytes": output_bytes,
+            "gguf_sha256": output_sha256,
+        },
+        "converter": {
+            "authority_type": "pypi-package-script-hash",
+            "package_name": CONVERTER_PACKAGE_NAME,
+            "package_version": CONVERTER_PACKAGE_VERSION,
+            "script_filename": CONVERTER_FILENAME,
+            "script_sha256": converter_sha256,
+        },
+        "load_smoke": {
+            "original_export": {
+                "passed": True,
+                "loader": loader,
+                "loader_version": loader_version,
+                "detail_sha256": hashlib.sha256(detail.encode("utf-8")).hexdigest(),
+                "record_sha256": hashlib.sha256(
+                    _canonical_json_bytes(dict(smoke))
+                ).hexdigest(),
+            },
+            "independent_rerun": {
+                "passed": True,
+                "verifier": "verify_phase40_gguf_export",
+                "rerun_load_smoke": True,
+                "manifest_sha256": manifest_sha256,
+            },
+        },
+    }
+    _reject_absolute_path_leakage(core, where="GGUF verification receipt")
+    return core
+
+
+def _validate_qwen_gguf_receipt_shape(payload: Mapping[str, Any]) -> None:
+    _require_exact_keys(payload, _GGUF_RECEIPT_TOP_LEVEL_KEYS, where="GGUF receipt")
+    nested_contracts = (
+        ("upstream", _GGUF_RECEIPT_UPSTREAM_KEYS),
+        ("selection", _GGUF_RECEIPT_SELECTION_KEYS),
+        ("export", _GGUF_RECEIPT_EXPORT_KEYS),
+        ("converter", _GGUF_RECEIPT_CONVERTER_KEYS),
+        ("load_smoke", _GGUF_RECEIPT_SMOKE_KEYS),
+    )
+    for field, keys in nested_contracts:
+        child = payload.get(field)
+        if not isinstance(child, Mapping):
+            raise RuntimeError(f"GGUF receipt {field} must be an object")
+        _require_exact_keys(child, keys, where=f"GGUF receipt {field}")
+    selection = payload["selection"]
+    checkpoint = selection.get("selected_checkpoint")
+    if not isinstance(checkpoint, Mapping):
+        raise RuntimeError("GGUF receipt selected checkpoint must be an object")
+    _require_exact_keys(checkpoint, _GGUF_RECEIPT_CHECKPOINT_KEYS, where="GGUF receipt checkpoint")
+    load_smoke = payload["load_smoke"]
+    original = load_smoke.get("original_export")
+    rerun = load_smoke.get("independent_rerun")
+    if not isinstance(original, Mapping) or not isinstance(rerun, Mapping):
+        raise RuntimeError("GGUF receipt smoke records must be objects")
+    _require_exact_keys(
+        original,
+        _GGUF_RECEIPT_ORIGINAL_SMOKE_KEYS,
+        where="GGUF receipt original smoke",
+    )
+    _require_exact_keys(
+        rerun,
+        _GGUF_RECEIPT_RERUN_SMOKE_KEYS,
+        where="GGUF receipt rerun smoke",
+    )
+
+
+def _verified_repository_root(repo_root: Path) -> Path:
+    requested_root = Path(repo_root)
+    _reject_lexical_traversal(requested_root, where="repository root")
+    if not requested_root.is_absolute():
+        raise ValueError("repository root must be absolute")
+    root = _absolute(requested_root)
+    _reject_redirecting_components(root, include_missing_leaf=False)
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError("repository root must be an existing non-symlink directory")
+    return root
+
+
+def _verify_gguf_receipt_upstream_authorities(
+    repo_root: Path,
+    context: GGUFVerificationContext,
+) -> None:
+    root = _verified_repository_root(repo_root)
+    expected = (
+        (
+            _PHASE40_RUN_REQUEST_RELATIVE_PATH,
+            context.request_sha256,
+            "run request",
+        ),
+        (
+            _PHASE40_SCOPE_AMENDMENT_RELATIVE_PATH,
+            context.scope_amendment_sha256,
+            "scope amendment",
+        ),
+    )
+    for relative_path, expected_sha256, description in expected:
+        path = _absolute(root / relative_path)
+        if not _is_within(path, root):
+            raise RuntimeError(f"canonical Phase 40 {description} escaped the repository root")
+        authority = _regular_file(path, description=f"canonical Phase 40 {description}")
+        raw = authority.read_bytes()
+        payload = _load_json_exact(authority)
+        if raw != _canonical_json_bytes(payload):
+            raise RuntimeError(f"canonical Phase 40 {description} is not canonical JSON")
+        if hashlib.sha256(raw).hexdigest() != expected_sha256:
+            raise RuntimeError(
+                f"GGUF verification context is stale for canonical Phase 40 {description}"
+            )
+
+
+def _canonical_qwen_gguf_receipt_path(repo_root: Path, *, must_exist: bool) -> Path:
+    root = _verified_repository_root(repo_root)
+    canonical = _absolute(root / QWEN_GGUF_VERIFICATION_RECEIPT_RELATIVE_PATH)
+    if not _is_within(canonical, root):
+        raise RuntimeError("canonical GGUF verification receipt escaped the repository root")
+    if must_exist:
+        return _regular_file(canonical, description="GGUF verification receipt")
+    _reject_redirecting_components(canonical.parent)
+    if canonical.exists():
+        raise FileExistsError(f"refusing to overwrite GGUF verification receipt: {canonical}")
+    return canonical
+
+
+def freeze_phase40_qwen_gguf_verification_receipt(
+    *,
+    repo_root: Path,
+    export_manifest_path: Path,
+    context: GGUFVerificationContext,
+    manifest_verifier: GGUFExportManifestVerifier | None = None,
+    now: Callable[[], datetime] | None = None,
+) -> dict[str, Any]:
+    """Freeze the portable selected-Qwen Q8_0 authority after a fresh load smoke."""
+
+    _validated_gguf_verification_context(context)
+    _verify_gguf_receipt_upstream_authorities(repo_root, context)
+    destination = _canonical_qwen_gguf_receipt_path(repo_root, must_exist=False)
+    manifest_path, manifest_bytes, manifest = _strict_verified_export_manifest(
+        export_manifest_path,
+        manifest_verifier=manifest_verifier,
+    )
+    clock = (lambda: datetime.now(timezone.utc)) if now is None else now
+    core = _build_qwen_gguf_receipt_core(
+        manifest_path=manifest_path,
+        manifest_bytes=manifest_bytes,
+        manifest=manifest,
+        context=context,
+        verified_at_utc=_utc_text(clock()),
+    )
+    payload = {
+        **core,
+        "receipt_sha256": hashlib.sha256(_canonical_json_bytes(core)).hexdigest(),
+    }
+    _validate_qwen_gguf_receipt_shape(payload)
+    _reject_absolute_path_leakage(payload, where="GGUF verification receipt")
+    _write_new_file(destination, _canonical_json_bytes(payload))
+    return payload
+
+
+def verify_phase40_qwen_gguf_verification_receipt(
+    *,
+    repo_root: Path,
+    export_manifest_path: Path,
+    context: GGUFVerificationContext,
+    manifest_verifier: GGUFExportManifestVerifier | None = None,
+) -> dict[str, Any]:
+    """Reverify a portable selected-Qwen receipt against current canonical inputs."""
+
+    upstream = _validated_gguf_verification_context(context)
+    _verify_gguf_receipt_upstream_authorities(repo_root, context)
+    path = _canonical_qwen_gguf_receipt_path(repo_root, must_exist=True)
+    raw = path.read_bytes()
+    payload = _load_json_exact(path)
+    if raw != _canonical_json_bytes(payload):
+        raise RuntimeError("GGUF verification receipt is not canonical JSON")
+    _validate_qwen_gguf_receipt_shape(payload)
+    if (
+        payload.get("schema_version") != QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION
+        or payload.get("status") != "verified"
+    ):
+        raise RuntimeError("GGUF verification receipt is not a supported verified receipt")
+    stored_self_hash = _require_sha256(
+        payload.get("receipt_sha256"),
+        where="GGUF verification receipt self-hash",
+    )
+    core = {key: value for key, value in payload.items() if key != "receipt_sha256"}
+    if hashlib.sha256(_canonical_json_bytes(core)).hexdigest() != stored_self_hash:
+        raise RuntimeError("GGUF verification receipt self-hash mismatch")
+    if payload.get("upstream") != upstream:
+        raise RuntimeError("GGUF verification receipt is stale for the expected upstream authority")
+    selection = payload["selection"]
+    checkpoint = selection["selected_checkpoint"]
+    if (
+        selection.get("run_id") != context.selected_run_id
+        or checkpoint.get("artifact_identity") != context.selected_checkpoint_identity
+    ):
+        raise RuntimeError("GGUF verification receipt is stale for the selected Qwen checkpoint")
+    _reject_absolute_path_leakage(payload, where="GGUF verification receipt")
+
+    manifest_path, manifest_bytes, manifest = _strict_verified_export_manifest(
+        export_manifest_path,
+        manifest_verifier=manifest_verifier,
+    )
+    current_manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    if payload["export"].get("manifest_sha256") != current_manifest_sha256:
+        raise RuntimeError("GGUF verification receipt is stale for the export manifest")
+    expected_core = _build_qwen_gguf_receipt_core(
+        manifest_path=manifest_path,
+        manifest_bytes=manifest_bytes,
+        manifest=manifest,
+        context=context,
+        verified_at_utc=payload["verified_at_utc"],
+    )
+    if core != expected_core:
+        raise RuntimeError("GGUF verification receipt differs from current verified evidence")
+    return payload
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src.model_adaptation.phase40_gguf",
@@ -1135,11 +1700,18 @@ if __name__ == "__main__":
 
 __all__ = [
     "GGUFExportDependencies",
+    "GGUFExportManifestVerifier",
     "GGUFExportResult",
+    "GGUFVerificationContext",
     "LoadSmokeResult",
     "ModelBackend",
+    "QWEN_GGUF_VERIFICATION_RECEIPT_FILENAME",
+    "QWEN_GGUF_VERIFICATION_RECEIPT_RELATIVE_PATH",
+    "QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION",
     "default_dependencies",
     "export_phase40_gguf",
+    "freeze_phase40_qwen_gguf_verification_receipt",
     "main",
     "verify_phase40_gguf_export",
+    "verify_phase40_qwen_gguf_verification_receipt",
 ]

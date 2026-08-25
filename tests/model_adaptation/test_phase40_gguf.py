@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import importlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,6 +21,18 @@ from src.model_adaptation.registry import build_model_checksum
 MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
 MODEL_REVISION = "a" * 40
 SELECTED_IDENTITY = "adapter-state-sha256:" + "b" * 64
+_SYNTHETIC_REQUEST = {
+    "schema_version": "synthetic-phase40-request-v1",
+    "run_ids": ["qwen-qlora-full", "phobert-full"],
+}
+_SYNTHETIC_SCOPE_AMENDMENT = {
+    "schema_version": "synthetic-phase40-scope-amendment-v1",
+    "active_full_run_ids": ["qwen-qlora-full", "phobert-full"],
+}
+_SYNTHETIC_REQUEST_BYTES = gguf._canonical_json_bytes(_SYNTHETIC_REQUEST)
+_SYNTHETIC_SCOPE_AMENDMENT_BYTES = gguf._canonical_json_bytes(
+    _SYNTHETIC_SCOPE_AMENDMENT
+)
 
 
 @dataclass(frozen=True)
@@ -85,6 +98,12 @@ class Fixture:
 def _fixture(tmp_path: Path, *, run_kind: RunKind = RunKind.FULL) -> Fixture:
     calls: list[object] = []
     smoke_paths: list[Path] = []
+    authority_root = tmp_path / "data" / "models" / "phase40"
+    authority_root.mkdir(parents=True)
+    (authority_root / "full-run-request.json").write_bytes(_SYNTHETIC_REQUEST_BYTES)
+    (authority_root / "two-full-model-scope-amendment.json").write_bytes(
+        _SYNTHETIC_SCOPE_AMENDMENT_BYTES
+    )
     base_root = tmp_path / "base"
     base_root.mkdir()
     (base_root / "config.json").write_text("{}\n", encoding="utf-8")
@@ -272,6 +291,52 @@ def _export(fixture: Fixture) -> gguf.GGUFExportResult:
     )
 
 
+def _verification_context() -> gguf.GGUFVerificationContext:
+    return gguf.GGUFVerificationContext(
+        request_sha256=hashlib.sha256(_SYNTHETIC_REQUEST_BYTES).hexdigest(),
+        scope_amendment_sha256=hashlib.sha256(
+            _SYNTHETIC_SCOPE_AMENDMENT_BYTES
+        ).hexdigest(),
+        selected_run_id="qwen-qlora-full",
+        selected_checkpoint_identity=SELECTED_IDENTITY,
+    )
+
+
+def _injected_manifest_verifier(fixture: Fixture, calls: list[bool]):
+    def verify(manifest_path: Path, *, rerun_load_smoke: bool):
+        calls.append(rerun_load_smoke)
+        return gguf.verify_phase40_gguf_export(
+            manifest_path,
+            dependencies=fixture.dependencies,
+            rerun_load_smoke=rerun_load_smoke,
+        )
+
+    return verify
+
+
+def _receipt_path(tmp_path: Path) -> Path:
+    return tmp_path / gguf.QWEN_GGUF_VERIFICATION_RECEIPT_RELATIVE_PATH
+
+
+def _freeze_receipt(
+    fixture: Fixture,
+    tmp_path: Path,
+    *,
+    context: gguf.GGUFVerificationContext | None = None,
+    verifier_calls: list[bool] | None = None,
+) -> tuple[Path, dict[str, object], list[bool]]:
+    calls = [] if verifier_calls is None else verifier_calls
+    receipt = _receipt_path(tmp_path)
+    payload = gguf.freeze_phase40_qwen_gguf_verification_receipt(
+        repo_root=tmp_path,
+        export_manifest_path=fixture.manifest,
+        context=_verification_context() if context is None else context,
+        manifest_verifier=_injected_manifest_verifier(fixture, calls),
+        now=lambda: datetime(2026, 8, 25, 2, 5, tzinfo=timezone.utc),
+    )
+    return receipt, payload, calls
+
+
 def test_export_merges_exact_selected_adapter_converts_q8_smokes_and_verifies(tmp_path):
     fixture = _fixture(tmp_path)
     result = _export(fixture)
@@ -307,6 +372,281 @@ def test_verify_rehashes_source_tool_output_and_repeats_load_smoke(tmp_path):
 
     assert verified["status"] == "complete"
     assert fixture.smoke_paths == [fixture.output, fixture.output]
+
+
+def test_freeze_and_verify_portable_self_hashed_qwen_gguf_receipt(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+
+    verified = gguf.verify_phase40_qwen_gguf_verification_receipt(
+        repo_root=tmp_path,
+        export_manifest_path=fixture.manifest,
+        context=_verification_context(),
+        manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+    )
+
+    core = dict(payload)
+    receipt_sha256 = core.pop("receipt_sha256")
+    assert receipt_sha256 == hashlib.sha256(gguf._canonical_json_bytes(core)).hexdigest()
+    assert verified == payload
+    assert verifier_calls == [True, True]
+    assert fixture.smoke_paths == [fixture.output, fixture.output, fixture.output]
+    assert payload["selection"]["selected_checkpoint"] == {
+        "optimizer_step": 1245,
+        "artifact_identity": SELECTED_IDENTITY,
+        "safety_gate_passed": True,
+    }
+    assert payload["export"] == {
+        "manifest_filename": fixture.manifest.name,
+        "manifest_sha256": hashlib.sha256(fixture.manifest.read_bytes()).hexdigest(),
+        "manifest_schema_version": gguf.SCHEMA_VERSION,
+        "manifest_status": "complete",
+        "outtype": "q8_0",
+        "gguf_filename": fixture.output.name,
+        "gguf_bytes": fixture.output.stat().st_size,
+        "gguf_sha256": hashlib.sha256(fixture.output.read_bytes()).hexdigest(),
+    }
+    assert payload["converter"] == {
+        "authority_type": "pypi-package-script-hash",
+        "package_name": gguf.CONVERTER_PACKAGE_NAME,
+        "package_version": gguf.CONVERTER_PACKAGE_VERSION,
+        "script_filename": gguf.CONVERTER_FILENAME,
+        "script_sha256": fixture.converter_sha256,
+    }
+    assert payload["load_smoke"]["original_export"]["passed"] is True
+    assert payload["load_smoke"]["independent_rerun"] == {
+        "passed": True,
+        "verifier": "verify_phase40_gguf_export",
+        "rerun_load_smoke": True,
+        "manifest_sha256": payload["export"]["manifest_sha256"],
+    }
+    assert "comparison_manifest_sha256" not in receipt.read_text(encoding="utf-8")
+    receipt_text = receipt.read_text(encoding="utf-8")
+    assert str(tmp_path) not in receipt_text
+    assert "run_root" not in receipt_text
+    assert "base_model_path" not in receipt_text
+    assert receipt.read_bytes() == gguf._canonical_json_bytes(payload)
+
+
+def test_receipt_verifier_rejects_noncanonical_and_self_hash_tamper(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+    receipt.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="not canonical JSON"):
+        gguf.verify_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    tampered = dict(payload)
+    tampered["export"] = {**payload["export"], "gguf_bytes": 999}
+    receipt.write_bytes(gguf._canonical_json_bytes(tampered))
+    with pytest.raises(RuntimeError, match="self-hash mismatch"):
+        gguf.verify_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    assert verifier_calls == [True]
+
+
+@pytest.mark.parametrize(
+    "context, message",
+    [
+        (replace(_verification_context(), request_sha256="9" * 64), "stale.*run request"),
+        (
+            replace(
+                _verification_context(),
+                selected_checkpoint_identity="adapter-state-sha256:" + "9" * 64,
+            ),
+            "stale.*checkpoint",
+        ),
+    ],
+)
+def test_receipt_verifier_rejects_stale_upstream_or_selection_before_rerun(
+    tmp_path,
+    context,
+    message,
+):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, _payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+
+    with pytest.raises(RuntimeError, match=message):
+        gguf.verify_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=context,
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    assert verifier_calls == [True]
+
+
+def test_receipt_freeze_rejects_invalid_chronology_and_noncanonical_export_utc(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    calls: list[bool] = []
+
+    with pytest.raises(RuntimeError, match="receipt chronology"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, calls),
+            now=lambda: datetime(2026, 8, 25, 1, 1, tzinfo=timezone.utc),
+        )
+    assert calls == [True]
+    assert not _receipt_path(tmp_path).exists()
+
+    noncanonical_manifest = json.loads(fixture.manifest.read_text(encoding="utf-8"))
+    noncanonical_manifest["started_at_utc"] = "2026-08-25T01:00:00.000000Z"
+    fixture.manifest.write_bytes(gguf._canonical_json_bytes(noncanonical_manifest))
+    with pytest.raises(RuntimeError, match="canonical UTC"):
+        _freeze_receipt(fixture, tmp_path)
+
+
+def test_receipt_freeze_rejects_traversal_and_absolute_path_leakage(tmp_path):
+    fixture = _fixture(tmp_path)
+    fixture.dependencies = replace(
+        fixture.dependencies,
+        smoke_loader=lambda _path: gguf.LoadSmokeResult(
+            passed=True,
+            loader=r"C:\Users\alice\private-loader.dll",
+            loader_version="1.0",
+            detail="constructor load completed",
+        ),
+    )
+    _export(fixture)
+    verifier_calls: list[bool] = []
+    verifier = _injected_manifest_verifier(fixture, verifier_calls)
+
+    traversing_repo_root = tmp_path / "child" / ".."
+    with pytest.raises(ValueError, match="path traversal"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=traversing_repo_root,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=verifier,
+        )
+
+    traversing_manifest = (
+        fixture.manifest.parent
+        / ".."
+        / fixture.manifest.parent.name
+        / fixture.manifest.name
+    )
+    with pytest.raises(ValueError, match="path traversal"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=traversing_manifest,
+            context=_verification_context(),
+            manifest_verifier=verifier,
+        )
+
+    original_manifest = fixture.manifest.read_bytes()
+    traversing_payload = json.loads(original_manifest.decode("utf-8"))
+    traversing_payload["output"]["path"] = str(
+        fixture.output.parent
+        / ".."
+        / fixture.output.parent.name
+        / fixture.output.name
+    )
+    fixture.manifest.write_bytes(gguf._canonical_json_bytes(traversing_payload))
+    with pytest.raises(ValueError, match="path traversal"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=verifier,
+            now=lambda: datetime(2026, 8, 25, 2, 5, tzinfo=timezone.utc),
+        )
+    fixture.manifest.write_bytes(original_manifest)
+
+    with pytest.raises(ValueError, match="leaks an absolute filesystem path"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=verifier,
+            now=lambda: datetime(2026, 8, 25, 2, 5, tzinfo=timezone.utc),
+        )
+    assert verifier_calls == [True, True]
+    assert not _receipt_path(tmp_path).exists()
+
+
+def test_receipt_verifier_rejects_changed_export_manifest_hash(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, _payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+    changed_manifest = json.loads(fixture.manifest.read_text(encoding="utf-8"))
+    changed_manifest["load_smoke"]["detail"] = "different valid smoke detail"
+    fixture.manifest.write_bytes(gguf._canonical_json_bytes(changed_manifest))
+
+    with pytest.raises(RuntimeError, match="stale for the export manifest"):
+        gguf.verify_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    assert verifier_calls == [True, True]
+
+
+def test_receipt_freeze_rejects_non_q8_export_manifest(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    manifest = json.loads(fixture.manifest.read_text(encoding="utf-8"))
+    manifest["outtype"] = "q4_0"
+    fixture.manifest.write_bytes(gguf._canonical_json_bytes(manifest))
+    verifier_calls: list[bool] = []
+
+    with pytest.raises(RuntimeError, match="locked q8_0 outtype"):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+            now=lambda: datetime(2026, 8, 25, 2, 5, tzinfo=timezone.utc),
+        )
+
+    assert verifier_calls == [True]
+    assert not _receipt_path(tmp_path).exists()
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra"])
+def test_receipt_verifier_rejects_malformed_exact_schema(tmp_path, mutation):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+    malformed = dict(payload)
+    if mutation == "missing":
+        malformed.pop("converter")
+    else:
+        malformed["unexpected"] = True
+    core = {key: value for key, value in malformed.items() if key != "receipt_sha256"}
+    malformed["receipt_sha256"] = hashlib.sha256(
+        gguf._canonical_json_bytes(core)
+    ).hexdigest()
+    receipt.write_bytes(gguf._canonical_json_bytes(malformed))
+
+    with pytest.raises(RuntimeError, match="keys mismatch"):
+        gguf.verify_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    assert verifier_calls == [True]
 
 
 def test_export_rejects_probe_before_model_load_or_output(tmp_path):
