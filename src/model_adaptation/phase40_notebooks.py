@@ -57,6 +57,10 @@ QWEN_DEPENDENCY_PINS = (
 )
 QLORA_ONLY_PIN = "bitsandbytes==0.50.1"
 PHOBERT_ONLY_PIN = "underthesea==9.5.0"
+GGUF_PACKAGE_PIN = "gguf==0.19.0"
+LLAMA_CPP_PYTHON_PIN = "llama-cpp-python==0.3.23"
+TORCH_INDEX_URL = "https://download.pytorch.org/whl/cu132"
+GGUF_CONVERTER_SHA256 = "f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4aac434999b55"
 
 _ROLE_LAYOUT = (
     ("overview", "markdown"),
@@ -76,6 +80,11 @@ _ROLE_LAYOUT = (
     ("graph-regenerate", "code"),
     ("bundle-export", "code"),
 )
+_QWEN_GGUF_ROLE_LAYOUT = (
+    ("gguf-authority", "code"),
+    ("gguf-export", "code"),
+    ("optional-download", "code"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +99,7 @@ class _NotebookSpec:
     returned_root: str
     model_relative_path: str
     model_manifest_relative_path: str
+    gguf_slug: str | None = None
 
 
 _SPECS: dict[str, _NotebookSpec] = {
@@ -100,10 +110,11 @@ _SPECS: dict[str, _NotebookSpec] = {
         model_id=PINNED_QWEN_MODEL_ID,
         model_revision=PINNED_QWEN_REVISION,
         run_command="phase40-train-qwen",
-        dependency_pins=QWEN_DEPENDENCY_PINS,
+        dependency_pins=QWEN_DEPENDENCY_PINS + (GGUF_PACKAGE_PIN, LLAMA_CPP_PYTHON_PIN),
         returned_root="data/models/phase40/full/qwen-lora",
         model_relative_path="data/models/phase40/base/qwen3-4b-instruct-2507",
         model_manifest_relative_path="data/models/phase40/base/qwen3-4b-instruct-2507.provenance.json",
+        gguf_slug="qwen-lora-q8_0",
     ),
     "qwen_qlora_colab.ipynb": _NotebookSpec(
         filename="qwen_qlora_colab.ipynb",
@@ -112,10 +123,11 @@ _SPECS: dict[str, _NotebookSpec] = {
         model_id=PINNED_QWEN_MODEL_ID,
         model_revision=PINNED_QWEN_REVISION,
         run_command="phase40-train-qwen",
-        dependency_pins=QWEN_DEPENDENCY_PINS + (QLORA_ONLY_PIN,),
+        dependency_pins=QWEN_DEPENDENCY_PINS + (QLORA_ONLY_PIN, GGUF_PACKAGE_PIN, LLAMA_CPP_PYTHON_PIN),
         returned_root="data/models/phase40/full/qwen-qlora",
         model_relative_path="data/models/phase40/base/qwen3-4b-instruct-2507",
         model_manifest_relative_path="data/models/phase40/base/qwen3-4b-instruct-2507.provenance.json",
+        gguf_slug="qwen-qlora-q8_0",
     ),
     "phobert_colab.ipynb": _NotebookSpec(
         filename="phobert_colab.ipynb",
@@ -132,9 +144,9 @@ _SPECS: dict[str, _NotebookSpec] = {
 }
 
 _CANONICAL_SOURCE_DIGESTS = {
-    "phobert_colab.ipynb": "6c1aea177be4065b34bb49bb9738f1781300f40e9da175fd450fed130a2c5cba",
-    "qwen_lora_colab.ipynb": "07d2c6da6fcfc8a2b723facce946ce1b6edd60e09ae817c011cb49de95117c17",
-    "qwen_qlora_colab.ipynb": "eca0648759c8aabf1748749876ca7b6743b6f130aea51adf29959280b5c4397d",
+    "phobert_colab.ipynb": "d18f4f59b3256afc3c41141f053857606c5d6699462593e3e56ef746b1acdee9",
+    "qwen_lora_colab.ipynb": "0bf7b6de4eb71fecd2048ee67f67d40fc20f8c3c08960b6f9fb56579625f3b45",
+    "qwen_qlora_colab.ipynb": "011e6bdebbbe27cb7129bde5be483eb8bd66eb086a073ef32d3a23293820a39e",
 }
 
 
@@ -272,6 +284,19 @@ def _validate_phase_metadata(
             if spec.model_family == "qwen"
             else None
         ),
+        "full_optimizer_steps": 1245 if spec.model_family == "qwen" else 312,
+        "gguf_export": (
+            {
+                "schema_version": "phase40-gguf-export-v1",
+                "package_pin": GGUF_PACKAGE_PIN,
+                "runtime_pin": LLAMA_CPP_PYTHON_PIN,
+                "converter_sha256": GGUF_CONVERTER_SHA256,
+                "outtype": "q8_0",
+                "slug": spec.gguf_slug,
+            }
+            if spec.model_family == "qwen"
+            else None
+        ),
     }
     issues: list[NotebookValidationIssue] = []
     if set(phase) != set(expected):
@@ -401,11 +426,12 @@ def _validate_text_rules(
     issues: list[NotebookValidationIssue] = []
     code = "\n".join(source for _, _, source in sources)
     lowered = code.casefold()
+    scanned_code = code.replace(TORCH_INDEX_URL, "")
     forbidden_patterns = (
         ("stale-data-path", r"recovered[-_ ]balanced|data[\\/]splits"),
         ("personal-path", r"(?i)(?:[a-z]:[\\/]|onedrive|/users/|/home/|(?:^|[\s'\"])(?:~)[\\/])"),
         ("embedded-secret", r"(?i)(?:api[_-]?key|access[_-]?token|authorization|bearer|password|client[_-]?secret)\s*="),
-        ("external-inference", r"(?i)(?:anthropic|openai|generativeai|inferenceclient|api\.openai|api\.anthropic|curl\s|wget\s|git\s+clone|https?://)"),
+        ("external-inference", r"(?i)(?:anthropic|openai|generativeai|inferenceclient|api\.openai|api\.anthropic|curl\s|wget\s|git\s+clone)"),
         ("broad-discovery", r"(?i)(?:\.r?glob\s*\(|os\.walk\s*\(|listdir\s*\(|\.iterdir\s*\()"),
         ("reserved-reader", r"(?i)(?:held[_-]?out|(?:^|[/\\'\"])(?:test|holdout)(?:\.jsonl|[/\\'\"]))"),
         ("implicit-mode", r"(?i)(?:--full-precision|use_4bit|infer(?:red)?[_-]?mode)"),
@@ -413,7 +439,7 @@ def _validate_text_rules(
         ("inline-implementation", r"(?i)(?:confusion_matrix\s*\(|precision_recall_fscore_support\s*\(|plt\.|sns\.|trainer\s*=|compute_metrics\s*=|repair[_-]?output|fuzzy[_-]?label)"),
     )
     for code_name, pattern in forbidden_patterns:
-        if re.search(pattern, code):
+        if re.search(pattern, scanned_code):
             issues.append(
                 _issue(path, code_name, f"notebook source matches forbidden pattern {pattern!r}")
             )
@@ -427,6 +453,7 @@ def _validate_text_rules(
         FIXED_TRANSFER_REPOSITORY_ROOT,
         FIXED_INPUT_DRIVE_PATH,
         "/content/drive/MyDrive/internship-phase40/work",
+        "/content/drive/MyDrive/internship-phase40/exports",
     )
     for drive_path in re.findall(r"/content/drive[^\s'\"\)\]]+", code):
         if not any(drive_path.startswith(prefix) for prefix in allowed_drive_fragments):
@@ -479,6 +506,9 @@ def _validate_role_contracts(
             spec.model_manifest_relative_path,
             "RUN_KIND = \"full\"",
             "src.model_adaptation.phase40_operator",
+            "FRESH_RUNTIME_REQUIRED = True",
+            "FULL_OPTIMIZER_STEPS",
+            TORCH_INDEX_URL,
         ),
         "drive-mount": ("from google.colab import drive", "drive.mount(\"/content/drive\")"),
         "package-authority": (
@@ -486,6 +516,7 @@ def _validate_role_contracts(
             "MODEL_ACQUISITION_AUTHORIZED = False",
             "STOP_PACKAGE_AUTHORITY",
             "is not True",
+            "FRESH_RUNTIME_REQUIRED",
         ),
         "source-verify": (
             "SOURCE_BUNDLE_VERIFIED = False",
@@ -515,6 +546,7 @@ def _validate_role_contracts(
             "PACKAGE_INSTALL_PINS",
             "DEPENDENCY_PINS",
             "MODE_NO_DEPS_PINS",
+            "TORCH_INDEX_URL",
         ),
         "request-verify": (
             "from src.model_adaptation.phase40_handoff import RunRequest",
@@ -526,6 +558,11 @@ def _validate_role_contracts(
             'CONTROL_VALUES.get("model_id")',
             "source_bundle",
             "input_bundle",
+            "verify_launch_ready_request",
+            "max_optimizer_steps",
+            "FULL_OPTIMIZER_STEPS",
+            "OPERATOR_LOG_ROOT",
+            "subprocess.Popen",
         ),
         "model-acquire": (
             "phase40-acquire-model",
@@ -604,6 +641,38 @@ def _validate_role_contracts(
             "phase40-train-qwen",
             "--adaptation-mode",
             spec.adaptation_mode,
+        )
+        required_by_role["gguf-authority"] = (
+            GGUF_PACKAGE_PIN,
+            "GGUF_CONVERTER_SHA256",
+            "package_metadata.distribution",
+            "convert_hf_to_gguf.py",
+            "GGUF_CONVERTER_VERIFIED = True",
+        )
+        required_by_role["gguf-export"] = (
+            "GGUF_CLI",
+            "export",
+            "--run-root",
+            "--base-model-path",
+            "--base-manifest-path",
+            "--converter-script",
+            "--converter-sha256",
+            "--output-path",
+            "--manifest-path",
+            "--temp-parent",
+            "verify",
+            "phase40-gguf-export-v1",
+            "output_claim.get(\"path\"",
+            "output_claim.get(\"sha256\")",
+            "GGUF_OUTPUT_PATH.resolve(strict=True)",
+            "GGUF_MANIFEST_VERIFIED = True",
+            "GGUF_DRIVE_ROOT",
+        )
+        required_by_role["optional-download"] = (
+            "ENABLE_BROWSER_DOWNLOAD = False",
+            "GGUF_MANIFEST_VERIFIED is not True",
+            "from google.colab import files",
+            "files.download",
         )
 
     for role, tokens in required_by_role.items():
@@ -760,11 +829,12 @@ def validate_phase40_notebook(path: Path) -> tuple[NotebookValidationIssue, ...]
                     )
                 )
             code_sources.append((index, str(role), source))
-    if tuple(actual_layout) != _ROLE_LAYOUT:
+    expected_layout = _ROLE_LAYOUT + (_QWEN_GGUF_ROLE_LAYOUT if spec.model_family == "qwen" else ())
+    if tuple(actual_layout) != expected_layout:
         issues.append(
             _issue(path, "cell-layout", "cell roles/types must equal the canonical closed layout")
         )
-    if set(role_sources) != {role for role, _ in _ROLE_LAYOUT}:
+    if set(role_sources) != {role for role, _ in expected_layout}:
         issues.append(_issue(path, "cell-layout", "canonical role set is incomplete or extended"))
         return tuple(issues)
 

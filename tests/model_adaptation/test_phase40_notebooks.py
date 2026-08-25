@@ -330,7 +330,6 @@ def test_notebooks_contain_no_local_trainer_metric_graph_or_external_inference()
         "openai",
         "anthropic",
         "http://",
-        "https://",
         "data/splits",
         "recovered-balanced",
     )
@@ -343,6 +342,36 @@ def test_notebooks_contain_no_local_trainer_metric_graph_or_external_inference()
         )
         for needle in forbidden:
             assert needle not in code
+        without_torch_index = code.replace(
+            "https://download.pytorch.org/whl/cu132", ""
+        )
+        assert "https://" not in without_torch_index
+
+
+def test_full_profiles_logs_fresh_runtime_and_qwen_gguf_download_are_closed() -> None:
+    for name in CANONICAL_NAMES:
+        notebook = _load(name)
+        phase = notebook["metadata"]["phase40"]  # type: ignore[index]
+        expected_steps = 1245 if phase["model_family"] == "qwen" else 312
+        assert phase["full_optimizer_steps"] == expected_steps
+        code = "\n".join(
+            _source(cell)
+            for cell in notebook["cells"]  # type: ignore[index]
+            if cell["cell_type"] == "code"  # type: ignore[index]
+        )
+        assert "FRESH_RUNTIME_REQUIRED = True" in code
+        assert "subprocess.Popen" in code
+        assert "OPERATOR_LOG_ROOT" in code
+        assert f"FULL_OPTIMIZER_STEPS = {expected_steps}" in code
+        if phase["model_family"] == "qwen":
+            assert "phase40-gguf-export-v1" in code
+            assert "GGUF_MANIFEST_VERIFIED = True" in code
+            assert "ENABLE_BROWSER_DOWNLOAD = False" in code
+            assert "files.download" in code
+            assert "gguf==0.19.0" in code
+            assert "llama-cpp-python==0.3.23" in code
+        else:
+            assert "files.download" not in code
 
 
 def test_malformed_or_duplicate_key_json_fails_without_execution(tmp_path: Path) -> None:

@@ -1,0 +1,1 @@
+{"converter_basename":"convert_hf_to_gguf.py","converter_sha256":"f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4aac434999b55","outtype":"q8_0","package":"gguf","package_version":"0.19.0","schema_version":"phase40-gguf-tool-authority-v1","source_kind":"pypi-package"}

@@ -2,3 +2,12 @@
 data/models/phase40/probes/rtx5050-local-decision/**/child-*.sanitized.log -whitespace
 data/models/phase40/probes/rtx5050-qlora-session-20260825/** -text
 data/models/phase40/probes/rtx5050-qlora-session-20260825/**/child-*.sanitized.log -whitespace
+# Frozen Phase 40 Colab authorities must retain the bytes their manifests hash.
+.planning/phases/40-multi-model-training-evidence/40-COLAB-RUN-HANDOFF.md -text
+data/models/phase40/colab-preparation-manifest.json -text
+data/models/phase40/full-run-request.json -text
+data/models/phase40/gguf-tool-authority.json -text
+data/models/phase40/matched-qwen-config.json -text
+data/models/phase40/phobert-config.json -text
+data/models/phase40/input/** -text
+data/models/phase40/source/** -text

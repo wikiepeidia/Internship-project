@@ -23,6 +23,7 @@ from src.model_adaptation.phase40_contract import (
 )
 from src.model_adaptation.phase40_handoff import (
     FIXED_INPUT_REPOSITORY_PATH,
+    FIXED_RUN_REQUEST_PATH,
     FIXED_RETURNED_ROOTS,
     PACKAGE_CANDIDATES,
     PINNED_PHOBERT_REVISION,
@@ -44,6 +45,8 @@ from src.model_adaptation.phase40_handoff import (
     build_phase40_source_bundle,
     finalize_phase40_comparison,
     finalize_phase40_human_review,
+    freeze_phase40_run_request,
+    load_frozen_phase40_run_request,
     verify_phase40_input_bundle,
     verify_phase40_review_queue,
     verify_phase40_source_bundle,
@@ -1218,6 +1221,32 @@ def test_requested_controls_and_run_request_are_exact_and_reject_drift(
     payload["control_template_digest_by_run"]["phobert"] = changed_model_template.sha256
     with pytest.raises(ValidationError, match="model ID is not the pinned"):
         RunRequest.model_validate(payload)
+
+
+def test_full_run_request_freezes_only_at_canonical_path_and_reverifies_authorities(
+    tmp_path, monkeypatch
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch, create_runs=False)
+    canonical = fixture.repo / FIXED_RUN_REQUEST_PATH
+
+    frozen = freeze_phase40_run_request(fixture.request, repo_root=fixture.repo)
+    original_bytes = frozen.read_bytes()
+    assert frozen == canonical
+    assert load_frozen_phase40_run_request(repo_root=fixture.repo) == fixture.request
+
+    replay = freeze_phase40_run_request(fixture.request, repo_root=fixture.repo)
+    assert replay.read_bytes() == original_bytes
+
+    with pytest.raises(ValueError, match="not canonical"):
+        freeze_phase40_run_request(
+            fixture.request,
+            repo_root=fixture.repo,
+            output_path=fixture.repo / "request-copy.json",
+        )
+
+    canonical.write_bytes(original_bytes + b" ")
+    with pytest.raises((RuntimeError, ValidationError, ValueError)):
+        load_frozen_phase40_run_request(repo_root=fixture.repo)
 
 
 def test_finalize_comparison_succeeds_and_verify_only_is_byte_stable(

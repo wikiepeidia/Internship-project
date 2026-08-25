@@ -80,6 +80,10 @@ FIXED_INPUT_DRIVE_PATH = "/content/drive/MyDrive/internship-phase40/phase40-trai
 FIXED_INPUT_EXTRACTION_ROOT = "/content/phase40-input-v1"
 FIXED_SOURCE_ARCHIVE_PATH = "data/models/phase40/source/phase40-source.zip"
 FIXED_SOURCE_INVENTORY_PATH = "data/models/phase40/source/phase40-source-manifest.json"
+FIXED_RUN_REQUEST_PATH = "data/models/phase40/full-run-request.json"
+FIXED_MATCHED_QWEN_CONFIG_PATH = "data/models/phase40/matched-qwen-config.json"
+FIXED_PHOBERT_CONFIG_PATH = "data/models/phase40/phobert-config.json"
+FIXED_GGUF_TOOL_AUTHORITY_PATH = "data/models/phase40/gguf-tool-authority.json"
 FIXED_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-lora",
     "data/models/phase40/full/qwen-qlora",
@@ -121,9 +125,11 @@ PHASE40_SOURCE_ALLOWLIST = (
     "src/model_adaptation/catalog.py",
     "src/model_adaptation/data.py",
     "src/model_adaptation/phase40_callbacks.py",
+    "src/model_adaptation/phase40_colab_prepare.py",
     "src/model_adaptation/phase40_contract.py",
     "src/model_adaptation/phase40_evidence.py",
     "src/model_adaptation/phase40_graphs.py",
+    "src/model_adaptation/phase40_gguf.py",
     "src/model_adaptation/phase40_handoff.py",
     "src/model_adaptation/phase40_metrics.py",
     "src/model_adaptation/phase40_modes.py",
@@ -962,6 +968,59 @@ class RunRequest(BaseModel):
         ).admissible:
             raise ValueError("requested Qwen controls differ beyond base-weight quantization")
         return self
+
+
+def freeze_phase40_run_request(
+    request: RunRequest,
+    *,
+    repo_root: Path,
+    output_path: Path | None = None,
+) -> Path:
+    """Freeze and reverify the canonical external full-run request.
+
+    The source and input authorities are verified before the first write.  A
+    replay is accepted only when the existing request bytes are identical;
+    changing source, data, controls, or identities therefore requires an
+    explicitly new handoff rather than silently replacing operator authority.
+    """
+
+    root = Path(repo_root).resolve(strict=True)
+    typed = request if isinstance(request, RunRequest) else RunRequest.model_validate(request)
+    verify_phase40_run_request(typed, repo_root=root, verify_input=True)
+    destination = Path(output_path or (root / FIXED_RUN_REQUEST_PATH))
+    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / FIXED_RUN_REQUEST_PATH))))
+    supplied = Path(os.path.abspath(os.path.normpath(os.fspath(destination))))
+    if supplied != expected:
+        raise ValueError("full-run request output path is not canonical")
+    payload = _canonical_json_bytes(typed.model_dump(mode="json"))
+    frozen = _write_frozen_bytes(supplied, payload)
+    read_back = RunRequest.model_validate_json(
+        frozen.read_text(encoding="utf-8", errors="strict")
+    )
+    if read_back != typed:
+        raise RuntimeError("frozen full-run request changed during read-back")
+    verify_phase40_run_request(read_back, repo_root=root, verify_input=True)
+    return frozen
+
+
+def load_frozen_phase40_run_request(
+    *,
+    repo_root: Path,
+    request_path: Path | None = None,
+) -> RunRequest:
+    """Load the sole canonical request and reverify both transfer authorities."""
+
+    root = Path(repo_root).resolve(strict=True)
+    supplied = Path(request_path or (root / FIXED_RUN_REQUEST_PATH))
+    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / FIXED_RUN_REQUEST_PATH))))
+    absolute = Path(os.path.abspath(os.path.normpath(os.fspath(supplied))))
+    if absolute != expected or not absolute.is_file() or absolute.is_symlink():
+        raise ValueError("full-run request path is not the canonical regular file")
+    payload = absolute.read_bytes()
+    request = RunRequest.model_validate_json(payload)
+    if payload != _canonical_json_bytes(request.model_dump(mode="json")):
+        raise RuntimeError("frozen full-run request bytes are not canonical")
+    return verify_phase40_run_request(request, repo_root=root, verify_input=True)
 
 
 def transfer_authority_from_request(request: RunRequest) -> TransferAuthorityEvidence:
