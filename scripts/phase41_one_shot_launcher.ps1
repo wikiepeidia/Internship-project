@@ -350,6 +350,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import sys
 
@@ -375,7 +376,7 @@ receipt_path, source_path, request_path, protocol_path, clean_root = sys.argv[1:
 source, source_bytes = load(source_path)
 request, _ = load(request_path)
 _, protocol_bytes = load(protocol_path)
-if sys.version != source["python"]["version"]:
+if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
 bundle_bytes = canonical(request["authorities"]["model_bundle_authorities"])
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(clean_root)))
@@ -415,6 +416,7 @@ finally:
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import runpy
 import sys
@@ -443,7 +445,7 @@ source, source_bytes = load(output / "execution-source-manifest.json")
 receipt, _ = load(output / "execution-materialization-receipt.json")
 request, _ = load(output / "evaluation-request.json")
 _, protocol_bytes = load(output / "frozen-inference-protocols.json")
-if sys.version != source["python"]["version"]:
+if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(root))))
 expected = {
