@@ -184,7 +184,11 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
                     "bundle_root": "synthetic/phobert",
                     "bundle_root_sha256": "c" * 64,
                 },
-            ]
+            ],
+            "qwen_gguf_verification_receipt_sha256": "d" * 64,
+            "phobert_tokenizer_authority_sha256": "e" * 64,
+            "phobert_segmenter_authority_sha256": "f" * 64,
+            "runtime_dependency_authority_sha256": "1" * 64,
         }
     }
     protocol = {"schema_version": "synthetic-protocol"}

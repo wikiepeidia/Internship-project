@@ -81,6 +81,16 @@ PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED = (
 )
 PRODUCTION_PREPARATION_SCOPE = "production_canonical"
 SYNTHETIC_PREPARATION_SCOPE = "synthetic_test"
+_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS = (
+    "qwen_gguf_verification_receipt_sha256",
+    "phobert_tokenizer_authority_sha256",
+    "phobert_segmenter_authority_sha256",
+    "runtime_dependency_authority_sha256",
+)
+_SYNTHETIC_REQUIRED_AUTHORITY_HASHES = {
+    name: hashlib.sha256(f"phase41-synthetic:{name}".encode("ascii")).hexdigest()
+    for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+}
 
 _PHASE39_AUTHORITY_RELATIVE = Path(
     ".planning/phases/39-independent-quality-re-judge/"
@@ -1146,6 +1156,7 @@ def authorize_evaluation(
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
     _validate_prepared(prepared)
+    _require_canonical_production_authorities(prepared)
     payload = {
         "schema_version": "phase41-explicit-authorization-v1",
         "state": "explicitly_authorized",
@@ -1154,6 +1165,7 @@ def authorize_evaluation(
         "authorized_at_utc": authorized_at_utc or _utc_now(),
         "statement": statement,
         "prepared_sha256": _sha256(prepared_bytes),
+        "phase40_authorities_sha256": _phase40_authorities_sha256(prepared),
     }
     try:
         return _exclusive_write(root / AUTHORIZATION_NAME, _canonical_json_bytes(payload))
@@ -1215,6 +1227,7 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
             "review_closure_sha256",
             "comparison_launch_receipt_sha256",
             "prior_human_exposure_disclosed",
+            *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
         }
         if set(authorities) != expected_authorities:
             raise ContractError("preauthorization authority fields drifted")
@@ -1257,8 +1270,63 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
     return identity, models
 
 
+def _require_canonical_production_authorities(
+    prepared: Mapping[str, object],
+) -> None:
+    """Reject self-declared production JSON until fixed upstream proof exists.
+
+    Phase 40 has not produced a schema, code-fixed path, verifier, or protected
+    receipt for the external comparison launcher, and it has not produced the
+    frozen runtime dependency byte authority that must be chronology-bound to
+    that receipt.  Consequently no output-root JSON can currently establish a
+    production authority closure.  Every production verb calls this gate
+    independently before reading protocols, models, the held-out payload, or a
+    live launcher capability.  Once Phase 40 supplies those producers this gate
+    must be replaced by strict fixed-path loads and byte/chronology comparison;
+    accepting caller-declared hashes here is deliberately forbidden.
+    """
+
+    if prepared.get("preparation_scope") == PRODUCTION_PREPARATION_SCOPE:
+        raise ContractError(
+            f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: the code-fixed "
+            "Phase 40 external comparison-launch receipt authority does not "
+            "yet exist, so production_canonical output-root JSON is not an "
+            "authority; "
+            f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: the frozen "
+            "runtime dependency byte authority is also unavailable"
+        )
+
+
+def _required_phase40_authority_hashes(
+    authorities: Mapping[str, object],
+) -> dict[str, str]:
+    """Return the future-complete authority hashes bound into every artifact."""
+
+    return {
+        name: _require_sha256(authorities.get(name), name)
+        for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+    }
+
+
+def _phase40_authorities_sha256(prepared: Mapping[str, object]) -> str:
+    authorities = prepared.get("authorities")
+    if not isinstance(authorities, dict):
+        raise ContractError("preauthorization authorities must be an object")
+    bound = {
+        "comparison_launch_receipt_sha256": _require_sha256(
+            authorities.get("comparison_launch_receipt_sha256"),
+            "comparison launch receipt",
+        ),
+        **_required_phase40_authority_hashes(authorities),
+    }
+    return _sha256(_canonical_json_bytes(bound))
+
+
 def _validate_authorization(
-    authorization: Mapping[str, object], *, prepared_sha256: str
+    authorization: Mapping[str, object],
+    *,
+    prepared_sha256: str,
+    phase40_authorities_sha256: str,
 ) -> None:
     if set(authorization) != {
         "schema_version",
@@ -1268,6 +1336,7 @@ def _validate_authorization(
         "authorized_at_utc",
         "statement",
         "prepared_sha256",
+        "phase40_authorities_sha256",
     }:
         raise AuthorizationError("authorization fields differ from the fixed contract")
     if (
@@ -1276,6 +1345,8 @@ def _validate_authorization(
         or authorization["authorization_method"] != "explicit_local_attestation"
         or authorization["statement"] != EXPLICIT_AUTHORIZATION_STATEMENT
         or authorization["prepared_sha256"] != prepared_sha256
+        or authorization["phase40_authorities_sha256"]
+        != phase40_authorities_sha256
     ):
         raise AuthorizationError("authorization does not bind the prepared request")
     if not isinstance(authorization["operator_id"], str) or not SAFE_ID_RE.fullmatch(
@@ -1761,12 +1832,17 @@ def _run_once(
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
     identity, models = _validate_prepared(prepared)
+    _require_canonical_production_authorities(prepared)
     authorization, authorization_bytes = _load_canonical_json(
         root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
     )
     prepared_sha = _sha256(prepared_bytes)
     authorization_sha = _sha256(authorization_bytes)
-    _validate_authorization(authorization, prepared_sha256=prepared_sha)
+    _validate_authorization(
+        authorization,
+        prepared_sha256=prepared_sha,
+        phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+    )
     if identity.path != _normalize_reserved_path_without_io(identity.path):
         raise ContractError("reserved path lexical authority drifted before claim")
     materialization = _load_materialization_receipt(root)
@@ -1963,12 +2039,17 @@ def verify_only(output_root: Path) -> dict[str, object]:
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
     identity, models = _validate_prepared(prepared)
+    _require_canonical_production_authorities(prepared)
     authorization, authorization_bytes = _load_canonical_json(
         root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
     )
     prepared_sha = _sha256(prepared_bytes)
     authorization_sha = _sha256(authorization_bytes)
-    _validate_authorization(authorization, prepared_sha256=prepared_sha)
+    _validate_authorization(
+        authorization,
+        prepared_sha256=prepared_sha,
+        phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+    )
     _validate_claim_registry_root(_claim_registry_root())
     claim, claim_bytes = _load_canonical_json(root / CLAIM_NAME, "Phase 41 claim")
     global_claim, global_claim_bytes = _load_canonical_json(
@@ -2338,6 +2419,7 @@ def _materialization_payload(
     source_bytes: bytes,
     protocols_sha256: str,
     model_bundle_authorities_sha256: str,
+    phase40_authority_hashes: Mapping[str, object],
     created_at_utc: str,
     launcher_capability_sha256: str | None = None,
     launcher_process_id: int | None = None,
@@ -2346,6 +2428,9 @@ def _materialization_payload(
 ) -> bytes:
     if mode not in {"locked-clean-runtime", "synthetic-test"}:
         raise ContractError("execution materialization mode is invalid")
+    required_authorities = _required_phase40_authority_hashes(
+        phase40_authority_hashes
+    )
     launcher = source.get("launcher")
     launcher_host = source.get("launcher_host")
     python_authority = source.get("python")
@@ -2413,6 +2498,7 @@ def _materialization_payload(
             "source_tree_sha256": source["source_tree_sha256"],
             "protocols_sha256": protocols_sha256,
             "model_bundle_authorities_sha256": model_bundle_authorities_sha256,
+            **required_authorities,
             "launcher_sha256": launcher["sha256"],
             "launcher_host_sha256": launcher_host["sha256"],
             "external_launcher_authority_sha256": external_launcher_authority_sha256,
@@ -2460,6 +2546,7 @@ def _verify_materialization_receipt(
     source_bytes: bytes,
     protocols_sha256: str,
     model_bundle_authorities_sha256: str,
+    phase40_authority_hashes: Mapping[str, object],
 ) -> None:
     expected_fields = {
         "schema_version",
@@ -2470,6 +2557,7 @@ def _verify_materialization_receipt(
         "source_tree_sha256",
         "protocols_sha256",
         "model_bundle_authorities_sha256",
+        *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
         "launcher_sha256",
         "launcher_host_sha256",
         "external_launcher_authority_sha256",
@@ -2502,6 +2590,11 @@ def _verify_materialization_receipt(
         or receipt["protocols_sha256"] != protocols_sha256
         or receipt["model_bundle_authorities_sha256"]
         != model_bundle_authorities_sha256
+        or any(
+            receipt[name]
+            != _required_phase40_authority_hashes(phase40_authority_hashes)[name]
+            for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+        )
         or receipt["launcher_sha256"] != launcher.get("sha256")
         or receipt["launcher_host_sha256"] != launcher_host.get("sha256")
         or receipt["preparation_scope"] != source.get("preparation_scope")
@@ -2558,6 +2651,7 @@ def _verify_materialization_receipt(
             source_bytes=source_bytes,
             protocols_sha256=protocols_sha256,
             model_bundle_authorities_sha256=model_bundle_authorities_sha256,
+            phase40_authority_hashes=phase40_authority_hashes,
             created_at_utc=str(receipt["created_at_utc"]),
             launcher_capability_sha256=str(
                 receipt["launcher_capability_sha256"]
@@ -2579,15 +2673,16 @@ def _acquire_live_launcher_capability(output_root: Path) -> _LiveLauncherCapabil
 
     if _TEST_RUNTIME.get() is not None or os.name != "nt":
         raise ContractError("production run requires a Windows launcher capability")
+    root = Path(output_root)
+    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     materialization = _load_materialization_receipt(output_root)
     if materialization is None:
         raise ContractError("the protected launcher materialization receipt is required")
     receipt, _ = materialization
     if receipt.get("mode") != "locked-clean-runtime":
         raise ContractError("production run requires locked clean-runtime materialization")
-    root = Path(output_root)
-    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
-    _validate_prepared(request)
     source, _ = _load_canonical_json(
         root / SOURCE_MANIFEST_NAME, "Phase 41 execution source manifest"
     )
@@ -2749,6 +2844,11 @@ def _require_live_launcher_capability(
 
     if _TEST_RUNTIME.get() is not None:
         return None
+    request, _ = _load_canonical_json(
+        Path(output_root) / PREPARED_NAME, "Phase 41 request"
+    )
+    _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     capability = _LIVE_LAUNCHER_CAPABILITY.get()
     if type(capability) is not _LiveLauncherCapability:  # reject forged subclasses
         raise ContractError("production run lacks its internally owned launcher capability")
@@ -2785,6 +2885,7 @@ def _ensure_synthetic_materialization_receipt(output_root: Path) -> None:
     )
     request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
     _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     authorities = request["authorities"]
     assert isinstance(authorities, dict)
     payload = _materialization_payload(
@@ -2796,6 +2897,7 @@ def _ensure_synthetic_materialization_receipt(output_root: Path) -> None:
         model_bundle_authorities_sha256=_sha256(
             _canonical_json_bytes(authorities["model_bundle_authorities"])
         ),
+        phase40_authority_hashes=authorities,
         created_at_utc=_utc_now(),
     )
     _exclusive_write(root / MATERIALIZATION_RECEIPT_NAME, payload)
@@ -2874,6 +2976,7 @@ def _prepare_phase41_synthetic_for_test(
         "comparison_launch_receipt_sha256": _require_sha256(
             comparison_launch_receipt_sha256, "comparison launch receipt"
         ),
+        **_SYNTHETIC_REQUIRED_AUTHORITY_HASHES,
         "prior_human_exposure_disclosed": True,
     }
     request_path = prepare_evaluation(
@@ -2905,6 +3008,10 @@ def _prepare_phase41_synthetic_for_test(
             "comparison_launch_receipt_sha256": authorities[
                 "comparison_launch_receipt_sha256"
             ],
+            **{
+                name: authorities[name]
+                for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+            },
             "models_ready_before_claim_required": True,
             "validation_contingency_closed_required": True,
         }
@@ -2923,6 +3030,7 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
     _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     protocols = load_protocol_authority(root)
     protocol_bytes = (root / PROTOCOLS_NAME).read_bytes()
     source, source_bytes = _load_canonical_json(
@@ -3095,6 +3203,7 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             model_bundle_authorities_sha256=_sha256(
                 _canonical_json_bytes(request["authorities"]["model_bundle_authorities"])
             ),
+            phase40_authority_hashes=request["authorities"],
         )
     authorities = request["authorities"]
     assert isinstance(authorities, dict)
@@ -3129,6 +3238,10 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
         "comparison_launch_receipt_sha256": authorities[
             "comparison_launch_receipt_sha256"
         ],
+        **{
+            name: authorities[name]
+            for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+        },
         "models_ready_before_claim_required": True,
         "validation_contingency_closed_required": True,
     }
@@ -3565,8 +3678,9 @@ def _verify_captured_production_loader(
     output_root: Path,
     protocol_module: ModuleType,
     captured_loader: object,
+    reviewed_functions: tuple[tuple[str, object, CodeType], ...] = (),
 ) -> None:
-    """Bind the captured loader to the exact materialized protocol source bytes."""
+    """Bind reviewed protocol callables to exact materialized source bytes."""
 
     root = Path(output_root)
     materialization = _load_materialization_receipt(root)
@@ -3601,49 +3715,221 @@ def _verify_captured_production_loader(
     ):
         raise ContractError("production loader module escaped its source authority")
     source_bytes = module_path.read_bytes()
-    if (
-        authority.get("bytes") != len(source_bytes)
-        or authority.get("sha256") != _sha256(source_bytes)
-        or getattr(captured_loader, "__module__", None) != protocol_module.__name__
-        or not _code_is_compiled_from_source(captured_loader, source_bytes)
-    ):
+    if authority.get("bytes") != len(source_bytes) or authority.get(
+        "sha256"
+    ) != _sha256(source_bytes):
         raise ContractError("production loader source/function identity drifted")
+    callables = (("production predictor loader", captured_loader),) + tuple(
+        (name, function) for name, function, _code in reviewed_functions
+    )
+    for name, function in callables:
+        if (
+            getattr(function, "__module__", None) != protocol_module.__name__
+            or not _code_is_compiled_from_source(function, source_bytes)
+        ):
+            raise ContractError(f"{name} source/function identity drifted")
+    for name, function, code in reviewed_functions:
+        if getattr(function, "__code__", None) is not code:
+            raise ContractError(f"{name} code identity drifted")
 
 
 def _install_production_run_entry():  # noqa: ANN201
-    """Capture the verified loader before any live launcher capability exists."""
+    """Capture reviewed protocol code before any live capability can exist."""
 
     import src.model_adaptation.phase41_protocols as protocol_module
 
     captured_loader = protocol_module.load_phase41_production_predictors
+    captured_authority_loader = protocol_module.load_protocol_authority
+    captured_state_helper = protocol_module._assert_loaded_predictor_state
     captured_qwen_type = protocol_module.FrozenQwenPredictor
     captured_phobert_type = protocol_module.FrozenPhoBertPredictor
+
+    slot_names = (
+        "protocol",
+        "predictor",
+        "loaded",
+        "smoke_verified",
+        "_leases",
+        "_authority_sha256",
+        "_output_root",
+        "_launcher_binding",
+        "_launcher_capability_sha256",
+    )
+    property_names = (
+        "synthetic_test_only",
+        "production_verified",
+        "launcher_capability_sha256",
+    )
+    method_names = (
+        "_has_launcher_binding",
+        "assert_lifetime_integrity",
+        "__call__",
+    )
+
+    def capture_predictor_contract(predictor_type):  # noqa: ANN001, ANN202
+        namespace = vars(predictor_type)
+        slots = tuple((name, namespace[name]) for name in slot_names)
+        properties = []
+        for name in property_names:
+            descriptor = namespace[name]
+            if not isinstance(descriptor, property) or descriptor.fget is None:
+                raise RuntimeError(f"reviewed predictor property is invalid: {name}")
+            code = getattr(descriptor.fget, "__code__", None)
+            if not isinstance(code, CodeType):
+                raise RuntimeError(f"reviewed predictor property has no code: {name}")
+            properties.append((name, descriptor, descriptor.fget, code))
+        methods = []
+        for name in method_names:
+            function = namespace[name]
+            code = getattr(function, "__code__", None)
+            if not isinstance(code, CodeType):
+                raise RuntimeError(f"reviewed predictor method has no code: {name}")
+            methods.append((name, function, code))
+        return (predictor_type, slots, tuple(properties), tuple(methods))
+
+    qwen_contract = capture_predictor_contract(captured_qwen_type)
+    phobert_contract = capture_predictor_contract(captured_phobert_type)
+    helper_code = getattr(captured_state_helper, "__code__", None)
+    authority_loader_code = getattr(captured_authority_loader, "__code__", None)
+    if not isinstance(helper_code, CodeType) or not isinstance(
+        authority_loader_code, CodeType
+    ):
+        raise RuntimeError("reviewed protocol helpers have no code authority")
+
+    reviewed_functions = (
+        (
+            "production predictor state helper",
+            captured_state_helper,
+            helper_code,
+        ),
+        (
+            "protocol authority loader",
+            captured_authority_loader,
+            authority_loader_code,
+        ),
+    ) + tuple(
+        (
+            f"{contract[0].__name__}.{name}",
+            function,
+            code,
+        )
+        for contract in (qwen_contract, phobert_contract)
+        for name, _descriptor, function, code in contract[2]
+    ) + tuple(
+        (
+            f"{contract[0].__name__}.{name}",
+            function,
+            code,
+        )
+        for contract in (qwen_contract, phobert_contract)
+        for name, function, code in contract[3]
+    )
+
+    def assert_reviewed_predictor_contract() -> None:
+        """Reject in-place mutation of any reviewed production descriptor."""
+
+        if protocol_module.load_phase41_production_predictors is not captured_loader:
+            raise ContractError(
+                "production loader binding drifted before capability acquisition"
+            )
+        if (
+            protocol_module.load_protocol_authority is not captured_authority_loader
+            or protocol_module._assert_loaded_predictor_state is not captured_state_helper
+            or protocol_module.FrozenQwenPredictor is not captured_qwen_type
+            or protocol_module.FrozenPhoBertPredictor is not captured_phobert_type
+        ):
+            raise ContractError("production predictor module binding drifted")
+        for contract in (qwen_contract, phobert_contract):
+            predictor_type, slots, properties, methods = contract
+            namespace = vars(predictor_type)
+            for name, descriptor in slots:
+                if namespace.get(name) is not descriptor:
+                    raise ContractError(
+                        f"production predictor class descriptor drifted: {name}"
+                    )
+            for name, descriptor, function, code in properties:
+                if (
+                    namespace.get(name) is not descriptor
+                    or descriptor.fget is not function
+                    or function.__code__ is not code
+                ):
+                    raise ContractError(
+                        f"production predictor class descriptor drifted: {name}"
+                    )
+            for name, function, code in methods:
+                if namespace.get(name) is not function or function.__code__ is not code:
+                    raise ContractError(
+                        f"production predictor class descriptor drifted: {name}"
+                    )
+        for name, function, code in reviewed_functions[:2]:
+            if function.__code__ is not code:
+                raise ContractError(f"{name} code identity drifted")
+
+    def contract_property(contract, name: str, predictor):  # noqa: ANN001, ANN202
+        for candidate, _descriptor, function, _code in contract[2]:
+            if candidate == name:
+                return function(predictor)
+        raise RuntimeError(f"uncaptured predictor property: {name}")
+
+    def contract_slot(contract, name: str, predictor):  # noqa: ANN001, ANN202
+        for candidate, descriptor in contract[1]:
+            if candidate == name:
+                return descriptor.__get__(predictor, contract[0])
+        raise RuntimeError(f"uncaptured predictor slot: {name}")
+
+    def call_contract_method(  # noqa: ANN202
+        contract, name: str, predictor, *args  # noqa: ANN001
+    ):
+        for candidate, function, _code in contract[3]:
+            if candidate == name:
+                return function(predictor, *args)
+        raise RuntimeError(f"uncaptured predictor method: {name}")
 
     def run_phase41_once(output_root: Path) -> Phase41EvidenceManifest:
         """Own production loader, predictors, handle, and irreversible run."""
 
         if _TEST_RUNTIME.get() is not None:
             raise ContractError("production run entry is unavailable in synthetic runtime")
-        if protocol_module.load_phase41_production_predictors is not captured_loader:
-            raise ContractError("production loader binding drifted before capability acquisition")
+        assert_reviewed_predictor_contract()
         root = Path(output_root)
         prepared_before_capability, _ = _load_canonical_json(
             root / PREPARED_NAME, "Phase 41 evaluation request"
         )
         _validate_prepared(prepared_before_capability)
-        _verify_captured_production_loader(root, protocol_module, captured_loader)
+        _require_canonical_production_authorities(prepared_before_capability)
+        _verify_captured_production_loader(
+            root,
+            protocol_module,
+            captured_loader,
+            reviewed_functions,
+        )
+        assert_reviewed_predictor_contract()
         capability = _acquire_live_launcher_capability(root)
         token = _LIVE_LAUNCHER_CAPABILITY.set(capability)
         try:
             qwen, phobert = captured_loader(root)
+            assert_reviewed_predictor_contract()
             if type(qwen) is not captured_qwen_type or type(phobert) is not captured_phobert_type:
                 raise ContractError("production loader returned unexpected predictor types")
             verify_phase41_preauthorization(root)
-            _validate_predictor_entry_mode(qwen, phobert)
-            protocols = protocol_module.load_protocol_authority(root)
             if (
-                qwen.protocol.protocol_sha256 != protocols.qwen.protocol_sha256
-                or phobert.protocol.protocol_sha256 != protocols.phobert.protocol_sha256
+                contract_property(qwen_contract, "synthetic_test_only", qwen)
+                or contract_property(phobert_contract, "synthetic_test_only", phobert)
+                or not contract_property(qwen_contract, "production_verified", qwen)
+                or not contract_property(
+                    phobert_contract, "production_verified", phobert
+                )
+            ):
+                raise ContractError(
+                    "production run requires loader-created and smoke-verified predictors"
+                )
+            protocols = captured_authority_loader(root)
+            qwen_protocol = contract_slot(qwen_contract, "protocol", qwen)
+            phobert_protocol = contract_slot(phobert_contract, "protocol", phobert)
+            if (
+                qwen_protocol.protocol_sha256 != protocols.qwen.protocol_sha256
+                or phobert_protocol.protocol_sha256
+                != protocols.phobert.protocol_sha256
             ):
                 raise ContractError("predictor protocol identity drifted")
             materialization = _load_materialization_receipt(root)
@@ -3651,24 +3937,39 @@ def _install_production_run_entry():  # noqa: ANN201
                 raise ContractError("the protected launcher materialization receipt is required")
             live_binding = _require_live_launcher_capability(root, consume=False)
             expected_capability_sha = materialization[0]["launcher_capability_sha256"]
-            for predictor in (qwen, phobert):
-                has_binding = getattr(predictor, "_has_launcher_binding", None)
+            for contract, predictor in (
+                (qwen_contract, qwen),
+                (phobert_contract, phobert),
+            ):
                 if (
-                    not callable(has_binding)
-                    or not has_binding(live_binding)
-                    or getattr(predictor, "launcher_capability_sha256", None)
-                    != expected_capability_sha
-                    or not callable(
-                        getattr(predictor, "assert_lifetime_integrity", None)
+                    not call_contract_method(
+                        contract,
+                        "_has_launcher_binding",
+                        predictor,
+                        live_binding,
                     )
+                    or contract_property(
+                        contract,
+                        "launcher_capability_sha256",
+                        predictor,
+                    )
+                    != expected_capability_sha
                 ):
                     raise ContractError(
                         "production predictor lacks the live loader/lease binding"
                     )
 
             def assert_predictor_lifetimes() -> None:
-                for predictor in (qwen, phobert):
-                    predictor.assert_lifetime_integrity()
+                assert_reviewed_predictor_contract()
+                for contract, predictor in (
+                    (qwen_contract, qwen),
+                    (phobert_contract, phobert),
+                ):
+                    call_contract_method(
+                        contract,
+                        "assert_lifetime_integrity",
+                        predictor,
+                    )
                 if (
                     _require_live_launcher_capability(root, consume=False)
                     is not live_binding
@@ -3679,12 +3980,17 @@ def _install_production_run_entry():  # noqa: ANN201
                 root / PREPARED_NAME, "Phase 41 evaluation request"
             )
             identity, models = _validate_prepared(prepared)
+            _require_canonical_production_authorities(prepared)
             authorization, authorization_bytes = _load_canonical_json(
                 root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
             )
             prepared_sha = _sha256(prepared_bytes)
             authorization_sha = _sha256(authorization_bytes)
-            _validate_authorization(authorization, prepared_sha256=prepared_sha)
+            _validate_authorization(
+                authorization,
+                prepared_sha256=prepared_sha,
+                phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+            )
             if identity.path != _normalize_reserved_path_without_io(identity.path):
                 raise ContractError("reserved path lexical authority drifted before claim")
             precommit = prepared["deployment_fit_precommit"]
@@ -3716,14 +4022,26 @@ def _install_production_run_entry():  # noqa: ANN201
                 loaded = _open_snapshot_once(identity, _owned_split_opener)
 
                 stage = "qwen_prediction"
+                assert_predictor_lifetimes()
                 qwen_predictions = _validated_predictions(
-                    qwen(loaded.predictor_view),
+                    call_contract_method(
+                        qwen_contract,
+                        "__call__",
+                        qwen,
+                        loaded.predictor_view,
+                    ),
                     loaded.predictor_view,
                     role="qwen",
                 )
+                assert_predictor_lifetimes()
                 stage = "phobert_prediction"
                 phobert_predictions = _validated_predictions(
-                    phobert(loaded.predictor_view),
+                    call_contract_method(
+                        phobert_contract,
+                        "__call__",
+                        phobert,
+                        loaded.predictor_view,
+                    ),
                     loaded.predictor_view,
                     role="phobert",
                 )
@@ -3824,6 +4142,7 @@ del _install_production_run_entry
 def _verify_protected_completion_seal(root: Path) -> None:
     request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
     identity, _ = _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     _validate_claim_registry_root(_claim_registry_root())
     claim, claim_bytes = _load_canonical_json(root / CLAIM_NAME, "Phase 41 claim")
     local, local_bytes = _load_canonical_json(
@@ -3882,6 +4201,7 @@ def _verify_phase41_evidence_core(
     verify_only(root)
     request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
     identity, _ = _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     claim_bytes = (root / CLAIM_NAME).read_bytes()
     access, _ = _load_canonical_json(
         root / ACCESS_RECEIPT_NAME, "Phase 41 evaluation access receipt"
@@ -3999,6 +4319,7 @@ def freeze_deployment_fit_disposition(output_root: Path) -> Path:
     manifest = _verify_phase41_evidence_core(root, require_disposition=False)
     request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
     _validate_prepared(request)
+    _require_canonical_production_authorities(request)
     precommit = request["deployment_fit_precommit"]
     assert isinstance(precommit, dict)
     _, terminal_bytes = _load_canonical_json(

@@ -169,6 +169,34 @@ def test_synthetic_pass_is_claim_before_open_shared_snapshot_and_byte_stable(tmp
             FrozenQwenPredictor(protocols.qwen, qwen),
             FrozenPhoBertPredictor(protocols.phobert, phobert),
         )
+        request = json.loads(
+            (root / "evaluation-request.json").read_text(encoding="utf-8")
+        )
+        preauthorization = json.loads(
+            (root / "preauthorization-receipt.json").read_text(encoding="utf-8")
+        )
+        materialization = json.loads(
+            (root / "execution-materialization-receipt.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        authorization = json.loads(
+            (root / "one-shot-authorization.json").read_text(encoding="utf-8")
+        )
+        for field in (
+            "qwen_gguf_verification_receipt_sha256",
+            "phobert_tokenizer_authority_sha256",
+            "phobert_segmenter_authority_sha256",
+            "runtime_dependency_authority_sha256",
+        ):
+            assert (
+                request["authorities"][field]
+                == preauthorization[field]
+                == materialization[field]
+            )
+        assert authorization[
+            "phase40_authorities_sha256"
+        ] == phase41_evaluation._phase40_authorities_sha256(request)
         freeze_deployment_fit_disposition(root)
         before = {path.name: path.read_bytes() for path in root.iterdir() if path.is_file()}
         assert verify_phase41_evidence(root) == verify_phase41_evidence(root)
@@ -375,6 +403,167 @@ def test_production_run_rejects_monkeypatched_loader_before_capability_acquisiti
     assert capability_attempted is False
 
 
+def test_production_run_rejects_in_place_predictor_descriptor_monkeypatches(
+    monkeypatch, tmp_path
+):
+    import src.model_adaptation.phase41_protocols as protocols_module
+
+    descriptor_replacements = (
+        ("synthetic_test_only", property(lambda _self: False)),
+        ("production_verified", property(lambda _self: True)),
+        ("launcher_capability_sha256", property(lambda _self: "a" * 64)),
+        ("_has_launcher_binding", lambda _self, _binding: True),
+        ("assert_lifetime_integrity", lambda _self: None),
+        ("__call__", lambda _self, _snapshot: ()),
+    )
+    mutation_cases = tuple(
+        (predictor_type, name, replacement)
+        for predictor_type in (
+            protocols_module.FrozenQwenPredictor,
+            protocols_module.FrozenPhoBertPredictor,
+        )
+        for name, replacement in descriptor_replacements
+    ) + (
+        (
+            protocols_module,
+            "_assert_loaded_predictor_state",
+            lambda *_args, **_kwargs: "a" * 64,
+        ),
+    )
+    capability_attempted = False
+
+    def fail_if_capability_is_touched(_root):
+        nonlocal capability_attempted
+        capability_attempted = True
+        raise AssertionError("descriptor drift must fail before capability acquisition")
+
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_acquire_live_launcher_capability",
+        fail_if_capability_is_touched,
+    )
+    for owner, name, replacement in mutation_cases:
+        original = vars(owner)[name]
+        with monkeypatch.context() as mutation:
+            mutation.setattr(owner, name, replacement)
+            with pytest.raises(ContractError, match="(descriptor|module binding|code identity)"):
+                production_run_phase41_once(tmp_path / "phase41")
+        assert vars(owner)[name] is original
+    assert capability_attempted is False
+
+
+def test_self_declared_production_files_fail_before_authority_or_payload_access(
+    monkeypatch, tmp_path
+):
+    root = tmp_path / "forged-production"
+    root.mkdir()
+    models = _models()
+    prepared = {
+        "schema_version": "phase41-one-shot-request-v1",
+        "state": "prepared",
+        "preparation_scope": "production_canonical",
+        "prepared_at_utc": "2026-08-25T00:00:00Z",
+        "held_out": {
+            "path": r"C:\phase41-never-opened.jsonl",
+            "records": 4,
+            "bytes": 400,
+            "sha256": "9" * 64,
+            "label_counts": {label: 1 for label in LABELS},
+        },
+        "models": [model.as_dict() for model in models],
+        "deployment_fit_precommit": {
+            "choice": "deferred",
+            "selected_checkpoint_identities": [
+                model.selected_checkpoint_identity for model in models
+            ],
+        },
+        "authorities": {
+            "protocols_sha256": "1" * 64,
+            "model_bundle_authorities": [
+                {
+                    "role": role,
+                    "bundle_root": rf"C:\forged-{role}",
+                    "bundle_root_sha256": digit * 64,
+                }
+                for role, digit in (("qwen", "2"), ("phobert", "3"))
+            ],
+            "execution_source_manifest_sha256": "4" * 64,
+            "comparison_authority_sha256": "5" * 64,
+            "review_closure_sha256": "6" * 64,
+            "comparison_launch_receipt_sha256": "7" * 64,
+            "qwen_gguf_verification_receipt_sha256": "a" * 64,
+            "phobert_tokenizer_authority_sha256": "b" * 64,
+            "phobert_segmenter_authority_sha256": "c" * 64,
+            "runtime_dependency_authority_sha256": "d" * 64,
+            "prior_human_exposure_disclosed": True,
+        },
+        "prediction_policy": {
+            "qwen_retries": 0,
+            "qwen_repairs": False,
+            "phobert_decision": "fixed-four-logit-argmax",
+        },
+        "report_policy": {
+            "terminal_evidence_only": True,
+            "model_selection_after_test": False,
+            "training_action_after_test": False,
+        },
+    }
+    prepared_bytes = _canonical_bytes(prepared)
+    required_future_fields = (
+        "qwen_gguf_verification_receipt_sha256",
+        "phobert_tokenizer_authority_sha256",
+        "phobert_segmenter_authority_sha256",
+        "runtime_dependency_authority_sha256",
+    )
+    for field in required_future_fields:
+        missing = json.loads(json.dumps(prepared))
+        del missing["authorities"][field]
+        with pytest.raises(ContractError, match="authority fields drifted"):
+            phase41_evaluation._validate_prepared(missing)
+    (root / "evaluation-request.json").write_bytes(prepared_bytes)
+    capability_attempted = False
+    payload_attempted = False
+    real_acquire_capability = phase41_evaluation._acquire_live_launcher_capability
+
+    def fail_capability(_root):
+        nonlocal capability_attempted
+        capability_attempted = True
+        raise AssertionError("forged production authority reached launcher capability")
+
+    def fail_payload(*_args, **_kwargs):
+        nonlocal payload_attempted
+        payload_attempted = True
+        raise AssertionError("forged production authority reached held-out payload")
+
+    monkeypatch.setattr(
+        phase41_evaluation, "_acquire_live_launcher_capability", fail_capability
+    )
+    monkeypatch.setattr(phase41_evaluation, "_open_snapshot_once", fail_payload)
+    verbs = (
+        lambda: verify_phase41_preauthorization(root),
+        lambda: authorize_phase41_evaluation(
+            root,
+            prepared_sha256=hashlib.sha256(prepared_bytes).hexdigest(),
+            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+        ),
+        lambda: production_run_phase41_once(root),
+        lambda: real_acquire_capability(root),
+        lambda: phase41_evaluation._require_live_launcher_capability(
+            root, consume=False
+        ),
+        lambda: verify_phase41_evidence(root),
+    )
+    for verb in verbs:
+        with pytest.raises(
+            ContractError,
+            match=phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
+        ):
+            verb()
+    assert capability_attempted is False
+    assert payload_attempted is False
+    assert {path.name for path in root.iterdir()} == {"evaluation-request.json"}
+
+
 def test_synthetic_predictors_cannot_enter_production_execution_mode(tmp_path):
     protocols = build_synthetic_protocol_authority(_models())
     qwen = FrozenQwenPredictor(protocols.qwen, _predictor_rows)
@@ -410,6 +599,7 @@ def test_leftover_materialization_receipt_cannot_authorize_direct_python_run(tmp
             model_bundle_authorities_sha256=hashlib.sha256(
                 _canonical_bytes(authorities["model_bundle_authorities"])
             ).hexdigest(),
+            phase40_authority_hashes=authorities,
             created_at_utc="2026-08-25T00:00:00Z",
             launcher_capability_sha256="d" * 64,
             launcher_process_id=os.getpid(),
