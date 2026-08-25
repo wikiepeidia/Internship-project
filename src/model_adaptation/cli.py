@@ -65,6 +65,14 @@ def _default_registry_path() -> Path:
     return get_settings().model_registry_path
 
 
+def _default_phase_five_split_path() -> Path:
+    """Retain the retired helper name without restoring any evaluation route."""
+
+    raise RuntimeError(
+        "The legacy Phase 5 split evaluator is retired; use phase41-run-once."
+    )
+
+
 def _build_dry_run_pilot_rows() -> list[dict[str, object]]:
     return [
         {
