@@ -381,6 +381,177 @@ class Phase41ProtocolAuthority:
         return body
 
 
+def _tree_inventory(root: Path) -> tuple[tuple[str, str, int], ...]:
+    """Inventory one non-redirecting tree without accepting special entries."""
+
+    path = Path(root)
+    if not path.is_absolute() or not path.is_dir() or _path_is_redirecting(path):
+        raise ProtocolContractError("immutable model root is absent or redirecting")
+    rows: list[tuple[str, str, int]] = [(".", "directory", 0)]
+    try:
+        entries = tuple(path.rglob("*"))
+        for entry in entries:
+            if _path_is_redirecting(entry):
+                raise ProtocolContractError(
+                    "immutable model tree contains a redirecting entry"
+                )
+            relative = entry.relative_to(path).as_posix()
+            if entry.is_dir():
+                rows.append((relative, "directory", 0))
+            elif entry.is_file():
+                rows.append((relative, "file", entry.stat().st_size))
+            else:
+                raise ProtocolContractError(
+                    "immutable model tree contains a special filesystem entry"
+                )
+    except OSError as exc:
+        raise ProtocolContractError("immutable model tree inventory failed") from exc
+    return tuple(sorted(rows))
+
+
+class _ImmutableTreeLease:
+    """Lifetime lock for exact Windows model bytes plus a closed inventory."""
+
+    __slots__ = (
+        "root",
+        "description",
+        "_inventory",
+        "_handles",
+        "_identity_sha256",
+        "_closed",
+    )
+
+    def __init__(
+        self,
+        root: Path,
+        *,
+        description: str,
+        checksum_builder: Callable[[Path], str] | None = None,
+        expected_sha256: str | None = None,
+    ) -> None:
+        if os.name != "nt":
+            raise ProtocolContractError(
+                "production model lifetime locks require Windows share-mode enforcement"
+            )
+        self.root = Path(root)
+        self.description = description
+        self._inventory = _tree_inventory(self.root)
+        self._handles: list[object] = []
+        self._identity_sha256: str | None = None
+        self._closed = False
+        try:
+            self._acquire_windows_handles()
+            if _tree_inventory(self.root) != self._inventory:
+                raise ProtocolContractError(
+                    f"{description} changed while lifetime locks were acquired"
+                )
+            if expected_sha256 is not None:
+                expected = _require_sha(expected_sha256, f"{description} identity")
+                if checksum_builder is None or checksum_builder(self.root) != expected:
+                    raise ProtocolContractError(f"{description} identity drifted")
+                self._identity_sha256 = expected
+            self.assert_intact()
+        except BaseException:
+            self.close()
+            raise
+
+    def _acquire_windows_handles(self) -> None:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateFileW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        kernel32.CreateFileW.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        invalid = ctypes.c_void_p(-1).value
+        for relative, kind, _ in self._inventory:
+            target = self.root if relative == "." else self.root / relative
+            flags = 0x00200000  # FILE_FLAG_OPEN_REPARSE_POINT
+            if kind == "directory":
+                flags |= 0x02000000  # FILE_FLAG_BACKUP_SEMANTICS
+            handle = kernel32.CreateFileW(
+                str(target),
+                0x80000000,  # GENERIC_READ
+                0x00000001,  # FILE_SHARE_READ only: deny write/delete opens
+                None,
+                3,  # OPEN_EXISTING
+                flags,
+                None,
+            )
+            if handle == invalid:
+                code = ctypes.get_last_error()
+                raise ProtocolContractError(
+                    f"{self.description} could not acquire an immutable handle: "
+                    f"winerror={code}"
+                )
+            self._handles.append((kernel32, handle))
+
+    @property
+    def identity_sha256(self) -> str:
+        if self._identity_sha256 is None:
+            raise ProtocolContractError(
+                f"{self.description} has no bound semantic identity"
+            )
+        return self._identity_sha256
+
+    def bind_semantic_identity(self, identity_sha256: str) -> None:
+        identity = _require_sha(identity_sha256, f"{self.description} identity")
+        if self._identity_sha256 not in {None, identity}:
+            raise ProtocolContractError(f"{self.description} identity was rebound")
+        self._identity_sha256 = identity
+        self.assert_intact()
+
+    def assert_intact(self) -> None:
+        if self._closed or not self._handles:
+            raise ProtocolContractError(f"{self.description} lifetime lease is closed")
+        if _tree_inventory(self.root) != self._inventory:
+            raise ProtocolContractError(
+                f"{self.description} inventory changed during its lifetime lease"
+            )
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        while self._handles:
+            kernel32, handle = self._handles.pop()
+            kernel32.CloseHandle(handle)
+
+    def __del__(self) -> None:  # pragma: no cover - process-exit safety net
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
+def _run_with_immutable_leases(
+    leases: Sequence[_ImmutableTreeLease], action: Callable[[], object]
+) -> object:
+    for lease in leases:
+        lease.assert_intact()
+    try:
+        result = action()
+    except BaseException as exc:
+        try:
+            for lease in leases:
+                lease.assert_intact()
+        except BaseException as integrity_exc:
+            raise integrity_exc from exc
+        raise
+    for lease in leases:
+        lease.assert_intact()
+    return result
+
+
 PredictorCallable = Callable[["InMemorySnapshot"], Sequence["Prediction"]]
 
 
@@ -390,7 +561,9 @@ class FrozenQwenPredictor:
     predictor: PredictorCallable
     loaded: bool
     smoke_verified: bool
-    _production_verified: bool = field(repr=False, compare=False)
+    _loader_capability: object | None = field(repr=False, compare=False)
+    _leases: tuple[_ImmutableTreeLease, ...] = field(repr=False, compare=False)
+    _authority_sha256: str | None = field(repr=False, compare=False)
 
     def __init__(
         self,
@@ -409,15 +582,41 @@ class FrozenQwenPredictor:
         object.__setattr__(self, "predictor", predictor)
         object.__setattr__(self, "loaded", False)
         object.__setattr__(self, "smoke_verified", False)
-        object.__setattr__(self, "_production_verified", False)
+        object.__setattr__(self, "_loader_capability", None)
+        object.__setattr__(self, "_leases", ())
+        object.__setattr__(self, "_authority_sha256", None)
 
     @property
     def production_verified(self) -> bool:
-        return self._production_verified
+        if self.loaded is not True or self.smoke_verified is not True:
+            return False
+        try:
+            self.assert_lifetime_integrity()
+            lease_identities = tuple(lease.identity_sha256 for lease in self._leases)
+        except ProtocolContractError:
+            return False
+        return _loader_capability_is_valid(
+            self._loader_capability,
+            role="qwen",
+            authority_sha256=self._authority_sha256,
+            protocol_sha256=self.protocol.protocol_sha256,
+            lease_identities=lease_identities,
+        )
+
+    @property
+    def launcher_capability_sha256(self) -> str | None:
+        return _loader_capability_sha256(self._loader_capability)
 
     @property
     def synthetic_test_only(self) -> bool:
         return self.protocol.body["runtime"]["python"] == "synthetic"
+
+    def _has_launcher_binding(self, binding: object) -> bool:
+        return _loader_capability_matches_binding(self._loader_capability, binding)
+
+    def assert_lifetime_integrity(self) -> None:
+        for lease in self._leases:
+            lease.assert_intact()
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
         return self.predictor(snapshot)
@@ -429,7 +628,9 @@ class FrozenPhoBertPredictor:
     predictor: PredictorCallable
     loaded: bool
     smoke_verified: bool
-    _production_verified: bool = field(repr=False, compare=False)
+    _loader_capability: object | None = field(repr=False, compare=False)
+    _leases: tuple[_ImmutableTreeLease, ...] = field(repr=False, compare=False)
+    _authority_sha256: str | None = field(repr=False, compare=False)
 
     def __init__(
         self,
@@ -448,15 +649,41 @@ class FrozenPhoBertPredictor:
         object.__setattr__(self, "predictor", predictor)
         object.__setattr__(self, "loaded", False)
         object.__setattr__(self, "smoke_verified", False)
-        object.__setattr__(self, "_production_verified", False)
+        object.__setattr__(self, "_loader_capability", None)
+        object.__setattr__(self, "_leases", ())
+        object.__setattr__(self, "_authority_sha256", None)
 
     @property
     def production_verified(self) -> bool:
-        return self._production_verified
+        if self.loaded is not True or self.smoke_verified is not True:
+            return False
+        try:
+            self.assert_lifetime_integrity()
+            lease_identities = tuple(lease.identity_sha256 for lease in self._leases)
+        except ProtocolContractError:
+            return False
+        return _loader_capability_is_valid(
+            self._loader_capability,
+            role="phobert",
+            authority_sha256=self._authority_sha256,
+            protocol_sha256=self.protocol.protocol_sha256,
+            lease_identities=lease_identities,
+        )
+
+    @property
+    def launcher_capability_sha256(self) -> str | None:
+        return _loader_capability_sha256(self._loader_capability)
 
     @property
     def synthetic_test_only(self) -> bool:
         return self.protocol.body["runtime"]["python"] == "synthetic"
+
+    def _has_launcher_binding(self, binding: object) -> bool:
+        return _loader_capability_matches_binding(self._loader_capability, binding)
+
+    def assert_lifetime_integrity(self) -> None:
+        for lease in self._leases:
+            lease.assert_intact()
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
         return self.predictor(snapshot)
@@ -626,14 +853,20 @@ def _path_is_redirecting(path: Path) -> bool:
     if path.is_symlink():
         return True
     is_junction = getattr(path, "is_junction", None)
-    return bool(callable(is_junction) and is_junction())
+    if callable(is_junction) and is_junction():
+        return True
+    try:
+        attributes = getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & 0x00000400)  # FILE_ATTRIBUTE_REPARSE_POINT
 
 
 def _bound_bundle_root(
     protocol: FrozenInferenceProtocol,
     *,
     checksum_builder: Callable[[Path], str],
-) -> Path:
+) -> _ImmutableTreeLease:
     """Verify one absolute, separately sealed model bundle before any import/load."""
 
     if protocol.body["runtime"]["python"] == "synthetic":
@@ -645,14 +878,12 @@ def _bound_bundle_root(
         raise ProtocolContractError(f"{protocol.role} bundle root is not absolute and bounded")
     if not root.is_dir() or any(_path_is_redirecting(part) for part in (root, *root.parents)):
         raise ProtocolContractError(f"{protocol.role} bundle root is absent or redirecting")
-    for child in root.rglob("*"):
-        if _path_is_redirecting(child):
-            raise ProtocolContractError(
-                f"{protocol.role} immutable bundle contains a redirecting entry"
-            )
-    if checksum_builder(root) != protocol.body["bundle_root_sha256"]:
-        raise ProtocolContractError(f"{protocol.role} immutable bundle hash drifted")
-    return root
+    return _ImmutableTreeLease(
+        root,
+        description=f"{protocol.role} immutable bundle",
+        checksum_builder=checksum_builder,
+        expected_sha256=str(protocol.body["bundle_root_sha256"]),
+    )
 
 
 def _build_qwen_qlora_loader_kwargs(
@@ -716,44 +947,10 @@ def _qwen_generation_controls(protocol: FrozenInferenceProtocol) -> dict[str, ob
     return controls
 
 
-def _verified_qwen_predictor(
-    protocol: FrozenInferenceProtocol, predictor: PredictorCallable
-) -> FrozenQwenPredictor:
-    if (
-        protocol.role != "qwen"
-        or protocol.body["runtime"]["python"] == "synthetic"
-        or not callable(predictor)
-    ):
-        raise ProtocolContractError("Qwen verified predictor inputs are invalid")
-    result = object.__new__(FrozenQwenPredictor)
-    object.__setattr__(result, "protocol", protocol)
-    object.__setattr__(result, "predictor", predictor)
-    object.__setattr__(result, "loaded", True)
-    object.__setattr__(result, "smoke_verified", True)
-    object.__setattr__(result, "_production_verified", True)
-    return result
-
-
-def _verified_phobert_predictor(
-    protocol: FrozenInferenceProtocol, predictor: PredictorCallable
-) -> FrozenPhoBertPredictor:
-    if (
-        protocol.role != "phobert"
-        or protocol.body["runtime"]["python"] == "synthetic"
-        or not callable(predictor)
-    ):
-        raise ProtocolContractError("PhoBERT verified predictor inputs are invalid")
-    result = object.__new__(FrozenPhoBertPredictor)
-    object.__setattr__(result, "protocol", protocol)
-    object.__setattr__(result, "predictor", predictor)
-    object.__setattr__(result, "loaded", True)
-    object.__setattr__(result, "smoke_verified", True)
-    object.__setattr__(result, "_production_verified", True)
-    return result
-
-
-def load_phase41_production_predictors(
+def _load_phase41_production_predictors_impl(
     output_root: Path,
+    *,
+    _capability_type: type,
 ) -> tuple[FrozenQwenPredictor, FrozenPhoBertPredictor]:
     """Load and smoke the two code-fixed local artifacts without a data opener.
 
@@ -761,10 +958,25 @@ def load_phase41_production_predictors(
     and verify-only commands cannot allocate GPU memory or load a model.
     """
 
+    from src.model_adaptation.phase41_evaluation import (
+        _load_materialization_receipt,
+        _require_live_launcher_capability,
+    )
     from src.model_adaptation.registry import build_model_checksum
 
-    authority = load_protocol_authority(output_root)
-    bundle_roots = {
+    root = Path(output_root)
+    authority = load_protocol_authority(root)
+    launcher_binding = _require_live_launcher_capability(root, consume=False)
+    materialization = _load_materialization_receipt(root)
+    if launcher_binding is None or materialization is None:
+        raise ProtocolContractError("production loader lacks a live launcher capability")
+    launcher_capability_sha256 = materialization[0].get(
+        "launcher_capability_sha256"
+    )
+    launcher_capability_sha256 = _require_sha(
+        launcher_capability_sha256, "live launcher capability"
+    )
+    bundle_leases = {
         protocol.role: _bound_bundle_root(
             protocol,
             checksum_builder=build_model_checksum,
@@ -773,13 +985,16 @@ def load_phase41_production_predictors(
     }
 
     def artifact(protocol: FrozenInferenceProtocol, key: str, expected_sha: str) -> Path:
-        bundle = bundle_roots[protocol.role]
+        lease = bundle_leases[protocol.role]
+        lease.assert_intact()
+        bundle = lease.root
         relative = Path(str(protocol.body[key]))
         target = bundle / relative
         if not target.exists() or _path_is_redirecting(target):
             raise ProtocolContractError(f"{protocol.role} bound artifact is absent: {key}")
         if build_model_checksum(target) != expected_sha:
             raise ProtocolContractError(f"{protocol.role} bound artifact hash drifted: {key}")
+        lease.assert_intact()
         return target
 
     def verify_packages(protocol: FrozenInferenceProtocol) -> None:
@@ -872,30 +1087,53 @@ def load_phase41_production_predictors(
     phobert_device, _ = frozen_cuda_device(authority.phobert)
 
     qwen_base_root = Path(
-        snapshot_download(
-            repo_id=str(authority.qwen.body["base_model_id"]),
-            revision=str(authority.qwen.body["base_revision"]),
-            local_files_only=True,
+        _run_with_immutable_leases(
+            (bundle_leases["qwen"],),
+            lambda: snapshot_download(
+                repo_id=str(authority.qwen.body["base_model_id"]),
+                revision=str(authority.qwen.body["base_revision"]),
+                local_files_only=True,
+            ),
         )
     )
-    qwen_base = verify_qwen_base_model_provenance(
+    qwen_base_lease = _ImmutableTreeLease(
         qwen_base_root,
-        qwen_model_root / PHASE40_BASE_MODEL_MANIFEST_NAME,
-        model_id=str(authority.qwen.body["base_model_id"]),
-        model_revision=str(authority.qwen.body["base_revision"]),
+        description="Qwen base snapshot",
+    )
+    qwen_base = _run_with_immutable_leases(
+        (bundle_leases["qwen"], qwen_base_lease),
+        lambda: verify_qwen_base_model_provenance(
+            qwen_base_root,
+            qwen_model_root / PHASE40_BASE_MODEL_MANIFEST_NAME,
+            model_id=str(authority.qwen.body["base_model_id"]),
+            model_revision=str(authority.qwen.body["base_revision"]),
+        ),
     )
     if qwen_base.snapshot_content_sha256 != authority.qwen.body["base_snapshot_sha256"]:
         raise ProtocolContractError("Qwen base snapshot identity drifted")
+    qwen_base_lease.bind_semantic_identity(
+        str(authority.qwen.body["base_snapshot_sha256"])
+    )
     phobert_base_root = Path(
-        snapshot_download(
-            repo_id=str(authority.phobert.body["base_model_id"]),
-            revision=str(authority.phobert.body["base_revision"]),
-            local_files_only=True,
+        _run_with_immutable_leases(
+            (bundle_leases["phobert"],),
+            lambda: snapshot_download(
+                repo_id=str(authority.phobert.body["base_model_id"]),
+                revision=str(authority.phobert.body["base_revision"]),
+                local_files_only=True,
+            ),
         )
     )
-    phobert_base = verify_phobert_base_model_provenance(
+    phobert_base_lease = _ImmutableTreeLease(
         phobert_base_root,
-        phobert_model_root / PHOBERT_BASE_MODEL_MANIFEST_NAME,
+        description="PhoBERT base snapshot",
+    )
+    phobert_base = _run_with_immutable_leases(
+        (bundle_leases["phobert"], phobert_base_lease),
+        lambda: verify_phobert_base_model_provenance(
+            phobert_base_root,
+            phobert_model_root / PHOBERT_BASE_MODEL_MANIFEST_NAME,
+        ),
     )
     if (
         phobert_base.snapshot_content_sha256
@@ -904,9 +1142,19 @@ def load_phase41_production_predictors(
         != PHOBERT_PREPROCESSOR_SHA256
     ):
         raise ProtocolContractError("PhoBERT base/preprocessor identity drifted")
+    phobert_base_lease.bind_semantic_identity(
+        str(authority.phobert.body["base_snapshot_sha256"])
+    )
 
-    qwen_tokenizer = AutoTokenizer.from_pretrained(
-        qwen_tokenizer_root, local_files_only=True, trust_remote_code=False
+    qwen_leases = (bundle_leases["qwen"], qwen_base_lease)
+    phobert_leases = (bundle_leases["phobert"], phobert_base_lease)
+    qwen_tokenizer = _run_with_immutable_leases(
+        qwen_leases,
+        lambda: AutoTokenizer.from_pretrained(
+            qwen_tokenizer_root,
+            local_files_only=True,
+            trust_remote_code=False,
+        ),
     )
     tokenizer_config_path = qwen_tokenizer_root / "tokenizer_config.json"
     metrics_source_path = Path(str(phase40_metrics.__file__))
@@ -929,16 +1177,19 @@ def load_phase41_production_predictors(
     )
     if formatter_sha256 != authority.qwen.body["formatter_sha256"]:
         raise ProtocolContractError("Qwen tokenizer/chat formatter identity drifted")
-    qwen_base = AutoModelForCausalLM.from_pretrained(
-        qwen_base_root,
-        **_build_qwen_qlora_loader_kwargs(
-            authority.qwen,
-            transformers_module=type(
-                "_TransformersBindings",
-                (),
-                {"BitsAndBytesConfig": BitsAndBytesConfig},
+    qwen_base = _run_with_immutable_leases(
+        qwen_leases,
+        lambda: AutoModelForCausalLM.from_pretrained(
+            qwen_base_root,
+            **_build_qwen_qlora_loader_kwargs(
+                authority.qwen,
+                transformers_module=type(
+                    "_TransformersBindings",
+                    (),
+                    {"BitsAndBytesConfig": BitsAndBytesConfig},
+                ),
+                torch_module=torch,
             ),
-            torch_module=torch,
         ),
     )
     linear4bit_type = getattr(getattr(bitsandbytes, "nn", None), "Linear4bit", None)
@@ -958,20 +1209,33 @@ def load_phase41_production_predictors(
         raise ProtocolContractError(
             "Qwen runtime did not reproduce genuine single-device NF4 loading"
         )
-    qwen_model = PeftModel.from_pretrained(
-        qwen_base, qwen_model_root, is_trainable=False
+    qwen_model = _run_with_immutable_leases(
+        qwen_leases,
+        lambda: PeftModel.from_pretrained(
+            qwen_base,
+            qwen_model_root,
+            is_trainable=False,
+        ),
     )
     if next(qwen_model.parameters()).device != qwen_device:
         raise ProtocolContractError("Qwen model did not load on the frozen CUDA device")
     qwen_model.eval()
 
-    phobert_tokenizer = AutoTokenizer.from_pretrained(
-        phobert_tokenizer_root, local_files_only=True, trust_remote_code=False
+    phobert_tokenizer = _run_with_immutable_leases(
+        phobert_leases,
+        lambda: AutoTokenizer.from_pretrained(
+            phobert_tokenizer_root,
+            local_files_only=True,
+            trust_remote_code=False,
+        ),
     )
-    phobert_model = AutoModelForSequenceClassification.from_pretrained(
-        phobert_model_root,
-        local_files_only=True,
-        trust_remote_code=False,
+    phobert_model = _run_with_immutable_leases(
+        phobert_leases,
+        lambda: AutoModelForSequenceClassification.from_pretrained(
+            phobert_model_root,
+            local_files_only=True,
+            trust_remote_code=False,
+        ),
     )
     phobert_model.to(phobert_device)
     if next(phobert_model.parameters()).device != phobert_device:
@@ -984,7 +1248,7 @@ def load_phase41_production_predictors(
         Prediction,
     )
 
-    def qwen_predict(snapshot: InMemorySnapshot):  # noqa: ANN202
+    def qwen_predict_unlocked(snapshot: InMemorySnapshot):  # noqa: ANN202
         predictions = []
         template = json.loads(str(authority.qwen.body["prompt_template"]))
         generation_controls = _qwen_generation_controls(authority.qwen)
@@ -1031,7 +1295,13 @@ def load_phase41_production_predictors(
             predictions.append(Prediction(row.row_id, state, raw, error))
         return tuple(predictions)
 
-    def phobert_predict(snapshot: InMemorySnapshot):  # noqa: ANN202
+    def qwen_predict(snapshot: InMemorySnapshot):  # noqa: ANN202
+        return _run_with_immutable_leases(
+            qwen_leases,
+            lambda: qwen_predict_unlocked(snapshot),
+        )
+
+    def phobert_predict_unlocked(snapshot: InMemorySnapshot):  # noqa: ANN202
         index_map = authority.phobert.body["label_index_map"]
         assert isinstance(index_map, Mapping)
         if getattr(phobert_tokenizer, "truncation_side", "right") != "right":
@@ -1060,6 +1330,12 @@ def load_phase41_production_predictors(
             for row, index in zip(snapshot.rows, indices, strict=True)
         )
 
+    def phobert_predict(snapshot: InMemorySnapshot):  # noqa: ANN202
+        return _run_with_immutable_leases(
+            phobert_leases,
+            lambda: phobert_predict_unlocked(snapshot),
+        )
+
     smoke_text = "tin nhắn tổng hợp"
     smoke = InMemorySnapshot((InferenceRow("phase41-smoke", 0, smoke_text),))
     for protocol, predictor in (
@@ -1073,10 +1349,129 @@ def load_phase41_production_predictors(
         expected_state = protocol.body["synthetic_smoke"]["expected_state"]
         if len(predictions) != 1 or predictions[0].predicted_state != expected_state:
             raise ProtocolContractError(f"{protocol.role} synthetic smoke output drifted")
-    return (
-        _verified_qwen_predictor(authority.qwen, qwen_predict),
-        _verified_phobert_predictor(authority.phobert, phobert_predict),
+    live_binding_after_smoke = _require_live_launcher_capability(root, consume=False)
+    if live_binding_after_smoke is not launcher_binding:
+        raise ProtocolContractError("launcher capability changed during model load/smoke")
+    for lease in (*qwen_leases, *phobert_leases):
+        lease.assert_intact()
+
+    qwen_capability = _capability_type(
+        role="qwen",
+        authority_sha256=authority.authority_sha256,
+        protocol_sha256=authority.qwen.protocol_sha256,
+        launcher_capability_sha256=launcher_capability_sha256,
+        launcher_binding=launcher_binding,
+        lease_identities=tuple(lease.identity_sha256 for lease in qwen_leases),
     )
+    phobert_capability = _capability_type(
+        role="phobert",
+        authority_sha256=authority.authority_sha256,
+        protocol_sha256=authority.phobert.protocol_sha256,
+        launcher_capability_sha256=launcher_capability_sha256,
+        launcher_binding=launcher_binding,
+        lease_identities=tuple(lease.identity_sha256 for lease in phobert_leases),
+    )
+    qwen = object.__new__(FrozenQwenPredictor)
+    object.__setattr__(qwen, "protocol", authority.qwen)
+    object.__setattr__(qwen, "predictor", qwen_predict)
+    object.__setattr__(qwen, "loaded", True)
+    object.__setattr__(qwen, "smoke_verified", True)
+    object.__setattr__(qwen, "_loader_capability", qwen_capability)
+    object.__setattr__(qwen, "_leases", qwen_leases)
+    object.__setattr__(qwen, "_authority_sha256", authority.authority_sha256)
+    phobert = object.__new__(FrozenPhoBertPredictor)
+    object.__setattr__(phobert, "protocol", authority.phobert)
+    object.__setattr__(phobert, "predictor", phobert_predict)
+    object.__setattr__(phobert, "loaded", True)
+    object.__setattr__(phobert, "smoke_verified", True)
+    object.__setattr__(phobert, "_loader_capability", phobert_capability)
+    object.__setattr__(phobert, "_leases", phobert_leases)
+    object.__setattr__(phobert, "_authority_sha256", authority.authority_sha256)
+    return qwen, phobert
+
+
+def _install_capability_guarded_loader(loader_impl):  # noqa: ANN001
+    """Keep the only accepted production-capability type inside a closure."""
+
+    class LoaderCapability:
+        __slots__ = (
+            "role",
+            "authority_sha256",
+            "protocol_sha256",
+            "launcher_capability_sha256",
+            "launcher_binding",
+            "lease_identities",
+            "_sealed",
+        )
+
+        def __init__(
+            self,
+            *,
+            role: str,
+            authority_sha256: str,
+            protocol_sha256: str,
+            launcher_capability_sha256: str,
+            launcher_binding: object,
+            lease_identities: tuple[str, ...],
+        ) -> None:
+            object.__setattr__(self, "role", role)
+            object.__setattr__(self, "authority_sha256", authority_sha256)
+            object.__setattr__(self, "protocol_sha256", protocol_sha256)
+            object.__setattr__(
+                self,
+                "launcher_capability_sha256",
+                launcher_capability_sha256,
+            )
+            object.__setattr__(self, "launcher_binding", launcher_binding)
+            object.__setattr__(self, "lease_identities", lease_identities)
+            object.__setattr__(self, "_sealed", True)
+
+        def __setattr__(self, name: str, value: object) -> None:
+            del name, value
+            raise AttributeError("loader capability is immutable")
+
+    def guarded(output_root: Path):  # noqa: ANN202
+        return loader_impl(output_root, _capability_type=LoaderCapability)
+
+    def valid(
+        capability: object,
+        *,
+        role: str,
+        authority_sha256: str | None,
+        protocol_sha256: str,
+        lease_identities: tuple[str, ...],
+    ) -> bool:
+        return (
+            type(capability) is LoaderCapability
+            and capability.role == role
+            and capability.authority_sha256 == authority_sha256
+            and capability.protocol_sha256 == protocol_sha256
+            and capability.lease_identities == lease_identities
+            and capability._sealed is True
+        )
+
+    def capability_sha256(capability: object) -> str | None:
+        if type(capability) is not LoaderCapability:
+            return None
+        return str(capability.launcher_capability_sha256)
+
+    def matches_binding(capability: object, binding: object) -> bool:
+        return (
+            type(capability) is LoaderCapability
+            and capability.launcher_binding is binding
+        )
+
+    guarded.__name__ = "load_phase41_production_predictors"
+    guarded.__qualname__ = "load_phase41_production_predictors"
+    return guarded, valid, capability_sha256, matches_binding
+
+
+(
+    load_phase41_production_predictors,
+    _loader_capability_is_valid,
+    _loader_capability_sha256,
+    _loader_capability_matches_binding,
+) = _install_capability_guarded_loader(_load_phase41_production_predictors_impl)
 
 
 __all__ = [

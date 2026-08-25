@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 import ast
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -25,9 +26,11 @@ from src.model_adaptation.phase41_protocols import (
     FrozenInferenceProtocol,
     FrozenQwenPredictor,
     ProtocolContractError,
+    _ImmutableTreeLease,
     _bound_bundle_root,
     _build_qwen_qlora_loader_kwargs,
     _qwen_generation_controls,
+    _run_with_immutable_leases,
     build_synthetic_protocol_authority,
     build_protocol_authority,
     canonical_json_bytes,
@@ -175,6 +178,15 @@ def test_public_callback_cannot_claim_production_verification():
     authority = build_protocol_authority(qwen_body, phobert_body)
     with pytest.raises(ProtocolContractError, match="synthetic test-only"):
         FrozenQwenPredictor(authority.qwen, lambda snapshot: ())
+    assert tuple(inspect.signature(FrozenQwenPredictor).parameters) == (
+        "protocol",
+        "predictor",
+    )
+    source = Path("src/model_adaptation/phase41_protocols.py").read_text(
+        encoding="utf-8"
+    )
+    assert "def _verified_qwen_predictor" not in source
+    assert "def _verified_phobert_predictor" not in source
 
 
 @pytest.mark.parametrize(
@@ -253,6 +265,7 @@ def test_production_bundle_roots_are_absolute_and_hash_bound():
         build_protocol_authority(qwen_body, phobert_body)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
 def test_bundle_root_whole_tree_digest_is_checked_before_loading(tmp_path):
     from src.model_adaptation.registry import build_model_checksum
 
@@ -264,11 +277,63 @@ def test_bundle_root_whole_tree_digest_is_checked_before_loading(tmp_path):
     qwen_body["bundle_root"] = str(qwen_root.absolute())
     qwen_body["bundle_root_sha256"] = build_model_checksum(qwen_root)
     protocol = build_protocol_authority(qwen_body, phobert_body).qwen
-    assert _bound_bundle_root(protocol, checksum_builder=build_model_checksum) == qwen_root
+    lease = _bound_bundle_root(protocol, checksum_builder=build_model_checksum)
+    assert lease.root == qwen_root
+    assert lease.identity_sha256 == protocol.body["bundle_root_sha256"]
 
+    with pytest.raises(PermissionError):
+        artifact.write_bytes(b"tampered")
+    with pytest.raises(PermissionError):
+        artifact.unlink()
+    lease.close()
     artifact.write_bytes(b"tampered")
-    with pytest.raises(ProtocolContractError, match="bundle hash drifted"):
+    with pytest.raises(ProtocolContractError, match="identity drifted"):
         _bound_bundle_root(protocol, checksum_builder=build_model_checksum)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
+def test_added_file_between_hash_and_loader_is_detected(tmp_path):
+    root = (tmp_path / "leased-model").absolute()
+    root.mkdir()
+    (root / "model.bin").write_bytes(b"sealed")
+    lease = _ImmutableTreeLease(
+        root,
+        description="synthetic selected model",
+        checksum_builder=lambda value: hashlib.sha256(
+            (value / "model.bin").read_bytes()
+        ).hexdigest(),
+        expected_sha256=hashlib.sha256(b"sealed").hexdigest(),
+    )
+    called: list[str] = []
+
+    def hostile_loader():
+        called.append("loader")
+        (root / "injected-config.json").write_text("{}", encoding="utf-8")
+        return object()
+
+    try:
+        with pytest.raises(ProtocolContractError, match="inventory changed"):
+            _run_with_immutable_leases((lease,), hostile_loader)
+    finally:
+        lease.close()
+    assert called == ["loader"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
+def test_base_snapshot_semantic_identity_stays_locked_for_lifetime(tmp_path):
+    root = (tmp_path / "base-snapshot").absolute()
+    root.mkdir()
+    weight = root / "model.safetensors"
+    weight.write_bytes(b"base")
+    lease = _ImmutableTreeLease(root, description="synthetic base snapshot")
+    lease.bind_semantic_identity("a" * 64)
+    try:
+        assert lease.identity_sha256 == "a" * 64
+        with pytest.raises(PermissionError):
+            weight.write_bytes(b"drift")
+        lease.assert_intact()
+    finally:
+        lease.close()
 
 
 def test_qwen_loader_rejects_overlength_input_before_generation():
