@@ -9,6 +9,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+import threading
 from types import MappingProxyType
 from types import SimpleNamespace
 
@@ -364,23 +365,82 @@ def test_base_snapshot_semantic_identity_stays_locked_for_lifetime(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
-def test_base_snapshot_rejects_reparse_point_in_any_path_ancestor(
+def test_ancestor_swap_to_equal_shape_redirect_is_blocked_before_inventory(
     tmp_path, monkeypatch
 ):
     import src.model_adaptation.phase41_protocols as phase41_protocols
 
-    root = (tmp_path / "parent" / "base-snapshot").absolute()
+    parent = (tmp_path / "trusted-parent").absolute()
+    root = parent / "base-snapshot"
     root.mkdir(parents=True)
-    (root / "model.safetensors").write_bytes(b"base")
-    redirecting_parent = root.parent
-    original = phase41_protocols._path_is_redirecting
+    (root / "model.safetensors").write_bytes(b"trusted")
+    malicious_parent = (tmp_path / "malicious-parent").absolute()
+    malicious_root = malicious_parent / "base-snapshot"
+    malicious_root.mkdir(parents=True)
+    (malicious_root / "model.safetensors").write_bytes(b"evil!!!")
+    parked_parent = (tmp_path / "parked-parent").absolute()
+
+    begin_swap = threading.Event()
+    swap_finished = threading.Event()
+    rename_succeeded: list[bool] = []
+    attack_errors: list[OSError] = []
+    consumed: list[bytes] = []
+
+    def attacker() -> None:
+        assert begin_swap.wait(5), "lease never reached the synchronized attack point"
+        try:
+            parent.rename(parked_parent)
+        except OSError as exc:
+            attack_errors.append(exc)
+        else:  # pragma: no cover - reachable only if the lifetime fence regresses
+            rename_succeeded.append(True)
+            try:
+                os.symlink(
+                    malicious_parent,
+                    parent,
+                    target_is_directory=True,
+                )
+                consumed.append((root / "model.safetensors").read_bytes())
+            finally:
+                if parent.is_symlink():
+                    parent.unlink()
+                parked_parent.rename(parent)
+        finally:
+            swap_finished.set()
+
+    original_inventory = phase41_protocols._tree_inventory
+    inventory_calls = 0
+
+    def synchronized_inventory(path: Path):
+        nonlocal inventory_calls
+        inventory_calls += 1
+        if inventory_calls == 1 and Path(path) == root:
+            begin_swap.set()
+            assert swap_finished.wait(5), "ancestor-swap attack did not finish"
+        return original_inventory(path)
+
     monkeypatch.setattr(
         phase41_protocols,
-        "_path_is_redirecting",
-        lambda path: Path(path) == redirecting_parent or original(path),
+        "_tree_inventory",
+        synchronized_inventory,
     )
-    with pytest.raises(ProtocolContractError, match="ancestry.*reparse"):
-        _ImmutableTreeLease(root, description="PhoBERT base snapshot")
+    attack = threading.Thread(target=attacker, daemon=True)
+    attack.start()
+    lease = _ImmutableTreeLease(root, description="PhoBERT base snapshot")
+    try:
+        observed = _run_with_immutable_leases(
+            (lease,),
+            lambda: (root / "model.safetensors").read_bytes(),
+        )
+        assert observed == b"trusted"
+    finally:
+        lease.close()
+        attack.join(5)
+
+    assert not attack.is_alive()
+    assert attack_errors and isinstance(attack_errors[0], PermissionError)
+    assert rename_succeeded == []
+    assert consumed == []
 
 
 def test_qwen_loader_rejects_overlength_input_before_generation():
