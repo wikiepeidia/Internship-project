@@ -206,6 +206,42 @@ def test_post_claim_failure_is_permanently_spent_before_retry_callbacks(tmp_path
             )
 
 
+def test_global_claim_success_local_claim_failure_freezes_spent_failed(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic-held-out.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+    protocols = _prepare_authorize(root, split, payload)
+    registry = tmp_path / "machine-claims"
+    real_write = phase41_evaluation._exclusive_write
+
+    def fail_local_claim(path: Path, content: bytes) -> Path:
+        if path.name == "one-shot-claim.json":
+            raise OSError("synthetic local claim persistence failure")
+        return real_write(path, content)
+
+    monkeypatch.setattr(phase41_evaluation, "_exclusive_write", fail_local_claim)
+    with _phase41_test_runtime(registry_root=registry):
+        with pytest.raises(OSError, match="synthetic local claim persistence failure"):
+            run_phase41_once(
+                root,
+                FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+                FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+            )
+        terminal = json.loads((root / "terminal.json").read_text(encoding="utf-8"))
+        assert terminal["status"] == "spent_failed"
+        assert terminal["failure_stage"] == "freeze_local_claim"
+        assert (registry / f"{hashlib.sha256(payload).hexdigest()}.claim.json").is_file()
+        with pytest.raises(AlreadySpentError):
+            run_phase41_once(
+                root,
+                FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+                FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+            )
+
+
 def test_deployment_fit_disposition_reproduces_precommitted_choice(tmp_path):
     root = tmp_path / "phase41"
     split = tmp_path / "synthetic-held-out.jsonl"
@@ -262,6 +298,44 @@ def test_synthetic_predictors_cannot_enter_production_execution_mode(tmp_path):
         phase41_evaluation._validate_predictor_entry_mode(qwen, phobert)
     with _phase41_test_runtime(registry_root=tmp_path / "machine-claims"):
         phase41_evaluation._validate_predictor_entry_mode(qwen, phobert)
+
+
+def test_leftover_materialization_receipt_cannot_authorize_direct_python_run(tmp_path):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+    protocols = _prepare_authorize(root, split, payload)
+    source, source_bytes = phase41_evaluation._load_canonical_json(
+        root / "execution-source-manifest.json", "synthetic source authority"
+    )
+    request, _ = phase41_evaluation._load_canonical_json(
+        root / "evaluation-request.json", "synthetic request"
+    )
+    authorities = request["authorities"]
+    receipt = phase41_evaluation._materialization_payload(
+        mode="locked-clean-runtime",
+        root=root / "clean-runtime",
+        source=source,
+        source_bytes=source_bytes,
+        protocols_sha256=hashlib.sha256(
+            (root / "frozen-inference-protocols.json").read_bytes()
+        ).hexdigest(),
+        model_bundle_authorities_sha256=hashlib.sha256(
+            _canonical_bytes(authorities["model_bundle_authorities"])
+        ).hexdigest(),
+        created_at_utc="2026-08-25T00:00:00Z",
+        launcher_capability_sha256="d" * 64,
+        launcher_process_id=os.getpid(),
+    )
+    (root / "execution-materialization-receipt.json").write_bytes(receipt)
+    with pytest.raises(ContractError, match="live inherited launcher capability"):
+        run_phase41_once(
+            root,
+            FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+            FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+        )
+    assert not (root / "one-shot-claim.json").exists()
 
 
 def test_programdata_environment_cannot_redirect_machine_registry(tmp_path, monkeypatch):
@@ -357,25 +431,35 @@ def test_completion_terminal_is_written_after_every_other_local_evidence(
     protocols = _prepare_authorize(root, split, payload)
     writes: list[str] = []
     real_write = phase41_evaluation._exclusive_write
+    real_global_write = phase41_evaluation._exclusive_global_claim_write
 
     def recording_write(path: Path, content: bytes) -> Path:
         writes.append(path.name)
         return real_write(path, content)
 
+    def recording_global_write(path: Path, content: bytes) -> Path:
+        writes.append(f"global:{path.name}")
+        return real_global_write(path, content)
+
     monkeypatch.setattr(phase41_evaluation, "_exclusive_write", recording_write)
+    monkeypatch.setattr(
+        phase41_evaluation, "_exclusive_global_claim_write", recording_global_write
+    )
     with _phase41_test_runtime(registry_root=tmp_path / "machine-claims"):
         run_phase41_once(
             root,
             FrozenQwenPredictor(protocols.qwen, _predictor_rows),
             FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
         )
-    assert writes[-1] == "terminal.json"
+    assert writes[-1].startswith("global:")
+    assert writes[-1].endswith(".completion.json")
     assert writes.index("evaluation-access-receipt.json") < writes.index(
         "evidence-manifest.json"
     )
     assert writes.index("evidence-manifest.json") < writes.index(
         "protected-completion-seal.json"
     )
+    assert writes.index("terminal.json") < len(writes) - 1
 
 
 def test_completion_evidence_failure_freezes_spent_failed_not_completed(
@@ -407,6 +491,43 @@ def test_completion_evidence_failure_freezes_spent_failed_not_completed(
     assert terminal["failure_stage"] == "freeze_completion_evidence"
     assert not (root / "protected-completion-seal.json").exists()
     assert (registry / f"{hashlib.sha256(payload).hexdigest()}.claim.json").is_file()
+
+
+def test_local_terminal_failure_cannot_publish_protected_completed_seal(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+    protocols = _prepare_authorize(root, split, payload)
+    registry = tmp_path / "machine-claims"
+    real_write = phase41_evaluation._exclusive_write
+    failed_once = False
+
+    def fail_completed_terminal_once(path: Path, content: bytes) -> Path:
+        nonlocal failed_once
+        if path.name == "terminal.json" and not failed_once:
+            failed_once = True
+            raise OSError("synthetic completed terminal failure")
+        return real_write(path, content)
+
+    monkeypatch.setattr(
+        phase41_evaluation, "_exclusive_write", fail_completed_terminal_once
+    )
+    with _phase41_test_runtime(registry_root=registry):
+        with pytest.raises(OSError, match="synthetic completed terminal failure"):
+            run_phase41_once(
+                root,
+                FrozenQwenPredictor(protocols.qwen, _predictor_rows),
+                FrozenPhoBertPredictor(protocols.phobert, _predictor_rows),
+            )
+    terminal = json.loads((root / "terminal.json").read_text(encoding="utf-8"))
+    assert terminal["status"] == "spent_failed"
+    assert terminal["failure_stage"] == "freeze_completion_evidence"
+    assert not (
+        registry / f"{hashlib.sha256(payload).hexdigest()}.completion.json"
+    ).exists()
 
 
 def test_fixed_evidence_inventory_rejects_traversal_before_artifact_access(tmp_path):

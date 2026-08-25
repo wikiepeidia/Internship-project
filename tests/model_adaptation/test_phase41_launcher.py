@@ -11,6 +11,8 @@ import re
 import subprocess
 import sys
 
+import pytest
+
 
 LAUNCHER = Path("scripts/phase41_one_shot_launcher.ps1")
 
@@ -84,7 +86,10 @@ def test_launcher_embedded_python_is_syntax_valid_and_bootstrap_is_source_only()
     assert "models/" not in source
 
 
+@pytest.mark.skipif(os.name != "nt", reason="launcher capability is Windows-only")
 def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_path):
+    import msvcrt
+
     blocks = _embedded_blocks()
     output = tmp_path / "output"
     clean = output / "clean-runtime"
@@ -96,8 +101,24 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
         "src/model_adaptation/cli.py": (
             b"import json, sys\n"
             b"from pathlib import Path\n"
-            b"Path(sys.argv[-1], 'bootstrap-marker.json').write_text("
-            b"json.dumps(sys.argv), encoding='utf-8')\n"
+            b"import _vnphish_phase41_launcher_capability as capability\n"
+            b"capability.assert_live()\n"
+            b"output = Path(sys.argv[-1])\n"
+            b"injected = output / 'clean-runtime' / 'src' / "
+            b"'model_adaptation' / 'injected.py'\n"
+            b"injected.write_text(\"from pathlib import Path\\n"
+            b"Path(__file__).with_name('injected-ran').write_text('ran')\\n\", "
+            b"encoding='utf-8')\n"
+            b"try:\n"
+            b"    import src.model_adaptation.injected\n"
+            b"except ModuleNotFoundError:\n"
+            b"    injection_blocked = True\n"
+            b"else:\n"
+            b"    injection_blocked = False\n"
+            b"Path(output, 'bootstrap-marker.json').write_text("
+            b"json.dumps({'argv': sys.argv, 'injection_blocked': injection_blocked, "
+            b"'launcher_live': True}), "
+            b"encoding='utf-8')\n"
         ),
     }
     for name, payload in files.items():
@@ -152,6 +173,8 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     request_path = output / "evaluation-request.json"
     protocol_path = output / "frozen-inference-protocols.json"
     receipt_path = output / "execution-materialization-receipt.json"
+    capability_nonce = os.urandom(32)
+    capability_sha256 = hashlib.sha256(capability_nonce).hexdigest()
     output.mkdir(exist_ok=True)
     source_path.write_bytes(_canonical_bytes(source_manifest))
     request_path.write_bytes(_canonical_bytes(request))
@@ -171,6 +194,8 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             os.fspath(request_path),
             os.fspath(protocol_path),
             os.fspath(clean),
+            capability_sha256,
+            str(os.getpid()),
         ],
         check=False,
         capture_output=True,
@@ -178,7 +203,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     )
     assert receipt.returncode == 0, receipt.stderr
 
-    bootstrap = subprocess.run(
+    direct = subprocess.run(
         [
             sys.executable,
             "-I",
@@ -189,17 +214,54 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             blocks["Bootstrap"],
             os.fspath(clean),
             os.fspath(output),
+            "0",
         ],
         check=False,
         capture_output=True,
         text=True,
     )
+    assert direct.returncode != 0
+    assert "live inherited launcher handle is required" in direct.stderr
+    assert not (output / "bootstrap-marker.json").exists()
+
+    read_descriptor, write_descriptor = os.pipe()
+    read_handle = msvcrt.get_osfhandle(read_descriptor)
+    os.set_handle_inheritable(read_handle, True)
+    os.write(write_descriptor, capability_nonce)
+    startup = subprocess.STARTUPINFO()
+    startup.lpAttributeList = {"handle_list": [read_handle]}
+    try:
+        bootstrap = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-s",
+                "-B",
+                "-c",
+                blocks["Bootstrap"],
+                os.fspath(clean),
+                os.fspath(output),
+                str(read_handle),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            close_fds=True,
+            startupinfo=startup,
+        )
+    finally:
+        os.close(write_descriptor)
+        os.close(read_descriptor)
     assert bootstrap.returncode == 0, bootstrap.stderr
     marker = json.loads(
         (output / "bootstrap-marker.json").read_text(encoding="utf-8")
     )
-    assert Path(marker[0]) == module_root / "cli.py"
-    assert marker[1:] == [
+    assert marker["injection_blocked"] is True
+    assert marker["launcher_live"] is True
+    assert not (module_root / "injected-ran").exists()
+    assert Path(marker["argv"][0]) == module_root / "cli.py"
+    assert marker["argv"][1:] == [
         "phase41-run-once",
         "--output-root",
         os.fspath(output.absolute()),

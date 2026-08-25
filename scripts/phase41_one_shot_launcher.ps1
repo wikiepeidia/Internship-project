@@ -341,6 +341,17 @@ try {
     Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
     Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
     $env:PYTHONNOUSERSITE = "1"
+    $CapabilityBytes = [byte[]]::new(32)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($CapabilityBytes)
+    $CapabilityHasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $CapabilitySha256 = ([System.BitConverter]::ToString(
+            $CapabilityHasher.ComputeHash($CapabilityBytes)
+        )).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $CapabilityHasher.Dispose()
+    }
     $MaterializationReceipt = Join-Path $ResolvedOutput "execution-materialization-receipt.json"
     if ([System.IO.File]::Exists($MaterializationReceipt)) {
         throw "Execution materialization receipt already exists"
@@ -372,12 +383,27 @@ def load(path):
         raise RuntimeError("authority is not canonical JSON")
     return value, payload
 
-receipt_path, source_path, request_path, protocol_path, clean_root = sys.argv[1:]
+(
+    receipt_path,
+    source_path,
+    request_path,
+    protocol_path,
+    clean_root,
+    launcher_capability_sha256,
+    launcher_process_id_raw,
+) = sys.argv[1:]
 source, source_bytes = load(source_path)
 request, _ = load(request_path)
 _, protocol_bytes = load(protocol_path)
 if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
+if len(launcher_capability_sha256) != 64 or any(
+    value not in "0123456789abcdef" for value in launcher_capability_sha256
+):
+    raise RuntimeError("launcher capability digest is invalid")
+launcher_process_id = int(launcher_process_id_raw)
+if launcher_process_id <= 0:
+    raise RuntimeError("launcher process identity is invalid")
 bundle_bytes = canonical(request["authorities"]["model_bundle_authorities"])
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(clean_root)))
 payload = canonical({
@@ -393,6 +419,8 @@ payload = canonical({
     "clean_runtime_root_sha256": hashlib.sha256(normalized_root.encode("utf-8")).hexdigest(),
     "source_file_count": len(source["files"]),
     "source_handles_locked_at_launch": True,
+    "launcher_capability_sha256": launcher_capability_sha256,
+    "launcher_process_id": launcher_process_id,
     "runtime_import_roots": source["python"]["runtime_import_roots"],
 })
 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
@@ -405,7 +433,7 @@ finally:
 '@
     & $PythonPath -I -S -s -B -c $ReceiptBuilder `
         $MaterializationReceipt $SourceManifest $PreparedRequest `
-        $ProtocolAuthority $CleanRoot
+        $ProtocolAuthority $CleanRoot $CapabilitySha256 ([string]$PID)
     if ($LASTEXITCODE -ne 0) {
         throw "Pinned Python failed to freeze the execution materialization receipt"
     }
@@ -414,12 +442,18 @@ finally:
 
     $Bootstrap = @'
 import hashlib
+import importlib.abc
+import importlib.util
+import ctypes
+from ctypes import wintypes
 import json
+import msvcrt
 import os
 import platform
 from pathlib import Path
 import runpy
 import sys
+import types
 
 def reject_duplicates(pairs):
     result = {}
@@ -441,12 +475,60 @@ def load(path):
 
 root = Path(sys.argv.pop(1)).absolute()
 output = Path(sys.argv.pop(1)).absolute()
+capability_handle = int(sys.argv.pop(1))
 source, source_bytes = load(output / "execution-source-manifest.json")
 receipt, _ = load(output / "execution-materialization-receipt.json")
 request, _ = load(output / "evaluation-request.json")
 _, protocol_bytes = load(output / "frozen-inference-protocols.json")
 if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
+if capability_handle <= 0:
+    raise RuntimeError("live inherited launcher handle is required")
+os.set_handle_inheritable(capability_handle, False)
+capability_descriptor = msvcrt.open_osfhandle(
+    capability_handle,
+    os.O_RDONLY | getattr(os, "O_BINARY", 0),
+)
+capability_stream = os.fdopen(capability_descriptor, "rb", buffering=0)
+nonce = bytearray()
+while len(nonce) < 32:
+    chunk = capability_stream.read(32 - len(nonce))
+    if not chunk:
+        raise RuntimeError("live inherited launcher capability closed early")
+    nonce.extend(chunk)
+capability_os_handle = msvcrt.get_osfhandle(capability_stream.fileno())
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+get_server_pid = kernel32.GetNamedPipeServerProcessId
+get_server_pid.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
+get_server_pid.restype = wintypes.BOOL
+peek_pipe = kernel32.PeekNamedPipe
+peek_pipe.argtypes = [
+    wintypes.HANDLE,
+    ctypes.c_void_p,
+    wintypes.DWORD,
+    ctypes.POINTER(wintypes.DWORD),
+    ctypes.POINTER(wintypes.DWORD),
+    ctypes.POINTER(wintypes.DWORD),
+]
+peek_pipe.restype = wintypes.BOOL
+server_process_id = wintypes.ULONG()
+if not get_server_pid(capability_os_handle, ctypes.byref(server_process_id)):
+    raise RuntimeError("launcher pipe server identity is unavailable")
+
+def assert_launcher_live():
+    available = wintypes.DWORD()
+    if not peek_pipe(
+        capability_os_handle,
+        None,
+        0,
+        None,
+        ctypes.byref(available),
+        None,
+    ):
+        raise RuntimeError("launcher pipe is no longer live")
+    if available.value != 0:
+        raise RuntimeError("launcher pipe contains unexpected extra capability bytes")
+
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(root))))
 expected = {
     "source_manifest_sha256": hashlib.sha256(source_bytes).hexdigest(),
@@ -457,6 +539,8 @@ expected = {
     "python_executable_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
     "clean_runtime_root_sha256": hashlib.sha256(normalized_root.encode("utf-8")).hexdigest(),
     "source_file_count": len(source["files"]),
+    "launcher_capability_sha256": hashlib.sha256(bytes(nonce)).hexdigest(),
+    "launcher_process_id": int(server_process_id.value),
     "runtime_import_roots": source["python"]["runtime_import_roots"],
 }
 if receipt.get("schema_version") != "phase41-execution-materialization-v1" or receipt.get("mode") != "locked-clean-runtime" or receipt.get("source_handles_locked_at_launch") is not True:
@@ -464,6 +548,23 @@ if receipt.get("schema_version") != "phase41-execution-materialization-v1" or re
 for key, value in expected.items():
     if receipt.get(key) != value:
         raise RuntimeError(f"materialization receipt drifted: {key}")
+assert_launcher_live()
+capability_state = {"consumed": False}
+
+def consume_launcher_once():
+    assert_launcher_live()
+    if capability_state["consumed"]:
+        raise RuntimeError("launcher capability was already consumed")
+    capability_state["consumed"] = True
+
+capability_module = types.ModuleType("_vnphish_phase41_launcher_capability")
+capability_module._nonce = bytes(nonce)
+capability_module.binding = object()
+capability_module.server_process_id = int(server_process_id.value)
+capability_module.assert_live = assert_launcher_live
+capability_module.consume_once = consume_launcher_once
+capability_module._stream = capability_stream
+sys.modules[capability_module.__name__] = capability_module
 expected_files = {row["path"]: row for row in source["files"]}
 actual_files = {
     path.relative_to(root).as_posix(): path
@@ -476,16 +577,113 @@ for name, authority in expected_files.items():
     payload = actual_files[name].read_bytes()
     if len(payload) != authority["bytes"] or hashlib.sha256(payload).hexdigest() != authority["sha256"]:
         raise RuntimeError(f"clean runtime source drifted before import: {name}")
+    actual_files[name] = payload
 runtime_roots = [os.path.abspath(os.path.normpath(value)) for value in expected["runtime_import_roots"]]
 if any(not os.path.isdir(value) for value in runtime_roots):
     raise RuntimeError("runtime import root is absent")
-sys.path[:] = [str(root), *runtime_roots, *[value for value in sys.path if value not in {"", str(root), *runtime_roots}]]
+bound_sources = {}
+bound_packages = set()
+for name, payload in actual_files.items():
+    if not name.startswith("src/") or not name.endswith(".py"):
+        raise RuntimeError(f"clean runtime contains a non-Python project source: {name}")
+    parts = name[:-3].split("/")
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+        is_package = True
+    else:
+        is_package = False
+    if not parts or any(not part.isidentifier() for part in parts):
+        raise RuntimeError(f"clean runtime source has an invalid module name: {name}")
+    module_name = ".".join(parts)
+    if module_name in bound_sources:
+        raise RuntimeError(f"clean runtime maps two files to one module: {module_name}")
+    bound_sources[module_name] = (payload, name)
+    if is_package:
+        bound_packages.add(module_name)
+if "src" not in bound_packages or "src.model_adaptation.cli" not in bound_sources:
+    raise RuntimeError("clean runtime lacks the fixed package/entry module")
+if any(name == "src" or name.startswith("src.") for name in sys.modules):
+    raise RuntimeError("project source was imported before bound-source installation")
+
+class BoundSourceLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_spec(self, fullname, path=None, target=None):
+        del path, target
+        if fullname == "src" or fullname.startswith("src."):
+            if fullname not in bound_sources:
+                raise ModuleNotFoundError(f"unbound project module rejected: {fullname}")
+            return importlib.util.spec_from_loader(
+                fullname,
+                self,
+                origin=self.get_filename(fullname),
+                is_package=self.is_package(fullname),
+            )
+        return None
+
+    def create_module(self, spec):
+        del spec
+        return None
+
+    def exec_module(self, module):
+        code = self.get_code(module.__name__)
+        exec(code, module.__dict__)
+
+    def get_code(self, fullname):
+        payload, name = bound_sources[fullname]
+        return compile(
+            payload,
+            f"phase41-bound:{name}",
+            "exec",
+            dont_inherit=True,
+            optimize=0,
+        )
+
+    def get_filename(self, fullname):
+        return os.fspath(root / bound_sources[fullname][1])
+
+    def get_source(self, fullname):
+        return bound_sources[fullname][0].decode("utf-8", errors="strict")
+
+    def is_package(self, fullname):
+        return fullname in bound_packages
+
+sys.meta_path.insert(0, BoundSourceLoader())
+sys.path[:] = [*runtime_roots, *[value for value in sys.path if value not in {"", str(root), *runtime_roots}]]
 sys.argv = ["src.model_adaptation.cli", "phase41-run-once", "--output-root", str(output)]
 runpy.run_module("src.model_adaptation.cli", run_name="__main__", alter_sys=True)
 '@
-    & $PythonPath -I -S -s -B -c $Bootstrap $CleanRoot $ResolvedOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw "Phase 41 isolated run failed with exit code $LASTEXITCODE"
+    $CapabilityPipe = $null
+    $ChildProcess = $null
+    try {
+        $CapabilityPipe = [System.IO.Pipes.AnonymousPipeServerStream]::new(
+            [System.IO.Pipes.PipeDirection]::Out,
+            [System.IO.HandleInheritability]::Inheritable
+        )
+        $ClientHandle = $CapabilityPipe.GetClientHandleAsString()
+        $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $StartInfo.FileName = $PythonPath
+        $StartInfo.UseShellExecute = $false
+        $StartInfo.CreateNoWindow = $true
+        foreach ($Argument in @(
+            '-I', '-S', '-s', '-B', '-c', $Bootstrap,
+            $CleanRoot, $ResolvedOutput, $ClientHandle
+        )) {
+            [void]$StartInfo.ArgumentList.Add([string]$Argument)
+        }
+        $ChildProcess = [System.Diagnostics.Process]::Start($StartInfo)
+        if ($null -eq $ChildProcess) {
+            throw "Pinned Python child process did not start"
+        }
+        $CapabilityPipe.DisposeLocalCopyOfClientHandle()
+        $CapabilityPipe.Write($CapabilityBytes, 0, $CapabilityBytes.Length)
+        $CapabilityPipe.Flush()
+        $ChildProcess.WaitForExit()
+        if ($ChildProcess.ExitCode -ne 0) {
+            throw "Phase 41 isolated run failed with exit code $($ChildProcess.ExitCode)"
+        }
+    }
+    finally {
+        if ($null -ne $ChildProcess) { $ChildProcess.Dispose() }
+        if ($null -ne $CapabilityPipe) { $CapabilityPipe.Dispose() }
     }
 }
 finally {

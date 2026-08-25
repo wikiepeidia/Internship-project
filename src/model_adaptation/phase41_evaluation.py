@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import ast
 import hashlib
+import importlib
 import json
 import math
 import ntpath
@@ -71,6 +72,7 @@ EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
 MATERIALIZATION_RECEIPT_NAME = "execution-materialization-receipt.json"
 COMPLETION_SEAL_NAME = "protected-completion-seal.json"
+LAUNCH_CAPABILITY_MODULE = "_vnphish_phase41_launcher_capability"
 PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED = (
     "phase40_comparison_launch_receipt_contract_missing"
 )
@@ -772,6 +774,7 @@ SplitOpener = Callable[[Path], BinaryIO]
 Predictor = Callable[[InMemorySnapshot], Sequence[Prediction]]
 Clock = Callable[[], str]
 CompletionWriter = Callable[[_CompletionProducts], None]
+PreclaimGuard = Callable[[], None]
 
 
 def _utc_now() -> str:
@@ -1182,6 +1185,7 @@ def _claim_once(
     materialization_receipt_sha256: str,
     deployment_fit_precommit_sha256: str,
     claimed_at_utc: str,
+    clock: Clock,
 ) -> tuple[Path, bytes]:
     payload = _canonical_json_bytes(
         {
@@ -1206,10 +1210,20 @@ def _claim_once(
         _exclusive_global_claim_write(global_path, payload)
     except FileExistsError as exc:
         raise AlreadySpentError("the Phase 41 holdout was claimed concurrently") from exc
-    # Keep an identical receipt with the result bundle. The global claim is
-    # authoritative; failure to create the local receipt still leaves the
-    # holdout permanently spent.
-    _exclusive_write(root / CLAIM_NAME, payload)
+    # The machine-global claim is already authoritative at this point. If the
+    # local receipt cannot be frozen, preserve a terminal spent-failed record
+    # before propagating; a retry remains forbidden by the global claim.
+    try:
+        _exclusive_write(root / CLAIM_NAME, payload)
+    except BaseException as exc:
+        _terminal_failure(
+            root,
+            _sha256(payload),
+            "freeze_local_claim",
+            exc,
+            clock,
+        )
+        raise
     _emit_test_event("claim_durable")
     return global_path, payload
 
@@ -1584,6 +1598,7 @@ def _run_once(
     qwen_predictor: Predictor,
     phobert_predictor: Predictor,
     completion_writer: CompletionWriter,
+    preclaim_guard: PreclaimGuard,
     clock: Clock = _utc_now,
 ) -> dict[str, object]:
     """Consume authorization and permanently spend the holdout.
@@ -1614,6 +1629,7 @@ def _run_once(
     precommit_sha = _sha256(_canonical_json_bytes(precommit))
     global_claim = _global_claim_path(identity)
     _assert_unspent_and_clean(root, global_claim)
+    preclaim_guard()
     _, claim_bytes = _claim_once(
         root,
         identity=identity,
@@ -1622,6 +1638,7 @@ def _run_once(
         materialization_receipt_sha256=_sha256(materialization[1]),
         deployment_fit_precommit_sha256=precommit_sha,
         claimed_at_utc=clock(),
+        clock=clock,
     )
     claim_sha = _sha256(claim_bytes)
     stage = "open_reserved_split"
@@ -2146,6 +2163,8 @@ def _materialization_payload(
     protocols_sha256: str,
     model_bundle_authorities_sha256: str,
     created_at_utc: str,
+    launcher_capability_sha256: str | None = None,
+    launcher_process_id: int | None = None,
 ) -> bytes:
     if mode not in {"locked-clean-runtime", "synthetic-test"}:
         raise ContractError("execution materialization mode is invalid")
@@ -2158,6 +2177,20 @@ def _materialization_payload(
         or not isinstance(files, list)
     ):
         raise ContractError("execution materialization authorities are incomplete")
+    if mode == "synthetic-test":
+        capability_sha256 = "0" * 64
+        process_id = 0
+    else:
+        capability_sha256 = _require_sha256(
+            launcher_capability_sha256, "live launcher capability"
+        )
+        if (
+            not isinstance(launcher_process_id, int)
+            or isinstance(launcher_process_id, bool)
+            or launcher_process_id <= 0
+        ):
+            raise ContractError("live launcher process ID is invalid")
+        process_id = launcher_process_id
     return _canonical_json_bytes(
         {
             "schema_version": "phase41-execution-materialization-v1",
@@ -2172,6 +2205,8 @@ def _materialization_payload(
             "clean_runtime_root_sha256": _normalized_path_sha256(root),
             "source_file_count": len(files),
             "source_handles_locked_at_launch": True,
+            "launcher_capability_sha256": capability_sha256,
+            "launcher_process_id": process_id,
             "runtime_import_roots": python_authority["runtime_import_roots"],
         }
     )
@@ -2222,6 +2257,8 @@ def _verify_materialization_receipt(
         "clean_runtime_root_sha256",
         "source_file_count",
         "source_handles_locked_at_launch",
+        "launcher_capability_sha256",
+        "launcher_process_id",
         "runtime_import_roots",
     }
     launcher = source.get("launcher")
@@ -2247,6 +2284,24 @@ def _verify_materialization_receipt(
         != _normalized_path_sha256(source_root)
         or receipt["source_file_count"] != len(files)
         or receipt["source_handles_locked_at_launch"] is not True
+        or not isinstance(receipt["launcher_capability_sha256"], str)
+        or not SHA256_RE.fullmatch(receipt["launcher_capability_sha256"])
+        or not isinstance(receipt["launcher_process_id"], int)
+        or isinstance(receipt["launcher_process_id"], bool)
+        or (
+            receipt["mode"] == "synthetic-test"
+            and (
+                receipt["launcher_capability_sha256"] != "0" * 64
+                or receipt["launcher_process_id"] != 0
+            )
+        )
+        or (
+            receipt["mode"] == "locked-clean-runtime"
+            and (
+                receipt["launcher_capability_sha256"] == "0" * 64
+                or receipt["launcher_process_id"] <= 0
+            )
+        )
         or receipt["runtime_import_roots"]
         != python_authority.get("runtime_import_roots")
         or receipt_bytes
@@ -2258,9 +2313,56 @@ def _verify_materialization_receipt(
             protocols_sha256=protocols_sha256,
             model_bundle_authorities_sha256=model_bundle_authorities_sha256,
             created_at_utc=str(receipt["created_at_utc"]),
+            launcher_capability_sha256=str(
+                receipt["launcher_capability_sha256"]
+            ),
+            launcher_process_id=int(receipt["launcher_process_id"]),
         )
     ):
         raise ContractError("execution materialization receipt drifted")
+
+
+def _require_live_launcher_capability(
+    output_root: Path, *, consume: bool
+) -> object | None:
+    """Prove the protected materializer parent is still alive for production."""
+
+    if _TEST_RUNTIME.get() is not None:
+        return None
+    materialization = _load_materialization_receipt(output_root)
+    if materialization is None:
+        raise ContractError("the protected launcher materialization receipt is required")
+    receipt, _ = materialization
+    if receipt.get("mode") != "locked-clean-runtime":
+        raise ContractError("production run requires locked clean-runtime materialization")
+    try:
+        capability = importlib.import_module(LAUNCH_CAPABILITY_MODULE)
+    except ModuleNotFoundError as exc:
+        raise ContractError(
+            "production run requires a live inherited launcher capability"
+        ) from exc
+    nonce = getattr(capability, "_nonce", None)
+    binding = getattr(capability, "binding", None)
+    server_process_id = getattr(capability, "server_process_id", None)
+    assert_live = getattr(capability, "assert_live", None)
+    consume_once = getattr(capability, "consume_once", None)
+    if (
+        not isinstance(nonce, bytes)
+        or len(nonce) != 32
+        or binding is None
+        or server_process_id != receipt.get("launcher_process_id")
+        or not callable(assert_live)
+        or not callable(consume_once)
+        or _sha256(nonce) != receipt.get("launcher_capability_sha256")
+    ):
+        raise ContractError("live inherited launcher capability differs from receipt")
+    try:
+        assert_live()
+        if consume:
+            consume_once()
+    except Exception as exc:
+        raise ContractError("live inherited launcher capability is unavailable") from exc
+    return binding
 
 
 def _ensure_synthetic_materialization_receipt(output_root: Path) -> None:
@@ -2859,16 +2961,17 @@ def _freeze_completion_evidence(
             "meaning": "protected seal prevents consistent post-run evidence resealing",
         }
     )
+    _exclusive_write(root / COMPLETION_SEAL_NAME, seal_payload)
+    # Freeze the local terminal before the protected machine transition. If a
+    # local write fails, no authoritative completed seal can exist. The global
+    # seal below is the final, authoritative completion transition.
+    _exclusive_write(root / TERMINAL_NAME, terminal_payload)
     try:
         _exclusive_global_claim_write(
             _global_completion_path(products.identity), seal_payload
         )
     except FileExistsError as exc:
         raise ContractError("protected completion seal already exists") from exc
-    _exclusive_write(root / COMPLETION_SEAL_NAME, seal_payload)
-    # Terminal is deliberately the final local completion artifact. Any
-    # earlier exception is caught by _run_once and frozen as spent_failed.
-    _exclusive_write(root / TERMINAL_NAME, terminal_payload)
 
 
 def _validate_predictor_entry_mode(qwen, phobert) -> None:  # noqa: ANN001
@@ -2905,12 +3008,15 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
     )
 
     root = Path(output_root)
+    materialization = _load_materialization_receipt(root)
     if _TEST_RUNTIME.get() is not None:
         _ensure_synthetic_materialization_receipt(root)
-    elif _load_materialization_receipt(root) is None:
+        materialization = _load_materialization_receipt(root)
+    elif materialization is None:
         raise ContractError(
             "phase41-run-once must be launched through the protected materializer"
         )
+    live_binding = _require_live_launcher_capability(root, consume=False)
     verify_phase41_preauthorization(root)
     if not isinstance(qwen, FrozenQwenPredictor) or not isinstance(
         phobert, FrozenPhoBertPredictor
@@ -2923,15 +3029,54 @@ def run_phase41_once(output_root: Path, qwen, phobert) -> Phase41EvidenceManifes
         or phobert.protocol.protocol_sha256 != protocols.phobert.protocol_sha256
     ):
         raise ContractError("predictor protocol identity drifted")
+    assert materialization is not None
+    materialization_receipt = materialization[0]
+    if live_binding is not None:
+        expected_capability_sha = materialization_receipt[
+            "launcher_capability_sha256"
+        ]
+        for predictor in (qwen, phobert):
+            has_binding = getattr(predictor, "_has_launcher_binding", None)
+            if (
+                not callable(has_binding)
+                or not has_binding(live_binding)
+                or getattr(predictor, "launcher_capability_sha256", None)
+                != expected_capability_sha
+                or not callable(
+                    getattr(predictor, "assert_lifetime_integrity", None)
+                )
+            ):
+                raise ContractError(
+                    "production predictor lacks the live loader/lease binding"
+                )
+
+    def assert_predictor_lifetimes() -> None:
+        if live_binding is None:
+            return
+        for predictor in (qwen, phobert):
+            predictor.assert_lifetime_integrity()
+        if _require_live_launcher_capability(root, consume=False) is not live_binding:
+            raise ContractError("live launcher capability binding changed")
+
+    def consume_preclaim_capability() -> None:
+        assert_predictor_lifetimes()
+        if live_binding is not None and (
+            _require_live_launcher_capability(root, consume=True) is not live_binding
+        ):
+            raise ContractError("live launcher capability binding changed before claim")
+
+    def freeze_verified_completion(products: _CompletionProducts) -> None:
+        assert_predictor_lifetimes()
+        _freeze_completion_evidence(root, products)
+
     _ACCESS_METADATA.set(None)
     _run_once(
         root,
         opener=_owned_split_opener,
         qwen_predictor=qwen,
         phobert_predictor=phobert,
-        completion_writer=lambda products: _freeze_completion_evidence(
-            root, products
-        ),
+        completion_writer=freeze_verified_completion,
+        preclaim_guard=consume_preclaim_capability,
     )
     return _manifest_from_disk(root)
 
