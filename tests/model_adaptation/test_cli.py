@@ -663,3 +663,28 @@ def test_release_eval_command_prints_verdict_and_artifact_paths(tmp_path, capsys
                     str(tmp_path / "manifests"),
                 ]
             )
+
+
+def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
+    parser = _load_cli_module().build_parser()
+    subparsers_action = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+    expected = {
+        "phase41-prepare-evaluation",
+        "phase41-verify-preauthorization",
+        "phase41-authorize-evaluation",
+        "phase41-run-once",
+        "phase41-freeze-deployment-fit-disposition",
+        "phase41-verify-evidence",
+    }
+    assert expected <= set(subparsers_action.choices)
+    run_parser = subparsers_action.choices["phase41-run-once"]
+    option_strings = {
+        option
+        for action in run_parser._actions
+        for option in action.option_strings
+    }
+    assert option_strings == {"-h", "--help", "--output-root"}
+    forbidden = {"--split-path", "--model-path", "--registry-root", "--retry"}
+    assert option_strings.isdisjoint(forbidden)
