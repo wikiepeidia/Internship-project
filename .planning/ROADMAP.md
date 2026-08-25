@@ -945,7 +945,12 @@ Plans:
 2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for both models plainly, including an explicit, unhedged statement if PhoBERT outscores the deployed QLoRA system on any metric.
 3. Held-out results are terminal evidence, not a tuning signal: poor test performance is reported honestly and cannot trigger dataset repair, retraining, threshold selection, or repeated evaluation on the same partition. Any later corrected experiment requires a newly acquired untouched holdout for an unbiased claim. Only after the comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,097 rows; it is labeled a post-evaluation all-data fit and receives no claim of an unbiased test score.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 41-01-PLAN.md -- Production one-shot evaluator, protected claim registry, frozen two-model protocols, clean launcher, and synthetic-only hardening
+- [ ] 41-02-PLAN.md -- Phase 40 closure gate, explicit authorization, exactly one two-model held-out pass, terminal evidence freeze, and all-data deployment-fit disposition
 
 ### Phase 42: Report Overhaul
 
@@ -963,7 +968,24 @@ Plans:
 4. The new training graphs (Phase 40), the PhoBERT/held-out comparison (Phase 40/41), the restored `task_scam` recovery story (Phase 38), and the repair methodology (Phase 38) each appear in a specific, correct chapter — none dumped in an appendix.
 5. The report compiles clean with XeLaTeX (zero errors) after the chapter rewrite.
 
-**Plans**: TBD
+**Plans**: 14 plans
+
+Plans:
+
+- [ ] 42-01-PLAN.md -- Safe anti-fabrication contracts, evidence slots, authorship provenance, and compile guard preparation
+- [ ] 42-02-PLAN.md -- Human-gated reference intake, Phase 38/40/41 evidence readiness, and deployment-fit disposition gate
+- [ ] 42-03-PLAN.md -- Evidence-bound rewrite of Chapters 1-3 from approved student drafts
+- [ ] 42-04-PLAN.md -- Evidence-bound rewrite of Chapters 4-5 with training, comparison, and repair evidence
+- [ ] 42-05-PLAN.md -- Evidence-bound rewrite of Chapters 6-8 with limitations and terminal conclusions
+- [ ] 42-06-PLAN.md -- Authorship provenance, draft-vs-final audit, evidence verification, and clean pre-final compilation
+- [ ] 42-07-PLAN.md -- Blocking initial decision on the exact retained review PDF
+- [ ] 42-08-PLAN.md -- Explicit approval fast path or one bounded student-authored revision branch
+- [ ] 42-09-PLAN.md -- Conditional Chapters 1-3 rerun with complete declared ownership
+- [ ] 42-10-PLAN.md -- Conditional Chapters 4-5 rerun with complete declared ownership
+- [ ] 42-11-PLAN.md -- Conditional Chapters 6-8, graph, appendix, and evidence-map rerun with complete ownership
+- [ ] 42-12-PLAN.md -- Branch consolidation, provenance refresh, and exact review-PDF recompilation
+- [ ] 42-13-PLAN.md -- Carry unchanged approval or obtain exact approval of the revised PDF
+- [ ] 42-14-PLAN.md -- Final verification and seal of only the currently approved PDF and unchanged source tree
 
 ### Phase 43: Slide Overhaul
 
@@ -977,7 +999,12 @@ Plans:
 3. The real ordinary-LoRA probe resource/ETA evidence plus full QLoRA and PhoBERT graphs from Phase 40/41 (not illustrative placeholders) are embedded in the relevant slides.
 4. The prior LOCKED deck is archived (dated backup file or branch) and the new deck compiles clean with XeLaTeX, with LOCKED status explicitly and only lifted for this milestone.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 43-01-PLAN.md -- Synthetic evidence renderer, whole-deck archive/hash tooling, anti-fabrication checks, and stage/pause linter
+- [ ] 43-02-PLAN.md -- Evidence-gated archive-before-edit rebuild, graph insertion, and two-pass slide compilation
 
 ### Phase 44: Code Cleanup & Defense Prep
 
