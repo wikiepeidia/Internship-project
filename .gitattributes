@@ -11,3 +11,5 @@ data/models/phase40/matched-qwen-config.json -text
 data/models/phase40/phobert-config.json -text
 data/models/phase40/input/** -text
 data/models/phase40/source/** -text
+# Recovery-request capsules are themselves hash authorities and must round-trip byte-exactly.
+data/models/phase40/request-authority-roots/** -text

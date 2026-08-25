@@ -258,9 +258,10 @@ try {
     }
     foreach ($AuthorityField in @(
         "qwen_gguf_verification_receipt_sha256",
-        "phobert_tokenizer_authority_sha256",
+        "phobert_release_receipt_authority_sha256",
         "phobert_segmenter_authority_sha256",
-        "runtime_dependency_authority_sha256"
+        "runtime_dependency_authority_sha256",
+        "runtime_materialization_receipt_sha256"
     )) {
         if ([string]$Request.authorities.$AuthorityField -cnotmatch "^[0-9a-f]{64}$") {
             throw "Required Phase 40 authority digest is absent: $AuthorityField"
@@ -476,9 +477,10 @@ required_phase40_authorities = {
     name: request["authorities"].get(name)
     for name in (
         "qwen_gguf_verification_receipt_sha256",
-        "phobert_tokenizer_authority_sha256",
+        "phobert_release_receipt_authority_sha256",
         "phobert_segmenter_authority_sha256",
         "runtime_dependency_authority_sha256",
+        "runtime_materialization_receipt_sha256",
     )
 }
 if any(
@@ -591,9 +593,10 @@ expected = {
     "protocols_sha256": hashlib.sha256(protocol_bytes).hexdigest(),
     "model_bundle_authorities_sha256": hashlib.sha256(canonical(request["authorities"]["model_bundle_authorities"])).hexdigest(),
     "qwen_gguf_verification_receipt_sha256": request["authorities"]["qwen_gguf_verification_receipt_sha256"],
-    "phobert_tokenizer_authority_sha256": request["authorities"]["phobert_tokenizer_authority_sha256"],
+    "phobert_release_receipt_authority_sha256": request["authorities"]["phobert_release_receipt_authority_sha256"],
     "phobert_segmenter_authority_sha256": request["authorities"]["phobert_segmenter_authority_sha256"],
     "runtime_dependency_authority_sha256": request["authorities"]["runtime_dependency_authority_sha256"],
+    "runtime_materialization_receipt_sha256": request["authorities"]["runtime_materialization_receipt_sha256"],
     "launcher_sha256": source["launcher"]["sha256"],
     "launcher_host_sha256": launcher_host["sha256"],
     "external_launcher_authority_sha256": external_launcher_authority_sha256,

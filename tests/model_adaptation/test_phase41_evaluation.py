@@ -185,9 +185,10 @@ def test_synthetic_pass_is_claim_before_open_shared_snapshot_and_byte_stable(tmp
         )
         for field in (
             "qwen_gguf_verification_receipt_sha256",
-            "phobert_tokenizer_authority_sha256",
+            "phobert_release_receipt_authority_sha256",
             "phobert_segmenter_authority_sha256",
             "runtime_dependency_authority_sha256",
+            "runtime_materialization_receipt_sha256",
         ):
             assert (
                 request["authorities"][field]
@@ -332,7 +333,7 @@ def test_private_test_and_low_level_execution_seams_are_not_exported():
 def test_low_level_preparation_cannot_fabricate_production_scope(tmp_path):
     with pytest.raises(
         ContractError,
-        match=phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
+        match=phase41_evaluation.PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED,
     ):
         phase41_evaluation.prepare_evaluation(
             tmp_path / "phase41",
@@ -492,9 +493,10 @@ def test_self_declared_production_files_fail_before_authority_or_payload_access(
             "review_closure_sha256": "6" * 64,
             "comparison_launch_receipt_sha256": "7" * 64,
             "qwen_gguf_verification_receipt_sha256": "a" * 64,
-            "phobert_tokenizer_authority_sha256": "b" * 64,
+            "phobert_release_receipt_authority_sha256": "b" * 64,
             "phobert_segmenter_authority_sha256": "c" * 64,
             "runtime_dependency_authority_sha256": "d" * 64,
+            "runtime_materialization_receipt_sha256": "e" * 64,
             "prior_human_exposure_disclosed": True,
         },
         "prediction_policy": {
@@ -511,9 +513,10 @@ def test_self_declared_production_files_fail_before_authority_or_payload_access(
     prepared_bytes = _canonical_bytes(prepared)
     required_future_fields = (
         "qwen_gguf_verification_receipt_sha256",
-        "phobert_tokenizer_authority_sha256",
+        "phobert_release_receipt_authority_sha256",
         "phobert_segmenter_authority_sha256",
         "runtime_dependency_authority_sha256",
+        "runtime_materialization_receipt_sha256",
     )
     for field in required_future_fields:
         missing = json.loads(json.dumps(prepared))
@@ -556,7 +559,7 @@ def test_self_declared_production_files_fail_before_authority_or_payload_access(
     for verb in verbs:
         with pytest.raises(
             ContractError,
-            match=phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
+            match=phase41_evaluation.PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED,
         ):
             verb()
     assert capability_attempted is False
@@ -630,7 +633,7 @@ def test_public_run_rejects_caller_predictors_and_private_core_requires_runtime(
     assert not (tmp_path / "one-shot-claim.json").exists()
 
 
-def test_canonical_preparation_names_runtime_byte_authority_as_upstream_blocker(
+def test_canonical_preparation_names_live_phase41_bootstrap_as_blocker(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(
@@ -658,8 +661,8 @@ def test_canonical_preparation_names_runtime_byte_authority_as_upstream_blocker(
             deployment_fit_choice="deferred",
         )
     message = str(exc_info.value)
-    assert phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED in message
-    assert phase41_evaluation.PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED in message
+    assert phase41_evaluation.PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED in message
+    assert "production Qwen GGUF inference protocol" in message
 
 
 def test_programdata_environment_cannot_redirect_machine_registry(tmp_path, monkeypatch):

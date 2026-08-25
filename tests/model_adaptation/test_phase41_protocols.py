@@ -19,7 +19,7 @@ from src.model_adaptation.phase41_evaluation import (
     ContractError,
     FrozenModelIdentity,
     OpaqueHeldOutAuthority,
-    PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
+    PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED,
     _phase41_test_runtime,
     _prepare_phase41_synthetic_for_test,
     prepare_phase41_from_canonical_authorities,
@@ -724,8 +724,10 @@ def test_phase41_import_graph_has_no_legacy_or_runtime_evaluation_route():
 
 def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
     import src.model_adaptation.phase40_evidence as phase40_evidence
+    import src.model_adaptation.phase40_production_authorities as production
     import src.model_adaptation.phase41_evaluation as phase41_evaluation
     from src.model_adaptation.phase40_handoff import (
+        PHASE40_COMPARISON_SCHEMA_VERSION,
         PHASE40_COMPARISON_LIMITATIONS,
         Phase40ComparisonManifest,
     )
@@ -834,6 +836,9 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
             package_versions=packages,
             artifacts=(SimpleNamespace(role="model_artifact", sha256=artifact_sha),),
         )
+        origin_request_sha = ("a" if role == "qwen" else "b") * 64
+        source_archive_sha = ("c" if role == "qwen" else "d") * 64
+        source_inventory_sha = ("e" if role == "qwen" else "f") * 64
         runs.append(
             {
                 "run_id": run_id,
@@ -858,13 +863,20 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
                 "gpu_identity": "synthetic-gpu",
                 "package_versions": packages,
                 "required_tool_pins": packages,
+                "origin_request_sha256": origin_request_sha,
+                "source_archive_sha256": source_archive_sha,
+                "source_inventory_sha256": source_inventory_sha,
+                "control_template_sha256": ("1" if role == "qwen" else "2") * 64,
             }
         )
     comparison = Phase40ComparisonManifest(
+        schema_version=PHASE40_COMPARISON_SCHEMA_VERSION,
         status="complete",
         package_decisions=(),
         original_run_request_sha256="9" * 64,
         scope_amendment_sha256="a" * 64,
+        superseded_scope_amendment_sha256="a" * 64,
+        final_comparison_authority_sha256="3" * 64,
         comparison_finalizer_source_sha256="b" * 64,
         lora_probe={
             "run_id": "lora-probe",
@@ -881,10 +893,26 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
             "comparison_eligible": False,
             "predictions_included": False,
         },
-        source_archive_sha256="d" * 64,
-        source_inventory_sha256="e" * 64,
+        source_archive_sha256=None,
+        source_inventory_sha256=None,
+        request_sha256_by_run={
+            run["run_id"]: run["origin_request_sha256"] for run in runs
+        },
+        source_archive_sha256_by_run={
+            run["run_id"]: run["source_archive_sha256"] for run in runs
+        },
+        source_inventory_sha256_by_run={
+            run["run_id"]: run["source_inventory_sha256"] for run in runs
+        },
         input_archive_sha256="f" * 64,
         input_manifest_sha256="0" * 64,
+        comparison_launch_receipt_sha256="4" * 64,
+        qwen_gguf_verification_receipt_sha256="5" * 64,
+        phobert_release_receipt_authority_sha256="6" * 64,
+        phobert_segmenter_authority_sha256="7" * 64,
+        runtime_dependency_authority_sha256="8" * 64,
+        runtime_materialization_receipt_sha256="9" * 64,
+        production_authority_verification_mode="portable_receipts_only",
         validation_rows=4,
         runs=tuple(runs),
         quality_comparison_admissible=True,
@@ -924,19 +952,38 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
         return evidence_by_role["qwen" if Path(path).name == "qwen-qlora" else "phobert"]
 
     monkeypatch.setattr(phase40_evidence, "verify_phase40_bundle", fake_verify_bundle)
+    portable_closure = production.VerifiedPhase40ProductionAuthorities(
+        verification_mode=production.PORTABLE_RECEIPTS_ONLY,
+        comparison_launch_receipt_sha256="4" * 64,
+        qwen_gguf_verification_receipt_sha256="5" * 64,
+        phobert_release_receipt_authority_sha256="6" * 64,
+        phobert_segmenter_authority_sha256="7" * 64,
+        runtime_dependency_authority_sha256="8" * 64,
+        runtime_materialization_receipt_sha256="9" * 64,
+        qwen_selected_checkpoint_identity=(
+            evidence_by_role["qwen"].selected_checkpoint.artifact_identity
+        ),
+        phobert_selected_checkpoint_identity=(
+            evidence_by_role["phobert"].selected_checkpoint.artifact_identity
+        ),
+        phobert_selected_artifact_sha256="5" * 64,
+    )
+    monkeypatch.setattr(
+        production,
+        "load_phase40_portable_production_authorities",
+        lambda *, repo_root: portable_closure,
+    )
     return repo, phase39_path, comparison_path, review_path
 
 
-def test_canonical_prepare_validates_existing_closure_then_fails_at_missing_receipt(
+def test_canonical_prepare_validates_existing_closure_then_requires_live_bootstrap(
     tmp_path, monkeypatch
 ):
     repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
         tmp_path, monkeypatch
     )
     output_root = repo / "data/models/phase41"
-    with pytest.raises(
-        ContractError, match=PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED
-    ):
+    with pytest.raises(ContractError, match=PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED):
         prepare_phase41_from_canonical_authorities(
             output_root,
             repo_root=repo,
@@ -946,6 +993,27 @@ def test_canonical_prepare_validates_existing_closure_then_fails_at_missing_rece
             deployment_fit_choice="deferred",
         )
     assert not output_root.exists()
+
+
+def test_canonical_prepare_rejects_materialization_receipt_manifest_drift(
+    tmp_path, monkeypatch
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path, monkeypatch
+    )
+    comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    comparison["runtime_materialization_receipt_sha256"] = "0" * 64
+    comparison_path.write_bytes(canonical_json_bytes(comparison))
+
+    with pytest.raises(ContractError, match="portable receipt closure differs"):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
 
 
 def test_canonical_prepare_rejects_ordinary_lora_before_bundle_access(

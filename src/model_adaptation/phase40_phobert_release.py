@@ -23,18 +23,16 @@ import uuid
 
 from pydantic import ValidationError
 
+from src.model_adaptation import phase40_final_authority as _final_authority
 from src.model_adaptation.phase40_evidence import (
     EvidenceStatus,
+    ResumeControlledConfig,
     RunEvidence,
     verify_phase40_bundle,
 )
 from src.model_adaptation.phase40_handoff import (
     FIXED_INPUT_DRIVE_PATH,
     FIXED_INPUT_EXTRACTION_ROOT,
-    FIXED_RUN_REQUEST_PATH,
-    FIXED_SCOPE_AMENDMENT_PATH,
-    Phase40ScopeAmendment,
-    RunRequest,
     transfer_authority_from_request,
 )
 from src.model_adaptation.phase40_modes import AdaptationMode, ModelFamily, RunKind
@@ -49,20 +47,26 @@ from src.model_adaptation.phobert_training import (
     PHOBERT_MODEL_ID,
     PHOBERT_MODEL_REVISION,
     PhoBertBaseModelProvenance,
+    _model_state_identity as _phobert_model_state_identity,
 )
 from src.model_adaptation.registry import build_model_checksum
 
 
-PHOBERT_RELEASE_SCHEMA_VERSION = "phase40-phobert-release-bundle-v1"
-PHOBERT_RELEASE_RECEIPT_SCHEMA_VERSION = "phase40-phobert-tokenizer-authority-v1"
+PHOBERT_RELEASE_SCHEMA_VERSION = "phase40-phobert-release-bundle-v2"
+PHOBERT_RELEASE_RECEIPT_SCHEMA_VERSION = "phase40-phobert-tokenizer-authority-v2"
 PHOBERT_RELEASE_MANIFEST_NAME = "phobert-release-manifest.json"
 PHOBERT_RELEASE_RUN_EVIDENCE_NAME = "run-evidence.json"
+PHOBERT_RELEASE_RESOLVED_CONFIG_NAME = "resolved-config.json"
 PHOBERT_RELEASE_TRAINER_STATE_NAME = "trainer-state.json"
 PHOBERT_RELEASE_MODEL_ROOT = "model-artifact"
 PHOBERT_RELEASE_TOKENIZER_ROOT = "tokenizer"
 PHOBERT_RELEASE_BUNDLE_RELATIVE_PATH = "data/models/phase40/inference/phobert"
 PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH = (
     "data/models/phase40/phobert-tokenizer-authority.json"
+)
+PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH = (
+    f"{_final_authority.FIXED_PHOBERT_V12_CAPSULE_ROOT}/"
+    f"{_final_authority.FIXED_ORIGINAL_REQUEST_PATH}"
 )
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -151,7 +155,7 @@ _CANONICAL_RUN_EVIDENCE_PATH_EXCEPTIONS = MappingProxyType(
         ),
     }
 )
-_TREE_DOMAIN = b"phase40-phobert-release-tree-v1\0"
+_TREE_DOMAIN = b"phase40-phobert-release-tree-v2\0"
 
 
 class PhoBertReleaseError(ReleaseAuthorityError):
@@ -597,24 +601,33 @@ class PhoBertReleaseManifest:
             self.upstream,
             frozenset(
                 {
-                    "original_run_request_relative_path",
-                    "original_run_request_sha256",
-                    "scope_amendment_relative_path",
-                    "scope_amendment_sha256",
+                    "final_comparison_authority_relative_path",
+                    "final_comparison_authority_sha256",
+                    "origin_request_authority_id",
+                    "origin_run_request_relative_path",
+                    "origin_run_request_sha256",
+                    "origin_control_template_sha256",
+                    "origin_transfer_authority_sha256",
                 }
             ),
             "release upstream authority",
         )
         if (
-            body["original_run_request_relative_path"] != FIXED_RUN_REQUEST_PATH
-            or body["scope_amendment_relative_path"] != FIXED_SCOPE_AMENDMENT_PATH
+            body["final_comparison_authority_relative_path"]
+            != _final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+            or body["origin_request_authority_id"]
+            != _final_authority.RECOVERY_REQUEST_AUTHORITY_ID
+            or body["origin_run_request_relative_path"]
+            != PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
         ):
             raise PhoBertReleaseError("release upstream authority paths drifted")
-        _require_sha256(
-            body["original_run_request_sha256"],
-            "original run request sha256",
-        )
-        _require_sha256(body["scope_amendment_sha256"], "scope amendment sha256")
+        for field in (
+            "final_comparison_authority_sha256",
+            "origin_run_request_sha256",
+            "origin_control_template_sha256",
+            "origin_transfer_authority_sha256",
+        ):
+            _require_sha256(body[field], field.replace("_", " "))
 
     def _validate_run(self) -> None:
         body = _require_exact_keys(
@@ -627,6 +640,8 @@ class PhoBertReleaseManifest:
                     "status",
                     "selected_optimizer_step",
                     "global_optimizer_step",
+                    "resolved_config_relative_path",
+                    "resolved_config_sha256",
                     "trainer_state_relative_path",
                     "trainer_state_sha256",
                 }
@@ -635,11 +650,18 @@ class PhoBertReleaseManifest:
         )
         if body["evidence_relative_path"] != PHOBERT_RELEASE_RUN_EVIDENCE_NAME:
             raise PhoBertReleaseError("release run evidence path drifted")
+        if (
+            body["resolved_config_relative_path"]
+            != PHOBERT_RELEASE_RESOLVED_CONFIG_NAME
+        ):
+            raise PhoBertReleaseError("release resolved-config path drifted")
         if body["trainer_state_relative_path"] != PHOBERT_RELEASE_TRAINER_STATE_NAME:
             raise PhoBertReleaseError("release trainer-state path drifted")
         _require_sha256(body["evidence_sha256"], "run evidence sha256")
+        _require_sha256(body["resolved_config_sha256"], "resolved-config sha256")
         _require_sha256(body["trainer_state_sha256"], "trainer-state sha256")
-        _require_text(body["run_id"], "run id")
+        if body["run_id"] != _final_authority.RECOVERY_PHOBERT_RUN_ID:
+            raise PhoBertReleaseError("release run is not the fixed PhoBERT v12 run")
         if body["status"] != "complete":
             raise PhoBertReleaseError("release run is not complete")
         selected = _require_nonnegative_int(
@@ -783,9 +805,11 @@ class PhoBertReleaseReceipt:
     bundle_manifest_sha256: str
     bundle_manifest_authority_sha256: str
     bundle_root_sha256: str
+    selected_run_id: str
     selected_artifact_sha256: str
     tokenizer_sha256: str
     run_evidence_sha256: str
+    resolved_config_sha256: str
     selected_checkpoint_identity: str
     base_provenance_sha256: str
     base_snapshot_sha256: str
@@ -821,27 +845,35 @@ class PhoBertReleaseReceipt:
             self.upstream,
             frozenset(
                 {
-                    "original_run_request_relative_path",
-                    "original_run_request_sha256",
-                    "scope_amendment_relative_path",
-                    "scope_amendment_sha256",
+                    "final_comparison_authority_relative_path",
+                    "final_comparison_authority_sha256",
+                    "origin_request_authority_id",
+                    "origin_run_request_relative_path",
+                    "origin_run_request_sha256",
+                    "origin_control_template_sha256",
+                    "origin_transfer_authority_sha256",
                 }
             ),
             "receipt upstream authority",
         )
         if (
-            upstream["original_run_request_relative_path"] != FIXED_RUN_REQUEST_PATH
-            or upstream["scope_amendment_relative_path"] != FIXED_SCOPE_AMENDMENT_PATH
+            upstream["final_comparison_authority_relative_path"]
+            != _final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+            or upstream["origin_request_authority_id"]
+            != _final_authority.RECOVERY_REQUEST_AUTHORITY_ID
+            or upstream["origin_run_request_relative_path"]
+            != PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
         ):
             raise PhoBertReleaseError("receipt upstream authority paths drifted")
-        _require_sha256(
-            upstream["original_run_request_sha256"],
-            "receipt original request sha256",
-        )
-        _require_sha256(
-            upstream["scope_amendment_sha256"],
-            "receipt scope amendment sha256",
-        )
+        for field in (
+            "final_comparison_authority_sha256",
+            "origin_run_request_sha256",
+            "origin_control_template_sha256",
+            "origin_transfer_authority_sha256",
+        ):
+            _require_sha256(upstream[field], f"receipt {field.replace('_', ' ')}")
+        if self.selected_run_id != _final_authority.RECOVERY_PHOBERT_RUN_ID:
+            raise PhoBertReleaseError("receipt does not select the fixed PhoBERT v12 run")
         for name, value in (
             ("bundle manifest", self.bundle_manifest_sha256),
             ("bundle manifest authority", self.bundle_manifest_authority_sha256),
@@ -849,6 +881,7 @@ class PhoBertReleaseReceipt:
             ("selected artifact", self.selected_artifact_sha256),
             ("tokenizer", self.tokenizer_sha256),
             ("run evidence", self.run_evidence_sha256),
+            ("resolved config", self.resolved_config_sha256),
             ("base provenance", self.base_provenance_sha256),
             ("base snapshot", self.base_snapshot_sha256),
             ("preprocessor", self.preprocessor_sha256),
@@ -877,9 +910,11 @@ class PhoBertReleaseReceipt:
                 self.bundle_manifest_authority_sha256
             ),
             "bundle_root_sha256": self.bundle_root_sha256,
+            "selected_run_id": self.selected_run_id,
             "selected_artifact_sha256": self.selected_artifact_sha256,
             "tokenizer_sha256": self.tokenizer_sha256,
             "run_evidence_sha256": self.run_evidence_sha256,
+            "resolved_config_sha256": self.resolved_config_sha256,
             "selected_checkpoint_identity": self.selected_checkpoint_identity,
             "base_provenance_sha256": self.base_provenance_sha256,
             "base_snapshot_sha256": self.base_snapshot_sha256,
@@ -907,9 +942,11 @@ class PhoBertReleaseReceipt:
                     "bundle_manifest_sha256",
                     "bundle_manifest_authority_sha256",
                     "bundle_root_sha256",
+                    "selected_run_id",
                     "selected_artifact_sha256",
                     "tokenizer_sha256",
                     "run_evidence_sha256",
+                    "resolved_config_sha256",
                     "selected_checkpoint_identity",
                     "base_provenance_sha256",
                     "base_snapshot_sha256",
@@ -929,6 +966,7 @@ class _VerifiedBundleState:
     manifest_sha256: str
     bundle_root_sha256: str
     evidence: RunEvidence
+    controlled_config: ResumeControlledConfig
 
     def __post_init__(self) -> None:
         if not self.root.is_absolute():
@@ -1396,88 +1434,199 @@ def _artifact_by_role(evidence: RunEvidence, role: str) -> object:
 
 @dataclass(frozen=True, slots=True)
 class _UpstreamAuthorities:
-    request_path: Path
-    amendment_path: Path
-    request_sha256: str
-    amendment_sha256: str
+    final_authority_path: Path
+    origin_request_path: Path
+    final_authority_sha256: str
+    origin_request_sha256: str
+    control_template_sha256: str
+    transfer_authority_sha256: str
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "original_run_request_relative_path": FIXED_RUN_REQUEST_PATH,
-            "original_run_request_sha256": self.request_sha256,
-            "scope_amendment_relative_path": FIXED_SCOPE_AMENDMENT_PATH,
-            "scope_amendment_sha256": self.amendment_sha256,
+            "final_comparison_authority_relative_path": (
+                _final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+            ),
+            "final_comparison_authority_sha256": self.final_authority_sha256,
+            "origin_request_authority_id": (
+                _final_authority.RECOVERY_REQUEST_AUTHORITY_ID
+            ),
+            "origin_run_request_relative_path": (
+                PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
+            ),
+            "origin_run_request_sha256": self.origin_request_sha256,
+            "origin_control_template_sha256": self.control_template_sha256,
+            "origin_transfer_authority_sha256": self.transfer_authority_sha256,
         }
 
 
 def _upstream_paths(repository: Path) -> tuple[Path, Path]:
-    request_path = _lexical_absolute(
-        repository / PurePosixPath(FIXED_RUN_REQUEST_PATH),
-        "canonical Phase40 run request",
+    final_authority_path = _lexical_absolute(
+        repository
+        / PurePosixPath(_final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH),
+        "final Phase40 comparison authority",
     )
-    amendment_path = _lexical_absolute(
-        repository / PurePosixPath(FIXED_SCOPE_AMENDMENT_PATH),
-        "canonical Phase40 scope amendment",
+    origin_request_path = _lexical_absolute(
+        repository / PurePosixPath(PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH),
+        "PhoBERT v12 origin run request",
     )
-    return request_path, amendment_path
+    return final_authority_path, origin_request_path
+
+
+def _authority_object_sha256(value: object) -> str:
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(mode="json")
+    return _sha256(canonical_json_bytes(value))
 
 
 def _load_verified_upstream_authorities(
     repository: Path,
-    evidence: RunEvidence,
+    evidence: RunEvidence | None,
+    controlled_config: ResumeControlledConfig | None = None,
 ) -> _UpstreamAuthorities:
-    request_path, amendment_path = _upstream_paths(repository)
-    _, request_payload = _load_canonical_json(
-        request_path,
-        "canonical Phase40 run request",
+    final_authority_path, origin_request_path = _upstream_paths(repository)
+    _, final_authority_payload = _load_canonical_json(
+        final_authority_path,
+        "final Phase40 comparison authority",
     )
-    _, amendment_payload = _load_canonical_json(
-        amendment_path,
-        "canonical Phase40 scope amendment",
+    _, origin_request_payload = _load_canonical_json(
+        origin_request_path,
+        "PhoBERT v12 origin run request",
     )
     try:
-        request = RunRequest.model_validate_json(request_payload)
-        amendment = Phase40ScopeAmendment.model_validate_json(amendment_payload)
-    except ValidationError as exc:
-        raise PhoBertReleaseError("canonical Phase40 upstream schema is invalid") from exc
-    request_sha256 = _sha256(request_payload)
-    amendment_sha256 = _sha256(amendment_payload)
-    if (
-        amendment.original_run_request_path != FIXED_RUN_REQUEST_PATH
-        or amendment.original_run_request_sha256 != request_sha256
-    ):
-        raise PhoBertReleaseError("scope amendment does not bind the canonical request")
-    phobert_runs = tuple(
-        item
-        for item in request.runs
-        if item.model_family == ModelFamily.PHOBERT
-        and item.adaptation_mode == AdaptationMode.CLASSIFICATION_HEAD
-        and item.run_kind == RunKind.FULL.value
+        verified = _final_authority.load_frozen_phase40_final_comparison_authority(
+            repo_root=repository
+        )
+    except Exception as exc:
+        raise PhoBertReleaseError(
+            "fixed final Phase40 comparison authority is invalid"
+        ) from exc
+    resolution = verified.by_run_id.get(
+        _final_authority.RECOVERY_PHOBERT_RUN_ID
     )
+    if resolution is None:
+        raise PhoBertReleaseError(
+            "final comparison authority does not resolve PhoBERT v12"
+        )
+    origin = resolution.origin
+    requested = resolution.requested_run
+    expected_identity = (
+        _final_authority.RECOVERY_PHOBERT_RUN_ID,
+        ModelFamily.PHOBERT,
+        AdaptationMode.CLASSIFICATION_HEAD,
+        RunKind.FULL.value,
+        _final_authority.PHOBERT_RETURNED_ROOT,
+        0,
+        None,
+    )
+    actual_identity = (
+        resolution.run_id,
+        requested.model_family,
+        requested.adaptation_mode,
+        requested.run_kind,
+        requested.returned_root,
+        requested.step_origin,
+        requested.probe_parent,
+    )
+    if actual_identity != expected_identity:
+        raise PhoBertReleaseError(
+            "final comparison authority resolved a non-canonical PhoBERT v12 identity"
+        )
     if (
-        len(phobert_runs) != 1
-        or phobert_runs[0].run_id != evidence.run_id
-        or evidence.run_id not in amendment.active_full_run_ids
-        or evidence.transfer_authority is None
-        or transfer_authority_from_request(request) != evidence.transfer_authority
+        origin.authority_id != _final_authority.RECOVERY_REQUEST_AUTHORITY_ID
+        or origin.root_policy != "fixed_phobert_v12_capsule"
     ):
         raise PhoBertReleaseError(
-            "PhoBERT run evidence differs from the canonical request/amendment closure"
+            "final comparison authority resolves PhoBERT from the wrong origin request"
+        )
+    request = resolution.origin_request
+    matching_runs = tuple(
+        item
+        for item in request.runs
+        if item.run_id == _final_authority.RECOVERY_PHOBERT_RUN_ID
+    )
+    if matching_runs != (requested,):
+        raise PhoBertReleaseError(
+            "resolved PhoBERT v12 run is not exact in its origin request"
+        )
+    origin_request_sha256 = _authority_object_sha256(request)
+    if (
+        origin.request_sha256 != origin_request_sha256
+        or _sha256(origin_request_payload) != origin_request_sha256
+        or origin_request_payload
+        != canonical_json_bytes(request.model_dump(mode="json"))
+    ):
+        raise PhoBertReleaseError(
+            "resolved PhoBERT origin request differs from its bound SHA-256"
+        )
+    template = resolution.control_template
+    if (
+        request.control_template_by_run.get(_final_authority.RECOVERY_PHOBERT_RUN_ID)
+        != template
+        or request.control_template_digest_by_run.get(
+            _final_authority.RECOVERY_PHOBERT_RUN_ID
+        )
+        != template.sha256
+    ):
+        raise PhoBertReleaseError(
+            "resolved PhoBERT v12 control template is not exact in its origin request"
+        )
+    template_config = template.materialize_for_validation()
+    if (
+        template_config.experiment_identity.model_family != ModelFamily.PHOBERT
+        or template_config.experiment_identity.adaptation_mode
+        != AdaptationMode.CLASSIFICATION_HEAD
+        or template_config.experiment_identity.run_kind != RunKind.FULL
+        or template_config.model_id != PHOBERT_MODEL_ID
+        or template_config.model_revision != PHOBERT_MODEL_REVISION
+    ):
+        raise PhoBertReleaseError(
+            "resolved PhoBERT v12 control template has the wrong model identity"
+        )
+    derived_transfer = transfer_authority_from_request(request)
+    if resolution.transfer_authority != derived_transfer:
+        raise PhoBertReleaseError(
+            "resolved PhoBERT v12 transfer authority is not request-derived"
+        )
+    if evidence is not None and (
+        evidence.run_id != _final_authority.RECOVERY_PHOBERT_RUN_ID
+        or evidence.transfer_authority is None
+        or evidence.transfer_authority != derived_transfer
+    ):
+        raise PhoBertReleaseError(
+            "PhoBERT run evidence differs from its v12 recovery origin"
+        )
+    if (evidence is None) != (controlled_config is None):
+        raise PhoBertReleaseError(
+            "run evidence and resolved config must be verified together"
+        )
+    if controlled_config is not None:
+        try:
+            template.verify_runtime_config(controlled_config)
+        except RuntimeError as exc:
+            raise PhoBertReleaseError(
+                "PhoBERT resolved config differs from its v12 control template"
+            ) from exc
+    if _sha256(final_authority_payload) != verified.authority_sha256:
+        raise PhoBertReleaseError(
+            "resolved final comparison authority differs from its fixed bytes"
         )
     return _UpstreamAuthorities(
-        request_path=request_path,
-        amendment_path=amendment_path,
-        request_sha256=request_sha256,
-        amendment_sha256=amendment_sha256,
+        final_authority_path=final_authority_path,
+        origin_request_path=origin_request_path,
+        final_authority_sha256=verified.authority_sha256,
+        origin_request_sha256=origin_request_sha256,
+        control_template_sha256=template.sha256,
+        transfer_authority_sha256=_authority_object_sha256(derived_transfer),
     )
 
 
 def _validate_finalized_phobert_run(
     evidence: RunEvidence,
-) -> tuple[object, object]:
+) -> tuple[object, object, object]:
     if (
         evidence.status != EvidenceStatus.COMPLETE
         or not evidence.comparison_eligible
+        or evidence.run_id != _final_authority.RECOVERY_PHOBERT_RUN_ID
         or evidence.run_kind != RunKind.FULL
         or evidence.experiment_identity.model_family != ModelFamily.PHOBERT
         or evidence.experiment_identity.adaptation_mode
@@ -1495,6 +1644,7 @@ def _validate_finalized_phobert_run(
         raise PhoBertReleaseError("selected PhoBERT checkpoint identity is malformed")
     model_artifact = _artifact_by_role(evidence, "model_artifact")
     trainer_artifact = _artifact_by_role(evidence, "trainer_state")
+    resolved_config_artifact = _artifact_by_role(evidence, "resolved_config")
     if (
         model_artifact.logical_name != "model-artifact"
         or model_artifact.relative_path != "adapter-or-model"
@@ -1507,7 +1657,14 @@ def _validate_finalized_phobert_run(
         or trainer_artifact.kind != "file"
     ):
         raise PhoBertReleaseError("finalized trainer-state artifact row is not canonical")
-    return model_artifact, trainer_artifact
+    if (
+        resolved_config_artifact.logical_name != "resolved-config"
+        or resolved_config_artifact.relative_path != PHOBERT_RELEASE_RESOLVED_CONFIG_NAME
+        or resolved_config_artifact.kind != "file"
+        or resolved_config_artifact.sha256 != evidence.resolved_config_sha256
+    ):
+        raise PhoBertReleaseError("finalized resolved-config artifact row is not canonical")
+    return model_artifact, trainer_artifact, resolved_config_artifact
 
 
 def _manifest_for_sources(
@@ -1515,6 +1672,7 @@ def _manifest_for_sources(
     upstream: _UpstreamAuthorities,
     evidence: RunEvidence,
     evidence_payload: bytes,
+    resolved_config_payload: bytes,
     trainer_payload: bytes,
     global_step: int,
     model_artifact: object,
@@ -1540,6 +1698,8 @@ def _manifest_for_sources(
             "status": "complete",
             "selected_optimizer_step": selected.optimizer_step,
             "global_optimizer_step": global_step,
+            "resolved_config_relative_path": PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
+            "resolved_config_sha256": _sha256(resolved_config_payload),
             "trainer_state_relative_path": PHOBERT_RELEASE_TRAINER_STATE_NAME,
             "trainer_state_sha256": _sha256(trainer_payload),
         },
@@ -1632,6 +1792,7 @@ def _verify_locked_bundle(
     expected_root_files = {
         PHOBERT_RELEASE_MANIFEST_NAME,
         PHOBERT_RELEASE_RUN_EVIDENCE_NAME,
+        PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
         PHOBERT_RELEASE_TRAINER_STATE_NAME,
     }
     if set(root_files) != expected_root_files:
@@ -1651,7 +1812,25 @@ def _verify_locked_bundle(
         evidence = RunEvidence.model_validate_json(evidence_payload)
     except ValidationError as exc:
         raise PhoBertReleaseError("copied run evidence schema is invalid") from exc
-    model_artifact, trainer_artifact = _validate_finalized_phobert_run(evidence)
+    model_artifact, trainer_artifact, resolved_config_artifact = (
+        _validate_finalized_phobert_run(evidence)
+    )
+    _, resolved_config_payload = _load_json(
+        root / PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
+        "copied resolved config",
+    )
+    _reject_portable_payload_path_leakage(
+        resolved_config_payload,
+        "copied resolved config",
+        relative_path=PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
+        path_exceptions=_CANONICAL_RUN_EVIDENCE_PATH_EXCEPTIONS,
+    )
+    try:
+        controlled_config = ResumeControlledConfig.model_validate_json(
+            resolved_config_payload
+        )
+    except ValidationError as exc:
+        raise PhoBertReleaseError("copied resolved-config schema is invalid") from exc
     trainer_value, trainer_payload = _load_json(
         root / PHOBERT_RELEASE_TRAINER_STATE_NAME,
         "copied trainer state",
@@ -1674,6 +1853,9 @@ def _verify_locked_bundle(
         or evidence.selected_checkpoint is None
         or evidence.selected_checkpoint.optimizer_step != run["selected_optimizer_step"]
         or global_step != run["global_optimizer_step"]
+        or _sha256(resolved_config_payload) != run["resolved_config_sha256"]
+        or resolved_config_artifact.sha256 != _sha256(resolved_config_payload)
+        or evidence.resolved_config_sha256 != _sha256(resolved_config_payload)
         or _sha256(trainer_payload) != run["trainer_state_sha256"]
         or trainer_artifact.sha256 != _sha256(trainer_payload)
     ):
@@ -1710,6 +1892,14 @@ def _verify_locked_bundle(
         or tokenizer_content != manifest.tokenizer_tree.content_sha256
     ):
         raise PhoBertReleaseError("release model/tokenizer content hash drifted")
+    if (
+        evidence.selected_checkpoint is None
+        or _phobert_model_state_identity(model_root)
+        != evidence.selected_checkpoint.artifact_identity
+    ):
+        raise PhoBertReleaseError(
+            "release model bytes differ from the checkpoint identity"
+        )
     _validate_tokenizer_authority(manifest.tokenizer_tree)
 
     _, base_payload = _load_canonical_json(
@@ -1754,6 +1944,9 @@ def _verify_locked_bundle(
     if root_files[PHOBERT_RELEASE_RUN_EVIDENCE_NAME] != (
         len(evidence_payload),
         _sha256(evidence_payload),
+    ) or root_files[PHOBERT_RELEASE_RESOLVED_CONFIG_NAME] != (
+        len(resolved_config_payload),
+        _sha256(resolved_config_payload),
     ) or root_files[PHOBERT_RELEASE_TRAINER_STATE_NAME] != (
         len(trainer_payload),
         _sha256(trainer_payload),
@@ -1769,6 +1962,7 @@ def _verify_locked_bundle(
         manifest_sha256=_sha256(manifest_payload),
         bundle_root_sha256=bundle_sha256,
         evidence=evidence,
+        controlled_config=controlled_config,
     )
 
 
@@ -1791,9 +1985,11 @@ def _receipt_for_bundle(bundle: _VerifiedBundleState) -> PhoBertReleaseReceipt:
         "bundle_manifest_sha256": bundle.manifest_sha256,
         "bundle_manifest_authority_sha256": manifest.authority_sha256,
         "bundle_root_sha256": bundle.bundle_root_sha256,
+        "selected_run_id": manifest.run["run_id"],
         "selected_artifact_sha256": manifest.selected_model["artifact_sha256"],
         "tokenizer_sha256": manifest.tokenizer_tree.content_sha256,
         "run_evidence_sha256": manifest.run["evidence_sha256"],
+        "resolved_config_sha256": manifest.run["resolved_config_sha256"],
         "selected_checkpoint_identity": manifest.selected_model[
             "checkpoint_identity"
         ],
@@ -1871,12 +2067,20 @@ def build_phobert_release_bundle(
         repository / PurePosixPath(PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH),
         "fixed release receipt path",
     )
-    request_path, amendment_path = _upstream_paths(repository)
+    final_authority_path, origin_request_path = _upstream_paths(repository)
     run_root = evidence_path.parent
+    expected_run_root = _lexical_absolute(
+        transfer / PurePosixPath(_final_authority.PHOBERT_RETURNED_ROOT),
+        "fixed PhoBERT v12 returned root",
+    )
 
     _require_disjoint(repository, transfer, "repository and transfer roots")
     if evidence_path.name != PHOBERT_RELEASE_RUN_EVIDENCE_NAME:
         raise PhoBertReleaseError("selected evidence must be canonical run-evidence.json")
+    if not _same_path(run_root, expected_run_root):
+        raise PhoBertReleaseError(
+            "PhoBERT source run must be the fixed v12 returned-root descendant"
+        )
     _require_disjoint(output, run_root, "release output and run root")
     _require_disjoint(output, tokenizer, "release output and tokenizer root")
     _require_disjoint(model_root, tokenizer, "selected model and tokenizer roots")
@@ -1921,18 +2125,18 @@ def build_phobert_release_bundle(
         _require_path_absent_no_follow(receipt_path, "release receipt")
         _require_path_absent_no_follow(stage, "release staging root")
         _require_path_absent_no_follow(receipt_stage, "receipt staging path")
-        request_lease = sources.enter_context(
+        final_authority_lease = sources.enter_context(
             _WindowsPathLease(
-                request_path,
-                "canonical Phase40 run request",
+                final_authority_path,
+                "final Phase40 comparison authority",
                 expected_directory=False,
                 deny_write=True,
             )
         )
-        amendment_lease = sources.enter_context(
+        origin_request_lease = sources.enter_context(
             _WindowsPathLease(
-                amendment_path,
-                "canonical Phase40 scope amendment",
+                origin_request_path,
+                "PhoBERT v12 origin run request",
                 expected_directory=False,
                 deny_write=True,
             )
@@ -1973,12 +2177,28 @@ def build_phobert_release_bundle(
         )
         if parsed_evidence != verified_evidence:
             raise PhoBertReleaseError("Phase40 run evidence semantic read-back drifted")
-        model_artifact, trainer_artifact = _validate_finalized_phobert_run(
-            verified_evidence
+        model_artifact, trainer_artifact, resolved_config_artifact = (
+            _validate_finalized_phobert_run(verified_evidence)
         )
+        resolved_config_path = run_root / resolved_config_artifact.relative_path
+        _, resolved_config_payload = _load_json(
+            resolved_config_path,
+            "finalized resolved config",
+        )
+        try:
+            controlled_config = ResumeControlledConfig.model_validate_json(
+                resolved_config_payload
+            )
+        except ValidationError as exc:
+            raise PhoBertReleaseError(
+                "finalized resolved-config schema is invalid"
+            ) from exc
+        if _sha256(resolved_config_payload) != resolved_config_artifact.sha256:
+            raise PhoBertReleaseError("resolved-config artifact hash drifted")
         upstream = _load_verified_upstream_authorities(
             repository,
             verified_evidence,
+            controlled_config,
         )
 
         trainer_path = run_root / trainer_artifact.relative_path
@@ -2035,6 +2255,14 @@ def build_phobert_release_bundle(
             raise PhoBertReleaseError(
                 "selected model bytes differ from finalized artifact authority"
             )
+        if (
+            verified_evidence.selected_checkpoint is None
+            or _phobert_model_state_identity(model_root)
+            != verified_evidence.selected_checkpoint.artifact_identity
+        ):
+            raise PhoBertReleaseError(
+                "selected model bytes differ from the checkpoint identity"
+            )
         if verified_evidence.selected_checkpoint is None or (
             verified_evidence.selected_checkpoint.optimizer_step > global_step
         ):
@@ -2045,6 +2273,11 @@ def build_phobert_release_bundle(
             "run-evidence provenance",
             relative_path=PHOBERT_RELEASE_RUN_EVIDENCE_NAME,
             path_exceptions=_CANONICAL_RUN_EVIDENCE_PATH_EXCEPTIONS,
+        )
+        _reject_portable_payload_path_leakage(
+            resolved_config_payload,
+            "resolved-config provenance",
+            relative_path=PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
         )
         _reject_portable_payload_path_leakage(
             trainer_payload,
@@ -2073,6 +2306,7 @@ def build_phobert_release_bundle(
             upstream=upstream,
             evidence=verified_evidence,
             evidence_payload=evidence_payload,
+            resolved_config_payload=resolved_config_payload,
             trainer_payload=trainer_payload,
             global_step=global_step,
             model_artifact=model_artifact,
@@ -2114,6 +2348,10 @@ def build_phobert_release_bundle(
                 evidence_payload,
             )
             _write_exact_file(
+                stage / PHOBERT_RELEASE_RESOLVED_CONFIG_NAME,
+                resolved_config_payload,
+            )
+            _write_exact_file(
                 stage / PHOBERT_RELEASE_TRAINER_STATE_NAME,
                 trainer_payload,
             )
@@ -2124,8 +2362,8 @@ def build_phobert_release_bundle(
             for lease in (run_lease, model_lease, tokenizer_lease):
                 lease.assert_intact()
             base_lease.assert_intact()
-            request_lease.assert_intact()
-            amendment_lease.assert_intact()
+            final_authority_lease.assert_intact()
+            origin_request_lease.assert_intact()
             stage_root_lease.assert_intact()
             with _WindowsClosedTreeLease(
                 stage,
@@ -2247,8 +2485,17 @@ def build_phobert_release_bundle(
         for lease in (run_lease, model_lease, tokenizer_lease):
             lease.assert_intact()
         base_lease.assert_intact()
-        request_lease.assert_intact()
-        amendment_lease.assert_intact()
+        terminal_upstream = _load_verified_upstream_authorities(
+            repository,
+            verified_evidence,
+            controlled_config,
+        )
+        if terminal_upstream != upstream:
+            raise PhoBertReleaseError(
+                "Phase40 final/recovery authority changed during publication"
+            )
+        final_authority_lease.assert_intact()
+        origin_request_lease.assert_intact()
         return verified
 
 
@@ -2270,7 +2517,7 @@ def verify_phobert_release_bundle(
         repository / PurePosixPath(PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH),
         "fixed release receipt path",
     )
-    request_path, amendment_path = _upstream_paths(repository)
+    final_authority_path, origin_request_path = _upstream_paths(repository)
     with ExitStack() as stack:
         repository_lease = stack.enter_context(
             _WindowsPathLease(
@@ -2296,18 +2543,18 @@ def verify_phobert_release_bundle(
                 deny_write=True,
             )
         )
-        request_lease = stack.enter_context(
+        final_authority_lease = stack.enter_context(
             _WindowsPathLease(
-                request_path,
-                "canonical Phase40 run request",
+                final_authority_path,
+                "final Phase40 comparison authority",
                 expected_directory=False,
                 deny_write=True,
             )
         )
-        amendment_lease = stack.enter_context(
+        origin_request_lease = stack.enter_context(
             _WindowsPathLease(
-                amendment_path,
-                "canonical Phase40 scope amendment",
+                origin_request_path,
+                "PhoBERT v12 origin run request",
                 expected_directory=False,
                 deny_write=True,
             )
@@ -2321,7 +2568,11 @@ def verify_phobert_release_bundle(
                 "fixed release bundle is missing or unsafe"
             ) from exc
         bundle = _verify_locked_bundle(root, bundle_lease)
-        upstream = _load_verified_upstream_authorities(repository, bundle.evidence)
+        upstream = _load_verified_upstream_authorities(
+            repository,
+            bundle.evidence,
+            bundle.controlled_config,
+        )
         if upstream.as_dict() != bundle.manifest.upstream:
             raise PhoBertReleaseError("bundle is stale for canonical Phase40 upstream")
         receipt, receipt_payload = _load_receipt_locked(receipt_path)
@@ -2334,8 +2585,8 @@ def verify_phobert_release_bundle(
         repository_lease.assert_intact()
         transfer_lease.assert_intact()
         receipt_lease.assert_intact()
-        request_lease.assert_intact()
-        amendment_lease.assert_intact()
+        final_authority_lease.assert_intact()
+        origin_request_lease.assert_intact()
         bundle_lease.assert_intact()
         return verified
 
@@ -2381,13 +2632,19 @@ def load_phobert_release_receipt(
     *,
     repo_root: Path,
 ) -> PhoBertReleaseReceipt:
-    """Load the fixed portable receipt without claiming bundle validity."""
+    """Load the portable byte authority after reverifying its fixed upstream.
+
+    This deliberately does not claim that the off-repository bundle bytes are
+    present or valid; :func:`verify_phobert_release_bundle` owns that stronger
+    claim.
+    """
 
     repository = _lexical_absolute(repo_root, "repository root")
     path = _lexical_absolute(
         repository / PurePosixPath(PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH),
         "fixed release receipt path",
     )
+    final_authority_path, origin_request_path = _upstream_paths(repository)
     with ExitStack() as stack:
         repository_lease = stack.enter_context(
             _WindowsPathLease(
@@ -2405,9 +2662,32 @@ def load_phobert_release_receipt(
                 deny_write=True,
             )
         )
+        final_authority_lease = stack.enter_context(
+            _WindowsPathLease(
+                final_authority_path,
+                "final Phase40 comparison authority",
+                expected_directory=False,
+                deny_write=True,
+            )
+        )
+        origin_request_lease = stack.enter_context(
+            _WindowsPathLease(
+                origin_request_path,
+                "PhoBERT v12 origin run request",
+                expected_directory=False,
+                deny_write=True,
+            )
+        )
         receipt, _ = _load_receipt_locked(path)
+        upstream = _load_verified_upstream_authorities(repository, None)
+        if upstream.as_dict() != receipt.upstream:
+            raise PhoBertReleaseError(
+                "portable receipt is stale for the final PhoBERT v12 authority"
+            )
         repository_lease.assert_intact()
         lease.assert_intact()
+        final_authority_lease.assert_intact()
+        origin_request_lease.assert_intact()
         return receipt
 
 
@@ -2415,8 +2695,10 @@ __all__ = [
     "PHOBERT_RELEASE_BUNDLE_RELATIVE_PATH",
     "PHOBERT_RELEASE_MANIFEST_NAME",
     "PHOBERT_RELEASE_MODEL_ROOT",
+    "PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH",
     "PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH",
     "PHOBERT_RELEASE_RECEIPT_SCHEMA_VERSION",
+    "PHOBERT_RELEASE_RESOLVED_CONFIG_NAME",
     "PHOBERT_RELEASE_RUN_EVIDENCE_NAME",
     "PHOBERT_RELEASE_SCHEMA_VERSION",
     "PHOBERT_RELEASE_TOKENIZER_ROOT",

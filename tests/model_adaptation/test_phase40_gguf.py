@@ -21,18 +21,67 @@ from src.model_adaptation.registry import build_model_checksum
 MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
 MODEL_REVISION = "a" * 40
 SELECTED_IDENTITY = "adapter-state-sha256:" + "b" * 64
+QWEN_RUN_ID = gguf._final_authority.QWEN_QLORA_RUN_ID
 _SYNTHETIC_REQUEST = {
     "schema_version": "synthetic-phase40-request-v1",
-    "run_ids": ["qwen-qlora-full", "phobert-full"],
-}
-_SYNTHETIC_SCOPE_AMENDMENT = {
-    "schema_version": "synthetic-phase40-scope-amendment-v1",
-    "active_full_run_ids": ["qwen-qlora-full", "phobert-full"],
+    "run_ids": [QWEN_RUN_ID, "phase40-phobert-full-seed42-v12"],
 }
 _SYNTHETIC_REQUEST_BYTES = gguf._canonical_json_bytes(_SYNTHETIC_REQUEST)
-_SYNTHETIC_SCOPE_AMENDMENT_BYTES = gguf._canonical_json_bytes(
-    _SYNTHETIC_SCOPE_AMENDMENT
-)
+_SYNTHETIC_ORIGIN_REQUEST_SHA256 = hashlib.sha256(_SYNTHETIC_REQUEST_BYTES).hexdigest()
+_SYNTHETIC_FINAL_AUTHORITY_SHA256 = hashlib.sha256(b"final-authority-v1\n").hexdigest()
+
+
+class FakeOriginRequest:
+    def __init__(self, requested_run: SimpleNamespace) -> None:
+        self.runs = (requested_run,)
+
+    def model_dump(self, *, mode: str) -> dict[str, object]:
+        assert mode == "json"
+        return dict(_SYNTHETIC_REQUEST)
+
+
+def _fake_final_authority(
+    *,
+    authority_sha256: str = _SYNTHETIC_FINAL_AUTHORITY_SHA256,
+    origin_request_sha256: str = _SYNTHETIC_ORIGIN_REQUEST_SHA256,
+    run_id: str = QWEN_RUN_ID,
+    model_family: ModelFamily = ModelFamily.QWEN,
+    adaptation_mode: AdaptationMode = AdaptationMode.QLORA,
+) -> SimpleNamespace:
+    requested_run = SimpleNamespace(
+        run_id=run_id,
+        model_family=model_family,
+        adaptation_mode=adaptation_mode,
+        run_kind=RunKind.FULL.value,
+        returned_root=gguf._final_authority.QWEN_QLORA_RETURNED_ROOT,
+        step_origin=0,
+        probe_parent=None,
+    )
+    origin_request = FakeOriginRequest(requested_run)
+    resolution = SimpleNamespace(
+        run_id=run_id,
+        origin=SimpleNamespace(
+            authority_id=gguf._final_authority.ORIGINAL_REQUEST_AUTHORITY_ID,
+            root_policy="repository_root",
+            request_sha256=origin_request_sha256,
+        ),
+        origin_request=origin_request,
+        requested_run=requested_run,
+    )
+    return SimpleNamespace(
+        authority_sha256=authority_sha256,
+        by_run_id={QWEN_RUN_ID: resolution},
+    )
+
+
+@pytest.fixture(autouse=True)
+def _stub_final_comparison_authority(monkeypatch):
+    verified = _fake_final_authority()
+    monkeypatch.setattr(
+        gguf._final_authority,
+        "load_frozen_phase40_final_comparison_authority",
+        lambda *, repo_root: verified,
+    )
 
 
 @dataclass(frozen=True)
@@ -100,10 +149,6 @@ def _fixture(tmp_path: Path, *, run_kind: RunKind = RunKind.FULL) -> Fixture:
     smoke_paths: list[Path] = []
     authority_root = tmp_path / "data" / "models" / "phase40"
     authority_root.mkdir(parents=True)
-    (authority_root / "full-run-request.json").write_bytes(_SYNTHETIC_REQUEST_BYTES)
-    (authority_root / "two-full-model-scope-amendment.json").write_bytes(
-        _SYNTHETIC_SCOPE_AMENDMENT_BYTES
-    )
     base_root = tmp_path / "base"
     base_root.mkdir()
     (base_root / "config.json").write_text("{}\n", encoding="utf-8")
@@ -143,7 +188,7 @@ def _fixture(tmp_path: Path, *, run_kind: RunKind = RunKind.FULL) -> Fixture:
     (adapter / "training-summary.json").write_text(
         gguf.json.dumps(
             {
-                "run_id": "qwen-qlora-full",
+                "run_id": QWEN_RUN_ID,
                 "run_kind": "full",
                 "model_revision": MODEL_REVISION,
                 "requested_adaptation_mode": "qlora",
@@ -164,7 +209,7 @@ def _fixture(tmp_path: Path, *, run_kind: RunKind = RunKind.FULL) -> Fixture:
     evidence = SimpleNamespace(
         status=EvidenceStatus.COMPLETE,
         run_kind=run_kind,
-        run_id="qwen-qlora-full",
+        run_id=QWEN_RUN_ID,
         model_id=MODEL_ID,
         model_revision=MODEL_REVISION,
         experiment_identity=SimpleNamespace(
@@ -293,11 +338,9 @@ def _export(fixture: Fixture) -> gguf.GGUFExportResult:
 
 def _verification_context() -> gguf.GGUFVerificationContext:
     return gguf.GGUFVerificationContext(
-        request_sha256=hashlib.sha256(_SYNTHETIC_REQUEST_BYTES).hexdigest(),
-        scope_amendment_sha256=hashlib.sha256(
-            _SYNTHETIC_SCOPE_AMENDMENT_BYTES
-        ).hexdigest(),
-        selected_run_id="qwen-qlora-full",
+        final_comparison_authority_sha256=_SYNTHETIC_FINAL_AUTHORITY_SHA256,
+        origin_request_sha256=_SYNTHETIC_ORIGIN_REQUEST_SHA256,
+        selected_run_id=QWEN_RUN_ID,
         selected_checkpoint_identity=SELECTED_IDENTITY,
     )
 
@@ -390,6 +433,11 @@ def test_freeze_and_verify_portable_self_hashed_qwen_gguf_receipt(tmp_path):
     receipt_sha256 = core.pop("receipt_sha256")
     assert receipt_sha256 == hashlib.sha256(gguf._canonical_json_bytes(core)).hexdigest()
     assert verified == payload
+    assert payload["schema_version"] == "phase40-qwen-gguf-verification-receipt-v2"
+    assert payload["upstream"] == {
+        "final_comparison_authority_sha256": _SYNTHETIC_FINAL_AUTHORITY_SHA256,
+        "origin_request_sha256": _SYNTHETIC_ORIGIN_REQUEST_SHA256,
+    }
     assert verifier_calls == [True, True]
     assert fixture.smoke_paths == [fixture.output, fixture.output, fixture.output]
     assert payload["selection"]["selected_checkpoint"] == {
@@ -429,6 +477,103 @@ def test_freeze_and_verify_portable_self_hashed_qwen_gguf_receipt(tmp_path):
     assert receipt.read_bytes() == gguf._canonical_json_bytes(payload)
 
 
+def test_fixed_receipt_loader_authenticates_bytes_without_rerunning_gguf_smoke(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, verifier_calls = _freeze_receipt(fixture, tmp_path)
+    smoke_paths_before_load = tuple(fixture.smoke_paths)
+
+    loaded = gguf.load_phase40_qwen_gguf_verification_receipt(repo_root=tmp_path)
+
+    assert loaded == payload
+    assert receipt.read_bytes() == gguf._canonical_json_bytes(loaded)
+    assert tuple(fixture.smoke_paths) == smoke_paths_before_load
+    assert verifier_calls == [True]
+
+
+def test_fixed_receipt_loader_rejects_byte_tamper_before_upstream_load(tmp_path):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, _verifier_calls = _freeze_receipt(fixture, tmp_path)
+    tampered = dict(payload)
+    tampered["export"] = {**payload["export"], "gguf_bytes": 999}
+    receipt.write_bytes(gguf._canonical_json_bytes(tampered))
+
+    with pytest.raises(RuntimeError, match="self-hash mismatch"):
+        gguf.load_phase40_qwen_gguf_verification_receipt(repo_root=tmp_path)
+
+
+@pytest.mark.parametrize(
+    "upstream_field, value, message",
+    [
+        (
+            "final_comparison_authority_sha256",
+            "8" * 64,
+            "stale.*final comparison authority",
+        ),
+        ("origin_request_sha256", "8" * 64, "wrong origin request"),
+    ],
+)
+def test_fixed_receipt_loader_rejects_reself_hashed_upstream_drift(
+    tmp_path,
+    upstream_field,
+    value,
+    message,
+):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, _verifier_calls = _freeze_receipt(fixture, tmp_path)
+    tampered = dict(payload)
+    tampered["upstream"] = {**payload["upstream"], upstream_field: value}
+    core = {key: item for key, item in tampered.items() if key != "receipt_sha256"}
+    tampered["receipt_sha256"] = hashlib.sha256(
+        gguf._canonical_json_bytes(core)
+    ).hexdigest()
+    receipt.write_bytes(gguf._canonical_json_bytes(tampered))
+
+    with pytest.raises(RuntimeError, match=message):
+        gguf.load_phase40_qwen_gguf_verification_receipt(repo_root=tmp_path)
+
+
+@pytest.mark.parametrize(
+    "selection_mutation, message",
+    [
+        (
+            {"run_id": "phase40-qwen-qlora-full-seed42-v2"},
+            "does not select.*Qwen QLoRA v1",
+        ),
+        (
+            {
+                "selected_checkpoint": {
+                    "optimizer_step": 1245,
+                    "artifact_identity": "checkpoint:unbound",
+                    "safety_gate_passed": True,
+                }
+            },
+            "checkpoint identity must be adapter-state-sha256",
+        ),
+    ],
+)
+def test_fixed_receipt_loader_rejects_reself_hashed_selection_drift(
+    tmp_path,
+    selection_mutation,
+    message,
+):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    receipt, payload, _verifier_calls = _freeze_receipt(fixture, tmp_path)
+    tampered = dict(payload)
+    tampered["selection"] = {**payload["selection"], **selection_mutation}
+    core = {key: item for key, item in tampered.items() if key != "receipt_sha256"}
+    tampered["receipt_sha256"] = hashlib.sha256(
+        gguf._canonical_json_bytes(core)
+    ).hexdigest()
+    receipt.write_bytes(gguf._canonical_json_bytes(tampered))
+
+    with pytest.raises((RuntimeError, ValueError), match=message):
+        gguf.load_phase40_qwen_gguf_verification_receipt(repo_root=tmp_path)
+
+
 def test_receipt_verifier_rejects_noncanonical_and_self_hash_tamper(tmp_path):
     fixture = _fixture(tmp_path)
     _export(fixture)
@@ -460,7 +605,24 @@ def test_receipt_verifier_rejects_noncanonical_and_self_hash_tamper(tmp_path):
 @pytest.mark.parametrize(
     "context, message",
     [
-        (replace(_verification_context(), request_sha256="9" * 64), "stale.*run request"),
+        (
+            replace(
+                _verification_context(),
+                final_comparison_authority_sha256="9" * 64,
+            ),
+            "stale.*final comparison authority",
+        ),
+        (
+            replace(_verification_context(), origin_request_sha256="9" * 64),
+            "wrong origin request",
+        ),
+        (
+            replace(
+                _verification_context(),
+                selected_run_id="phase40-qwen-qlora-full-seed42-v2",
+            ),
+            "does not select.*Qwen QLoRA v1",
+        ),
         (
             replace(
                 _verification_context(),
@@ -488,6 +650,50 @@ def test_receipt_verifier_rejects_stale_upstream_or_selection_before_rerun(
         )
 
     assert verifier_calls == [True]
+
+
+@pytest.mark.parametrize(
+    "verified, message",
+    [
+        (
+            _fake_final_authority(origin_request_sha256="9" * 64),
+            "wrong origin request",
+        ),
+        (
+            _fake_final_authority(run_id="phase40-qwen-qlora-full-seed42-v2"),
+            "fixed Qwen QLoRA v1 run",
+        ),
+        (
+            _fake_final_authority(adaptation_mode=AdaptationMode.LORA),
+            "non-canonical Qwen QLoRA v1 identity",
+        ),
+    ],
+)
+def test_receipt_freeze_rejects_final_authority_resolution_drift_before_export_rerun(
+    tmp_path,
+    monkeypatch,
+    verified,
+    message,
+):
+    fixture = _fixture(tmp_path)
+    _export(fixture)
+    verifier_calls: list[bool] = []
+    monkeypatch.setattr(
+        gguf._final_authority,
+        "load_frozen_phase40_final_comparison_authority",
+        lambda *, repo_root: verified,
+    )
+
+    with pytest.raises(RuntimeError, match=message):
+        gguf.freeze_phase40_qwen_gguf_verification_receipt(
+            repo_root=tmp_path,
+            export_manifest_path=fixture.manifest,
+            context=_verification_context(),
+            manifest_verifier=_injected_manifest_verifier(fixture, verifier_calls),
+        )
+
+    assert verifier_calls == []
+    assert not _receipt_path(tmp_path).exists()
 
 
 def test_receipt_freeze_rejects_invalid_chronology_and_noncanonical_export_utc(tmp_path):

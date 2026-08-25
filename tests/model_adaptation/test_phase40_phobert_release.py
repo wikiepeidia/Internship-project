@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -69,6 +70,7 @@ from src.model_adaptation.phase40_phobert_release import (
     PHOBERT_RELEASE_BUNDLE_RELATIVE_PATH,
     PHOBERT_RELEASE_MANIFEST_NAME,
     PHOBERT_RELEASE_MODEL_ROOT,
+    PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH,
     PHOBERT_RELEASE_RECEIPT_RELATIVE_PATH,
     PHOBERT_RELEASE_TOKENIZER_ROOT,
     PhoBertReleaseError,
@@ -93,8 +95,66 @@ from src.model_adaptation.registry import build_model_checksum
 from src.model_adaptation.schemas import LOCKED_RELEASE_LABELS
 
 
-RUN_ID = "phase40-phobert-release-fixture"
-MODEL_IDENTITY = "model-state-sha256:" + "b" * 64
+RUN_ID = release_module._final_authority.RECOVERY_PHOBERT_RUN_ID
+
+
+def _model_identity(weight_payload: bytes) -> str:
+    digest = hashlib.sha256(b"phase40-phobert-model-state-v1\0")
+    digest.update(b"model.safetensors\0")
+    digest.update(weight_payload)
+    digest.update(b"\0")
+    return f"model-state-sha256:{digest.hexdigest()}"
+
+
+MODEL_IDENTITY = _model_identity(b"synthetic-classifier-weights")
+
+_FINAL_AUTHORITY_FIXTURES: dict[Path, tuple[RunRequest, str]] = {}
+_REAL_FINAL_AUTHORITY_LOADER = (
+    release_module._final_authority.load_frozen_phase40_final_comparison_authority
+)
+
+
+@pytest.fixture(autouse=True)
+def _fixed_final_authority_loader(monkeypatch):
+    def load(*, repo_root: Path):
+        root = Path(repo_root)
+        request, expected_final_sha256 = _FINAL_AUTHORITY_FIXTURES[root]
+        final_path = root / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+        observed_final_sha256 = hashlib.sha256(final_path.read_bytes()).hexdigest()
+        if observed_final_sha256 != expected_final_sha256:
+            raise ValueError("synthetic final authority drifted")
+        origin_path = root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
+        origin_payload = origin_path.read_bytes()
+        expected_origin_payload = _canonical(request.model_dump(mode="json"))
+        if origin_payload != expected_origin_payload:
+            raise ValueError("synthetic recovery origin request drifted")
+        requested = next(item for item in request.runs if item.run_id == RUN_ID)
+        template = request.control_template_by_run[RUN_ID]
+        origin_sha256 = hashlib.sha256(origin_payload).hexdigest()
+        resolution = SimpleNamespace(
+            run_id=RUN_ID,
+            origin=SimpleNamespace(
+                authority_id=release_module._final_authority.RECOVERY_REQUEST_AUTHORITY_ID,
+                root_policy="fixed_phobert_v12_capsule",
+                request_sha256=origin_sha256,
+            ),
+            origin_request=request,
+            requested_run=requested,
+            control_template=template,
+            transfer_authority=transfer_authority_from_request(request),
+        )
+        return SimpleNamespace(
+            authority_sha256=observed_final_sha256,
+            by_run_id={RUN_ID: resolution},
+        )
+
+    monkeypatch.setattr(
+        release_module._final_authority,
+        "load_frozen_phase40_final_comparison_authority",
+        load,
+    )
+    yield
+    _FINAL_AUTHORITY_FIXTURES.clear()
 
 
 @dataclass(frozen=True)
@@ -378,6 +438,7 @@ def _write_run(
     *,
     model_cache_hint: str | None = None,
     model_weight_payload: bytes = b"synthetic-classifier-weights",
+    claimed_model_identity: str | None = None,
     sanitized_argv: tuple[str, ...] = ("train", "--model-family=phobert"),
     trainer_cache_hint: str | None = None,
 ) -> Path:
@@ -436,6 +497,7 @@ def _write_run(
     )
     (model_root / "model.safetensors").write_bytes(model_weight_payload)
     (model_root / PHOBERT_BASE_MODEL_MANIFEST_NAME).write_bytes(base_payload)
+    model_identity = claimed_model_identity or _model_identity(model_weight_payload)
 
     graph = render_phase40_graphs(
         run_root,
@@ -505,7 +567,7 @@ def _write_run(
     metrics_sha = next(item.sha256 for item in artifacts if item.role == "metrics")
     checkpoint = ValidationCheckpointEvidence(
         optimizer_step=1,
-        artifact_identity=MODEL_IDENTITY,
+        artifact_identity=model_identity,
         predictions_sha256=predictions_sha,
         metrics_sha256=metrics_sha,
         macro_f1=1.0,
@@ -551,7 +613,7 @@ def _write_run(
         validation_checkpoints=(checkpoint,),
         selected_checkpoint=SelectedCheckpointEvidence(
             optimizer_step=1,
-            artifact_identity=MODEL_IDENTITY,
+            artifact_identity=model_identity,
             safety_gate_passed=True,
             rationale="Passed every safety floor and maximized macro F1.",
         ),
@@ -699,6 +761,24 @@ def _write_upstream_authorities(repo_root: Path) -> RunRequest:
         / "two-full-model-scope-amendment.json"
     )
     amendment_path.write_bytes(_canonical(amendment.model_dump(mode="json")))
+    origin_path = repo_root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
+    origin_path.parent.mkdir(parents=True)
+    origin_path.write_bytes(request_payload)
+    final_path = (
+        repo_root
+        / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+    )
+    final_payload = _canonical(
+        {
+            "schema_version": "phase40-final-comparison-authority-v1",
+            "fixture": "phobert-v12-recovery-origin",
+        }
+    )
+    final_path.write_bytes(final_payload)
+    _FINAL_AUTHORITY_FIXTURES[repo_root] = (
+        request,
+        hashlib.sha256(final_payload).hexdigest(),
+    )
     return request
 
 
@@ -712,11 +792,15 @@ def _fixture(
     ),
     leaked_metadata_target: str | None = None,
     model_weight_payload: bytes = b"synthetic-classifier-weights",
+    claimed_model_identity: str | None = None,
 ) -> ReleaseFixture:
     root = tmp_path / name
     repo_root = root / "repo"
     transfer_root = root / "transfer"
-    run_root = root / "sources" / "run"
+    run_root = (
+        transfer_root
+        / Path(release_module._final_authority.PHOBERT_RETURNED_ROOT)
+    )
     tokenizer_root = root / "sources" / "tokenizer"
     base_provenance_path = root / "sources" / "base-provenance.json"
     (repo_root / "data" / "models" / "phase40").mkdir(parents=True)
@@ -754,6 +838,7 @@ def _fixture(
             leaked_path if leaked_metadata_target == "model" else None
         ),
         model_weight_payload=model_weight_payload,
+        claimed_model_identity=claimed_model_identity,
         sanitized_argv=evidence_sanitized_argv,
         trainer_cache_hint=(
             leaked_path if leaked_metadata_target == "trainer" else None
@@ -802,17 +887,42 @@ def test_builds_fixed_external_bundle_and_portable_commit_receipt(tmp_path):
     assert built.manifest.run["global_optimizer_step"] == 1
     assert built.receipt.bundle_root_sha256 == built.bundle_root_sha256
     assert built.receipt.tokenizer_sha256 == built.manifest.tokenizer_tree.content_sha256
-    request_path = fixture.repo_root / "data/models/phase40/full-run-request.json"
-    amendment_path = (
+    assert built.receipt.resolved_config_sha256 == built.manifest.run[
+        "resolved_config_sha256"
+    ]
+    assert built.manifest.schema_version == "phase40-phobert-release-bundle-v2"
+    assert built.receipt.schema_version == "phase40-phobert-tokenizer-authority-v2"
+    final_path = (
         fixture.repo_root
-        / "data/models/phase40/two-full-model-scope-amendment.json"
+        / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
     )
+    origin_path = fixture.repo_root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
+    request = _FINAL_AUTHORITY_FIXTURES[fixture.repo_root][0]
     assert built.receipt.upstream == built.manifest.upstream
-    assert built.receipt.upstream["original_run_request_sha256"] == hashlib.sha256(
-        request_path.read_bytes()
+    assert set(built.receipt.upstream) == {
+        "final_comparison_authority_relative_path",
+        "final_comparison_authority_sha256",
+        "origin_request_authority_id",
+        "origin_run_request_relative_path",
+        "origin_run_request_sha256",
+        "origin_control_template_sha256",
+        "origin_transfer_authority_sha256",
+    }
+    assert built.receipt.upstream["origin_run_request_relative_path"] == (
+        PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
+    )
+    assert built.receipt.selected_run_id == RUN_ID
+    assert built.receipt.upstream["final_comparison_authority_sha256"] == hashlib.sha256(
+        final_path.read_bytes()
     ).hexdigest()
-    assert built.receipt.upstream["scope_amendment_sha256"] == hashlib.sha256(
-        amendment_path.read_bytes()
+    assert built.receipt.upstream["origin_run_request_sha256"] == hashlib.sha256(
+        origin_path.read_bytes()
+    ).hexdigest()
+    assert built.receipt.upstream["origin_control_template_sha256"] == (
+        request.control_template_by_run[RUN_ID].sha256
+    )
+    assert built.receipt.upstream["origin_transfer_authority_sha256"] == hashlib.sha256(
+        _canonical(transfer_authority_from_request(request).model_dump(mode="json"))
     ).hexdigest()
     receipt_payload = fixture.receipt_path.read_bytes()
     assert os.fspath(fixture.repo_root).encode() not in receipt_payload
@@ -831,6 +941,32 @@ def test_release_bytes_are_deterministic_across_absolute_roots(tmp_path):
     assert first_result.bundle_root_sha256 == second_result.bundle_root_sha256
     assert first_result.receipt == second_result.receipt
     assert first.receipt_path.read_bytes() == second.receipt_path.read_bytes()
+
+
+def test_real_final_authority_loader_resolves_v12_release_upstream(
+    tmp_path,
+    monkeypatch,
+):
+    from tests.model_adaptation import test_phase40_final_authority as final_tests
+
+    repo = final_tests.authority_repo.__wrapped__(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        release_module._final_authority,
+        "load_frozen_phase40_final_comparison_authority",
+        _REAL_FINAL_AUTHORITY_LOADER,
+    )
+    final_tests.freeze_phase40_final_comparison_authority(repo_root=repo)
+
+    upstream = release_module._load_verified_upstream_authorities(repo, None)
+    verified = _REAL_FINAL_AUTHORITY_LOADER(repo_root=repo)
+    resolution = verified.by_run_id[RUN_ID]
+
+    assert upstream.final_authority_sha256 == verified.authority_sha256
+    assert upstream.origin_request_sha256 == resolution.origin.request_sha256
+    assert upstream.control_template_sha256 == resolution.control_template.sha256
+    assert upstream.transfer_authority_sha256 == hashlib.sha256(
+        _canonical(resolution.transfer_authority.model_dump(mode="json"))
+    ).hexdigest()
 
 
 def test_fixed_loaders_do_not_accept_alternate_authority_paths(tmp_path):
@@ -859,30 +995,177 @@ def test_build_is_write_once_for_bundle_and_receipt(tmp_path):
 
 def test_build_and_verify_reject_stale_canonical_upstream(tmp_path):
     before_build = _fixture(tmp_path, "before-build")
-    amendment_path = (
-        before_build.repo_root
-        / "data/models/phase40/two-full-model-scope-amendment.json"
+    origin_path = (
+        before_build.repo_root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH
     )
-    amendment = json.loads(amendment_path.read_text(encoding="utf-8"))
-    amendment["original_run_request_sha256"] = "0" * 64
-    amendment_path.write_bytes(_canonical(amendment))
-    with pytest.raises(PhoBertReleaseError, match="does not bind"):
+    origin_path.write_bytes(origin_path.read_bytes() + b"\n")
+    with pytest.raises(PhoBertReleaseError, match="PhoBERT v12 origin run request"):
         _build(before_build)
 
     after_build = _fixture(tmp_path, "after-build")
     _build(after_build)
-    request_path = after_build.repo_root / "data/models/phase40/full-run-request.json"
-    request_path.write_bytes(request_path.read_bytes() + b"\n")
-    with pytest.raises(PhoBertReleaseError, match="canonical"):
+    final_path = (
+        after_build.repo_root
+        / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+    )
+    final_path.write_bytes(final_path.read_bytes() + b"\n")
+    with pytest.raises(PhoBertReleaseError, match="final Phase40 comparison authority"):
         verify_phobert_release_bundle(
             repo_root=after_build.repo_root,
             transfer_root=after_build.transfer_root,
         )
+    with pytest.raises(PhoBertReleaseError, match="final Phase40 comparison authority"):
+        load_phobert_release_receipt(repo_root=after_build.repo_root)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("run-id", "non-canonical PhoBERT v12 identity"),
+        ("model-family", "non-canonical PhoBERT v12 identity"),
+        ("adaptation-mode", "non-canonical PhoBERT v12 identity"),
+        ("returned-root", "non-canonical PhoBERT v12 identity"),
+        ("origin", "wrong origin request"),
+        ("control-template", "control template is not exact"),
+        ("transfer", "transfer authority is not request-derived"),
+    ),
+)
+def test_build_rejects_mutated_v12_final_authority_resolution(
+    tmp_path,
+    monkeypatch,
+    mutation,
+    message,
+):
+    fixture = _fixture(tmp_path)
+    load = release_module._final_authority.load_frozen_phase40_final_comparison_authority
+
+    def mutated_load(*, repo_root: Path):
+        verified = load(repo_root=repo_root)
+        resolution = verified.by_run_id[RUN_ID]
+        values = vars(resolution).copy()
+        if mutation == "run-id":
+            values["run_id"] = "phase40-phobert-full-seed42-v13"
+        elif mutation == "model-family":
+            values["requested_run"] = resolution.requested_run.model_copy(
+                update={"model_family": ModelFamily.QWEN}
+            )
+        elif mutation == "adaptation-mode":
+            values["requested_run"] = resolution.requested_run.model_copy(
+                update={"adaptation_mode": AdaptationMode.QLORA}
+            )
+        elif mutation == "returned-root":
+            values["requested_run"] = resolution.requested_run.model_copy(
+                update={"returned_root": FIXED_RETURNED_ROOTS[1]}
+            )
+        elif mutation == "origin":
+            values["origin"] = SimpleNamespace(
+                authority_id="wrong-origin",
+                root_policy="repository_root",
+                request_sha256=resolution.origin.request_sha256,
+            )
+        elif mutation == "control-template":
+            values["control_template"] = resolution.origin_request.control_template_by_run[
+                "qwen-qlora"
+            ]
+        elif mutation == "transfer":
+            values["transfer_authority"] = resolution.transfer_authority.model_copy(
+                update={"source_archive_sha256": "f" * 64}
+            )
+        mutated = SimpleNamespace(**values)
+        return SimpleNamespace(
+            authority_sha256=verified.authority_sha256,
+            by_run_id={RUN_ID: mutated},
+        )
+
+    monkeypatch.setattr(
+        release_module._final_authority,
+        "load_frozen_phase40_final_comparison_authority",
+        mutated_load,
+    )
+    with pytest.raises(PhoBertReleaseError, match=message):
+        _build(fixture)
+
+
+def test_build_rejects_run_evidence_from_another_transfer_authority(tmp_path):
+    fixture = _fixture(tmp_path)
+    request, _ = _FINAL_AUTHORITY_FIXTURES[fixture.repo_root]
+    changed_request = request.model_copy(
+        update={
+            "source_bundle": request.source_bundle.model_copy(
+                update={"archive_sha256": "f" * 64}
+            )
+        }
+    )
+    origin_payload = _canonical(changed_request.model_dump(mode="json"))
+    (fixture.repo_root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH).write_bytes(
+        origin_payload
+    )
+    final_payload = _canonical(
+        {
+            "schema_version": "phase40-final-comparison-authority-v1",
+            "fixture_origin_sha256": hashlib.sha256(origin_payload).hexdigest(),
+        }
+    )
+    final_path = (
+        fixture.repo_root
+        / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+    )
+    final_path.write_bytes(final_payload)
+    _FINAL_AUTHORITY_FIXTURES[fixture.repo_root] = (
+        changed_request,
+        hashlib.sha256(final_payload).hexdigest(),
+    )
+
+    with pytest.raises(PhoBertReleaseError, match="evidence differs from its v12 recovery origin"):
+        _build(fixture)
+
+
+def test_build_rejects_resolved_config_that_differs_from_origin_template(tmp_path):
+    fixture = _fixture(tmp_path)
+    request, _ = _FINAL_AUTHORITY_FIXTURES[fixture.repo_root]
+    old_template = request.control_template_by_run[RUN_ID]
+    template_payload = old_template.model_dump(mode="json")
+    template_payload["controls_without_accelerator"]["optimizer"][
+        "learning_rate"
+    ] = 0.00003
+    changed_template = RequestedControlTemplate.model_validate(template_payload)
+    templates = dict(request.control_template_by_run)
+    templates[RUN_ID] = changed_template
+    digests = dict(request.control_template_digest_by_run)
+    digests[RUN_ID] = changed_template.sha256
+    changed_request = request.model_copy(
+        update={
+            "control_template_by_run": templates,
+            "control_template_digest_by_run": digests,
+        }
+    )
+    origin_payload = _canonical(changed_request.model_dump(mode="json"))
+    (fixture.repo_root / PHOBERT_RELEASE_ORIGIN_REQUEST_RELATIVE_PATH).write_bytes(
+        origin_payload
+    )
+    final_payload = _canonical(
+        {
+            "schema_version": "phase40-final-comparison-authority-v1",
+            "fixture_template_sha256": changed_template.sha256,
+        }
+    )
+    final_path = (
+        fixture.repo_root
+        / release_module._final_authority.FIXED_FINAL_COMPARISON_AUTHORITY_PATH
+    )
+    final_path.write_bytes(final_payload)
+    _FINAL_AUTHORITY_FIXTURES[fixture.repo_root] = (
+        changed_request,
+        hashlib.sha256(final_payload).hexdigest(),
+    )
+
+    with pytest.raises(PhoBertReleaseError, match="differs from its v12 control template"):
+        _build(fixture)
 
 
 @pytest.mark.parametrize(
     "target",
-    ("tokenizer", "model", "manifest", "receipt"),
+    ("tokenizer", "model", "resolved-config", "manifest", "receipt"),
 )
 def test_verification_rejects_every_published_byte_drift(tmp_path, target):
     fixture = _fixture(tmp_path)
@@ -890,6 +1173,7 @@ def test_verification_rejects_every_published_byte_drift(tmp_path, target):
     paths = {
         "tokenizer": fixture.bundle_root / PHOBERT_RELEASE_TOKENIZER_ROOT / "vocab.txt",
         "model": fixture.bundle_root / PHOBERT_RELEASE_MODEL_ROOT / "model.safetensors",
+        "resolved-config": fixture.bundle_root / "resolved-config.json",
         "manifest": fixture.bundle_root / PHOBERT_RELEASE_MANIFEST_NAME,
         "receipt": fixture.receipt_path,
     }
@@ -942,12 +1226,34 @@ def test_build_rejects_base_provenance_or_model_artifact_drift(tmp_path):
         _build(model_drift)
 
 
+def test_build_rejects_internally_consistent_forged_checkpoint_identity(tmp_path):
+    fixture = _fixture(
+        tmp_path,
+        claimed_model_identity=f"model-state-sha256:{'f' * 64}",
+    )
+
+    with pytest.raises(PhoBertReleaseError, match="model bytes differ"):
+        _build(fixture)
+
+
 def test_build_rejects_noncanonical_or_wrong_source_paths(tmp_path):
     fixture = _fixture(tmp_path)
     with pytest.raises(PhoBertReleaseError, match="canonical"):
         build_phobert_release_bundle(
             repo_root=fixture.repo_root / ".." / "repo",
             transfer_root=fixture.transfer_root,
+            run_evidence_path=fixture.run_root / "run-evidence.json",
+            selected_model_root=fixture.run_root / "adapter-or-model",
+            tokenizer_root=fixture.tokenizer_root,
+            base_provenance_path=fixture.base_provenance_path,
+        )
+
+    alternate_transfer = tmp_path / "alternate-transfer"
+    (alternate_transfer / "data/models/phase40/inference").mkdir(parents=True)
+    with pytest.raises(PhoBertReleaseError, match="fixed v12 returned-root"):
+        build_phobert_release_bundle(
+            repo_root=fixture.repo_root,
+            transfer_root=alternate_transfer,
             run_evidence_path=fixture.run_root / "run-evidence.json",
             selected_model_root=fixture.run_root / "adapter-or-model",
             tokenizer_root=fixture.tokenizer_root,
@@ -1327,10 +1633,11 @@ def test_copy_failure_never_publishes_bundle_or_commit_receipt(tmp_path, monkeyp
 
 def test_receipt_cannot_substitute_for_missing_fixed_bundle(tmp_path):
     fixture = _fixture(tmp_path)
-    _build(fixture)
+    built = _build(fixture)
     moved = fixture.transfer_root / "elsewhere"
     fixture.bundle_root.rename(moved)
 
+    assert load_phobert_release_receipt(repo_root=fixture.repo_root) == built.receipt
     with pytest.raises(PhoBertReleaseError, match="missing"):
         verify_phobert_release_bundle(
             repo_root=fixture.repo_root,

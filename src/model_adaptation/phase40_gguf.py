@@ -28,24 +28,19 @@ import sys
 import tempfile
 from typing import Any, Protocol
 
+from src.model_adaptation import phase40_final_authority as _final_authority
 from src.model_adaptation.phase40_evidence import EvidenceStatus, RunEvidence, verify_phase40_bundle
-from src.model_adaptation.phase40_modes import ModelFamily, RunKind
+from src.model_adaptation.phase40_modes import AdaptationMode, ModelFamily, RunKind
 from src.model_adaptation.registry import build_model_checksum
 
 
 SCHEMA_VERSION = "phase40-gguf-export-v1"
 QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION = (
-    "phase40-qwen-gguf-verification-receipt-v1"
+    "phase40-qwen-gguf-verification-receipt-v2"
 )
 QWEN_GGUF_VERIFICATION_RECEIPT_FILENAME = "qwen-gguf-verification-receipt.json"
 QWEN_GGUF_VERIFICATION_RECEIPT_RELATIVE_PATH = PurePosixPath(
     "data/models/phase40/qwen-gguf-verification-receipt.json"
-)
-_PHASE40_RUN_REQUEST_RELATIVE_PATH = PurePosixPath(
-    "data/models/phase40/full-run-request.json"
-)
-_PHASE40_SCOPE_AMENDMENT_RELATIVE_PATH = PurePosixPath(
-    "data/models/phase40/two-full-model-scope-amendment.json"
 )
 OUTTYPE = "q8_0"
 CONVERTER_FILENAME = "convert_hf_to_gguf.py"
@@ -55,6 +50,7 @@ CONVERTER_SCRIPT_SHA256 = "f227273d926fd8ba1c5215ca9ba64d63e641b3277e6f225080b4a
 LLAMA_CPP_PYTHON_VERSION = "0.3.23"
 BASE_PROVENANCE_FILENAME = "phase40-base-model-provenance.json"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_ADAPTER_STATE_ID_RE = re.compile(r"^adapter-state-sha256:[0-9a-f]{64}$")
 _PORTABLE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
 _PORTABLE_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _PERSONAL_ABSOLUTE_PATH_RE = re.compile(
@@ -159,8 +155,8 @@ class GGUFExportResult:
 class GGUFVerificationContext:
     """Code-fixed Phase 40 identities expected by the portable receipt."""
 
-    request_sha256: str
-    scope_amendment_sha256: str
+    final_comparison_authority_sha256: str
+    origin_request_sha256: str
     selected_run_id: str
     selected_checkpoint_identity: str
 
@@ -1171,8 +1167,8 @@ _GGUF_RECEIPT_TOP_LEVEL_KEYS = {
     "receipt_sha256",
 }
 _GGUF_RECEIPT_UPSTREAM_KEYS = {
-    "request_sha256",
-    "scope_amendment_sha256",
+    "final_comparison_authority_sha256",
+    "origin_request_sha256",
 }
 _GGUF_RECEIPT_SELECTION_KEYS = {
     "model_family",
@@ -1227,13 +1223,13 @@ def _validated_gguf_verification_context(
     if not isinstance(context, GGUFVerificationContext):
         raise TypeError("context must be GGUFVerificationContext")
     upstream = {
-        "request_sha256": _require_sha256(
-            context.request_sha256,
-            where="request SHA-256",
+        "final_comparison_authority_sha256": _require_sha256(
+            context.final_comparison_authority_sha256,
+            where="final comparison authority SHA-256",
         ),
-        "scope_amendment_sha256": _require_sha256(
-            context.scope_amendment_sha256,
-            where="scope amendment SHA-256",
+        "origin_request_sha256": _require_sha256(
+            context.origin_request_sha256,
+            where="origin request SHA-256",
         ),
     }
     _portable_id(context.selected_run_id, where="selected Qwen run ID")
@@ -1241,6 +1237,10 @@ def _validated_gguf_verification_context(
         context.selected_checkpoint_identity,
         where="selected Qwen checkpoint identity",
     )
+    if not _ADAPTER_STATE_ID_RE.fullmatch(context.selected_checkpoint_identity):
+        raise ValueError(
+            "selected Qwen checkpoint identity must be adapter-state-sha256:<lowercase SHA-256>"
+        )
     return upstream
 
 
@@ -1496,31 +1496,63 @@ def _verify_gguf_receipt_upstream_authorities(
     context: GGUFVerificationContext,
 ) -> None:
     root = _verified_repository_root(repo_root)
-    expected = (
-        (
-            _PHASE40_RUN_REQUEST_RELATIVE_PATH,
-            context.request_sha256,
-            "run request",
-        ),
-        (
-            _PHASE40_SCOPE_AMENDMENT_RELATIVE_PATH,
-            context.scope_amendment_sha256,
-            "scope amendment",
-        ),
+    if context.selected_run_id != _final_authority.QWEN_QLORA_RUN_ID:
+        raise RuntimeError("GGUF verification context does not select the fixed Qwen QLoRA v1 run")
+
+    verified = _final_authority.load_frozen_phase40_final_comparison_authority(
+        repo_root=root
     )
-    for relative_path, expected_sha256, description in expected:
-        path = _absolute(root / relative_path)
-        if not _is_within(path, root):
-            raise RuntimeError(f"canonical Phase 40 {description} escaped the repository root")
-        authority = _regular_file(path, description=f"canonical Phase 40 {description}")
-        raw = authority.read_bytes()
-        payload = _load_json_exact(authority)
-        if raw != _canonical_json_bytes(payload):
-            raise RuntimeError(f"canonical Phase 40 {description} is not canonical JSON")
-        if hashlib.sha256(raw).hexdigest() != expected_sha256:
-            raise RuntimeError(
-                f"GGUF verification context is stale for canonical Phase 40 {description}"
-            )
+    if verified.authority_sha256 != context.final_comparison_authority_sha256:
+        raise RuntimeError("GGUF verification context is stale for the final comparison authority")
+
+    resolution = verified.by_run_id.get(_final_authority.QWEN_QLORA_RUN_ID)
+    if resolution is None:
+        raise RuntimeError("final comparison authority does not resolve the fixed Qwen QLoRA v1 run")
+    origin = resolution.origin
+    if resolution.run_id != _final_authority.QWEN_QLORA_RUN_ID:
+        raise RuntimeError("final comparison authority does not resolve the fixed Qwen QLoRA v1 run")
+    if (
+        origin.authority_id != _final_authority.ORIGINAL_REQUEST_AUTHORITY_ID
+        or origin.root_policy != "repository_root"
+        or origin.request_sha256 != context.origin_request_sha256
+    ):
+        raise RuntimeError("final comparison authority resolves Qwen from the wrong origin request")
+
+    origin_request_bytes = _canonical_json_bytes(
+        resolution.origin_request.model_dump(mode="json")
+    )
+    if hashlib.sha256(origin_request_bytes).hexdigest() != context.origin_request_sha256:
+        raise RuntimeError("resolved Qwen origin request differs from its bound SHA-256")
+
+    requested = resolution.requested_run
+    expected_run_identity = (
+        _final_authority.QWEN_QLORA_RUN_ID,
+        ModelFamily.QWEN,
+        AdaptationMode.QLORA,
+        RunKind.FULL.value,
+        _final_authority.QWEN_QLORA_RETURNED_ROOT,
+        0,
+        None,
+    )
+    actual_run_identity = (
+        requested.run_id,
+        requested.model_family,
+        requested.adaptation_mode,
+        requested.run_kind,
+        requested.returned_root,
+        requested.step_origin,
+        requested.probe_parent,
+    )
+    if actual_run_identity != expected_run_identity:
+        raise RuntimeError("final comparison authority resolved a non-canonical Qwen QLoRA v1 identity")
+
+    matching_origin_runs = tuple(
+        run
+        for run in resolution.origin_request.runs
+        if run.run_id == _final_authority.QWEN_QLORA_RUN_ID
+    )
+    if matching_origin_runs != (requested,):
+        raise RuntimeError("resolved Qwen run is not the exact run in its origin request")
 
 
 def _canonical_qwen_gguf_receipt_path(repo_root: Path, *, must_exist: bool) -> Path:
@@ -1534,6 +1566,156 @@ def _canonical_qwen_gguf_receipt_path(repo_root: Path, *, must_exist: bool) -> P
     if canonical.exists():
         raise FileExistsError(f"refusing to overwrite GGUF verification receipt: {canonical}")
     return canonical
+
+
+def _qwen_gguf_context_from_receipt(payload: Mapping[str, Any]) -> GGUFVerificationContext:
+    """Validate the complete portable byte contract without touching the GGUF."""
+
+    _validate_qwen_gguf_receipt_shape(payload)
+    if (
+        payload.get("schema_version") != QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION
+        or payload.get("status") != "verified"
+    ):
+        raise RuntimeError("GGUF verification receipt is not a supported verified receipt")
+    _parse_canonical_utc(payload.get("verified_at_utc"), where="verified_at_utc")
+
+    stored_self_hash = _require_sha256(
+        payload.get("receipt_sha256"),
+        where="GGUF verification receipt self-hash",
+    )
+    core = {key: value for key, value in payload.items() if key != "receipt_sha256"}
+    if hashlib.sha256(_canonical_json_bytes(core)).hexdigest() != stored_self_hash:
+        raise RuntimeError("GGUF verification receipt self-hash mismatch")
+
+    upstream = payload["upstream"]
+    selection = payload["selection"]
+    checkpoint = selection["selected_checkpoint"]
+    context = GGUFVerificationContext(
+        final_comparison_authority_sha256=_require_sha256(
+            upstream.get("final_comparison_authority_sha256"),
+            where="final comparison authority SHA-256",
+        ),
+        origin_request_sha256=_require_sha256(
+            upstream.get("origin_request_sha256"),
+            where="origin request SHA-256",
+        ),
+        selected_run_id=_portable_id(
+            selection.get("run_id"),
+            where="selected Qwen run ID",
+        ),
+        selected_checkpoint_identity=_portable_id(
+            checkpoint.get("artifact_identity"),
+            where="selected Qwen checkpoint identity",
+        ),
+    )
+    _validated_gguf_verification_context(context)
+    if (
+        selection.get("model_family") != ModelFamily.QWEN.value
+        or selection.get("run_kind") != RunKind.FULL.value
+        or selection.get("adaptation_mode") != AdaptationMode.QLORA.value
+        or selection.get("run_id") != _final_authority.QWEN_QLORA_RUN_ID
+    ):
+        raise RuntimeError("GGUF verification receipt does not select the fixed Qwen QLoRA v1 run")
+    _safe_fact(selection.get("model_id"), where="selection.model_id")
+    _portable_id(selection.get("model_revision"), where="selection.model_revision")
+    optimizer_step = checkpoint.get("optimizer_step")
+    if (
+        isinstance(optimizer_step, bool)
+        or not isinstance(optimizer_step, int)
+        or optimizer_step < 1
+        or checkpoint.get("safety_gate_passed") is not True
+    ):
+        raise RuntimeError("GGUF verification receipt checkpoint is not an approved selection")
+
+    export = payload["export"]
+    manifest_filename = _portable_filename(
+        export.get("manifest_filename"),
+        where="GGUF export manifest filename",
+    )
+    gguf_filename = _portable_filename(
+        export.get("gguf_filename"),
+        where="GGUF output filename",
+    )
+    gguf_bytes = export.get("gguf_bytes")
+    if (
+        not manifest_filename.endswith(".gguf.manifest.json")
+        or export.get("manifest_schema_version") != SCHEMA_VERSION
+        or export.get("manifest_status") != "complete"
+        or export.get("outtype") != OUTTYPE
+        or not gguf_filename.endswith(".gguf")
+        or isinstance(gguf_bytes, bool)
+        or not isinstance(gguf_bytes, int)
+        or gguf_bytes < 1
+    ):
+        raise RuntimeError("GGUF verification receipt export contract is invalid")
+    manifest_sha256 = _require_sha256(
+        export.get("manifest_sha256"),
+        where="GGUF export manifest SHA-256",
+    )
+    _require_sha256(export.get("gguf_sha256"), where="GGUF output SHA-256")
+
+    converter = payload["converter"]
+    if (
+        converter.get("authority_type") != "pypi-package-script-hash"
+        or converter.get("package_name") != CONVERTER_PACKAGE_NAME
+        or converter.get("package_version") != CONVERTER_PACKAGE_VERSION
+        or converter.get("script_filename") != CONVERTER_FILENAME
+    ):
+        raise RuntimeError("GGUF verification receipt converter authority is invalid")
+    _require_sha256(
+        converter.get("script_sha256"),
+        where="GGUF converter script SHA-256",
+    )
+
+    smoke = payload["load_smoke"]
+    original = smoke["original_export"]
+    rerun = smoke["independent_rerun"]
+    if original.get("passed") is not True:
+        raise RuntimeError("GGUF verification receipt does not record a passed original smoke")
+    _safe_fact(original.get("loader"), where="load_smoke.original_export.loader")
+    _safe_fact(
+        original.get("loader_version"),
+        where="load_smoke.original_export.loader_version",
+    )
+    _require_sha256(
+        original.get("detail_sha256"),
+        where="GGUF original smoke detail SHA-256",
+    )
+    _require_sha256(
+        original.get("record_sha256"),
+        where="GGUF original smoke record SHA-256",
+    )
+    if rerun != {
+        "passed": True,
+        "verifier": "verify_phase40_gguf_export",
+        "rerun_load_smoke": True,
+        "manifest_sha256": manifest_sha256,
+    }:
+        raise RuntimeError("GGUF verification receipt independent-smoke record is invalid")
+    _reject_absolute_path_leakage(payload, where="GGUF verification receipt")
+    return context
+
+
+def load_phase40_qwen_gguf_verification_receipt(
+    *,
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Authenticate the fixed receipt bytes without claiming a fresh GGUF load smoke.
+
+    This is the fixed-path byte-authority boundary used before an external GGUF
+    root is available.  :func:`verify_phase40_qwen_gguf_verification_receipt`
+    remains the stronger operation that independently verifies the export and
+    repeats its load smoke.
+    """
+
+    path = _canonical_qwen_gguf_receipt_path(repo_root, must_exist=True)
+    raw = path.read_bytes()
+    payload = _load_json_exact(path)
+    if raw != _canonical_json_bytes(payload):
+        raise RuntimeError("GGUF verification receipt is not canonical JSON")
+    context = _qwen_gguf_context_from_receipt(payload)
+    _verify_gguf_receipt_upstream_authorities(repo_root, context)
+    return payload
 
 
 def freeze_phase40_qwen_gguf_verification_receipt(
@@ -1582,24 +1764,8 @@ def verify_phase40_qwen_gguf_verification_receipt(
 
     upstream = _validated_gguf_verification_context(context)
     _verify_gguf_receipt_upstream_authorities(repo_root, context)
-    path = _canonical_qwen_gguf_receipt_path(repo_root, must_exist=True)
-    raw = path.read_bytes()
-    payload = _load_json_exact(path)
-    if raw != _canonical_json_bytes(payload):
-        raise RuntimeError("GGUF verification receipt is not canonical JSON")
-    _validate_qwen_gguf_receipt_shape(payload)
-    if (
-        payload.get("schema_version") != QWEN_GGUF_VERIFICATION_RECEIPT_SCHEMA_VERSION
-        or payload.get("status") != "verified"
-    ):
-        raise RuntimeError("GGUF verification receipt is not a supported verified receipt")
-    stored_self_hash = _require_sha256(
-        payload.get("receipt_sha256"),
-        where="GGUF verification receipt self-hash",
-    )
+    payload = load_phase40_qwen_gguf_verification_receipt(repo_root=repo_root)
     core = {key: value for key, value in payload.items() if key != "receipt_sha256"}
-    if hashlib.sha256(_canonical_json_bytes(core)).hexdigest() != stored_self_hash:
-        raise RuntimeError("GGUF verification receipt self-hash mismatch")
     if payload.get("upstream") != upstream:
         raise RuntimeError("GGUF verification receipt is stale for the expected upstream authority")
     selection = payload["selection"]
@@ -1711,6 +1877,7 @@ __all__ = [
     "default_dependencies",
     "export_phase40_gguf",
     "freeze_phase40_qwen_gguf_verification_receipt",
+    "load_phase40_qwen_gguf_verification_receipt",
     "main",
     "verify_phase40_gguf_export",
     "verify_phase40_qwen_gguf_verification_receipt",

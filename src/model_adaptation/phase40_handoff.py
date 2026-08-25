@@ -75,7 +75,8 @@ PHASE40_SOURCE_SCHEMA_VERSION = "phase40-source-bundle-v1"
 PHASE40_RUN_REQUEST_SCHEMA_VERSION = "phase40-full-run-request-v1"
 PHASE40_REVIEW_QUEUE_SCHEMA_VERSION = "phase40-review-queue-v2"
 PHASE40_HUMAN_REVIEW_SCHEMA_VERSION = "phase40-human-review-v2"
-PHASE40_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v2"
+PHASE40_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v3"
+PHASE40_LEGACY_COMPARISON_SCHEMA_VERSION = "phase40-comparison-v2"
 PHASE40_SCOPE_AMENDMENT_SCHEMA_VERSION = "phase40-two-full-model-scope-amendment-v1"
 PHASE40_SNAPSHOT_ID_VERSION = "phase40-snapshot-row-id-v1"
 PHASE40_COMPARISON_LIMITATIONS = (
@@ -176,49 +177,43 @@ PHASE40_SOURCE_ALLOWLIST = (
 # Additive authority for the amended comparison command.  Keep the historical
 # training allowlist above byte-for-byte stable because source-runtime-v3 and
 # the frozen full-run request are already bound to it.
-PHASE40_COMPARISON_FINALIZER_ENTRYPOINTS = ("src/model_adaptation/cli.py",)
+PHASE40_COMPARISON_FINALIZER_ENTRYPOINTS = (
+    "src/model_adaptation/phase40_finalize.py",
+)
 PHASE40_COMPARISON_FINALIZER_SOURCE_ALLOWLIST = (
     "pyproject.toml",
+    "scripts/phase40_comparison_launcher.ps1",
     "src/__init__.py",
     "src/config/__init__.py",
     "src/config/settings.py",
     "src/data_pipeline/__init__.py",
-    "src/data_pipeline/processing/__init__.py",
-    "src/data_pipeline/processing/normalizer.py",
     "src/data_pipeline/schemas.py",
     "src/model_adaptation/__init__.py",
     "src/model_adaptation/catalog.py",
-    "src/model_adaptation/cli.py",
-    "src/model_adaptation/convert.py",
     "src/model_adaptation/data.py",
-    "src/model_adaptation/doctor.py",
-    "src/model_adaptation/explanation_review.py",
     "src/model_adaptation/phase40_callbacks.py",
+    "src/model_adaptation/phase40_comparison_launch.py",
     "src/model_adaptation/phase40_contract.py",
     "src/model_adaptation/phase40_evidence.py",
+    "src/model_adaptation/phase40_final_authority.py",
+    "src/model_adaptation/phase40_finalize.py",
+    "src/model_adaptation/phase40_gguf.py",
     "src/model_adaptation/phase40_graphs.py",
     "src/model_adaptation/phase40_handoff.py",
     "src/model_adaptation/phase40_metrics.py",
     "src/model_adaptation/phase40_modes.py",
-    "src/model_adaptation/phase40_notebooks.py",
+    "src/model_adaptation/phase40_phobert_release.py",
+    "src/model_adaptation/phase40_production_authorities.py",
+    "src/model_adaptation/phase40_release_authorities.py",
+    "src/model_adaptation/phase40_runtime_materialize.py",
+    "src/model_adaptation/phobert_training.py",
     "src/model_adaptation/pilot.py",
     "src/model_adaptation/prompts.py",
     "src/model_adaptation/registry.py",
-    "src/model_adaptation/release_evaluation.py",
-    "src/model_adaptation/release_gates.py",
-    "src/model_adaptation/release_readiness.py",
     "src/model_adaptation/schemas.py",
     "src/model_adaptation/training.py",
     "src/runtime/__init__.py",
-    "src/runtime/analyzers/__init__.py",
-    "src/runtime/analyzers/accelerated.py",
-    "src/runtime/analyzers/base.py",
-    "src/runtime/analyzers/gguf.py",
-    "src/runtime/analyzers/heuristic.py",
-    "src/runtime/analyzers/local_model.py",
-    "src/runtime/analyzers/rules.py",
     "src/runtime/contracts.py",
-    "src/runtime/service.py",
 )
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -1908,11 +1903,30 @@ class ComparisonRunRecord(BaseModel):
     gpu_identity: str
     package_versions: dict[str, str]
     required_tool_pins: dict[str, str]
+    # Version 3 records the immutable request/source origin per run.  These
+    # remain optional solely so historical v2 manifests can still be parsed
+    # and audited; the v3 manifest validator requires all four fields.
+    origin_request_sha256: str | None = None
+    source_archive_sha256: str | None = None
+    source_inventory_sha256: str | None = None
+    control_template_sha256: str | None = None
 
     @field_validator("evidence_sha256", "resume_digest")
     @classmethod
     def validate_hashes(cls, value: str) -> str:
         return _require_sha256(value, description="comparison run hash")
+
+    @field_validator(
+        "origin_request_sha256",
+        "source_archive_sha256",
+        "source_inventory_sha256",
+        "control_template_sha256",
+    )
+    @classmethod
+    def validate_optional_origin_hashes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _require_sha256(value, description="comparison run origin hash")
 
     @field_validator("risky_recall_by_label")
     @classmethod
@@ -1936,19 +1950,35 @@ class Phase40ComparisonManifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["phase40-comparison-v2"] = PHASE40_COMPARISON_SCHEMA_VERSION
+    schema_version: Literal["phase40-comparison-v2", "phase40-comparison-v3"] = (
+        PHASE40_LEGACY_COMPARISON_SCHEMA_VERSION
+    )
     status: Literal["complete", "prestart_failed"]
     package_decisions: tuple[PackageDecision, ...] = ()
     original_run_request_sha256: str
     scope_amendment_sha256: str
+    superseded_scope_amendment_sha256: str | None = None
+    final_comparison_authority_sha256: str | None = None
     comparison_finalizer_source_sha256: str
     execution_policy: Literal["local_primary"] = "local_primary"
     full_lora_disposition: Literal["cancelled_before_start"] = "cancelled_before_start"
     lora_probe: LoraProbeComparisonRecord
-    source_archive_sha256: str
-    source_inventory_sha256: str
+    source_archive_sha256: str | None
+    source_inventory_sha256: str | None
+    request_sha256_by_run: dict[str, str] = Field(default_factory=dict)
+    source_archive_sha256_by_run: dict[str, str] = Field(default_factory=dict)
+    source_inventory_sha256_by_run: dict[str, str] = Field(default_factory=dict)
     input_archive_sha256: str
     input_manifest_sha256: str
+    comparison_launch_receipt_sha256: str | None = None
+    qwen_gguf_verification_receipt_sha256: str | None = None
+    phobert_release_receipt_authority_sha256: str | None = None
+    phobert_segmenter_authority_sha256: str | None = None
+    runtime_dependency_authority_sha256: str | None = None
+    runtime_materialization_receipt_sha256: str | None = None
+    production_authority_verification_mode: Literal[
+        "portable_receipts_only"
+    ] | None = None
     validation_rows: int = Field(gt=0)
     runs: tuple[ComparisonRunRecord, ...]
     qwen_config_comparison: QwenConfigComparison | None = None
@@ -1962,8 +1992,6 @@ class Phase40ComparisonManifest(BaseModel):
     failure_reason: str | None
 
     @field_validator(
-        "source_archive_sha256",
-        "source_inventory_sha256",
         "input_archive_sha256",
         "input_manifest_sha256",
         "original_run_request_sha256",
@@ -1973,6 +2001,36 @@ class Phase40ComparisonManifest(BaseModel):
     @classmethod
     def validate_authority_hashes(cls, value: str) -> str:
         return _require_sha256(value, description="comparison authority hash")
+
+    @field_validator(
+        "source_archive_sha256",
+        "source_inventory_sha256",
+        "superseded_scope_amendment_sha256",
+        "final_comparison_authority_sha256",
+        "comparison_launch_receipt_sha256",
+        "qwen_gguf_verification_receipt_sha256",
+        "phobert_release_receipt_authority_sha256",
+        "phobert_segmenter_authority_sha256",
+        "runtime_dependency_authority_sha256",
+        "runtime_materialization_receipt_sha256",
+    )
+    @classmethod
+    def validate_optional_authority_hashes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _require_sha256(value, description="comparison authority hash")
+
+    @field_validator(
+        "request_sha256_by_run",
+        "source_archive_sha256_by_run",
+        "source_inventory_sha256_by_run",
+    )
+    @classmethod
+    def validate_per_run_authority_hashes(cls, value: dict[str, str]) -> dict[str, str]:
+        return {
+            run_id: _require_sha256(digest, description="per-run comparison authority hash")
+            for run_id, digest in value.items()
+        }
 
     @field_validator("review_queue_sha256", "selected_prediction_bundles_sha256")
     @classmethod
@@ -1986,7 +2044,47 @@ class Phase40ComparisonManifest(BaseModel):
         single_seed = "single_training_seed_42_no_variance_or_significance_claim"
         if single_seed not in self.limitations:
             raise ValueError("comparison manifest must expose the single-seed limitation")
+        is_v3 = self.schema_version == PHASE40_COMPARISON_SCHEMA_VERSION
+        if not is_v3:
+            if self.source_archive_sha256 is None or self.source_inventory_sha256 is None:
+                raise ValueError("v2 comparison requires its historical global source authority")
+            v3_only_hashes = (
+                self.superseded_scope_amendment_sha256,
+                self.final_comparison_authority_sha256,
+                self.comparison_launch_receipt_sha256,
+                self.qwen_gguf_verification_receipt_sha256,
+                self.phobert_release_receipt_authority_sha256,
+                self.phobert_segmenter_authority_sha256,
+                self.runtime_dependency_authority_sha256,
+                self.runtime_materialization_receipt_sha256,
+            )
+            v3_only_maps = (
+                self.request_sha256_by_run,
+                self.source_archive_sha256_by_run,
+                self.source_inventory_sha256_by_run,
+            )
+            v3_only_run_origins = tuple(
+                value
+                for run in self.runs
+                for value in (
+                    run.origin_request_sha256,
+                    run.source_archive_sha256,
+                    run.source_inventory_sha256,
+                    run.control_template_sha256,
+                )
+            )
+            if (
+                any(value is not None for value in v3_only_hashes)
+                or any(v3_only_maps)
+                or any(value is not None for value in v3_only_run_origins)
+                or self.production_authority_verification_mode is not None
+            ):
+                raise ValueError("v2 comparison cannot contain v3-only authority fields")
         if self.status == "prestart_failed":
+            if is_v3:
+                raise ValueError(
+                    "v3 comparison cannot use the historical prestart_failed contract"
+                )
             if self.runs or self.qwen_config_comparison is not None:
                 raise ValueError("pre-start failure cannot contain model comparison results")
             if self.quality_comparison_admissible or self.speed_comparison_admissible:
@@ -2025,6 +2123,50 @@ class Phase40ComparisonManifest(BaseModel):
             raise ValueError("complete comparison must state active-run hardware confounding")
         if self.speed_comparison_admissible:
             raise ValueError("probe-versus-full or cross-architecture speed claims are inadmissible")
+        if is_v3:
+            run_ids = tuple(run.run_id for run in self.runs)
+            if (
+                self.source_archive_sha256 is not None
+                or self.source_inventory_sha256 is not None
+            ):
+                raise ValueError(
+                    "v3 comparison must use per-run source authorities, not one global source"
+                )
+            run_id_set = set(run_ids)
+            if (
+                set(self.request_sha256_by_run) != run_id_set
+                or set(self.source_archive_sha256_by_run) != run_id_set
+                or set(self.source_inventory_sha256_by_run) != run_id_set
+            ):
+                raise ValueError("v3 per-run authority maps must cover the exact run set")
+            for run in self.runs:
+                if (
+                    run.origin_request_sha256 != self.request_sha256_by_run[run.run_id]
+                    or run.source_archive_sha256
+                    != self.source_archive_sha256_by_run[run.run_id]
+                    or run.source_inventory_sha256
+                    != self.source_inventory_sha256_by_run[run.run_id]
+                    or run.control_template_sha256 is None
+                ):
+                    raise ValueError("v3 run provenance differs from its per-run authority maps")
+            required_v3_hashes = (
+                self.superseded_scope_amendment_sha256,
+                self.final_comparison_authority_sha256,
+                self.comparison_launch_receipt_sha256,
+                self.qwen_gguf_verification_receipt_sha256,
+                self.phobert_release_receipt_authority_sha256,
+                self.phobert_segmenter_authority_sha256,
+                self.runtime_dependency_authority_sha256,
+                self.runtime_materialization_receipt_sha256,
+            )
+            if any(value is None for value in required_v3_hashes):
+                raise ValueError("v3 comparison requires the complete portable receipt closure")
+            if self.production_authority_verification_mode != "portable_receipts_only":
+                raise ValueError(
+                    "v3 comparison must disclose portable-receipt-only verification"
+                )
+            if self.superseded_scope_amendment_sha256 != self.scope_amendment_sha256:
+                raise ValueError("v3 superseded scope hash differs from historical scope authority")
         return self
 
 
@@ -2356,7 +2498,15 @@ def _comparison_report(manifest: Phase40ComparisonManifest) -> bytes:
     lines.extend(
         (
             "Primary execution: local laptop. Colab is validation-only contingency before the held-out boundary is opened.",
-            "Training/run evidence remains governed by source-runtime-v3; this amended comparison runs only under its separate hash-pinned local finalizer authority.",
+            (
+                "Each training run remains governed by its immutable origin request/source "
+                "authority; the post-run comparison selects those origins without rewriting "
+                "either run."
+                if manifest.schema_version == PHASE40_COMPARISON_SCHEMA_VERSION
+                else "Training/run evidence remains governed by source-runtime-v3; this "
+                "historical amended comparison runs under its separate hash-pinned local "
+                "finalizer authority."
+            ),
             "Full Qwen LoRA was withdrawn and cancelled before its production run; its bounded local probe is resource evidence only and contributes no predictions.",
             f"LoRA probe: observed_steps={manifest.lora_probe.observed_optimizer_steps}, "
             f"retained_steps={manifest.lora_probe.retained_optimizer_steps}, "
@@ -2370,6 +2520,27 @@ def _comparison_report(manifest: Phase40ComparisonManifest) -> bytes:
             f"Hardware-confounded timing/throughput: {manifest.hardware_confounded}",
             f"Speed comparison admissible: {manifest.speed_comparison_admissible}",
             f"Human-review queue rows: {manifest.review_queue_rows}",
+            (
+                "Authority verification at comparison time: portable receipts only; "
+                "live external model and runtime recapture remain separate gates."
+                if manifest.production_authority_verification_mode
+                == "portable_receipts_only"
+                else "Authority verification mode: historical v2 comparison."
+            ),
+            (
+                "Runtime materialization receipt SHA-256: "
+                f"`{manifest.runtime_materialization_receipt_sha256}` "
+                "(portable receipt binding only; comparison finalization did not "
+                "perform live runtime recapture)."
+                if (
+                    manifest.schema_version == PHASE40_COMPARISON_SCHEMA_VERSION
+                    and manifest.production_authority_verification_mode
+                    == "portable_receipts_only"
+                    and manifest.runtime_materialization_receipt_sha256 is not None
+                )
+                else "Runtime materialization receipt: not recorded by the historical "
+                "v2 comparison schema."
+            ),
             "",
             "## Retained runs",
             "",
@@ -3723,6 +3894,397 @@ def finalize_phase40_comparison(
     queue_path, queue_manifest_path, template_path = write_phase40_review_queue(
         queue,
         output_root=Path(output_root) / "review",
+        comparison_manifest_sha256=_sha256(
+            _canonical_json_bytes(manifest.model_dump(mode="json"))
+        ),
+        phase39_data_contract_sha256=_contract_identity(contract),
+        validation_ordered_row_ids_sha256=_ordered_row_ids_sha256(
+            contract.validation_snapshot
+        ),
+        verify_only=verify_only,
+    )
+    return ComparisonArtifacts(
+        manifest_path,
+        report_path,
+        queue_path,
+        queue_manifest_path,
+        template_path,
+        selected_bundles_path,
+        manifest,
+        bundles,
+    )
+
+
+_PHASE40_PRODUCTION_AUTHORITY_KEYS = (
+    "verification_mode",
+    "comparison_launch_receipt_sha256",
+    "qwen_gguf_verification_receipt_sha256",
+    "phobert_release_receipt_authority_sha256",
+    "phobert_segmenter_authority_sha256",
+    "runtime_dependency_authority_sha256",
+    "runtime_materialization_receipt_sha256",
+    "qwen_selected_checkpoint_identity",
+    "phobert_selected_checkpoint_identity",
+    "phobert_selected_artifact_sha256",
+)
+
+
+def _phase40_production_authority_values(value: object) -> dict[str, str]:
+    """Normalize the already-verified portable production authority closure."""
+
+    from src.model_adaptation.phase40_production_authorities import (
+        PORTABLE_RECEIPTS_ONLY,
+        VerifiedPhase40ProductionAuthorities,
+    )
+
+    if type(value) is not VerifiedPhase40ProductionAuthorities:
+        raise TypeError("production authorities must come from the fixed receipt loader")
+    if value.verification_mode != PORTABLE_RECEIPTS_ONLY:
+        raise ValueError("final comparison accepts portable receipt verification only")
+    payload = value.as_dict()
+    if tuple(payload) != _PHASE40_PRODUCTION_AUTHORITY_KEYS:
+        raise ValueError("production authority closure fields/order drifted")
+    normalized: dict[str, str] = {}
+    for key in _PHASE40_PRODUCTION_AUTHORITY_KEYS:
+        item = payload[key]
+        if not isinstance(item, str):
+            raise ValueError(f"production authority field is not text: {key}")
+        if key.endswith("_sha256"):
+            item = _require_sha256(item, description=f"production authority {key}")
+        normalized[key] = item
+    if not re.fullmatch(
+        r"adapter-state-sha256:[0-9a-f]{64}",
+        normalized["qwen_selected_checkpoint_identity"],
+    ):
+        raise ValueError("production Qwen checkpoint identity is invalid")
+    if not re.fullmatch(
+        r"model-state-sha256:[0-9a-f]{64}",
+        normalized["phobert_selected_checkpoint_identity"],
+    ):
+        raise ValueError("production PhoBERT checkpoint identity is invalid")
+    return normalized
+
+
+def _authorized_final_return_roots(
+    resolutions: Sequence[object],
+    operator_return: LocalTwoModelOperatorReturn,
+    *,
+    repo_root: Path,
+) -> dict[str, Path]:
+    """Bind returned roots to the exact selected run in each origin request."""
+
+    selected = {resolution.run_id: resolution for resolution in resolutions}
+    returned = {item.run_id: item for item in operator_return.bundle_roots}
+    gpu_ids = {item.run_id for item in operator_return.gpu_identities}
+    if set(returned) != set(selected) or gpu_ids != set(selected):
+        raise ValueError("operator return run IDs differ from the final comparison authority")
+    root = _trusted_repo_root(repo_root)
+    authorized: dict[str, Path] = {}
+    for run_id, resolution in selected.items():
+        requested = resolution.requested_run
+        if returned[run_id].path != requested.returned_root:
+            raise ValueError("operator returned root differs from its origin request")
+        expected = _lexical_absolute(root / PurePosixPath(requested.returned_root))
+        try:
+            expected.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("final comparison returned root escaped the repository") from exc
+        authorized[run_id] = expected
+    return authorized
+
+
+def finalize_phase40_final_comparison(
+    operator_return: LocalTwoModelOperatorReturn,
+    *,
+    repo_root: Path,
+    output_root: Path,
+    verify_only: bool = False,
+    bundle_verifier: Callable[[Path], RunEvidence] = verify_phase40_bundle,
+    renderer: GraphRenderer | None = None,
+    renderer_name: str | None = None,
+    renderer_version: str | None = None,
+) -> ComparisonArtifacts:
+    """Finalize Qwen/PhoBERT under their two immutable origin requests.
+
+    This is the active Phase 40 production path.  The historical single-request
+    finalizer above remains available only to verify already-created v2 fixtures.
+    """
+
+    from src.model_adaptation.phase40_final_authority import (
+        load_frozen_phase40_final_comparison_authority,
+    )
+    from src.model_adaptation.phase40_production_authorities import (
+        load_phase40_portable_production_authorities,
+    )
+
+    root = _trusted_repo_root(repo_root)
+    requested_output = Path(output_root)
+    resolved_output = _lexical_absolute(
+        requested_output if requested_output.is_absolute() else root / requested_output
+    )
+    expected_output = _lexical_absolute(root / "data/models/phase40")
+    if resolved_output != expected_output:
+        raise ValueError(
+            "final comparison output must be the fixed repository Phase 40 root"
+        )
+    _reject_redirecting_path_components((expected_output,))
+    operator_return = (
+        operator_return
+        if isinstance(operator_return, LocalTwoModelOperatorReturn)
+        else LocalTwoModelOperatorReturn.model_validate(operator_return)
+    )
+    final = load_frozen_phase40_final_comparison_authority(repo_root=root)
+    authority = final.authority
+    production = _phase40_production_authority_values(
+        load_phase40_portable_production_authorities(repo_root=root)
+    )
+    lora_probe = verify_lora_probe_authority(
+        authority.lora_probe_authority,
+        repo_root=root,
+    )
+    authorized_roots = _authorized_final_return_roots(
+        final.runs,
+        operator_return,
+        repo_root=root,
+    )
+    _reject_redirecting_path_components(tuple(authorized_roots.values()))
+
+    request = final.original_request
+    contract = verify_phase40_input_bundle(
+        root / request.input_bundle.repository_relative_path,
+        request.input_bundle,
+        repo_root=root,
+        materialize=False,
+    )
+    validation_rows = len(contract.validation_snapshot.rows)
+    if validation_rows != request.input_bundle.data_members[1].records:
+        raise RuntimeError("verified validation row count differs from the final authority")
+    if validation_rows != 219:
+        raise RuntimeError("Phase 40 comparison requires exactly 219 validation rows per model")
+
+    gpu_by_id = {gpu.run_id: gpu for gpu in operator_return.gpu_identities}
+    prediction_bundles: list[SelectedPredictionBundle] = []
+    run_records: list[ComparisonRunRecord] = []
+    for resolution in final.runs:
+        requested = resolution.requested_run
+        origin_request = resolution.origin_request
+        run_root = authorized_roots[resolution.run_id]
+        if not run_root.is_dir() or run_root.is_symlink():
+            raise RuntimeError(f"returned run root is missing or unsafe: {resolution.run_id}")
+        for required in origin_request.expected_bundle_files:
+            required_path = run_root / PurePosixPath(required)
+            if not required_path.exists() or required_path.is_symlink():
+                raise RuntimeError(
+                    f"returned run {resolution.run_id} is missing required output: {required}"
+                )
+            if required_path.is_file() and required_path.stat().st_size == 0:
+                raise RuntimeError(
+                    f"returned run {resolution.run_id} has an empty required output: {required}"
+                )
+
+        evidence = bundle_verifier(run_root)
+        if not isinstance(evidence, RunEvidence):
+            evidence = RunEvidence.model_validate(evidence)
+        if evidence.status != EvidenceStatus.COMPLETE or evidence.run_kind != RunKind.FULL:
+            raise RuntimeError(f"returned run is not complete full evidence: {resolution.run_id}")
+        if evidence.run_id != resolution.run_id:
+            raise RuntimeError("returned run ID differs from its origin request")
+        if evidence.transfer_authority != resolution.transfer_authority:
+            raise RuntimeError("returned run transfer authority differs from its origin request")
+        identity = evidence.experiment_identity
+        if (
+            identity.model_family != requested.model_family
+            or identity.adaptation_mode != requested.adaptation_mode
+            or identity.run_kind != RunKind.FULL
+        ):
+            raise RuntimeError("returned run experiment identity differs from its origin request")
+
+        graph = _regenerate_graph(
+            run_root,
+            evidence,
+            renderer=renderer,
+            renderer_name=renderer_name,
+            renderer_version=renderer_version,
+        )
+        if graph.renderer != "matplotlib" or graph.renderer_version != "3.11.1":
+            raise RuntimeError("returned run graph evidence is not pinned to matplotlib 3.11.1")
+        evidence = bundle_verifier(run_root)
+        config = _load_resume_config(run_root, evidence)
+        resolution.control_template.verify_runtime_config(config)
+        if evidence.model_revision != config.model_revision:
+            raise RuntimeError("returned model revision differs from the controlled config")
+        for split, member in zip(
+            evidence.splits,
+            origin_request.input_bundle.data_members,
+            strict=True,
+        ):
+            if (
+                split.logical_name != member.logical_name
+                or split.records != member.records
+                or split.bytes != member.bytes
+                or split.sha256 != member.sha256
+                or split.ordered_row_ids_sha256 != member.ordered_row_ids_sha256
+            ):
+                raise RuntimeError("returned evidence split identity differs from its origin request")
+
+        gpu = gpu_by_id[resolution.run_id]
+        if gpu.accelerator != config.accelerator.accelerator_name:
+            raise RuntimeError("operator GPU identity differs from the controlled run config")
+        recomputed_selection, recomputed_metrics = _recompute_checkpoint_selection(
+            run_root,
+            evidence,
+            contract.validation_snapshot,
+        )
+        prediction_bundle = _load_selected_prediction_bundle(run_root, evidence)
+        _prediction_by_snapshot(prediction_bundle, contract.validation_snapshot)
+        if len(prediction_bundle.predictions) != validation_rows:
+            raise RuntimeError("returned selected predictions do not cover all validation rows")
+        selected = evidence.selected_checkpoint
+        assert selected is not None
+        selected_metrics = recomputed_metrics[
+            (recomputed_selection.selected_step, recomputed_selection.selected_artifact_identity)
+        ]
+        expected_run_metrics = _run_metric_summary(selected_metrics)
+        if evidence.validation_metrics != expected_run_metrics:
+            raise RuntimeError("run-level validation metrics differ from selected raw predictions")
+        risky_recall = {
+            label: next(row.recall for row in selected_metrics.per_class if row.label == label)
+            for label in RISKY_RECALL_FLOORS
+        }
+        required_tool_pins = {"matplotlib": graph.renderer_version}
+        if identity.adaptation_mode == AdaptationMode.QLORA:
+            if (
+                evidence.quantization is None
+                or evidence.quantization.resolved_mode != ResolvedQwenMode.FOUR_BIT_QLORA
+                or evidence.quantization.bitsandbytes_version != "0.50.1"
+                or evidence.package_versions.get("bitsandbytes") != "0.50.1"
+            ):
+                raise RuntimeError("QLoRA run evidence is not pinned to bitsandbytes 0.50.1")
+            required_tool_pins["bitsandbytes"] = evidence.quantization.bitsandbytes_version
+
+        if identity.model_family == ModelFamily.QWEN:
+            if selected.artifact_identity != production["qwen_selected_checkpoint_identity"]:
+                raise RuntimeError("Qwen production receipt selected a different checkpoint")
+        else:
+            model_artifact = _exact_artifact_for_role(evidence, "model_artifact")
+            if (
+                selected.artifact_identity
+                != production["phobert_selected_checkpoint_identity"]
+                or model_artifact.sha256
+                != production["phobert_selected_artifact_sha256"]
+            ):
+                raise RuntimeError("PhoBERT production receipt selected different model evidence")
+
+        prediction_bundles.append(prediction_bundle)
+        run_records.append(
+            ComparisonRunRecord(
+                run_id=evidence.run_id,
+                model_family=identity.model_family,
+                adaptation_mode=identity.adaptation_mode,
+                returned_root=requested.returned_root,
+                evidence_sha256=build_model_checksum(run_root / "run-evidence.json"),
+                resume_digest=evidence.resume_digest,
+                selected_checkpoint_identity=selected.artifact_identity,
+                selected_optimizer_step=selected.optimizer_step,
+                safety_gate_passed=selected.safety_gate_passed,
+                comparison_eligible=evidence.comparison_eligible,
+                validation_rows=len(prediction_bundle.predictions),
+                validation_metrics=evidence.validation_metrics,
+                macro_f1=selected_metrics.macro_f1,
+                invalid_output_count=selected_metrics.invalid_output_count,
+                risky_recall_by_label=risky_recall,
+                gpu_identity=gpu.accelerator,
+                package_versions=evidence.package_versions,
+                required_tool_pins=required_tool_pins,
+                origin_request_sha256=resolution.origin.request_sha256,
+                source_archive_sha256=origin_request.source_bundle.archive_sha256,
+                source_inventory_sha256=origin_request.source_bundle.inventory_sha256,
+                control_template_sha256=resolution.control_template.sha256,
+            )
+        )
+
+    bundles = tuple(prediction_bundles)
+    queue = build_phase40_review_queue(contract, bundles)
+    if not queue:
+        raise RuntimeError("verified comparison produced an empty human-review queue")
+    queue_sha256 = _sha256(_queue_jsonl(queue))
+    selected_bundles_bytes = _selected_prediction_bundles_bytes(bundles)
+    quality_admissible = all(
+        run.comparison_eligible and run.safety_gate_passed for run in run_records
+    )
+    hardware_confounded = len({run.gpu_identity for run in run_records}) != 1
+    request_hashes = {run.run_id: run.origin_request_sha256 for run in run_records}
+    source_archive_hashes = {run.run_id: run.source_archive_sha256 for run in run_records}
+    source_inventory_hashes = {
+        run.run_id: run.source_inventory_sha256 for run in run_records
+    }
+    manifest = Phase40ComparisonManifest(
+        schema_version=PHASE40_COMPARISON_SCHEMA_VERSION,
+        status="complete",
+        package_decisions=operator_return.package_decisions,
+        original_run_request_sha256=final.runs[0].origin.request_sha256,
+        scope_amendment_sha256=authority.superseded_scope_amendment.sha256,
+        superseded_scope_amendment_sha256=authority.superseded_scope_amendment.sha256,
+        final_comparison_authority_sha256=final.authority_sha256,
+        comparison_finalizer_source_sha256=(
+            authority.comparison_finalizer_authority.source_tree_sha256
+        ),
+        lora_probe=lora_probe,
+        source_archive_sha256=None,
+        source_inventory_sha256=None,
+        request_sha256_by_run=request_hashes,
+        source_archive_sha256_by_run=source_archive_hashes,
+        source_inventory_sha256_by_run=source_inventory_hashes,
+        input_archive_sha256=request.input_bundle.archive_sha256,
+        input_manifest_sha256=request.input_bundle.manifest_sha256,
+        comparison_launch_receipt_sha256=production[
+            "comparison_launch_receipt_sha256"
+        ],
+        qwen_gguf_verification_receipt_sha256=production[
+            "qwen_gguf_verification_receipt_sha256"
+        ],
+        phobert_release_receipt_authority_sha256=production[
+            "phobert_release_receipt_authority_sha256"
+        ],
+        phobert_segmenter_authority_sha256=production[
+            "phobert_segmenter_authority_sha256"
+        ],
+        runtime_dependency_authority_sha256=production[
+            "runtime_dependency_authority_sha256"
+        ],
+        runtime_materialization_receipt_sha256=production[
+            "runtime_materialization_receipt_sha256"
+        ],
+        production_authority_verification_mode=production["verification_mode"],
+        validation_rows=validation_rows,
+        runs=tuple(run_records),
+        qwen_config_comparison=None,
+        quality_comparison_admissible=quality_admissible,
+        hardware_confounded=hardware_confounded,
+        speed_comparison_admissible=False,
+        review_queue_rows=len(queue),
+        review_queue_sha256=queue_sha256,
+        selected_prediction_bundles_sha256=_sha256(selected_bundles_bytes),
+        limitations=PHASE40_COMPARISON_LIMITATIONS,
+        failure_reason=None,
+    )
+    manifest_path, report_path = _write_or_verify_comparison_payloads(
+        output_root=expected_output,
+        manifest=manifest,
+        verify_only=verify_only,
+    )
+    selected_bundles_path = expected_output / "selected-prediction-bundles.json"
+    if verify_only:
+        if (
+            not selected_bundles_path.is_file()
+            or selected_bundles_path.read_bytes() != selected_bundles_bytes
+        ):
+            raise ValueError("selected prediction bundle artifact verification failed")
+    else:
+        _write_frozen_bytes(selected_bundles_path, selected_bundles_bytes)
+    queue_path, queue_manifest_path, template_path = write_phase40_review_queue(
+        queue,
+        output_root=expected_output / "review",
         comparison_manifest_sha256=_sha256(
             _canonical_json_bytes(manifest.model_dump(mode="json"))
         ),

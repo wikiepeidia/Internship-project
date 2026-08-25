@@ -64,6 +64,7 @@ def test_launcher_is_clean_runtime_self_bound_and_has_no_authority_overrides():
     assert "launcher_host" in lowered
     assert "phase40_external_launcher_authority" in lowered
     assert "external_launch_receipt_sha256" in lowered
+    assert source.count('"runtime_materialization_receipt_sha256"') >= 3
     assert "getclienthandleasstring" not in lowered
     assert "_vnphish_phase41_launcher_capability" not in lowered
     assert not re.search(
@@ -186,9 +187,10 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
                 },
             ],
             "qwen_gguf_verification_receipt_sha256": "d" * 64,
-            "phobert_tokenizer_authority_sha256": "e" * 64,
+            "phobert_release_receipt_authority_sha256": "e" * 64,
             "phobert_segmenter_authority_sha256": "f" * 64,
             "runtime_dependency_authority_sha256": "1" * 64,
+            "runtime_materialization_receipt_sha256": "2" * 64,
         }
     }
     protocol = {"schema_version": "synthetic-protocol"}
@@ -261,6 +263,11 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
         text=True,
     )
     assert receipt.returncode == 0, receipt.stderr
+    receipt_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert (
+        receipt_payload["runtime_materialization_receipt_sha256"]
+        == request["authorities"]["runtime_materialization_receipt_sha256"]
+    )
 
     direct = subprocess.run(
         [
@@ -311,6 +318,15 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
         finally:
             if child.stdin is not None:
                 child.stdin.close()
+
+    tampered_receipt = dict(receipt_payload)
+    tampered_receipt["runtime_materialization_receipt_sha256"] = "0" * 64
+    receipt_path.write_bytes(_canonical_bytes(tampered_receipt))
+    returncode, stderr = run_capability_child()
+    assert returncode != 0
+    assert "materialization receipt drifted" in stderr
+    assert not (output / "bootstrap-marker.json").exists()
+    receipt_path.write_bytes(_canonical_bytes(receipt_payload))
 
     returncode, stderr = run_capability_child()
     assert returncode == 0, stderr

@@ -73,19 +73,17 @@ EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
 MATERIALIZATION_RECEIPT_NAME = "execution-materialization-receipt.json"
 COMPLETION_SEAL_NAME = "protected-completion-seal.json"
-PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED = (
-    "phase40_comparison_launch_receipt_contract_missing"
-)
-PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED = (
-    "phase40_runtime_dependency_byte_authority_missing"
+PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED = (
+    "phase41_production_runtime_source_bootstrap_required"
 )
 PRODUCTION_PREPARATION_SCOPE = "production_canonical"
 SYNTHETIC_PREPARATION_SCOPE = "synthetic_test"
 _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS = (
     "qwen_gguf_verification_receipt_sha256",
-    "phobert_tokenizer_authority_sha256",
+    "phobert_release_receipt_authority_sha256",
     "phobert_segmenter_authority_sha256",
     "runtime_dependency_authority_sha256",
+    "runtime_materialization_receipt_sha256",
 )
 _SYNTHETIC_REQUIRED_AUTHORITY_HASHES = {
     name: hashlib.sha256(f"phase41-synthetic:{name}".encode("ascii")).hexdigest()
@@ -1087,8 +1085,9 @@ def prepare_evaluation(
             raise ContractError("synthetic preparation is unavailable in production")
     elif preparation_scope == PRODUCTION_PREPARATION_SCOPE:
         raise ContractError(
-            f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: only the unfinished "
-            "canonical authority producer may create production preparation"
+            f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: only the fixed canonical "
+            "producer may create production preparation after its live runtime, "
+            "source, and protocol bootstrap is explicitly authorized"
         )
     else:
         raise ContractError("evaluation preparation scope is invalid")
@@ -1273,27 +1272,20 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
 def _require_canonical_production_authorities(
     prepared: Mapping[str, object],
 ) -> None:
-    """Reject self-declared production JSON until fixed upstream proof exists.
+    """Reject production JSON until Phase 41 owns a fixed live bootstrap.
 
-    Phase 40 has not produced a schema, code-fixed path, verifier, or protected
-    receipt for the external comparison launcher, and it has not produced the
-    frozen runtime dependency byte authority that must be chronology-bound to
-    that receipt.  Consequently no output-root JSON can currently establish a
-    production authority closure.  Every production verb calls this gate
-    independently before reading protocols, models, the held-out payload, or a
-    live launcher capability.  Once Phase 40 supplies those producers this gate
-    must be replaced by strict fixed-path loads and byte/chronology comparison;
-    accepting caller-declared hashes here is deliberately forbidden.
+    Phase 40 now supplies a fixed portable receipt closure.  That closure does
+    not itself authorize Phase 41 to select a live interpreter/source tree or
+    to reuse the historical NF4-adapter protocol for the production Qwen GGUF.
+    Every production verb therefore remains closed before split or capability
+    access until the canonical producer installs and verifies that bootstrap.
     """
 
     if prepared.get("preparation_scope") == PRODUCTION_PREPARATION_SCOPE:
         raise ContractError(
-            f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: the code-fixed "
-            "Phase 40 external comparison-launch receipt authority does not "
-            "yet exist, so production_canonical output-root JSON is not an "
-            "authority; "
-            f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: the frozen "
-            "runtime dependency byte authority is also unavailable"
+            f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: caller-authored "
+            "production_canonical output-root JSON cannot substitute for the "
+            "fixed live runtime/source bootstrap and GGUF inference protocol"
         )
 
 
@@ -2345,8 +2337,9 @@ def _write_source_manifest(
         or _TEST_RUNTIME.get() is None
     ):
         raise ContractError(
-            f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: production source "
-            "materialization requires a precommitted PowerShell host byte authority"
+            f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: production source "
+            "materialization requires the explicitly authorized live PowerShell, "
+            "runtime, source, and GGUF protocol bootstrap"
         )
     repository_root = Path(__file__).resolve().parents[2]
     relative_files = _phase41_source_import_closure(repository_root)
@@ -4618,8 +4611,14 @@ def _verify_phase40_closure(
     phase39_contract_identity: str,
 ) -> tuple[tuple[FrozenModelIdentity, FrozenModelIdentity], str, str]:
     from src.model_adaptation.phase40_handoff import (
+        PHASE40_COMPARISON_SCHEMA_VERSION,
         PHASE40_COMPARISON_LIMITATIONS,
         Phase40ComparisonManifest,
+    )
+    from src.model_adaptation.phase40_production_authorities import (
+        PORTABLE_RECEIPTS_ONLY,
+        VerifiedPhase40ProductionAuthorities,
+        load_phase40_portable_production_authorities,
     )
 
     comparison_raw, comparison_bytes = _load_canonical_json(
@@ -4633,6 +4632,9 @@ def _verify_phase40_closure(
         raise ContractError("Phase 40 comparison manifest differs from its typed authority")
     if (
         comparison.status != "complete"
+        or comparison.schema_version != PHASE40_COMPARISON_SCHEMA_VERSION
+        or comparison.production_authority_verification_mode
+        != "portable_receipts_only"
         or comparison.quality_comparison_admissible is not True
         or comparison.failure_reason is not None
         or comparison.speed_comparison_admissible is not False
@@ -4651,6 +4653,34 @@ def _verify_phase40_closure(
         )
     ):
         raise ContractError("Phase 40 comparison is not a closed admissible two-model result")
+    try:
+        production = load_phase40_portable_production_authorities(
+            repo_root=repo_root
+        )
+    except Exception as exc:
+        raise ContractError(
+            "Phase 40 fixed portable production authority closure is invalid"
+        ) from exc
+    if type(production) is not VerifiedPhase40ProductionAuthorities:
+        raise ContractError(
+            "Phase 40 fixed authority loader returned an untrusted closure type"
+        )
+    production_values = production.as_dict()
+    if production_values.get("verification_mode") != PORTABLE_RECEIPTS_ONLY:
+        raise ContractError(
+            "Phase 40 authority closure must remain portable-receipts-only"
+        )
+    comparison_authority_fields = (
+        "comparison_launch_receipt_sha256",
+        *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
+    )
+    if any(
+        getattr(comparison, name) != production_values.get(name)
+        for name in comparison_authority_fields
+    ):
+        raise ContractError(
+            "Phase 40 comparison portable receipt closure differs from fixed authorities"
+        )
     models = tuple(
         _verify_phase40_model_bundle(
             repo_root=repo_root,
@@ -4659,6 +4689,17 @@ def _verify_phase40_closure(
         )
         for role, run in zip(("qwen", "phobert"), comparison.runs, strict=True)
     )
+    if (
+        models[0].selected_checkpoint_identity
+        != production_values.get("qwen_selected_checkpoint_identity")
+        or models[1].selected_checkpoint_identity
+        != production_values.get("phobert_selected_checkpoint_identity")
+        or models[1].artifact_sha256
+        != production_values.get("phobert_selected_artifact_sha256")
+    ):
+        raise ContractError(
+            "Phase 40 model identities differ from fixed portable authorities"
+        )
 
     review, review_bytes = _load_canonical_json(
         review_path, "Phase 40 human-review manifest"
@@ -4721,16 +4762,14 @@ def prepare_phase41_from_canonical_authorities(
     phase40_review_manifest_path: Path,
     deployment_fit_choice: str,
 ) -> PreparedPhase41Evaluation:
-    """Validate every existing upstream authority, then stop at the missing receipt.
+    """Validate fixed upstream authorities, then stop before live bootstrap.
 
-    Phase 40 planning requires an external clean-source comparison-launch
-    receipt and a frozen byte authority for the Python inference environment,
-    but no producer, schema, canonical path, or verifier exists for either.
-    This entry point therefore validates the code-fixed Phase 39 metadata,
-    complete comparison, human-review closure, and both immutable bundles, then
-    raises a stable precondition code.  It never guesses an upstream receipt
-    format and never performs a filesystem operation on the held-out path
-    carried inside the Phase 39 document.
+    The portable Phase 40 v3 receipt closure is authenticated and cross-bound
+    here.  It is not a live runtime recapture and does not authorize Phase 41 to
+    choose executable/source bytes or reuse the old NF4-adapter protocol for
+    the production Qwen GGUF.  Until that bootstrap is separately fixed, this
+    function performs no filesystem operation on the opaque held-out path and
+    creates no production request.
     """
 
     repository = Path(os.path.abspath(os.path.normpath(os.fspath(repo_root))))
@@ -4765,13 +4804,10 @@ def prepare_phase41_from_canonical_authorities(
     )
     del output_root
     raise ContractError(
-        f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: Phase 40 must first "
-        "implement and freeze the external clean-source comparison-launch "
-        "receipt authority; "
-        f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: Phase 40 must also "
-        "freeze an installed-tree or wheel inventory for Torch, Transformers, "
-        "PEFT, bitsandbytes, and transitive runtime bytes; Phase 41 refuses to "
-        "invent either authority or infer byte identity from package versions"
+        f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: the fixed portable Phase 40 "
+        "closure is necessary but does not authorize a live Phase 41 runtime, "
+        "execution-source materialization, or production Qwen GGUF inference "
+        "protocol; the held-out split remains unopened"
     )
 
 
@@ -4787,8 +4823,7 @@ __all__ = [
     "ModelIdentity",
     "OpaqueHeldOutAuthority",
     "PREDICTION_COLUMNS",
-    "PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED",
-    "PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED",
+    "PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED",
     "Phase41EvidenceManifest",
     "Prediction",
     "PreparedPhase41Evaluation",

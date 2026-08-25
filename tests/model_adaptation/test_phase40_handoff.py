@@ -36,6 +36,7 @@ from src.model_adaptation.phase40_handoff import (
     REQUIRED_FULL_BUNDLE_FILES,
     ColabOperatorReturn,
     ComparisonArtifacts,
+    Phase40ComparisonManifest,
     FullRunRequestIdentity,
     PackageDecision,
     RequestedControlTemplate,
@@ -45,6 +46,8 @@ from src.model_adaptation.phase40_handoff import (
     ReviewerReturnRow,
     RunRequest,
     SelectedPredictionBundle,
+    _comparison_report,
+    _phase40_production_authority_values,
     build_phase40_input_bundle,
     build_phase40_review_queue,
     build_phase40_scope_amendment,
@@ -2175,4 +2178,191 @@ def test_selected_prediction_bundle_loader_rejects_duplicate_and_noncanonical_by
         load_phase40_selected_prediction_bundles(
             noncanonical_path,
             comparison_manifest=noncanonical_manifest,
+        )
+
+
+def _upgrade_fixture_manifest_to_v3(
+    manifest: Phase40ComparisonManifest,
+) -> dict[str, object]:
+    payload = manifest.model_dump(mode="json")
+    payload["schema_version"] = "phase40-comparison-v3"
+    payload["source_archive_sha256"] = None
+    payload["source_inventory_sha256"] = None
+    payload["superseded_scope_amendment_sha256"] = payload[
+        "scope_amendment_sha256"
+    ]
+    payload["final_comparison_authority_sha256"] = "1" * 64
+    for index, run in enumerate(payload["runs"]):
+        run["origin_request_sha256"] = f"{index + 2:x}" * 64
+        run["source_archive_sha256"] = f"{index + 4:x}" * 64
+        run["source_inventory_sha256"] = f"{index + 6:x}" * 64
+        run["control_template_sha256"] = f"{index + 8:x}" * 64
+    payload["request_sha256_by_run"] = {
+        run["run_id"]: run["origin_request_sha256"] for run in payload["runs"]
+    }
+    payload["source_archive_sha256_by_run"] = {
+        run["run_id"]: run["source_archive_sha256"] for run in payload["runs"]
+    }
+    payload["source_inventory_sha256_by_run"] = {
+        run["run_id"]: run["source_inventory_sha256"] for run in payload["runs"]
+    }
+    payload["comparison_launch_receipt_sha256"] = "a" * 64
+    payload["qwen_gguf_verification_receipt_sha256"] = "b" * 64
+    payload["phobert_release_receipt_authority_sha256"] = "c" * 64
+    payload["phobert_segmenter_authority_sha256"] = "d" * 64
+    payload["runtime_dependency_authority_sha256"] = "e" * 64
+    payload["runtime_materialization_receipt_sha256"] = "f" * 64
+    payload["production_authority_verification_mode"] = "portable_receipts_only"
+    return payload
+
+
+def test_comparison_v3_requires_per_run_origins_and_production_closure(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    legacy = _finalize_fixture_comparison(fixture).manifest
+    payload = _upgrade_fixture_manifest_to_v3(legacy)
+    upgraded = Phase40ComparisonManifest.model_validate(payload)
+    assert upgraded.schema_version == "phase40-comparison-v3"
+    assert upgraded.source_archive_sha256 is None
+    assert tuple(upgraded.request_sha256_by_run) == tuple(
+        run.run_id for run in upgraded.runs
+    )
+    report = _comparison_report(upgraded).decode("utf-8")
+    assert upgraded.runtime_materialization_receipt_sha256 in report
+    assert "did not perform live runtime recapture" in report
+
+    payload["request_sha256_by_run"][payload["runs"][1]["run_id"]] = "f" * 64
+    with pytest.raises(ValueError, match="run provenance differs"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+def test_comparison_v3_requires_runtime_materialization_receipt(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _upgrade_fixture_manifest_to_v3(
+        _finalize_fixture_comparison(fixture).manifest
+    )
+    payload["runtime_materialization_receipt_sha256"] = None
+
+    with pytest.raises(ValueError, match="complete portable receipt closure"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+def test_comparison_v3_rejects_one_global_source_authority(tmp_path, monkeypatch):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _upgrade_fixture_manifest_to_v3(
+        _finalize_fixture_comparison(fixture).manifest
+    )
+    payload["source_archive_sha256"] = "f" * 64
+    with pytest.raises(ValueError, match="per-run source authorities"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    (
+        ("superseded_scope_amendment_sha256", "1" * 64),
+        ("final_comparison_authority_sha256", "2" * 64),
+        ("request_sha256_by_run", {"qwen-qlora": "3" * 64}),
+        ("source_archive_sha256_by_run", {"qwen-qlora": "4" * 64}),
+        ("source_inventory_sha256_by_run", {"qwen-qlora": "5" * 64}),
+        ("comparison_launch_receipt_sha256", "6" * 64),
+        ("qwen_gguf_verification_receipt_sha256", "7" * 64),
+        ("phobert_release_receipt_authority_sha256", "8" * 64),
+        ("phobert_segmenter_authority_sha256", "9" * 64),
+        ("runtime_dependency_authority_sha256", "a" * 64),
+        ("runtime_materialization_receipt_sha256", "b" * 64),
+        ("production_authority_verification_mode", "portable_receipts_only"),
+    ),
+)
+def test_comparison_v2_rejects_every_v3_only_manifest_field(
+    tmp_path,
+    monkeypatch,
+    field_name,
+    field_value,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _finalize_fixture_comparison(fixture).manifest.model_dump(mode="json")
+    payload[field_name] = field_value
+
+    with pytest.raises(ValueError, match="v3-only authority fields"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    (
+        "origin_request_sha256",
+        "source_archive_sha256",
+        "source_inventory_sha256",
+        "control_template_sha256",
+    ),
+)
+def test_comparison_v2_rejects_v3_only_run_origins(
+    tmp_path,
+    monkeypatch,
+    field_name,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _finalize_fixture_comparison(fixture).manifest.model_dump(mode="json")
+    payload["runs"][0][field_name] = "c" * 64
+
+    with pytest.raises(ValueError, match="v3-only authority fields"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+def test_comparison_v3_rejects_historical_prestart_failed_contract(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _upgrade_fixture_manifest_to_v3(
+        _finalize_fixture_comparison(fixture).manifest
+    )
+    payload.update(
+        status="prestart_failed",
+        runs=[],
+        quality_comparison_admissible=False,
+        hardware_confounded=None,
+        review_queue_rows=0,
+        review_queue_sha256=None,
+        selected_prediction_bundles_sha256=None,
+        failure_reason="synthetic pre-start failure",
+    )
+
+    with pytest.raises(ValueError, match="v3 comparison cannot use"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+def test_comparison_v2_prestart_rejects_v3_only_authority_fields(
+    tmp_path,
+    monkeypatch,
+):
+    fixture = _build_comparison_fixture(tmp_path, monkeypatch)
+    payload = _finalize_fixture_comparison(fixture).manifest.model_dump(mode="json")
+    payload.update(
+        status="prestart_failed",
+        runs=[],
+        quality_comparison_admissible=False,
+        hardware_confounded=None,
+        review_queue_rows=0,
+        review_queue_sha256=None,
+        selected_prediction_bundles_sha256=None,
+        failure_reason="synthetic historical pre-start failure",
+        runtime_materialization_receipt_sha256="d" * 64,
+        production_authority_verification_mode="portable_receipts_only",
+    )
+
+    with pytest.raises(ValueError, match="v3-only authority fields"):
+        Phase40ComparisonManifest.model_validate(payload)
+
+
+def test_final_comparison_rejects_caller_authored_authority_mapping() -> None:
+    with pytest.raises(TypeError, match="fixed receipt loader"):
+        _phase40_production_authority_values(
+            {"verification_mode": "portable_receipts_only"}
         )
