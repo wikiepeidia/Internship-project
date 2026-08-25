@@ -64,6 +64,22 @@ SOURCE_MANIFEST_NAME = "execution-source-manifest.json"
 ACCESS_RECEIPT_NAME = "evaluation-access-receipt.json"
 EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
+PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED = (
+    "phase40_comparison_launch_receipt_contract_missing"
+)
+
+_PHASE39_AUTHORITY_RELATIVE = Path(
+    ".planning/phases/39-independent-quality-re-judge/"
+    "39-DOWNSTREAM-DATA-CONTRACT.json"
+)
+_PHASE40_COMPARISON_RELATIVE = Path("data/models/phase40/comparison-manifest.json")
+_PHASE40_REVIEW_RELATIVE = Path(
+    "data/models/phase40/review/human-review-manifest.json"
+)
+_PHASE40_RETURNED_ROOTS = (
+    "data/models/phase40/full/qwen-qlora",
+    "data/models/phase40/full/phobert",
+)
 
 # One code-fixed, repository-local registry prevents replay when the same
 # frozen bytes are copied to another path or evaluated under another output
@@ -1588,10 +1604,40 @@ def verify_only(output_root: Path) -> dict[str, object]:
 
 def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tuple[Path, str]:
     _require_sha256(declared_tree_sha256, "execution source tree")
+    repository_root = Path(__file__).resolve().parents[2]
+    relative_files = (
+        "src/model_adaptation/phase41_evaluation.py",
+        "src/model_adaptation/phase41_protocols.py",
+        "src/model_adaptation/cli.py",
+    )
+    inventory: list[dict[str, object]] = []
+    for relative in relative_files:
+        candidate = repository_root / relative
+        if not candidate.is_file() or candidate.is_symlink():
+            raise ContractError(f"execution source is missing or unsafe: {relative}")
+        content = candidate.read_bytes()
+        inventory.append(
+            {"path": relative, "bytes": len(content), "sha256": _sha256(content)}
+        )
+    launcher_relative = "scripts/phase41_one_shot_launcher.ps1"
+    launcher_path = repository_root / launcher_relative
+    if not launcher_path.is_file() or launcher_path.is_symlink():
+        raise ContractError("Phase 41 launcher is missing or unsafe")
+    launcher_bytes = launcher_path.read_bytes()
+    source_tree_sha256 = _sha256(
+        b"phase41-execution-source-tree-v1\0" + _canonical_json_bytes(inventory)
+    )
     payload = _canonical_json_bytes(
         {
             "schema_version": "phase41-execution-source-manifest-v1",
-            "declared_source_tree_sha256": declared_tree_sha256,
+            "upstream_declared_source_tree_sha256": declared_tree_sha256,
+            "source_tree_sha256": source_tree_sha256,
+            "files": inventory,
+            "launcher": {
+                "path": launcher_relative,
+                "bytes": len(launcher_bytes),
+                "sha256": _sha256(launcher_bytes),
+            },
             "closed_import_roots": [
                 "src.model_adaptation.phase41_evaluation",
                 "src.model_adaptation.phase41_protocols",
@@ -1638,8 +1684,12 @@ def prepare_phase41_evaluation(
         != ordered_models[0].selected_checkpoint_identity
         or protocols.phobert.body["classifier_checkpoint_identity"]
         != ordered_models[1].selected_checkpoint_identity
+        or protocols.qwen.body["adapter_sha256"]
+        != ordered_models[0].artifact_sha256
+        or protocols.phobert.body["classifier_state_sha256"]
+        != ordered_models[1].artifact_sha256
     ):
-        raise ContractError("protocol checkpoint identities differ from selected models")
+        raise ContractError("protocol checkpoint/artifact identities differ from selected models")
     if prior_human_exposure_disclosed is not True:
         raise ContractError("prior human/content exposure disclosure is mandatory")
 
@@ -1710,14 +1760,64 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
     )
     if set(source) != {
         "schema_version",
-        "declared_source_tree_sha256",
+        "upstream_declared_source_tree_sha256",
+        "source_tree_sha256",
+        "files",
+        "launcher",
         "closed_import_roots",
         "alternate_evaluators_permitted",
     } or source["schema_version"] != "phase41-execution-source-manifest-v1":
         raise ContractError("execution source manifest fields drifted")
-    _require_sha256(source["declared_source_tree_sha256"], "execution source tree")
+    _require_sha256(
+        source["upstream_declared_source_tree_sha256"], "upstream execution source tree"
+    )
+    _require_sha256(source["source_tree_sha256"], "execution source tree")
     if source["alternate_evaluators_permitted"] is not False:
         raise ContractError("execution source permits an alternate evaluator")
+    repository_root = Path(__file__).resolve().parents[2]
+    files = source["files"]
+    if not isinstance(files, list) or not files:
+        raise ContractError("execution source inventory is empty")
+    verified_inventory: list[dict[str, object]] = []
+    for item in files:
+        if not isinstance(item, dict) or set(item) != {"path", "bytes", "sha256"}:
+            raise ContractError("execution source inventory row drifted")
+        relative = item["path"]
+        if not isinstance(relative, str) or relative.startswith(("/", "\\")) or ".." in Path(relative).parts:
+            raise ContractError("execution source inventory path escaped")
+        candidate = repository_root / relative
+        if not candidate.is_file() or candidate.is_symlink():
+            raise ContractError("execution source inventory target is missing or unsafe")
+        content = candidate.read_bytes()
+        expected_item = {
+            "path": relative,
+            "bytes": len(content),
+            "sha256": _sha256(content),
+        }
+        if item != expected_item:
+            raise ContractError("execution source inventory content drifted")
+        verified_inventory.append(expected_item)
+    expected_tree = _sha256(
+        b"phase41-execution-source-tree-v1\0"
+        + _canonical_json_bytes(verified_inventory)
+    )
+    if source["source_tree_sha256"] != expected_tree:
+        raise ContractError("execution source tree hash drifted")
+    launcher = source["launcher"]
+    if not isinstance(launcher, dict) or set(launcher) != {"path", "bytes", "sha256"}:
+        raise ContractError("execution launcher authority drifted")
+    if launcher["path"] != "scripts/phase41_one_shot_launcher.ps1":
+        raise ContractError("execution launcher path drifted")
+    launcher_path = repository_root / launcher["path"]
+    if not launcher_path.is_file() or launcher_path.is_symlink():
+        raise ContractError("execution launcher is missing or unsafe")
+    launcher_bytes = launcher_path.read_bytes()
+    if launcher != {
+        "path": "scripts/phase41_one_shot_launcher.ps1",
+        "bytes": len(launcher_bytes),
+        "sha256": _sha256(launcher_bytes),
+    }:
+        raise ContractError("execution launcher bytes drifted")
     authorities = request["authorities"]
     assert isinstance(authorities, dict)
     if authorities["protocols_sha256"] != _sha256(protocol_bytes):
@@ -2163,21 +2263,403 @@ def selected_phase41_checkpoint_identities(output_root: Path) -> tuple[str, str]
     return tuple(model.selected_checkpoint_identity for model in models)
 
 
+def _code_fixed_authority_path(
+    repo_root: Path, supplied: Path, expected_relative: Path, description: str
+) -> Path:
+    root = Path(os.path.abspath(os.path.normpath(os.fspath(repo_root))))
+    expected = Path(os.path.abspath(os.path.normpath(os.fspath(root / expected_relative))))
+    candidate = Path(supplied)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    candidate = Path(os.path.abspath(os.path.normpath(os.fspath(candidate))))
+    if os.path.normcase(os.fspath(candidate)) != os.path.normcase(os.fspath(expected)):
+        raise ContractError(f"{description} path is not the code-fixed authority")
+    return expected
+
+
+def _phase39_opaque_authority(
+    path: Path,
+) -> tuple[OpaqueHeldOutAuthority, str]:
+    if not path.is_file() or path.is_symlink():
+        raise ContractError("Phase 39 downstream authority is missing or unsafe")
+    payload = path.read_bytes()
+    raw = _parse_json_bytes(payload, "Phase 39 downstream authority")
+    expected_fields = {
+        "schema_version",
+        "generated_at",
+        "source_manifest",
+        "total_records",
+        "splits",
+        "total_label_counts",
+        "split_governance",
+        "phase40_training_boundary",
+        "held_out_test",
+        "phase41_post_evaluation_fit",
+    }
+    if set(raw) != expected_fields or raw["schema_version"] != (
+        "phase39-downstream-data-contract-v1"
+    ):
+        raise ContractError("Phase 39 downstream authority fields/schema drifted")
+    splits = raw["splits"]
+    held_out = raw["held_out_test"]
+    boundary = raw["phase40_training_boundary"]
+    post_fit = raw["phase41_post_evaluation_fit"]
+    if (
+        not isinstance(splits, dict)
+        or set(splits) != {"train", "val", "test"}
+        or not isinstance(held_out, dict)
+        or set(held_out)
+        != {"path", "records", "bytes", "sha256", "evaluation_phase", "touch_policy"}
+        or not isinstance(boundary, dict)
+        or boundary.get("allowed_splits") != ["train", "val"]
+        or boundary.get("forbidden_split") != "test"
+        or not isinstance(post_fit, dict)
+        or post_fit.get("unbiased_test_score_claim") is not False
+    ):
+        raise ContractError("Phase 39 train/validation/held-out boundary drifted")
+    test = splits["test"]
+    if not isinstance(test, dict) or set(test) != {
+        "records",
+        "bytes",
+        "sha256",
+        "label_counts",
+    }:
+        raise ContractError("Phase 39 held-out split metadata fields drifted")
+    counts = test["label_counts"]
+    if not isinstance(counts, dict) or set(counts) != set(LABEL_ORDER):
+        raise ContractError("Phase 39 held-out label support drifted")
+    ordered_counts: list[tuple[str, int]] = []
+    for label in LABEL_ORDER:
+        count = counts[label]
+        if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+            raise ContractError("Phase 39 held-out labels require positive support")
+        ordered_counts.append((label, count))
+    records = test["records"]
+    byte_count = test["bytes"]
+    if (
+        not isinstance(records, int)
+        or isinstance(records, bool)
+        or records <= 0
+        or not isinstance(byte_count, int)
+        or isinstance(byte_count, bool)
+        or byte_count <= 0
+        or sum(count for _, count in ordered_counts) != records
+        or held_out.get("records") != records
+        or held_out.get("bytes") != byte_count
+        or held_out.get("sha256") != test["sha256"]
+        or held_out.get("path") != "data/splits/test.jsonl"
+        or held_out.get("evaluation_phase") != 41
+        or not isinstance(held_out.get("touch_policy"), str)
+        or not str(held_out["touch_policy"]).strip()
+    ):
+        raise ContractError("Phase 39 opaque held-out identity failed reconciliation")
+    held_out_sha = _require_sha256(test["sha256"], "Phase 39 held-out")
+
+    split_identities: dict[str, dict[str, object]] = {}
+    total_records = 0
+    aggregate_counts = {label: 0 for label in LABEL_ORDER}
+    for split_name in ("train", "val"):
+        split = splits[split_name]
+        if not isinstance(split, dict) or set(split) != {
+            "records",
+            "bytes",
+            "sha256",
+            "label_counts",
+        }:
+            raise ContractError(f"Phase 39 {split_name} metadata fields drifted")
+        split_counts = split["label_counts"]
+        if not isinstance(split_counts, dict) or set(split_counts) != set(LABEL_ORDER):
+            raise ContractError(f"Phase 39 {split_name} label support drifted")
+        normalized_counts: list[tuple[str, int]] = []
+        for label in LABEL_ORDER:
+            count = split_counts[label]
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                raise ContractError(f"Phase 39 {split_name} label support is invalid")
+            aggregate_counts[label] += count
+            normalized_counts.append((label, count))
+        split_records = split["records"]
+        split_bytes = split["bytes"]
+        if (
+            not isinstance(split_records, int)
+            or isinstance(split_records, bool)
+            or split_records <= 0
+            or sum(count for _, count in normalized_counts) != split_records
+            or not isinstance(split_bytes, int)
+            or isinstance(split_bytes, bool)
+            or split_bytes <= 0
+        ):
+            raise ContractError(f"Phase 39 {split_name} metadata is inconsistent")
+        total_records += split_records
+        split_identities[split_name] = {
+            "split_name": split_name,
+            "relative_path": f"data/splits/{split_name}.jsonl",
+            "records": split_records,
+            "bytes": split_bytes,
+            "sha256": _require_sha256(split["sha256"], f"Phase 39 {split_name}"),
+            "label_counts": normalized_counts,
+        }
+    total_records += records
+    for label, count in ordered_counts:
+        aggregate_counts[label] += count
+    if raw["total_records"] != total_records or raw["total_label_counts"] != aggregate_counts:
+        raise ContractError("Phase 39 aggregate record/label totals drifted")
+
+    held_out_identity = {
+        "path": held_out["path"],
+        "records": records,
+        "bytes": byte_count,
+        "sha256": held_out_sha,
+        "evaluation_phase": 41,
+        "touch_policy": held_out["touch_policy"],
+    }
+    phase40_contract_identity = _sha256(
+        _canonical_json_bytes(
+            {
+                "train": split_identities["train"],
+                "val": split_identities["val"],
+                "held_out_opaque": held_out_identity,
+            }
+        )
+    )
+    return (
+        OpaqueHeldOutAuthority(
+            path=str(held_out["path"]),
+            records=records,
+            bytes=byte_count,
+            sha256=held_out_sha,
+            label_counts=tuple(ordered_counts),
+        ),
+        phase40_contract_identity,
+    )
+
+
+def _enum_text(value: object) -> object:
+    return getattr(value, "value", value)
+
+
+def _verify_phase40_model_bundle(
+    *, repo_root: Path, comparison_run, expected_role: str
+) -> FrozenModelIdentity:
+    from src.model_adaptation.phase40_evidence import verify_phase40_bundle
+
+    expected_family, expected_adaptation, phase41_adaptation, checkpoint_prefix = {
+        "qwen": ("qwen", "qlora", "qlora", "adapter-state-sha256:"),
+        "phobert": (
+            "phobert",
+            "classification-head",
+            "classification_head",
+            "model-state-sha256:",
+        ),
+    }[expected_role]
+    returned_root = str(comparison_run.returned_root)
+    expected_root = _PHASE40_RETURNED_ROOTS[0 if expected_role == "qwen" else 1]
+    if returned_root != expected_root:
+        raise ContractError(f"Phase 40 {expected_role} returned root drifted")
+    run_root = Path(repo_root) / returned_root
+    try:
+        evidence = verify_phase40_bundle(run_root)
+    except Exception as exc:
+        raise ContractError(f"Phase 40 {expected_role} bundle verification failed") from exc
+    evidence_path = run_root / "run-evidence.json"
+    if (
+        not evidence_path.is_file()
+        or evidence_path.is_symlink()
+        or _sha256(evidence_path.read_bytes()) != comparison_run.evidence_sha256
+    ):
+        raise ContractError(f"Phase 40 {expected_role} evidence hash drifted")
+    identity = evidence.experiment_identity
+    selected = evidence.selected_checkpoint
+    artifacts = tuple(
+        artifact for artifact in evidence.artifacts if artifact.role == "model_artifact"
+    )
+    if (
+        _enum_text(evidence.status) != "complete"
+        or _enum_text(identity.run_kind) != "full"
+        or _enum_text(identity.model_family) != expected_family
+        or _enum_text(identity.adaptation_mode) != expected_adaptation
+        or evidence.run_id != comparison_run.run_id
+        or evidence.resume_digest != comparison_run.resume_digest
+        or evidence.comparison_eligible is not True
+        or selected is None
+        or selected.artifact_identity != comparison_run.selected_checkpoint_identity
+        or selected.optimizer_step != comparison_run.selected_optimizer_step
+        or selected.safety_gate_passed is not True
+        or comparison_run.comparison_eligible is not True
+        or comparison_run.safety_gate_passed is not True
+        or evidence.validation_metrics != comparison_run.validation_metrics
+        or evidence.package_versions != comparison_run.package_versions
+        or len(artifacts) != 1
+    ):
+        raise ContractError(f"Phase 40 {expected_role} comparison/bundle identity drifted")
+    checkpoint = str(selected.artifact_identity)
+    if not checkpoint.startswith(checkpoint_prefix):
+        raise ContractError(f"Phase 40 {expected_role} selected checkpoint kind drifted")
+    _require_sha256(
+        checkpoint.removeprefix(checkpoint_prefix),
+        f"Phase 40 {expected_role} selected checkpoint",
+    )
+    return FrozenModelIdentity(
+        role=expected_role,
+        run_id=str(evidence.run_id),
+        model_family=expected_family,
+        adaptation_mode=phase41_adaptation,
+        artifact_sha256=str(artifacts[0].sha256),
+        selected_checkpoint_identity=checkpoint,
+    )
+
+
+def _verify_phase40_closure(
+    *,
+    repo_root: Path,
+    comparison_path: Path,
+    review_path: Path,
+    phase39_contract_identity: str,
+) -> tuple[tuple[FrozenModelIdentity, FrozenModelIdentity], str, str]:
+    from src.model_adaptation.phase40_handoff import (
+        PHASE40_COMPARISON_LIMITATIONS,
+        Phase40ComparisonManifest,
+    )
+
+    comparison_raw, comparison_bytes = _load_canonical_json(
+        comparison_path, "Phase 40 comparison manifest"
+    )
+    try:
+        comparison = Phase40ComparisonManifest.model_validate(comparison_raw)
+    except Exception as exc:
+        raise ContractError("Phase 40 comparison manifest schema is invalid") from exc
+    if comparison_bytes != _canonical_json_bytes(comparison.model_dump(mode="json")):
+        raise ContractError("Phase 40 comparison manifest differs from its typed authority")
+    if (
+        comparison.status != "complete"
+        or comparison.quality_comparison_admissible is not True
+        or comparison.failure_reason is not None
+        or comparison.speed_comparison_admissible is not False
+        or comparison.execution_policy != "local_primary"
+        or comparison.full_lora_disposition != "cancelled_before_start"
+        or comparison.limitations != PHASE40_COMPARISON_LIMITATIONS
+        or len(comparison.runs) != 2
+        or tuple(
+            (_enum_text(run.model_family), _enum_text(run.adaptation_mode))
+            for run in comparison.runs
+        )
+        != (("qwen", "qlora"), ("phobert", "classification-head"))
+        or not all(
+            run.comparison_eligible and run.safety_gate_passed
+            for run in comparison.runs
+        )
+    ):
+        raise ContractError("Phase 40 comparison is not a closed admissible two-model result")
+    models = tuple(
+        _verify_phase40_model_bundle(
+            repo_root=repo_root,
+            comparison_run=run,
+            expected_role=role,
+        )
+        for role, run in zip(("qwen", "phobert"), comparison.runs, strict=True)
+    )
+
+    review, review_bytes = _load_canonical_json(
+        review_path, "Phase 40 human-review manifest"
+    )
+    expected_review_fields = {
+        "schema_version",
+        "vietnamese_fluent_attestation",
+        "rows",
+        "queue_sha256",
+        "reviewer_return_sha256",
+        "notes_sha256",
+        "report_sha256",
+        "comparison_manifest_sha256",
+        "scope_amendment_sha256",
+        "review_queue_manifest_sha256",
+        "phase39_data_contract_sha256",
+        "validation_ordered_row_ids_sha256",
+        "frozen_results_sha256",
+        "summary",
+        "limitations",
+    }
+    hash_fields = expected_review_fields.difference(
+        {
+            "schema_version",
+            "vietnamese_fluent_attestation",
+            "rows",
+            "summary",
+            "limitations",
+        }
+    )
+    for field in hash_fields:
+        _require_sha256(review.get(field), f"Phase 40 review {field}")
+    if (
+        set(review) != expected_review_fields
+        or review["schema_version"] != "phase40-human-review-v2"
+        or review["vietnamese_fluent_attestation"] is not True
+        or review["rows"] != comparison.review_queue_rows
+        or review["queue_sha256"] != comparison.review_queue_sha256
+        or review["comparison_manifest_sha256"] != _sha256(comparison_bytes)
+        or review["scope_amendment_sha256"] != comparison.scope_amendment_sha256
+        or review["phase39_data_contract_sha256"] != phase39_contract_identity
+        or review["limitations"] != list(comparison.limitations)
+        or not isinstance(review["summary"], dict)
+        or not review["summary"]
+    ):
+        raise ContractError("Phase 40 human-review closure drifted")
+    return (
+        (models[0], models[1]),
+        _sha256(comparison_bytes),
+        _sha256(review_bytes),
+    )
+
+
 def prepare_phase41_from_canonical_authorities(
     output_root: Path,
+    *,
+    repo_root: Path,
+    phase39_contract_path: Path,
+    phase40_comparison_manifest_path: Path,
+    phase40_review_manifest_path: Path,
 ) -> PreparedPhase41Evaluation:
-    """Fail closed until Phase 40 freezes its final code-fixed preparation bundle.
+    """Validate every existing upstream authority, then stop at the missing receipt.
 
-    The synthetic production path is exercised through
-    :func:`prepare_phase41_evaluation`.  This no-argument operator entry point
-    deliberately refuses to guess at incomplete Phase 40 identities while the
-    two training runs are still in flight.
+    Phase 40 planning requires an external clean-source comparison-launch
+    receipt, but no producer, schema, canonical path, or verifier exists yet.
+    This entry point therefore validates the code-fixed Phase 39 metadata,
+    complete comparison, human-review closure, and both immutable bundles, then
+    raises a stable precondition code.  It never guesses an upstream receipt
+    format and never performs a filesystem operation on the held-out path
+    carried inside the Phase 39 document.
     """
 
+    repository = Path(os.path.abspath(os.path.normpath(os.fspath(repo_root))))
+    phase39_path = _code_fixed_authority_path(
+        repository,
+        phase39_contract_path,
+        _PHASE39_AUTHORITY_RELATIVE,
+        "Phase 39 downstream authority",
+    )
+    comparison_path = _code_fixed_authority_path(
+        repository,
+        phase40_comparison_manifest_path,
+        _PHASE40_COMPARISON_RELATIVE,
+        "Phase 40 comparison manifest",
+    )
+    review_path = _code_fixed_authority_path(
+        repository,
+        phase40_review_manifest_path,
+        _PHASE40_REVIEW_RELATIVE,
+        "Phase 40 human-review manifest",
+    )
+    _, phase39_identity = _phase39_opaque_authority(phase39_path)
+    _verify_phase40_closure(
+        repo_root=repository,
+        comparison_path=comparison_path,
+        review_path=review_path,
+        phase39_contract_identity=phase39_identity,
+    )
     del output_root
     raise ContractError(
-        "canonical Phase 40 comparison/review closure is not yet frozen; "
-        "Phase 41 preparation remains unavailable"
+        f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: Phase 40 must first "
+        "implement and freeze the external clean-source comparison-launch "
+        "receipt authority; Phase 41 refuses to invent its schema or hash"
     )
 
 
@@ -2193,6 +2675,7 @@ __all__ = [
     "ModelIdentity",
     "OpaqueHeldOutAuthority",
     "PREDICTION_COLUMNS",
+    "PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED",
     "Phase41EvidenceManifest",
     "Prediction",
     "PreparedPhase41Evaluation",

@@ -56,6 +56,40 @@ if (($CleanAttributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
     throw "Reviewed clean runtime cannot be a reparse point"
 }
 
+$Manifest = Get-Content -Raw -LiteralPath $SourceManifest | ConvertFrom-Json
+if ($Manifest.schema_version -cne "phase41-execution-source-manifest-v1") {
+    throw "Execution source manifest schema drifted"
+}
+if ($Manifest.launcher.path -cne "scripts/phase41_one_shot_launcher.ps1") {
+    throw "Execution source manifest launcher path drifted"
+}
+if ($Manifest.launcher.sha256 -cne $LauncherSha256) {
+    throw "Launcher self-hash differs from the execution source authority"
+}
+foreach ($SourceFile in $Manifest.files) {
+    $RelativePath = [string]$SourceFile.path
+    if ([System.IO.Path]::IsPathRooted($RelativePath) -or $RelativePath.Contains("..")) {
+        throw "Execution source inventory path escaped"
+    }
+    $Candidate = [System.IO.Path]::GetFullPath((Join-Path $CleanRoot $RelativePath))
+    $CleanPrefix = $CleanRoot.TrimEnd('\') + '\'
+    if (-not $Candidate.StartsWith($CleanPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Execution source inventory escaped the clean runtime"
+    }
+    if (-not [System.IO.File]::Exists($Candidate)) {
+        throw "Execution source inventory file is absent: $RelativePath"
+    }
+    $CandidateAttributes = [System.IO.File]::GetAttributes($Candidate)
+    if (($CandidateAttributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Execution source inventory file is a reparse point: $RelativePath"
+    }
+    $CandidateInfo = [System.IO.FileInfo]::new($Candidate)
+    $CandidateSha256 = (Get-FileHash -LiteralPath $Candidate -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($CandidateInfo.Length -ne [long]$SourceFile.bytes -or $CandidateSha256 -cne [string]$SourceFile.sha256) {
+        throw "Execution source inventory bytes drifted: $RelativePath"
+    }
+}
+
 $Python = (Get-Command python -ErrorAction Stop).Source
 $OldPythonPath = $env:PYTHONPATH
 $OldPythonHome = $env:PYTHONHOME
@@ -69,13 +103,13 @@ import runpy
 import sys
 from pathlib import Path
 root = Path(sys.argv.pop(1)).resolve(strict=True)
-sys.path[:] = [str(root)]
+sys.path.insert(0, str(root))
 sys.argv = ["src.model_adaptation.cli", "phase41-run-once", "--output-root", sys.argv[1]]
 runpy.run_module("src.model_adaptation.cli", run_name="__main__", alter_sys=True)
 '@
     $Arguments = @(
         "-I",
-        "-S",
+        "-s",
         "-B",
         "-c",
         $Bootstrap,

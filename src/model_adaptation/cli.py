@@ -686,6 +686,16 @@ def build_parser() -> argparse.ArgumentParser:
     phase41_prepare_parser.add_argument(
         "--output-root", type=Path, default=Path("data/models/phase41")
     )
+    phase41_prepare_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    phase41_prepare_parser.add_argument(
+        "--phase39-contract-path", type=Path, required=True
+    )
+    phase41_prepare_parser.add_argument(
+        "--phase40-comparison-manifest-path", type=Path, required=True
+    )
+    phase41_prepare_parser.add_argument(
+        "--phase40-review-manifest-path", type=Path, required=True
+    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -1209,7 +1219,13 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
         prepare_phase41_from_canonical_authorities,
     )
 
-    prepared = prepare_phase41_from_canonical_authorities(args.output_root)
+    prepared = prepare_phase41_from_canonical_authorities(
+        args.output_root,
+        repo_root=args.repo_root,
+        phase39_contract_path=args.phase39_contract_path,
+        phase40_comparison_manifest_path=args.phase40_comparison_manifest_path,
+        phase40_review_manifest_path=args.phase40_review_manifest_path,
+    )
     print(
         f"Phase 41 prepared: request={prepared.path} "
         f"sha256={prepared.prepared_sha256}"
