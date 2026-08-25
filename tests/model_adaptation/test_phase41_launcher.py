@@ -60,6 +60,10 @@ def test_launcher_is_clean_runtime_self_bound_and_has_no_authority_overrides():
     assert "get-acl -literalpath" in lowered
     assert "s-1-5-18" in lowered and "s-1-5-32-544" in lowered
     assert "redirectstandardinput = $true" in lowered
+    assert "production_canonical" in lowered
+    assert "launcher_host" in lowered
+    assert "phase40_external_launcher_authority" in lowered
+    assert "external_launch_receipt_sha256" in lowered
     assert "getclienthandleasstring" not in lowered
     assert "_vnphish_phase41_launcher_capability" not in lowered
     assert not re.search(
@@ -103,20 +107,14 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             "src/model_adaptation/phase41_evaluation.py"
         ).read_bytes(),
         "src/model_adaptation/cli.py": (
-            b"import json, sys\n"
+            b"import hashlib, json, os, sys\n"
             b"from pathlib import Path\n"
-            b"from src.model_adaptation.phase41_evaluation import "
-            b"_acquire_live_launcher_capability\n"
             b"output = Path(sys.argv[-1])\n"
-            b"capability = _acquire_live_launcher_capability(output)\n"
-            b"capability.assert_live()\n"
-            b"capability.consume_once()\n"
-            b"try:\n"
-            b"    capability.consume_once()\n"
-            b"except Exception:\n"
-            b"    reuse_blocked = True\n"
-            b"else:\n"
-            b"    reuse_blocked = False\n"
+            b"receipt = json.loads((output / 'execution-materialization-receipt.json').read_text(encoding='utf-8'))\n"
+            b"nonce = os.read(0, 32)\n"
+            b"if len(nonce) != 32 or hashlib.sha256(nonce).hexdigest() != receipt['launcher_capability_sha256']:\n"
+            b"    raise RuntimeError('synthetic launcher capability drifted')\n"
+            b"reuse_blocked = True\n"
             b"injected = output / 'clean-runtime' / 'src' / "
             b"'model_adaptation' / 'injected.py'\n"
             b"injected.write_text(\"from pathlib import Path\\n"
@@ -143,6 +141,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     launcher_payload = LAUNCHER.read_bytes()
     source_manifest = {
         "schema_version": "phase41-execution-source-manifest-v1",
+        "preparation_scope": "synthetic_test",
         "source_tree_sha256": "a" * 64,
         "files": [
             {
@@ -157,6 +156,12 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             "bytes": len(launcher_payload),
             "sha256": hashlib.sha256(launcher_payload).hexdigest(),
         },
+        "launcher_host": {
+            "mode": "synthetic_test",
+            "path": os.path.abspath(sys.executable),
+            "bytes": len(python_payload),
+            "sha256": hashlib.sha256(python_payload).hexdigest(),
+        },
         "python": {
             "path": os.path.abspath(sys.executable),
             "bytes": len(python_payload),
@@ -166,6 +171,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
         },
     }
     request = {
+        "preparation_scope": "synthetic_test",
         "authorities": {
             "model_bundle_authorities": [
                 {
@@ -194,6 +200,38 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     source_path.write_bytes(_canonical_bytes(source_manifest))
     request_path.write_bytes(_canonical_bytes(request))
     protocol_path.write_bytes(_canonical_bytes(protocol))
+
+    mismatched_host = dict(source_manifest)
+    mismatched_host["launcher_host"] = dict(source_manifest["launcher_host"])
+    mismatched_host["launcher_host"]["sha256"] = "0" * 64
+    source_path.write_bytes(_canonical_bytes(mismatched_host))
+    rejected_host = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-s",
+            "-B",
+            "-c",
+            blocks["ReceiptBuilder"],
+            os.fspath(receipt_path),
+            os.fspath(source_path),
+            os.fspath(request_path),
+            os.fspath(protocol_path),
+            os.fspath(clean),
+            capability_sha256,
+            str(os.getpid()),
+            os.fspath(launcher_image),
+            launcher_image_sha256,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rejected_host.returncode != 0
+    assert "launcher host" in rejected_host.stderr.casefold()
+    assert not receipt_path.exists()
+    source_path.write_bytes(_canonical_bytes(source_manifest))
 
     receipt = subprocess.run(
         [
@@ -293,7 +331,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     receipt_path.write_bytes(_canonical_bytes(wrong_image_receipt))
     returncode, stderr = run_capability_child()
     assert returncode != 0
-    assert "launcher parent image differs" in stderr
+    assert "materialization parent differs" in stderr
     assert not (output / "bootstrap-marker.json").exists()
 
     wrong_parent_receipt = dict(wrong_image_receipt)
@@ -302,7 +340,7 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     receipt_path.write_bytes(_canonical_bytes(wrong_parent_receipt))
     returncode, stderr = run_capability_child()
     assert returncode != 0
-    assert "launcher pipe server differs" in stderr
+    assert "materialization parent differs" in stderr
     assert not (output / "bootstrap-marker.json").exists()
 
 

@@ -8,8 +8,6 @@ import inspect
 import json
 import os
 from pathlib import Path
-import sys
-import types
 
 import pytest
 
@@ -23,7 +21,6 @@ from src.model_adaptation.phase41_evaluation import (
     Prediction,
     authorize_phase41_evaluation,
     freeze_deployment_fit_disposition,
-    prepare_phase41_evaluation,
     run_phase41_once as production_run_phase41_once,
     verify_phase41_evidence,
     verify_phase41_preauthorization,
@@ -122,24 +119,28 @@ def _predictor_rows(snapshot):
 
 def _prepare_authorize(root: Path, split: Path, payload: bytes):
     protocols = build_synthetic_protocol_authority(_models())
-    prepared = prepare_phase41_evaluation(
-        root,
-        held_out=_authority(split, payload),
-        models=_models(),
-        protocols=protocols,
-        comparison_authority_sha256="5" * 64,
-        review_closure_sha256="6" * 64,
-        comparison_launch_receipt_sha256="7" * 64,
-        execution_source_manifest_sha256="8" * 64,
-        prior_human_exposure_disclosed=True,
-        deployment_fit_choice="deferred",
-    )
-    assert verify_phase41_preauthorization(root).prepared_sha256 == prepared.prepared_sha256
-    authorize_phase41_evaluation(
-        root,
-        prepared_sha256=prepared.prepared_sha256,
-        statement=EXPLICIT_AUTHORIZATION_STATEMENT,
-    )
+    with _phase41_test_runtime(registry_root=root.parent / "preparation-claims"):
+        prepared = phase41_evaluation._prepare_phase41_synthetic_for_test(
+            root,
+            held_out=_authority(split, payload),
+            models=_models(),
+            protocols=protocols,
+            comparison_authority_sha256="5" * 64,
+            review_closure_sha256="6" * 64,
+            comparison_launch_receipt_sha256="7" * 64,
+            execution_source_manifest_sha256="8" * 64,
+            prior_human_exposure_disclosed=True,
+            deployment_fit_choice="deferred",
+        )
+        assert (
+            verify_phase41_preauthorization(root).prepared_sha256
+            == prepared.prepared_sha256
+        )
+        authorize_phase41_evaluation(
+            root,
+            prepared_sha256=prepared.prepared_sha256,
+            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+        )
     return protocols
 
 
@@ -294,7 +295,84 @@ def test_private_test_and_low_level_execution_seams_are_not_exported():
         "prepare_evaluation",
         "authorize_evaluation",
         "verify_only",
+        "prepare_phase41_evaluation",
+        "_prepare_phase41_synthetic_for_test",
     }.isdisjoint(exported)
+    assert not hasattr(phase41_evaluation, "prepare_phase41_evaluation")
+
+
+def test_low_level_preparation_cannot_fabricate_production_scope(tmp_path):
+    with pytest.raises(
+        ContractError,
+        match=phase41_evaluation.PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED,
+    ):
+        phase41_evaluation.prepare_evaluation(
+            tmp_path / "phase41",
+            reserved_split_path=tmp_path / "synthetic.jsonl",
+            expected_records=4,
+            expected_bytes=1,
+            expected_sha256="0" * 64,
+            expected_label_counts={label: 1 for label in LABELS},
+            models=_models(),
+            deployment_fit_choice="deferred",
+            preparation_scope=phase41_evaluation.PRODUCTION_PREPARATION_SCOPE,
+            authorities={},
+        )
+
+
+def test_synthetic_preparation_is_durable_and_rejected_by_production_verbs(tmp_path):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+
+    _prepare_authorize(root, split, payload)
+    request = json.loads((root / "evaluation-request.json").read_text(encoding="utf-8"))
+    source = json.loads(
+        (root / "execution-source-manifest.json").read_text(encoding="utf-8")
+    )
+    assert request["preparation_scope"] == "synthetic_test"
+    assert source["preparation_scope"] == "synthetic_test"
+    assert source["launcher_host"]["mode"] == "synthetic_test"
+
+    with pytest.raises(ContractError, match="synthetic.*production"):
+        verify_phase41_preauthorization(root)
+    with pytest.raises(ContractError, match="synthetic.*production"):
+        authorize_phase41_evaluation(
+            root,
+            prepared_sha256="0" * 64,
+            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+        )
+    with pytest.raises(ContractError, match="synthetic.*production"):
+        production_run_phase41_once(root)
+
+
+def test_production_run_rejects_monkeypatched_loader_before_capability_acquisition(
+    monkeypatch, tmp_path
+):
+    import src.model_adaptation.phase41_protocols as protocols_module
+
+    capability_attempted = False
+
+    def fail_if_capability_is_touched(_root):
+        nonlocal capability_attempted
+        capability_attempted = True
+        raise AssertionError("capability must not be exposed to a replaced loader")
+
+    monkeypatch.setattr(
+        protocols_module,
+        "load_phase41_production_predictors",
+        lambda _root: (_ for _ in ()).throw(AssertionError("replacement ran")),
+    )
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_acquire_live_launcher_capability",
+        fail_if_capability_is_touched,
+    )
+
+    with pytest.raises(ContractError, match="production loader binding drifted"):
+        production_run_phase41_once(tmp_path / "phase41")
+    assert capability_attempted is False
 
 
 def test_synthetic_predictors_cannot_enter_production_execution_mode(tmp_path):
@@ -320,35 +398,26 @@ def test_leftover_materialization_receipt_cannot_authorize_direct_python_run(tmp
         root / "evaluation-request.json", "synthetic request"
     )
     authorities = request["authorities"]
-    receipt = phase41_evaluation._materialization_payload(
-        mode="locked-clean-runtime",
-        root=root / "clean-runtime",
-        source=source,
-        source_bytes=source_bytes,
-        protocols_sha256=hashlib.sha256(
-            (root / "frozen-inference-protocols.json").read_bytes()
-        ).hexdigest(),
-        model_bundle_authorities_sha256=hashlib.sha256(
-            _canonical_bytes(authorities["model_bundle_authorities"])
-        ).hexdigest(),
-        created_at_utc="2026-08-25T00:00:00Z",
-        launcher_capability_sha256="d" * 64,
-        launcher_process_id=os.getpid(),
-        launcher_process_image_path_sha256="e" * 64,
-        launcher_process_image_sha256="f" * 64,
-    )
-    (root / "execution-materialization-receipt.json").write_bytes(receipt)
-    fake = types.ModuleType("_vnphish_phase41_launcher_capability")
-    fake._nonce = b"x" * 32
-    fake.binding = object()
-    fake.assert_live = lambda: None
-    fake.consume_once = lambda: None
-    sys.modules[fake.__name__] = fake
-    with pytest.raises(ContractError, match="launcher.*stdin|stdin pipe"):
-        production_run_phase41_once(
-            root,
+    with pytest.raises(ContractError, match="production launcher host authority"):
+        phase41_evaluation._materialization_payload(
+            mode="locked-clean-runtime",
+            root=root / "clean-runtime",
+            source=source,
+            source_bytes=source_bytes,
+            protocols_sha256=hashlib.sha256(
+                (root / "frozen-inference-protocols.json").read_bytes()
+            ).hexdigest(),
+            model_bundle_authorities_sha256=hashlib.sha256(
+                _canonical_bytes(authorities["model_bundle_authorities"])
+            ).hexdigest(),
+            created_at_utc="2026-08-25T00:00:00Z",
+            launcher_capability_sha256="d" * 64,
+            launcher_process_id=os.getpid(),
+            launcher_process_image_path_sha256="e" * 64,
+            launcher_process_image_sha256="f" * 64,
         )
-    sys.modules.pop(fake.__name__, None)
+    with pytest.raises(ContractError, match="synthetic.*production"):
+        production_run_phase41_once(root)
     assert not (root / "one-shot-claim.json").exists()
 
 

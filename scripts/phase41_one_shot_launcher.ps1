@@ -234,6 +234,19 @@ try {
     if ($Manifest.schema_version -cne "phase41-execution-source-manifest-v1") {
         throw "Execution source manifest schema drifted"
     }
+    if ([string]$Manifest.preparation_scope -cne "production_canonical" -or
+        [string]$Request.preparation_scope -cne "production_canonical") {
+        throw "Protected launcher accepts only canonical production preparation"
+    }
+    if ([string]$Manifest.launcher_host.mode -cne "phase40_external_launcher_authority" -or
+        [string]$Manifest.launcher_host.external_launch_receipt_sha256 -cne
+            [string]$Request.authorities.comparison_launch_receipt_sha256 -or
+        [System.IO.Path]::GetFullPath([string]$Manifest.launcher_host.path) -cne
+            $LauncherImagePath -or
+        [long]$Manifest.launcher_host.bytes -ne $LauncherImageLock.Bytes -or
+        [string]$Manifest.launcher_host.sha256 -cne $LauncherImageLock.Sha256) {
+        throw "PowerShell launcher host differs from the precommitted source authority"
+    }
     if ($Manifest.launcher.path -cne "scripts/phase41_one_shot_launcher.ps1" -or
         [long]$Manifest.launcher.bytes -ne $LauncherLock.Bytes -or
         [string]$Manifest.launcher.sha256 -cne $LauncherLock.Sha256) {
@@ -406,6 +419,9 @@ def load(path):
 source, source_bytes = load(source_path)
 request, _ = load(request_path)
 _, protocol_bytes = load(protocol_path)
+scope = source.get("preparation_scope")
+if scope not in {"production_canonical", "synthetic_test"} or request.get("preparation_scope") != scope:
+    raise RuntimeError("request/source preparation scope drifted")
 if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
 if len(launcher_capability_sha256) != 64 or any(
@@ -418,6 +434,29 @@ if launcher_process_id <= 0:
 normalized_launcher_image = os.path.normcase(
     os.path.abspath(os.path.normpath(launcher_process_image_path))
 )
+launcher_host = source.get("launcher_host")
+if not isinstance(launcher_host, dict) or launcher_host.get("mode") != (
+    "phase40_external_launcher_authority" if scope == "production_canonical" else "synthetic_test"
+):
+    raise RuntimeError("launcher host authority mode drifted")
+external_launcher_authority_sha256 = (
+    launcher_host.get("external_launch_receipt_sha256")
+    if scope == "production_canonical"
+    else "0" * 64
+)
+if scope == "production_canonical" and external_launcher_authority_sha256 != request["authorities"].get("comparison_launch_receipt_sha256"):
+    raise RuntimeError("external launcher authority differs from prepared request")
+normalized_authorized_host = os.path.normcase(
+    os.path.abspath(os.path.normpath(str(launcher_host.get("path", ""))))
+)
+launcher_image_bytes = Path(normalized_launcher_image).read_bytes()
+if (
+    normalized_launcher_image != normalized_authorized_host
+    or launcher_host.get("bytes") != len(launcher_image_bytes)
+    or launcher_host.get("sha256") != hashlib.sha256(launcher_image_bytes).hexdigest()
+    or launcher_process_image_sha256 != launcher_host.get("sha256")
+):
+    raise RuntimeError("launcher host differs from the precommitted authority")
 if len(launcher_process_image_sha256) != 64 or any(
     value not in "0123456789abcdef" for value in launcher_process_image_sha256
 ):
@@ -427,12 +466,15 @@ normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(clean_root))
 payload = canonical({
     "schema_version": "phase41-execution-materialization-v1",
     "mode": "locked-clean-runtime",
+    "preparation_scope": scope,
     "created_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     "source_manifest_sha256": hashlib.sha256(source_bytes).hexdigest(),
     "source_tree_sha256": source["source_tree_sha256"],
     "protocols_sha256": hashlib.sha256(protocol_bytes).hexdigest(),
     "model_bundle_authorities_sha256": hashlib.sha256(bundle_bytes).hexdigest(),
     "launcher_sha256": source["launcher"]["sha256"],
+    "launcher_host_sha256": launcher_host["sha256"],
+    "external_launcher_authority_sha256": external_launcher_authority_sha256,
     "python_executable_sha256": source["python"]["sha256"],
     "clean_runtime_root_sha256": hashlib.sha256(normalized_root.encode("utf-8")).hexdigest(),
     "source_file_count": len(source["files"]),
@@ -498,6 +540,21 @@ source, source_bytes = load(output / "execution-source-manifest.json")
 receipt, _ = load(output / "execution-materialization-receipt.json")
 request, _ = load(output / "evaluation-request.json")
 _, protocol_bytes = load(output / "frozen-inference-protocols.json")
+scope = source.get("preparation_scope")
+if scope not in {"production_canonical", "synthetic_test"} or request.get("preparation_scope") != scope or receipt.get("preparation_scope") != scope:
+    raise RuntimeError("request/source/materialization preparation scope drifted")
+launcher_host = source.get("launcher_host")
+if not isinstance(launcher_host, dict) or launcher_host.get("mode") != (
+    "phase40_external_launcher_authority" if scope == "production_canonical" else "synthetic_test"
+):
+    raise RuntimeError("launcher host authority mode drifted")
+external_launcher_authority_sha256 = (
+    launcher_host.get("external_launch_receipt_sha256")
+    if scope == "production_canonical"
+    else "0" * 64
+)
+if scope == "production_canonical" and external_launcher_authority_sha256 != request["authorities"].get("comparison_launch_receipt_sha256"):
+    raise RuntimeError("external launcher authority differs from prepared request")
 if platform.python_version() != source["python"]["version"]:
     raise RuntimeError("pinned Python version drifted")
 normalized_root = os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(root))))
@@ -507,6 +564,8 @@ expected = {
     "protocols_sha256": hashlib.sha256(protocol_bytes).hexdigest(),
     "model_bundle_authorities_sha256": hashlib.sha256(canonical(request["authorities"]["model_bundle_authorities"])).hexdigest(),
     "launcher_sha256": source["launcher"]["sha256"],
+    "launcher_host_sha256": launcher_host["sha256"],
+    "external_launcher_authority_sha256": external_launcher_authority_sha256,
     "python_executable_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
     "clean_runtime_root_sha256": hashlib.sha256(normalized_root.encode("utf-8")).hexdigest(),
     "source_file_count": len(source["files"]),
@@ -517,6 +576,15 @@ if receipt.get("schema_version") != "phase41-execution-materialization-v1" or re
 for key, value in expected.items():
     if receipt.get(key) != value:
         raise RuntimeError(f"materialization receipt drifted: {key}")
+normalized_launcher_host = os.path.normcase(
+    os.path.abspath(os.path.normpath(str(launcher_host["path"])))
+)
+if receipt.get("launcher_process_id") != os.getppid() or receipt.get(
+    "launcher_process_image_path_sha256"
+) != hashlib.sha256(normalized_launcher_host.encode("utf-8")).hexdigest() or receipt.get(
+    "launcher_process_image_sha256"
+) != launcher_host["sha256"]:
+    raise RuntimeError("materialization parent differs from launcher host authority")
 expected_files = {row["path"]: row for row in source["files"]}
 actual_files = {
     path.relative_to(root).as_posix(): path

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import ast
 import hashlib
 import json
+import marshal
 import math
 import ntpath
 import os
@@ -23,6 +24,7 @@ import platform
 import re
 import sys
 import sysconfig
+from types import CodeType, ModuleType
 from typing import BinaryIO, Callable, Iterable, Iterator, Mapping, Sequence
 import uuid
 
@@ -77,6 +79,8 @@ PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED = (
 PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED = (
     "phase40_runtime_dependency_byte_authority_missing"
 )
+PRODUCTION_PREPARATION_SCOPE = "production_canonical"
+SYNTHETIC_PREPARATION_SCOPE = "synthetic_test"
 
 _PHASE39_AUTHORITY_RELATIVE = Path(
     ".planning/phases/39-independent-quality-re-judge/"
@@ -1062,11 +1066,22 @@ def prepare_evaluation(
     expected_label_counts: Mapping[str, int],
     models: Sequence[ModelIdentity],
     deployment_fit_choice: str,
+    preparation_scope: str,
     authorities: Mapping[str, object] | None = None,
     prepared_at_utc: str | None = None,
 ) -> Path:
     """Freeze PREPARED state without opening or inspecting the reserved split."""
 
+    if preparation_scope == SYNTHETIC_PREPARATION_SCOPE:
+        if _TEST_RUNTIME.get() is None:
+            raise ContractError("synthetic preparation is unavailable in production")
+    elif preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+        raise ContractError(
+            f"{PHASE40_COMPARISON_LAUNCH_RECEIPT_REQUIRED}: only the unfinished "
+            "canonical authority producer may create production preparation"
+        )
+    else:
+        raise ContractError("evaluation preparation scope is invalid")
     ordered_models = tuple(models)
     if len(ordered_models) != 2 or tuple(model.role for model in ordered_models) != (
         "qwen",
@@ -1089,6 +1104,7 @@ def prepare_evaluation(
     payload = {
         "schema_version": "phase41-one-shot-request-v1",
         "state": "prepared",
+        "preparation_scope": preparation_scope,
         "prepared_at_utc": prepared_at_utc or _utc_now(),
         "held_out": split.as_dict(),
         "models": [model.as_dict() for model in ordered_models],
@@ -1151,6 +1167,7 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
     if set(prepared) != {
         "schema_version",
         "state",
+        "preparation_scope",
         "prepared_at_utc",
         "held_out",
         "models",
@@ -1165,6 +1182,15 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
         or prepared["state"] != "prepared"
     ):
         raise ContractError("evaluation request schema/state is invalid")
+    preparation_scope = prepared["preparation_scope"]
+    if preparation_scope == SYNTHETIC_PREPARATION_SCOPE:
+        if _TEST_RUNTIME.get() is None:
+            raise ContractError("synthetic evaluation artifacts are rejected in production")
+    elif preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+        if _TEST_RUNTIME.get() is not None:
+            raise ContractError("production evaluation artifacts are rejected in synthetic runtime")
+    else:
+        raise ContractError("evaluation preparation scope is invalid")
     if prepared["prediction_policy"] != {
         "qwen_retries": 0,
         "qwen_repairs": False,
@@ -1728,6 +1754,8 @@ def _run_once(
     violation because a load failure would needlessly spend the one-shot run.
     """
 
+    if _TEST_RUNTIME.get() is None:
+        raise ContractError("synthetic callback execution is unavailable in production")
     root = Path(output_root)
     prepared, prepared_bytes = _load_canonical_json(
         root / PREPARED_NAME, "Phase 41 evaluation request"
@@ -2224,8 +2252,21 @@ def _python_runtime_authority() -> dict[str, object]:
     }
 
 
-def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tuple[Path, str]:
+def _write_source_manifest(
+    output_root: Path,
+    declared_tree_sha256: str,
+    *,
+    preparation_scope: str,
+) -> tuple[Path, str]:
     _require_sha256(declared_tree_sha256, "execution source tree")
+    if (
+        preparation_scope != SYNTHETIC_PREPARATION_SCOPE
+        or _TEST_RUNTIME.get() is None
+    ):
+        raise ContractError(
+            f"{PHASE40_RUNTIME_DEPENDENCY_AUTHORITY_REQUIRED}: production source "
+            "materialization requires a precommitted PowerShell host byte authority"
+        )
     repository_root = Path(__file__).resolve().parents[2]
     relative_files = _phase41_source_import_closure(repository_root)
     inventory: list[dict[str, object]] = []
@@ -2242,12 +2283,21 @@ def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tupl
     if not launcher_path.is_file() or launcher_path.is_symlink():
         raise ContractError("Phase 41 launcher is missing or unsafe")
     launcher_bytes = launcher_path.read_bytes()
+    launcher_host_path = Path(sys.executable)
+    if (
+        not launcher_host_path.is_absolute()
+        or not launcher_host_path.is_file()
+        or launcher_host_path.is_symlink()
+    ):
+        raise ContractError("synthetic launcher host is missing or unsafe")
+    launcher_host_bytes = launcher_host_path.read_bytes()
     source_tree_sha256 = _sha256(
         b"phase41-execution-source-tree-v1\0" + _canonical_json_bytes(inventory)
     )
     payload = _canonical_json_bytes(
         {
             "schema_version": "phase41-execution-source-manifest-v1",
+            "preparation_scope": preparation_scope,
             "upstream_declared_source_tree_sha256": declared_tree_sha256,
             "source_tree_sha256": source_tree_sha256,
             "files": inventory,
@@ -2255,6 +2305,12 @@ def _write_source_manifest(output_root: Path, declared_tree_sha256: str) -> tupl
                 "path": launcher_relative,
                 "bytes": len(launcher_bytes),
                 "sha256": _sha256(launcher_bytes),
+            },
+            "launcher_host": {
+                "mode": SYNTHETIC_PREPARATION_SCOPE,
+                "path": os.fspath(launcher_host_path),
+                "bytes": len(launcher_host_bytes),
+                "sha256": _sha256(launcher_host_bytes),
             },
             "python": _python_runtime_authority(),
             "closed_import_roots": [
@@ -2291,20 +2347,40 @@ def _materialization_payload(
     if mode not in {"locked-clean-runtime", "synthetic-test"}:
         raise ContractError("execution materialization mode is invalid")
     launcher = source.get("launcher")
+    launcher_host = source.get("launcher_host")
     python_authority = source.get("python")
     files = source.get("files")
     if (
         not isinstance(launcher, dict)
+        or not isinstance(launcher_host, dict)
         or not isinstance(python_authority, dict)
         or not isinstance(files, list)
     ):
         raise ContractError("execution materialization authorities are incomplete")
     if mode == "synthetic-test":
+        if (
+            source.get("preparation_scope") != SYNTHETIC_PREPARATION_SCOPE
+            or launcher_host.get("mode") != SYNTHETIC_PREPARATION_SCOPE
+        ):
+            raise ContractError("synthetic materialization scope drifted")
         capability_sha256 = "0" * 64
         process_id = 0
         process_image_path_sha256 = "0" * 64
         process_image_sha256 = "0" * 64
+        external_launcher_authority_sha256 = "0" * 64
     else:
+        if (
+            source.get("preparation_scope") != PRODUCTION_PREPARATION_SCOPE
+            or launcher_host.get("mode")
+            != "phase40_external_launcher_authority"
+            or not isinstance(launcher_host.get("path"), str)
+            or not Path(str(launcher_host["path"])).is_absolute()
+        ):
+            raise ContractError("production launcher host authority is absent")
+        external_launcher_authority_sha256 = _require_sha256(
+            launcher_host.get("external_launch_receipt_sha256"),
+            "external Phase 40 launcher authority",
+        )
         capability_sha256 = _require_sha256(
             launcher_capability_sha256, "live launcher capability"
         )
@@ -2321,16 +2397,25 @@ def _materialization_payload(
         process_image_sha256 = _require_sha256(
             launcher_process_image_sha256, "launcher process image"
         )
+        if (
+            process_image_path_sha256
+            != _normalized_path_sha256(Path(str(launcher_host["path"])))
+            or process_image_sha256 != launcher_host.get("sha256")
+        ):
+            raise ContractError("launcher process differs from its precommitted host authority")
     return _canonical_json_bytes(
         {
             "schema_version": "phase41-execution-materialization-v1",
             "mode": mode,
+            "preparation_scope": source.get("preparation_scope"),
             "created_at_utc": created_at_utc,
             "source_manifest_sha256": _sha256(source_bytes),
             "source_tree_sha256": source["source_tree_sha256"],
             "protocols_sha256": protocols_sha256,
             "model_bundle_authorities_sha256": model_bundle_authorities_sha256,
             "launcher_sha256": launcher["sha256"],
+            "launcher_host_sha256": launcher_host["sha256"],
+            "external_launcher_authority_sha256": external_launcher_authority_sha256,
             "python_executable_sha256": python_authority["sha256"],
             "clean_runtime_root_sha256": _normalized_path_sha256(root),
             "source_file_count": len(files),
@@ -2379,12 +2464,15 @@ def _verify_materialization_receipt(
     expected_fields = {
         "schema_version",
         "mode",
+        "preparation_scope",
         "created_at_utc",
         "source_manifest_sha256",
         "source_tree_sha256",
         "protocols_sha256",
         "model_bundle_authorities_sha256",
         "launcher_sha256",
+        "launcher_host_sha256",
+        "external_launcher_authority_sha256",
         "python_executable_sha256",
         "clean_runtime_root_sha256",
         "source_file_count",
@@ -2396,6 +2484,7 @@ def _verify_materialization_receipt(
         "runtime_import_roots",
     }
     launcher = source.get("launcher")
+    launcher_host = source.get("launcher_host")
     python_authority = source.get("python")
     files = source.get("files")
     if (
@@ -2405,6 +2494,7 @@ def _verify_materialization_receipt(
         or not isinstance(receipt["created_at_utc"], str)
         or not receipt["created_at_utc"]
         or not isinstance(launcher, dict)
+        or not isinstance(launcher_host, dict)
         or not isinstance(python_authority, dict)
         or not isinstance(files, list)
         or receipt["source_manifest_sha256"] != _sha256(source_bytes)
@@ -2413,6 +2503,8 @@ def _verify_materialization_receipt(
         or receipt["model_bundle_authorities_sha256"]
         != model_bundle_authorities_sha256
         or receipt["launcher_sha256"] != launcher.get("sha256")
+        or receipt["launcher_host_sha256"] != launcher_host.get("sha256")
+        or receipt["preparation_scope"] != source.get("preparation_scope")
         or receipt["python_executable_sha256"] != python_authority.get("sha256")
         or receipt["clean_runtime_root_sha256"]
         != _normalized_path_sha256(source_root)
@@ -2431,7 +2523,8 @@ def _verify_materialization_receipt(
         or (
             receipt["mode"] == "synthetic-test"
             and (
-                receipt["launcher_capability_sha256"] != "0" * 64
+                receipt["external_launcher_authority_sha256"] != "0" * 64
+                or receipt["launcher_capability_sha256"] != "0" * 64
                 or receipt["launcher_process_id"] != 0
                 or receipt["launcher_process_image_path_sha256"] != "0" * 64
                 or receipt["launcher_process_image_sha256"] != "0" * 64
@@ -2440,10 +2533,19 @@ def _verify_materialization_receipt(
         or (
             receipt["mode"] == "locked-clean-runtime"
             and (
-                receipt["launcher_capability_sha256"] == "0" * 64
+                receipt["preparation_scope"] != PRODUCTION_PREPARATION_SCOPE
+                or launcher_host.get("mode")
+                != "phase40_external_launcher_authority"
+                or receipt["external_launcher_authority_sha256"]
+                != launcher_host.get("external_launch_receipt_sha256")
+                or receipt["launcher_capability_sha256"] == "0" * 64
                 or receipt["launcher_process_id"] <= 0
                 or receipt["launcher_process_image_path_sha256"] == "0" * 64
                 or receipt["launcher_process_image_sha256"] == "0" * 64
+                or receipt["launcher_process_image_path_sha256"]
+                != _normalized_path_sha256(Path(str(launcher_host.get("path", ""))))
+                or receipt["launcher_process_image_sha256"]
+                != launcher_host.get("sha256")
             )
         )
         or receipt["runtime_import_roots"]
@@ -2483,6 +2585,31 @@ def _acquire_live_launcher_capability(output_root: Path) -> _LiveLauncherCapabil
     receipt, _ = materialization
     if receipt.get("mode") != "locked-clean-runtime":
         raise ContractError("production run requires locked clean-runtime materialization")
+    root = Path(output_root)
+    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    _validate_prepared(request)
+    source, _ = _load_canonical_json(
+        root / SOURCE_MANIFEST_NAME, "Phase 41 execution source manifest"
+    )
+    launcher_host = source.get("launcher_host")
+    if (
+        source.get("preparation_scope") != PRODUCTION_PREPARATION_SCOPE
+        or request.get("preparation_scope") != PRODUCTION_PREPARATION_SCOPE
+        or not isinstance(launcher_host, dict)
+        or launcher_host.get("mode")
+        != "phase40_external_launcher_authority"
+        or not isinstance(launcher_host.get("path"), str)
+        or launcher_host.get("external_launch_receipt_sha256")
+        != request.get("authorities", {}).get("comparison_launch_receipt_sha256")
+        or receipt.get("external_launcher_authority_sha256")
+        != launcher_host.get("external_launch_receipt_sha256")
+        or receipt.get("launcher_host_sha256") != launcher_host.get("sha256")
+        or receipt.get("launcher_process_image_path_sha256")
+        != _normalized_path_sha256(Path(str(launcher_host.get("path", ""))))
+        or receipt.get("launcher_process_image_sha256")
+        != launcher_host.get("sha256")
+    ):
+        raise ContractError("launcher parent differs from the precommitted source authority")
     launcher_process_id = receipt.get("launcher_process_id")
     if (
         not isinstance(launcher_process_id, int)
@@ -2576,6 +2703,10 @@ def _acquire_live_launcher_capability(output_root: Path) -> _LiveLauncherCapabil
             or image_path.is_symlink()
             or _sha256(image_path.read_bytes())
             != receipt.get("launcher_process_image_sha256")
+            or os.path.normcase(os.path.abspath(os.fspath(image_path)))
+            != os.path.normcase(
+                os.path.abspath(os.path.normpath(str(launcher_host["path"])))
+            )
         ):
             raise ContractError("launcher parent image differs from its frozen authority")
 
@@ -2670,7 +2801,7 @@ def _ensure_synthetic_materialization_receipt(output_root: Path) -> None:
     _exclusive_write(root / MATERIALIZATION_RECEIPT_NAME, payload)
 
 
-def prepare_phase41_evaluation(
+def _prepare_phase41_synthetic_for_test(
     output_root: Path,
     *,
     held_out: OpaqueHeldOutAuthority,
@@ -2683,7 +2814,10 @@ def prepare_phase41_evaluation(
     prior_human_exposure_disclosed: bool,
     deployment_fit_choice: str,
 ) -> PreparedPhase41Evaluation:
-    """Freeze preauthorization without performing any operation on ``held_out.path``."""
+    """Freeze a durable synthetic-only fixture without touching ``held_out.path``."""
+
+    if _TEST_RUNTIME.get() is None:
+        raise ContractError("synthetic preparation is unavailable in production")
 
     from src.model_adaptation.phase41_protocols import (
         Phase41ProtocolAuthority,
@@ -2718,7 +2852,9 @@ def prepare_phase41_evaluation(
     protocol_path = write_protocol_authority(root, protocols)
     protocol_bytes = protocol_path.read_bytes()
     _, source_manifest_sha = _write_source_manifest(
-        root, execution_source_manifest_sha256
+        root,
+        execution_source_manifest_sha256,
+        preparation_scope=SYNTHETIC_PREPARATION_SCOPE,
     )
     authorities = {
         "protocols_sha256": _sha256(protocol_bytes),
@@ -2749,6 +2885,7 @@ def prepare_phase41_evaluation(
         expected_label_counts=dict(held_out.label_counts),
         models=ordered_models,
         deployment_fit_choice=deployment_fit_choice,
+        preparation_scope=SYNTHETIC_PREPARATION_SCOPE,
         authorities=authorities,
     )
     request_bytes = request_path.read_bytes()
@@ -2796,15 +2933,19 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
     repository_root = _materialized_source_root(root, materialization_record)
     if set(source) != {
         "schema_version",
+        "preparation_scope",
         "upstream_declared_source_tree_sha256",
         "source_tree_sha256",
         "files",
         "launcher",
+        "launcher_host",
         "python",
         "closed_import_roots",
         "alternate_evaluators_permitted",
     } or source["schema_version"] != "phase41-execution-source-manifest-v1":
         raise ContractError("execution source manifest fields drifted")
+    if source["preparation_scope"] != request["preparation_scope"]:
+        raise ContractError("execution source/request preparation scope drifted")
     _require_sha256(
         source["upstream_declared_source_tree_sha256"], "upstream execution source tree"
     )
@@ -2900,7 +3041,50 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             "sha256": _sha256(launcher_bytes),
         }:
             raise ContractError("execution launcher bytes drifted")
-    else:
+    launcher_host = source["launcher_host"]
+    expected_launcher_host_fields = {"mode", "path", "bytes", "sha256"}
+    if source["preparation_scope"] == PRODUCTION_PREPARATION_SCOPE:
+        expected_launcher_host_fields.add("external_launch_receipt_sha256")
+    if (
+        not isinstance(launcher_host, dict)
+        or set(launcher_host) != expected_launcher_host_fields
+        or launcher_host["mode"]
+        != (
+            SYNTHETIC_PREPARATION_SCOPE
+            if source["preparation_scope"] == SYNTHETIC_PREPARATION_SCOPE
+            else "phase40_external_launcher_authority"
+        )
+        or not isinstance(launcher_host["path"], str)
+        or not Path(launcher_host["path"]).is_absolute()
+        or not isinstance(launcher_host["bytes"], int)
+        or isinstance(launcher_host["bytes"], bool)
+        or launcher_host["bytes"] <= 0
+    ):
+        raise ContractError("execution launcher host authority drifted")
+    _require_sha256(launcher_host["sha256"], "execution launcher host")
+    if source["preparation_scope"] == PRODUCTION_PREPARATION_SCOPE:
+        if launcher_host["external_launch_receipt_sha256"] != request["authorities"].get(
+            "comparison_launch_receipt_sha256"
+        ):
+            raise ContractError("external launcher authority differs from request")
+        _require_sha256(
+            launcher_host["external_launch_receipt_sha256"],
+            "external Phase 40 launcher authority",
+        )
+    launcher_host_path = Path(launcher_host["path"])
+    launcher_host_bytes = (
+        launcher_host_path.read_bytes()
+        if launcher_host_path.is_file() and not launcher_host_path.is_symlink()
+        else b""
+    )
+    if (
+        not launcher_host_path.is_file()
+        or launcher_host_path.is_symlink()
+        or len(launcher_host_bytes) != launcher_host["bytes"]
+        or _sha256(launcher_host_bytes) != launcher_host["sha256"]
+    ):
+        raise ContractError("execution launcher host bytes drifted")
+    if materialization is not None:
         _verify_materialization_receipt(
             receipt=materialization[0],
             receipt_bytes=materialization[1],
@@ -3300,10 +3484,10 @@ def _validate_predictor_entry_mode(qwen, phobert) -> None:  # noqa: ANN001
         )
 
 
-def _run_phase41_once_with_predictors(
+def _run_phase41_synthetic_with_predictors(
     output_root: Path, qwen, phobert  # noqa: ANN001
 ) -> Phase41EvidenceManifest:
-    """Private loaded-predictor core, gated by test runtime or live OS capability."""
+    """Private callback tracer for durable synthetic-test requests only."""
 
     from src.model_adaptation.phase41_protocols import (
         FrozenPhoBertPredictor,
@@ -3311,16 +3495,11 @@ def _run_phase41_once_with_predictors(
         load_protocol_authority,
     )
 
+    if _TEST_RUNTIME.get() is None:
+        raise ContractError("synthetic callback execution is unavailable in production")
     root = Path(output_root)
+    _ensure_synthetic_materialization_receipt(root)
     materialization = _load_materialization_receipt(root)
-    if _TEST_RUNTIME.get() is not None:
-        _ensure_synthetic_materialization_receipt(root)
-        materialization = _load_materialization_receipt(root)
-    elif materialization is None:
-        raise ContractError(
-            "phase41-run-once must be launched through the protected materializer"
-        )
-    live_binding = _require_live_launcher_capability(root, consume=False)
     verify_phase41_preauthorization(root)
     if (
         type(qwen) is not FrozenQwenPredictor
@@ -3334,56 +3513,14 @@ def _run_phase41_once_with_predictors(
         or phobert.protocol.protocol_sha256 != protocols.phobert.protocol_sha256
     ):
         raise ContractError("predictor protocol identity drifted")
-    assert materialization is not None
-    materialization_receipt = materialization[0]
-    if live_binding is not None:
-        expected_capability_sha = materialization_receipt[
-            "launcher_capability_sha256"
-        ]
-        for predictor in (qwen, phobert):
-            has_binding = getattr(predictor, "_has_launcher_binding", None)
-            if (
-                not callable(has_binding)
-                or not has_binding(live_binding)
-                or getattr(predictor, "launcher_capability_sha256", None)
-                != expected_capability_sha
-                or not callable(
-                    getattr(predictor, "assert_lifetime_integrity", None)
-                )
-            ):
-                raise ContractError(
-                    "production predictor lacks the live loader/lease binding"
-                )
-
-    def assert_predictor_lifetimes() -> None:
-        if live_binding is None:
-            return
-        for predictor in (qwen, phobert):
-            predictor.assert_lifetime_integrity()
-        if _require_live_launcher_capability(root, consume=False) is not live_binding:
-            raise ContractError("live launcher capability binding changed")
-
-    def consume_preclaim_capability() -> None:
-        assert_predictor_lifetimes()
-        if live_binding is not None and (
-            _require_live_launcher_capability(root, consume=True) is not live_binding
-        ):
-            raise ContractError("live launcher capability binding changed before claim")
-
-    def freeze_verified_completion(products: _CompletionProducts) -> None:
-        assert_predictor_lifetimes()
-        _freeze_completion_evidence(
-            root, products, finalization_guard=assert_predictor_lifetimes
-        )
-
     _ACCESS_METADATA.set(None)
     _run_once(
         root,
         opener=_owned_split_opener,
         qwen_predictor=qwen,
         phobert_predictor=phobert,
-        completion_writer=freeze_verified_completion,
-        preclaim_guard=consume_preclaim_capability,
+        completion_writer=lambda products: _freeze_completion_evidence(root, products),
+        preclaim_guard=lambda: None,
     )
     return _manifest_from_disk(root)
 
@@ -3395,27 +3532,293 @@ def _run_phase41_once_synthetic_for_test(
 
     if _TEST_RUNTIME.get() is None:
         raise ContractError("synthetic run helper is unavailable in production")
-    return _run_phase41_once_with_predictors(output_root, qwen, phobert)
+    return _run_phase41_synthetic_with_predictors(output_root, qwen, phobert)
 
 
-def run_phase41_once(output_root: Path) -> Phase41EvidenceManifest:
-    """Own production launcher proof, model loading, and the one-shot run."""
-
-    if _TEST_RUNTIME.get() is not None:
-        raise ContractError("production run entry is unavailable in synthetic runtime")
-    root = Path(output_root)
-    capability = _acquire_live_launcher_capability(root)
-    token = _LIVE_LAUNCHER_CAPABILITY.set(capability)
+def _code_is_compiled_from_source(loader: object, source: bytes) -> bool:
+    code = getattr(loader, "__code__", None)
+    if not isinstance(code, CodeType):
+        return False
     try:
-        from src.model_adaptation.phase41_protocols import (
-            load_phase41_production_predictors,
+        module_code = compile(
+            source,
+            code.co_filename,
+            "exec",
+            dont_inherit=True,
+            optimize=0,
         )
+    except (SyntaxError, ValueError):
+        return False
+    pending = [module_code]
+    expected = marshal.dumps(code)
+    while pending:
+        candidate = pending.pop()
+        if marshal.dumps(candidate) == expected:
+            return True
+        pending.extend(
+            item for item in candidate.co_consts if isinstance(item, CodeType)
+        )
+    return False
 
-        qwen, phobert = load_phase41_production_predictors(root)
-        return _run_phase41_once_with_predictors(root, qwen, phobert)
-    finally:
-        _LIVE_LAUNCHER_CAPABILITY.reset(token)
-        capability.close()
+
+def _verify_captured_production_loader(
+    output_root: Path,
+    protocol_module: ModuleType,
+    captured_loader: object,
+) -> None:
+    """Bind the captured loader to the exact materialized protocol source bytes."""
+
+    root = Path(output_root)
+    materialization = _load_materialization_receipt(root)
+    if materialization is None:
+        raise ContractError("the protected launcher materialization receipt is required")
+    source, _ = _load_canonical_json(
+        root / SOURCE_MANIFEST_NAME, "Phase 41 execution source manifest"
+    )
+    source_root = _materialized_source_root(root, materialization[0])
+    relative = "src/model_adaptation/phase41_protocols.py"
+    rows = source.get("files")
+    matches = [
+        row
+        for row in rows
+        if isinstance(rows, list)
+        and isinstance(row, dict)
+        and row.get("path") == relative
+    ] if isinstance(rows, list) else []
+    if len(matches) != 1:
+        raise ContractError("production loader source authority is absent")
+    authority = matches[0]
+    expected_path = source_root / relative
+    module_path_raw = getattr(protocol_module, "__file__", None)
+    if not isinstance(module_path_raw, str):
+        raise ContractError("production loader module has no bound source path")
+    module_path = Path(module_path_raw)
+    if (
+        os.path.normcase(os.path.abspath(os.fspath(module_path)))
+        != os.path.normcase(os.path.abspath(os.fspath(expected_path)))
+        or not module_path.is_file()
+        or module_path.is_symlink()
+    ):
+        raise ContractError("production loader module escaped its source authority")
+    source_bytes = module_path.read_bytes()
+    if (
+        authority.get("bytes") != len(source_bytes)
+        or authority.get("sha256") != _sha256(source_bytes)
+        or getattr(captured_loader, "__module__", None) != protocol_module.__name__
+        or not _code_is_compiled_from_source(captured_loader, source_bytes)
+    ):
+        raise ContractError("production loader source/function identity drifted")
+
+
+def _install_production_run_entry():  # noqa: ANN201
+    """Capture the verified loader before any live launcher capability exists."""
+
+    import src.model_adaptation.phase41_protocols as protocol_module
+
+    captured_loader = protocol_module.load_phase41_production_predictors
+    captured_qwen_type = protocol_module.FrozenQwenPredictor
+    captured_phobert_type = protocol_module.FrozenPhoBertPredictor
+
+    def run_phase41_once(output_root: Path) -> Phase41EvidenceManifest:
+        """Own production loader, predictors, handle, and irreversible run."""
+
+        if _TEST_RUNTIME.get() is not None:
+            raise ContractError("production run entry is unavailable in synthetic runtime")
+        if protocol_module.load_phase41_production_predictors is not captured_loader:
+            raise ContractError("production loader binding drifted before capability acquisition")
+        root = Path(output_root)
+        prepared_before_capability, _ = _load_canonical_json(
+            root / PREPARED_NAME, "Phase 41 evaluation request"
+        )
+        _validate_prepared(prepared_before_capability)
+        _verify_captured_production_loader(root, protocol_module, captured_loader)
+        capability = _acquire_live_launcher_capability(root)
+        token = _LIVE_LAUNCHER_CAPABILITY.set(capability)
+        try:
+            qwen, phobert = captured_loader(root)
+            if type(qwen) is not captured_qwen_type or type(phobert) is not captured_phobert_type:
+                raise ContractError("production loader returned unexpected predictor types")
+            verify_phase41_preauthorization(root)
+            _validate_predictor_entry_mode(qwen, phobert)
+            protocols = protocol_module.load_protocol_authority(root)
+            if (
+                qwen.protocol.protocol_sha256 != protocols.qwen.protocol_sha256
+                or phobert.protocol.protocol_sha256 != protocols.phobert.protocol_sha256
+            ):
+                raise ContractError("predictor protocol identity drifted")
+            materialization = _load_materialization_receipt(root)
+            if materialization is None:
+                raise ContractError("the protected launcher materialization receipt is required")
+            live_binding = _require_live_launcher_capability(root, consume=False)
+            expected_capability_sha = materialization[0]["launcher_capability_sha256"]
+            for predictor in (qwen, phobert):
+                has_binding = getattr(predictor, "_has_launcher_binding", None)
+                if (
+                    not callable(has_binding)
+                    or not has_binding(live_binding)
+                    or getattr(predictor, "launcher_capability_sha256", None)
+                    != expected_capability_sha
+                    or not callable(
+                        getattr(predictor, "assert_lifetime_integrity", None)
+                    )
+                ):
+                    raise ContractError(
+                        "production predictor lacks the live loader/lease binding"
+                    )
+
+            def assert_predictor_lifetimes() -> None:
+                for predictor in (qwen, phobert):
+                    predictor.assert_lifetime_integrity()
+                if (
+                    _require_live_launcher_capability(root, consume=False)
+                    is not live_binding
+                ):
+                    raise ContractError("live launcher capability binding changed")
+
+            prepared, prepared_bytes = _load_canonical_json(
+                root / PREPARED_NAME, "Phase 41 evaluation request"
+            )
+            identity, models = _validate_prepared(prepared)
+            authorization, authorization_bytes = _load_canonical_json(
+                root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
+            )
+            prepared_sha = _sha256(prepared_bytes)
+            authorization_sha = _sha256(authorization_bytes)
+            _validate_authorization(authorization, prepared_sha256=prepared_sha)
+            if identity.path != _normalize_reserved_path_without_io(identity.path):
+                raise ContractError("reserved path lexical authority drifted before claim")
+            precommit = prepared["deployment_fit_precommit"]
+            assert isinstance(precommit, dict)
+            precommit_sha = _sha256(_canonical_json_bytes(precommit))
+            global_claim = _global_claim_path(identity)
+            _assert_unspent_and_clean(root, global_claim)
+            assert_predictor_lifetimes()
+            if _require_live_launcher_capability(root, consume=True) is not live_binding:
+                raise ContractError("live launcher capability changed before claim")
+            _, claim_bytes = _claim_once(
+                root,
+                identity=identity,
+                prepared_sha256=prepared_sha,
+                authorization_sha256=authorization_sha,
+                materialization_receipt_sha256=_sha256(materialization[1]),
+                deployment_fit_precommit_sha256=precommit_sha,
+                claimed_at_utc=_utc_now(),
+                clock=_utc_now,
+            )
+            claim_sha = _sha256(claim_bytes)
+            stage = "open_reserved_split"
+            try:
+                if (root / PREPARED_NAME).read_bytes() != prepared_bytes:
+                    raise ContractError("prepared request changed after the durable claim")
+                if (root / AUTHORIZATION_NAME).read_bytes() != authorization_bytes:
+                    raise ContractError("authorization changed after the durable claim")
+                _ACCESS_METADATA.set(None)
+                loaded = _open_snapshot_once(identity, _owned_split_opener)
+
+                stage = "qwen_prediction"
+                qwen_predictions = _validated_predictions(
+                    qwen(loaded.predictor_view),
+                    loaded.predictor_view,
+                    role="qwen",
+                )
+                stage = "phobert_prediction"
+                phobert_predictions = _validated_predictions(
+                    phobert(loaded.predictor_view),
+                    loaded.predictor_view,
+                    role="phobert",
+                )
+                assert_predictor_lifetimes()
+                gold = tuple(row.gold_label for row in loaded.rows)
+                qwen_metrics = compute_metrics(gold, qwen_predictions)
+                phobert_metrics = compute_metrics(gold, phobert_predictions)
+                statements = comparison_statements(qwen_metrics, phobert_metrics)
+
+                stage = "freeze_outputs"
+                qwen_bytes = _prediction_jsonl(
+                    "qwen", models[0].run_id, loaded.rows, qwen_predictions
+                )
+                phobert_bytes = _prediction_jsonl(
+                    "phobert", models[1].run_id, loaded.rows, phobert_predictions
+                )
+                _exclusive_write(root / QWEN_PREDICTIONS_NAME, qwen_bytes)
+                _exclusive_write(root / PHOBERT_PREDICTIONS_NAME, phobert_bytes)
+                result: dict[str, object] = {
+                    "schema_version": "phase41-one-shot-results-v1",
+                    "status": "completed",
+                    "prepared_sha256": prepared_sha,
+                    "authorization_sha256": authorization_sha,
+                    "claim_sha256": claim_sha,
+                    "held_out": {
+                        "records": len(loaded.rows),
+                        "bytes": loaded.payload_bytes,
+                        "sha256": identity.sha256,
+                    },
+                    "prior_exposure": {
+                        "human_content_exposure_disclosed": prepared["authorities"].get(
+                            "prior_human_exposure_disclosed", False
+                        ),
+                        "claim": "one_post_freeze_model_evaluation_pass",
+                    },
+                    "models": [
+                        {
+                            "role": models[0].role,
+                            "run_id": models[0].run_id,
+                            "artifact_sha256": models[0].artifact_sha256,
+                            "selected_checkpoint_identity": models[0].selected_checkpoint_identity,
+                            "predictions_sha256": _sha256(qwen_bytes),
+                            "metrics": qwen_metrics,
+                        },
+                        {
+                            "role": models[1].role,
+                            "run_id": models[1].run_id,
+                            "artifact_sha256": models[1].artifact_sha256,
+                            "selected_checkpoint_identity": models[1].selected_checkpoint_identity,
+                            "predictions_sha256": _sha256(phobert_bytes),
+                            "metrics": phobert_metrics,
+                        },
+                    ],
+                    "comparison_statements": list(statements),
+                    "terminal_policy": {
+                        "rerun_permitted": False,
+                        "test_driven_training_action_permitted": False,
+                        "test_driven_checkpoint_selection_permitted": False,
+                        "test_driven_dataset_repair_permitted": False,
+                        "test_driven_contingency_activation_permitted": False,
+                    },
+                }
+                result_bytes = _canonical_json_bytes(result)
+                report_bytes = _render_report(result)
+                _exclusive_write(root / RESULTS_NAME, result_bytes)
+                _exclusive_write(root / REPORT_NAME, report_bytes)
+                stage = "freeze_completion_evidence"
+                _freeze_completion_evidence(
+                    root,
+                    _CompletionProducts(
+                        result=result,
+                        identity=identity,
+                        prepared=prepared,
+                        models=models,
+                        claim_bytes=claim_bytes,
+                        qwen_predictions_bytes=qwen_bytes,
+                        phobert_predictions_bytes=phobert_bytes,
+                        results_bytes=result_bytes,
+                        report_bytes=report_bytes,
+                    ),
+                    finalization_guard=assert_predictor_lifetimes,
+                )
+            except BaseException as exc:
+                _terminal_failure(root, claim_sha, stage, exc, _utc_now)
+                raise
+            return _manifest_from_disk(root)
+        finally:
+            _LIVE_LAUNCHER_CAPABILITY.reset(token)
+            capability.close()
+
+    return run_phase41_once
+
+
+run_phase41_once = _install_production_run_entry()
+del _install_production_run_entry
 
 
 def _verify_protected_completion_seal(root: Path) -> None:
@@ -4072,7 +4475,6 @@ __all__ = [
     "comparison_statements",
     "compute_metrics",
     "freeze_deployment_fit_disposition",
-    "prepare_phase41_evaluation",
     "prepare_phase41_from_canonical_authorities",
     "run_phase41_once",
     "selected_phase41_checkpoint_identities",
