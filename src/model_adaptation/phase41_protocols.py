@@ -8,10 +8,11 @@ immutable protocol authorities and already-loaded callables.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import importlib.metadata
 import json
+import os
 from pathlib import Path
 import platform
 import re
@@ -24,6 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle guard for type checkers
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PROTOCOL_NAME = "frozen-inference-protocols.json"
+PROTOCOL_SCHEMA_VERSION = "phase41-frozen-inference-protocols-v2"
 
 
 class ProtocolContractError(RuntimeError):
@@ -100,7 +102,9 @@ class FrozenInferenceProtocol:
             raise ProtocolContractError("protocol body role drifted")
         required = QWEN_FIELDS if self.role == "qwen" else PHOBERT_FIELDS
         if set(canonical_body) != required:
-            raise ProtocolContractError(f"{self.role} protocol fields differ from the frozen contract")
+            raise ProtocolContractError(
+                f"{self.role} protocol fields differ from the frozen contract"
+            )
         _validate_protocol_body(self.role, canonical_body)
         expected_sha = _sha256(canonical_json_bytes(canonical_body))
         if self.protocol_sha256 != expected_sha:
@@ -118,6 +122,7 @@ class FrozenInferenceProtocol:
 QWEN_FIELDS = {
     "role",
     "bundle_root",
+    "bundle_root_sha256",
     "base_model_id",
     "base_revision",
     "base_snapshot_sha256",
@@ -132,6 +137,7 @@ QWEN_FIELDS = {
     "prompt_template",
     "formatter_sha256",
     "max_sequence_length",
+    "quantization",
     "decoder",
     "label_verbalizer",
     "parser_source_sha256",
@@ -144,6 +150,7 @@ QWEN_FIELDS = {
 PHOBERT_FIELDS = {
     "role",
     "bundle_root",
+    "bundle_root_sha256",
     "base_model_id",
     "base_revision",
     "base_snapshot_sha256",
@@ -178,6 +185,21 @@ _QWEN_RUNTIME_PACKAGES = frozenset(
 _PHOBERT_RUNTIME_PACKAGES = frozenset(
     {"torch", "transformers", "underthesea", "huggingface-hub"}
 )
+_QWEN_QUANTIZATION_FIELDS = {
+    "load_in_4bit",
+    "bnb_4bit_compute_dtype",
+    "bnb_4bit_quant_type",
+    "bnb_4bit_use_double_quant",
+    "device_map",
+    "low_cpu_mem_usage",
+}
+_QWEN_DECODER = {
+    "do_sample": False,
+    "num_return_sequences": 1,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "max_new_tokens": 256,
+}
 
 
 def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
@@ -227,20 +249,22 @@ def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
         if body["invalid_output_mapping"] != "invalid_output":
             raise ProtocolContractError("Qwen invalid-output mapping drifted")
         decoder = body["decoder"]
-        if not isinstance(decoder, dict) or set(decoder) != {
-            "do_sample",
-            "num_return_sequences",
-            "temperature",
-            "top_p",
-            "max_new_tokens",
-        }:
+        if not isinstance(decoder, dict) or set(decoder) != set(_QWEN_DECODER):
             raise ProtocolContractError("Qwen decoder controls are incomplete")
+        if decoder != _QWEN_DECODER:
+            raise ProtocolContractError("Qwen decoder controls drifted from Phase 40")
+        quantization = body["quantization"]
+        if not isinstance(quantization, dict) or set(quantization) != _QWEN_QUANTIZATION_FIELDS:
+            raise ProtocolContractError("Qwen QLoRA quantization controls are incomplete")
         if (
-            decoder["do_sample"] is not False
-            or decoder["num_return_sequences"] != 1
-            or decoder["temperature"] != 0.0
+            quantization["load_in_4bit"] is not True
+            or quantization["bnb_4bit_quant_type"] != "nf4"
+            or quantization["bnb_4bit_use_double_quant"] is not True
+            or quantization["bnb_4bit_compute_dtype"] not in {"float16", "bfloat16"}
+            or quantization["device_map"] != {"": 0}
+            or quantization["low_cpu_mem_usage"] is not True
         ):
-            raise ProtocolContractError("Qwen decoding must be deterministic")
+            raise ProtocolContractError("Qwen must reproduce the frozen NF4 QLoRA load contract")
     else:
         if body["label_index_map"] != {str(index): label for index, label in enumerate(_LABELS)}:
             raise ProtocolContractError("PhoBERT label-index map drifted")
@@ -295,9 +319,36 @@ def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
     _require_sha(smoke["input_sha256"], f"{role}.synthetic_smoke.input_sha256")
     if smoke["expected_state"] not in _LABELS:
         raise ProtocolContractError(f"{role} synthetic smoke state is invalid")
-    for key in ("bundle_root", "model_artifact_relative_path", "tokenizer_artifact_relative_path"):
+    _require_sha(body["bundle_root_sha256"], f"{role}.bundle_root_sha256")
+    bundle_root = Path(str(body["bundle_root"]))
+    if body["runtime"]["python"] == "synthetic":
+        if (
+            not isinstance(body["bundle_root"], str)
+            or not body["bundle_root"]
+            or bundle_root.is_absolute()
+            or ".." in bundle_root.parts
+        ):
+            raise ProtocolContractError(
+                f"{role}.bundle_root must be a safe synthetic relative path"
+            )
+    elif (
+        not isinstance(body["bundle_root"], str)
+        or not body["bundle_root"]
+        or not bundle_root.is_absolute()
+        or ".." in bundle_root.parts
+        or bundle_root.parent == bundle_root
+    ):
+        raise ProtocolContractError(
+            f"{role}.bundle_root must be an absolute non-root immutable bundle path"
+        )
+    for key in ("model_artifact_relative_path", "tokenizer_artifact_relative_path"):
         value = body[key]
-        if not isinstance(value, str) or not value or Path(value).is_absolute() or ".." in Path(value).parts:
+        if (
+            not isinstance(value, str)
+            or not value
+            or Path(value).is_absolute()
+            or ".." in Path(value).parts
+        ):
             raise ProtocolContractError(f"{role}.{key} must be a safe repository-relative path")
     if not isinstance(body["base_model_id"], str) or not body["base_model_id"]:
         raise ProtocolContractError(f"{role} base model id is missing")
@@ -320,7 +371,7 @@ class Phase41ProtocolAuthority:
 
     def _body_without_hash(self) -> dict[str, object]:
         return {
-            "schema_version": "phase41-frozen-inference-protocols-v1",
+            "schema_version": PROTOCOL_SCHEMA_VERSION,
             "models": [self.qwen.as_dict(), self.phobert.as_dict()],
         }
 
@@ -333,35 +384,79 @@ class Phase41ProtocolAuthority:
 PredictorCallable = Callable[["InMemorySnapshot"], Sequence["Prediction"]]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class FrozenQwenPredictor:
     protocol: FrozenInferenceProtocol
     predictor: PredictorCallable
-    loaded: bool = True
-    smoke_verified: bool = True
+    loaded: bool
+    smoke_verified: bool
+    _production_verified: bool = field(repr=False, compare=False)
 
-    def __post_init__(self) -> None:
-        if self.protocol.role != "qwen" or not callable(self.predictor):
+    def __init__(
+        self,
+        protocol: FrozenInferenceProtocol,
+        predictor: PredictorCallable,
+    ) -> None:
+        """Construct only a synthetic test double; production uses the private factory."""
+
+        if protocol.role != "qwen" or not callable(predictor):
             raise ProtocolContractError("Qwen predictor must be callable and protocol-bound")
-        if self.loaded is not True or self.smoke_verified is not True:
-            raise ProtocolContractError("Qwen predictor must be loaded and smoke-verified")
+        if protocol.body["runtime"]["python"] != "synthetic":
+            raise ProtocolContractError(
+                "Qwen public predictor construction is synthetic test-only"
+            )
+        object.__setattr__(self, "protocol", protocol)
+        object.__setattr__(self, "predictor", predictor)
+        object.__setattr__(self, "loaded", False)
+        object.__setattr__(self, "smoke_verified", False)
+        object.__setattr__(self, "_production_verified", False)
+
+    @property
+    def production_verified(self) -> bool:
+        return self._production_verified
+
+    @property
+    def synthetic_test_only(self) -> bool:
+        return self.protocol.body["runtime"]["python"] == "synthetic"
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
         return self.predictor(snapshot)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class FrozenPhoBertPredictor:
     protocol: FrozenInferenceProtocol
     predictor: PredictorCallable
-    loaded: bool = True
-    smoke_verified: bool = True
+    loaded: bool
+    smoke_verified: bool
+    _production_verified: bool = field(repr=False, compare=False)
 
-    def __post_init__(self) -> None:
-        if self.protocol.role != "phobert" or not callable(self.predictor):
+    def __init__(
+        self,
+        protocol: FrozenInferenceProtocol,
+        predictor: PredictorCallable,
+    ) -> None:
+        """Construct only a synthetic test double; production uses the private factory."""
+
+        if protocol.role != "phobert" or not callable(predictor):
             raise ProtocolContractError("PhoBERT predictor must be callable and protocol-bound")
-        if self.loaded is not True or self.smoke_verified is not True:
-            raise ProtocolContractError("PhoBERT predictor must be loaded and smoke-verified")
+        if protocol.body["runtime"]["python"] != "synthetic":
+            raise ProtocolContractError(
+                "PhoBERT public predictor construction is synthetic test-only"
+            )
+        object.__setattr__(self, "protocol", protocol)
+        object.__setattr__(self, "predictor", predictor)
+        object.__setattr__(self, "loaded", False)
+        object.__setattr__(self, "smoke_verified", False)
+        object.__setattr__(self, "_production_verified", False)
+
+    @property
+    def production_verified(self) -> bool:
+        return self._production_verified
+
+    @property
+    def synthetic_test_only(self) -> bool:
+        return self.protocol.body["runtime"]["python"] == "synthetic"
 
     def __call__(self, snapshot: "InMemorySnapshot") -> Sequence["Prediction"]:
         return self.predictor(snapshot)
@@ -377,7 +472,7 @@ def build_protocol_authority(
     qwen = _protocol("qwen", dict(qwen_body))
     phobert = _protocol("phobert", dict(phobert_body))
     body = {
-        "schema_version": "phase41-frozen-inference-protocols-v1",
+        "schema_version": PROTOCOL_SCHEMA_VERSION,
         "models": [qwen.as_dict(), phobert.as_dict()],
     }
     return Phase41ProtocolAuthority(
@@ -403,6 +498,7 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
     qwen_body: dict[str, object] = {
         "role": "qwen",
         "bundle_root": "synthetic/qwen",
+        "bundle_root_sha256": "8" * 64,
         "base_model_id": "synthetic/qwen",
         "base_revision": "synthetic-qwen-revision",
         "base_snapshot_sha256": "a" * 64,
@@ -428,13 +524,15 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
         ),
         "formatter_sha256": "9" * 64,
         "max_sequence_length": 512,
-        "decoder": {
-            "do_sample": False,
-            "num_return_sequences": 1,
-            "temperature": 0.0,
-            "top_p": 1.0,
-            "max_new_tokens": 16,
+        "quantization": {
+            "load_in_4bit": True,
+            "bnb_4bit_compute_dtype": "float16",
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_use_double_quant": True,
+            "device_map": {"": 0},
+            "low_cpu_mem_usage": True,
         },
+        "decoder": dict(_QWEN_DECODER),
         "label_verbalizer": list(_LABELS),
         "parser_source_sha256": "e" * 64,
         "invalid_output_mapping": "invalid_output",
@@ -445,6 +543,7 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
     phobert_body: dict[str, object] = {
         "role": "phobert",
         "bundle_root": "synthetic/phobert",
+        "bundle_root_sha256": "7" * 64,
         "base_model_id": "synthetic/phobert",
         "base_revision": "synthetic-phobert-revision",
         "base_snapshot_sha256": "f" * 64,
@@ -481,9 +580,15 @@ def write_protocol_authority(output_root: Path, authority: Phase41ProtocolAuthor
     root.mkdir(parents=True, exist_ok=True)
     path = root / PROTOCOL_NAME
     payload = canonical_json_bytes(authority.as_dict())
-    with path.open("xb") as handle:
-        handle.write(payload)
-        handle.flush()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    finally:
+        os.close(descriptor)
     return path
 
 
@@ -502,7 +607,7 @@ def load_protocol_authority(output_root: Path) -> Phase41ProtocolAuthority:
         raise ProtocolContractError("protocol authority is not strict JSON") from exc
     if not isinstance(raw, dict) or set(raw) != {"schema_version", "models", "authority_sha256"}:
         raise ProtocolContractError("protocol authority fields drifted")
-    if raw["schema_version"] != "phase41-frozen-inference-protocols-v1" or payload != canonical_json_bytes(raw):
+    if raw["schema_version"] != PROTOCOL_SCHEMA_VERSION or payload != canonical_json_bytes(raw):
         raise ProtocolContractError("protocol authority schema/canonical bytes drifted")
     models = raw["models"]
     if not isinstance(models, list) or len(models) != 2:
@@ -517,6 +622,136 @@ def load_protocol_authority(output_root: Path) -> Phase41ProtocolAuthority:
     return Phase41ProtocolAuthority(frozen[0], frozen[1], raw["authority_sha256"])
 
 
+def _path_is_redirecting(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
+def _bound_bundle_root(
+    protocol: FrozenInferenceProtocol,
+    *,
+    checksum_builder: Callable[[Path], str],
+) -> Path:
+    """Verify one absolute, separately sealed model bundle before any import/load."""
+
+    if protocol.body["runtime"]["python"] == "synthetic":
+        raise ProtocolContractError(
+            f"{protocol.role} synthetic protocol cannot enter the production loader"
+        )
+    root = Path(str(protocol.body["bundle_root"]))
+    if not root.is_absolute() or root.parent == root:
+        raise ProtocolContractError(f"{protocol.role} bundle root is not absolute and bounded")
+    if not root.is_dir() or any(_path_is_redirecting(part) for part in (root, *root.parents)):
+        raise ProtocolContractError(f"{protocol.role} bundle root is absent or redirecting")
+    for child in root.rglob("*"):
+        if _path_is_redirecting(child):
+            raise ProtocolContractError(
+                f"{protocol.role} immutable bundle contains a redirecting entry"
+            )
+    if checksum_builder(root) != protocol.body["bundle_root_sha256"]:
+        raise ProtocolContractError(f"{protocol.role} immutable bundle hash drifted")
+    return root
+
+
+def _build_qwen_qlora_loader_kwargs(
+    protocol: FrozenInferenceProtocol,
+    *,
+    transformers_module: object,
+    torch_module: object,
+) -> dict[str, object]:
+    """Reproduce the exact Phase 40 NF4 base-load call from frozen fields."""
+
+    if protocol.role != "qwen":
+        raise ProtocolContractError("QLoRA loader controls require the Qwen protocol")
+    frozen = dict(protocol.body["quantization"])
+    dtype_name = str(frozen["bnb_4bit_compute_dtype"])
+    compute_dtype = getattr(torch_module, dtype_name, None)
+    config_type = getattr(transformers_module, "BitsAndBytesConfig", None)
+    if compute_dtype is None or config_type is None or not callable(config_type):
+        raise ProtocolContractError("Qwen frozen BitsAndBytesConfig runtime is unavailable")
+    quantization_config = config_type(
+        load_in_4bit=frozen["load_in_4bit"],
+        bnb_4bit_compute_dtype=compute_dtype,
+        bnb_4bit_quant_type=frozen["bnb_4bit_quant_type"],
+        bnb_4bit_use_double_quant=frozen["bnb_4bit_use_double_quant"],
+    )
+    observed = {
+        "load_in_4bit": getattr(quantization_config, "load_in_4bit", None),
+        "bnb_4bit_compute_dtype": getattr(
+            quantization_config, "bnb_4bit_compute_dtype", None
+        ),
+        "bnb_4bit_quant_type": getattr(
+            quantization_config, "bnb_4bit_quant_type", None
+        ),
+        "bnb_4bit_use_double_quant": getattr(
+            quantization_config, "bnb_4bit_use_double_quant", None
+        ),
+    }
+    expected = {
+        "load_in_4bit": True,
+        "bnb_4bit_compute_dtype": compute_dtype,
+        "bnb_4bit_quant_type": "nf4",
+        "bnb_4bit_use_double_quant": True,
+    }
+    if observed != expected:
+        raise ProtocolContractError("Qwen BitsAndBytesConfig construction drifted")
+    return {
+        "revision": str(protocol.body["base_revision"]),
+        "local_files_only": True,
+        "trust_remote_code": False,
+        "low_cpu_mem_usage": frozen["low_cpu_mem_usage"],
+        "quantization_config": quantization_config,
+        "device_map": dict(frozen["device_map"]),
+    }
+
+
+def _qwen_generation_controls(protocol: FrozenInferenceProtocol) -> dict[str, object]:
+    if protocol.role != "qwen":
+        raise ProtocolContractError("Qwen generation controls require the Qwen protocol")
+    controls = dict(protocol.body["decoder"])
+    if controls != _QWEN_DECODER:
+        raise ProtocolContractError("Qwen generation controls drifted after protocol freeze")
+    return controls
+
+
+def _verified_qwen_predictor(
+    protocol: FrozenInferenceProtocol, predictor: PredictorCallable
+) -> FrozenQwenPredictor:
+    if (
+        protocol.role != "qwen"
+        or protocol.body["runtime"]["python"] == "synthetic"
+        or not callable(predictor)
+    ):
+        raise ProtocolContractError("Qwen verified predictor inputs are invalid")
+    result = object.__new__(FrozenQwenPredictor)
+    object.__setattr__(result, "protocol", protocol)
+    object.__setattr__(result, "predictor", predictor)
+    object.__setattr__(result, "loaded", True)
+    object.__setattr__(result, "smoke_verified", True)
+    object.__setattr__(result, "_production_verified", True)
+    return result
+
+
+def _verified_phobert_predictor(
+    protocol: FrozenInferenceProtocol, predictor: PredictorCallable
+) -> FrozenPhoBertPredictor:
+    if (
+        protocol.role != "phobert"
+        or protocol.body["runtime"]["python"] == "synthetic"
+        or not callable(predictor)
+    ):
+        raise ProtocolContractError("PhoBERT verified predictor inputs are invalid")
+    result = object.__new__(FrozenPhoBertPredictor)
+    object.__setattr__(result, "protocol", protocol)
+    object.__setattr__(result, "predictor", predictor)
+    object.__setattr__(result, "loaded", True)
+    object.__setattr__(result, "smoke_verified", True)
+    object.__setattr__(result, "_production_verified", True)
+    return result
+
+
 def load_phase41_production_predictors(
     output_root: Path,
 ) -> tuple[FrozenQwenPredictor, FrozenPhoBertPredictor]:
@@ -529,13 +764,19 @@ def load_phase41_production_predictors(
     from src.model_adaptation.registry import build_model_checksum
 
     authority = load_protocol_authority(output_root)
-    repository_root = Path(__file__).resolve().parents[2]
+    bundle_roots = {
+        protocol.role: _bound_bundle_root(
+            protocol,
+            checksum_builder=build_model_checksum,
+        )
+        for protocol in (authority.qwen, authority.phobert)
+    }
 
     def artifact(protocol: FrozenInferenceProtocol, key: str, expected_sha: str) -> Path:
-        bundle = repository_root / str(protocol.body["bundle_root"])
+        bundle = bundle_roots[protocol.role]
         relative = Path(str(protocol.body[key]))
         target = bundle / relative
-        if not target.exists() or target.is_symlink():
+        if not target.exists() or _path_is_redirecting(target):
             raise ProtocolContractError(f"{protocol.role} bound artifact is absent: {key}")
         if build_model_checksum(target) != expected_sha:
             raise ProtocolContractError(f"{protocol.role} bound artifact hash drifted: {key}")
@@ -588,6 +829,7 @@ def load_phase41_production_predictors(
     )
 
     try:
+        import bitsandbytes
         import torch
         from huggingface_hub import snapshot_download
         import src.model_adaptation.phase40_metrics as phase40_metrics
@@ -606,6 +848,7 @@ def load_phase41_production_predictors(
             AutoModelForCausalLM,
             AutoModelForSequenceClassification,
             AutoTokenizer,
+            BitsAndBytesConfig,
         )
         from peft import PeftModel
         from underthesea import word_tokenize
@@ -688,10 +931,33 @@ def load_phase41_production_predictors(
         raise ProtocolContractError("Qwen tokenizer/chat formatter identity drifted")
     qwen_base = AutoModelForCausalLM.from_pretrained(
         qwen_base_root,
-        local_files_only=True,
-        trust_remote_code=False,
-        device_map={"": qwen_device_index},
+        **_build_qwen_qlora_loader_kwargs(
+            authority.qwen,
+            transformers_module=type(
+                "_TransformersBindings",
+                (),
+                {"BitsAndBytesConfig": BitsAndBytesConfig},
+            ),
+            torch_module=torch,
+        ),
     )
+    linear4bit_type = getattr(getattr(bitsandbytes, "nn", None), "Linear4bit", None)
+    quantized_layers = (
+        sum(1 for module in qwen_base.modules() if isinstance(module, linear4bit_type))
+        if isinstance(linear4bit_type, type)
+        else 0
+    )
+    device_map = getattr(qwen_base, "hf_device_map", None)
+    if (
+        getattr(qwen_base, "is_loaded_in_4bit", False) is not True
+        or quantized_layers <= 0
+        or not isinstance(device_map, Mapping)
+        or set(device_map) != {""}
+        or str(device_map[""]) not in {str(qwen_device_index), str(qwen_device)}
+    ):
+        raise ProtocolContractError(
+            "Qwen runtime did not reproduce genuine single-device NF4 loading"
+        )
     qwen_model = PeftModel.from_pretrained(
         qwen_base, qwen_model_root, is_trainable=False
     )
@@ -721,7 +987,7 @@ def load_phase41_production_predictors(
     def qwen_predict(snapshot: InMemorySnapshot):  # noqa: ANN202
         predictions = []
         template = json.loads(str(authority.qwen.body["prompt_template"]))
-        decoder = dict(authority.qwen.body["decoder"])
+        generation_controls = _qwen_generation_controls(authority.qwen)
         for row in snapshot.rows:
             raw_message = json.dumps(
                 {"raw_message": row.text},
@@ -756,11 +1022,6 @@ def load_phase41_production_predictors(
                     )
                 )
                 continue
-            generation_controls = {
-                "do_sample": decoder["do_sample"],
-                "num_return_sequences": decoder["num_return_sequences"],
-                "max_new_tokens": decoder["max_new_tokens"],
-            }
             with torch.inference_mode():
                 output = qwen_model.generate(**encoded, **generation_controls)
             raw = qwen_tokenizer.decode(output[0][input_length:], skip_special_tokens=True)
@@ -789,7 +1050,9 @@ def load_phase41_production_predictors(
         encoded = {key: value.to(phobert_device) for key, value in encoded.items()}
         with torch.inference_mode():
             logits = phobert_model(**encoded).logits
-        if tuple(logits.shape) != (len(snapshot.rows), 4) or not torch.isfinite(logits).all().item():
+        if tuple(logits.shape) != (len(snapshot.rows), 4) or not torch.isfinite(
+            logits
+        ).all().item():
             raise ProtocolContractError("PhoBERT logits differ from the frozen four-logit contract")
         indices = torch.argmax(logits, dim=-1).tolist()
         return tuple(
@@ -797,11 +1060,12 @@ def load_phase41_production_predictors(
             for row, index in zip(snapshot.rows, indices, strict=True)
         )
 
-    qwen = FrozenQwenPredictor(authority.qwen, qwen_predict)
-    phobert = FrozenPhoBertPredictor(authority.phobert, phobert_predict)
     smoke_text = "tin nhắn tổng hợp"
     smoke = InMemorySnapshot((InferenceRow("phase41-smoke", 0, smoke_text),))
-    for protocol, predictor in ((authority.qwen, qwen), (authority.phobert, phobert)):
+    for protocol, predictor in (
+        (authority.qwen, qwen_predict),
+        (authority.phobert, phobert_predict),
+    ):
         expected_hash = protocol.body["synthetic_smoke"]["input_sha256"]
         if _sha256(smoke_text.encode("utf-8")) != expected_hash:
             raise ProtocolContractError(f"{protocol.role} synthetic smoke input drifted")
@@ -809,7 +1073,10 @@ def load_phase41_production_predictors(
         expected_state = protocol.body["synthetic_smoke"]["expected_state"]
         if len(predictions) != 1 or predictions[0].predicted_state != expected_state:
             raise ProtocolContractError(f"{protocol.role} synthetic smoke output drifted")
-    return qwen, phobert
+    return (
+        _verified_qwen_predictor(authority.qwen, qwen_predict),
+        _verified_phobert_predictor(authority.phobert, phobert_predict),
+    )
 
 
 __all__ = [

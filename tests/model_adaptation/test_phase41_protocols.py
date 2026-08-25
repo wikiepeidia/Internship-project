@@ -6,6 +6,7 @@ from dataclasses import replace
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import MappingProxyType
 from types import SimpleNamespace
@@ -24,7 +25,11 @@ from src.model_adaptation.phase41_protocols import (
     FrozenInferenceProtocol,
     FrozenQwenPredictor,
     ProtocolContractError,
+    _bound_bundle_root,
+    _build_qwen_qlora_loader_kwargs,
+    _qwen_generation_controls,
     build_synthetic_protocol_authority,
+    build_protocol_authority,
     canonical_json_bytes,
     load_protocol_authority,
     write_protocol_authority,
@@ -67,6 +72,36 @@ def _held_out() -> OpaqueHeldOutAuthority:
     )
 
 
+def _production_protocol_bodies() -> tuple[dict[str, object], dict[str, object]]:
+    authority = build_synthetic_protocol_authority(_models())
+    qwen_body = json.loads(canonical_json_bytes(authority.qwen.body))
+    phobert_body = json.loads(canonical_json_bytes(authority.phobert.body))
+    qwen_body["bundle_root"] = str((Path.cwd() / ".gsd/qwen-bundle").absolute())
+    phobert_body["bundle_root"] = str((Path.cwd() / ".gsd/phobert-bundle").absolute())
+    qwen_body["runtime"] = {
+        "python": "3.12.4",
+        "packages": {
+            "torch": "2.8.0",
+            "transformers": "4.55.0",
+            "peft": "0.17.0",
+            "bitsandbytes": "0.50.1",
+            "huggingface-hub": "0.34.4",
+        },
+        "device": "cuda:0",
+    }
+    phobert_body["runtime"] = {
+        "python": "3.12.4",
+        "packages": {
+            "torch": "2.8.0",
+            "transformers": "4.55.0",
+            "underthesea": "9.5.0",
+            "huggingface-hub": "0.34.4",
+        },
+        "device": "cuda:0",
+    }
+    return qwen_body, phobert_body
+
+
 def test_protocol_bodies_are_deeply_immutable():
     authority = build_synthetic_protocol_authority(_models())
     assert isinstance(authority.qwen.body, MappingProxyType)
@@ -76,9 +111,14 @@ def test_protocol_bodies_are_deeply_immutable():
         authority.qwen.body["decoder"]["temperature"] = 1.0  # type: ignore[index]
 
 
-def test_predictor_requires_preloaded_and_smoke_verified_markers():
+def test_public_predictor_constructor_is_synthetic_test_only():
     authority = build_synthetic_protocol_authority(_models())
-    with pytest.raises(ProtocolContractError, match="loaded and smoke-verified"):
+    predictor = FrozenQwenPredictor(authority.qwen, lambda snapshot: ())
+    assert predictor.synthetic_test_only is True
+    assert predictor.production_verified is False
+    assert predictor.loaded is False
+    assert predictor.smoke_verified is False
+    with pytest.raises(TypeError, match="loaded"):
         FrozenQwenPredictor(
             authority.qwen,
             lambda snapshot: (),
@@ -94,7 +134,15 @@ def test_frozen_protocols_match_phase40_qwen_and_phobert_inference_policies():
         "num_return_sequences": 1,
         "temperature": 0.0,
         "top_p": 1.0,
-        "max_new_tokens": 16,
+        "max_new_tokens": 256,
+    }
+    assert authority.qwen.body["quantization"] == {
+        "load_in_4bit": True,
+        "bnb_4bit_compute_dtype": "float16",
+        "bnb_4bit_quant_type": "nf4",
+        "bnb_4bit_use_double_quant": True,
+        "device_map": {"": 0},
+        "low_cpu_mem_usage": True,
     }
     assert authority.qwen.body["retry_policy"] == {"retries": 0, "repairs": False}
     assert authority.phobert.body["segmenter_package"] == "underthesea"
@@ -109,22 +157,7 @@ def test_frozen_protocols_match_phase40_qwen_and_phobert_inference_policies():
 
 
 def test_production_runtime_identity_requires_exact_packages_and_cuda_index():
-    authority = build_synthetic_protocol_authority(_models())
-    qwen_body = json.loads(canonical_json_bytes(authority.qwen.body))
-    phobert_body = json.loads(canonical_json_bytes(authority.phobert.body))
-    qwen_body["runtime"] = {
-        "python": "3.12.4",
-        "packages": {
-            "torch": "2.8.0",
-            "transformers": "4.55.0",
-            "peft": "0.17.0",
-            "bitsandbytes": "0.50.1",
-            "huggingface-hub": "0.34.4",
-        },
-        "device": "cuda:0",
-    }
-    from src.model_adaptation.phase41_protocols import build_protocol_authority
-
+    qwen_body, phobert_body = _production_protocol_bodies()
     build_protocol_authority(qwen_body, phobert_body)
 
     qwen_body["runtime"]["device"] = "cuda"
@@ -135,6 +168,107 @@ def test_production_runtime_identity_requires_exact_packages_and_cuda_index():
     del qwen_body["runtime"]["packages"]["huggingface-hub"]
     with pytest.raises(ProtocolContractError, match="production runtime identity"):
         build_protocol_authority(qwen_body, phobert_body)
+
+
+def test_public_callback_cannot_claim_production_verification():
+    qwen_body, phobert_body = _production_protocol_bodies()
+    authority = build_protocol_authority(qwen_body, phobert_body)
+    with pytest.raises(ProtocolContractError, match="synthetic test-only"):
+        FrozenQwenPredictor(authority.qwen, lambda snapshot: ())
+
+
+@pytest.mark.parametrize(
+    ("field", "drift"),
+    (
+        ("load_in_4bit", False),
+        ("bnb_4bit_compute_dtype", "float32"),
+        ("bnb_4bit_quant_type", "fp4"),
+        ("bnb_4bit_use_double_quant", False),
+        ("device_map", {"": 1}),
+        ("low_cpu_mem_usage", False),
+    ),
+)
+def test_qwen_protocol_rejects_any_quantization_drift(field, drift):
+    qwen_body, phobert_body = _production_protocol_bodies()
+    qwen_body["quantization"][field] = drift
+    with pytest.raises(ProtocolContractError, match="NF4 QLoRA"):
+        build_protocol_authority(qwen_body, phobert_body)
+
+
+def test_qwen_loader_constructs_exact_bitsandbytes_and_model_arguments():
+    qwen_body, phobert_body = _production_protocol_bodies()
+    protocol = build_protocol_authority(qwen_body, phobert_body).qwen
+    calls: list[dict[str, object]] = []
+    float16 = object()
+
+    class SpyBitsAndBytesConfig:
+        def __init__(self, **kwargs):
+            calls.append(dict(kwargs))
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    kwargs = _build_qwen_qlora_loader_kwargs(
+        protocol,
+        transformers_module=SimpleNamespace(BitsAndBytesConfig=SpyBitsAndBytesConfig),
+        torch_module=SimpleNamespace(float16=float16),
+    )
+    assert calls == [
+        {
+            "load_in_4bit": True,
+            "bnb_4bit_compute_dtype": float16,
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_use_double_quant": True,
+        }
+    ]
+    assert kwargs == {
+        "revision": "synthetic-qwen-revision",
+        "local_files_only": True,
+        "trust_remote_code": False,
+        "low_cpu_mem_usage": True,
+        "quantization_config": kwargs["quantization_config"],
+        "device_map": {"": 0},
+    }
+
+
+def test_generation_passes_every_frozen_decoder_control():
+    authority = build_synthetic_protocol_authority(_models())
+    assert _qwen_generation_controls(authority.qwen) == {
+        "do_sample": False,
+        "num_return_sequences": 1,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_new_tokens": 256,
+    }
+    source = Path("src/model_adaptation/phase41_protocols.py").read_text(encoding="utf-8")
+    assert "qwen_model.generate(**encoded, **generation_controls)" in source
+
+
+def test_production_bundle_roots_are_absolute_and_hash_bound():
+    qwen_body, phobert_body = _production_protocol_bodies()
+    authority = build_protocol_authority(qwen_body, phobert_body)
+    assert Path(str(authority.qwen.body["bundle_root"])).is_absolute()
+    assert authority.qwen.body["bundle_root_sha256"] == "8" * 64
+    qwen_body["bundle_root"] = "data/models/phase40/qwen"
+    with pytest.raises(ProtocolContractError, match="absolute non-root"):
+        build_protocol_authority(qwen_body, phobert_body)
+
+
+def test_bundle_root_whole_tree_digest_is_checked_before_loading(tmp_path):
+    from src.model_adaptation.registry import build_model_checksum
+
+    qwen_root = tmp_path / "qwen-bundle"
+    qwen_root.mkdir()
+    artifact = qwen_root / "adapter.bin"
+    artifact.write_bytes(b"sealed")
+    qwen_body, phobert_body = _production_protocol_bodies()
+    qwen_body["bundle_root"] = str(qwen_root.absolute())
+    qwen_body["bundle_root_sha256"] = build_model_checksum(qwen_root)
+    protocol = build_protocol_authority(qwen_body, phobert_body).qwen
+    assert _bound_bundle_root(protocol, checksum_builder=build_model_checksum) == qwen_root
+
+    artifact.write_bytes(b"tampered")
+    with pytest.raises(ProtocolContractError, match="bundle hash drifted"):
+        _bound_bundle_root(protocol, checksum_builder=build_model_checksum)
 
 
 def test_qwen_loader_rejects_overlength_input_before_generation():
@@ -161,6 +295,7 @@ def test_prepare_rejects_protocol_artifact_identity_drift(tmp_path):
             comparison_launch_receipt_sha256="7" * 64,
             execution_source_manifest_sha256="8" * 64,
             prior_human_exposure_disclosed=True,
+            deployment_fit_choice="deferred",
         )
 
 
@@ -182,6 +317,17 @@ def test_protocol_loader_rejects_nested_duplicate_and_nonfinite_json(tmp_path):
         load_protocol_authority(tmp_path)
 
 
+def test_protocol_authority_write_flushes_file_durably(tmp_path, monkeypatch):
+    calls: list[int] = []
+    monkeypatch.setattr(os, "fsync", lambda descriptor: calls.append(descriptor))
+    path = write_protocol_authority(
+        tmp_path,
+        build_synthetic_protocol_authority(_models()),
+    )
+    assert path.is_file()
+    assert len(calls) == 1
+
+
 def test_execution_source_manifest_binds_inventory_and_launcher(tmp_path):
     models = _models()
     protocols = build_synthetic_protocol_authority(models)
@@ -195,6 +341,7 @@ def test_execution_source_manifest_binds_inventory_and_launcher(tmp_path):
         comparison_launch_receipt_sha256="7" * 64,
         execution_source_manifest_sha256="8" * 64,
         prior_human_exposure_disclosed=True,
+        deployment_fit_choice="deferred",
     )
     manifest = json.loads((tmp_path / "execution-source-manifest.json").read_text(encoding="utf-8"))
     assert manifest["launcher"]["path"] == "scripts/phase41_one_shot_launcher.ps1"
@@ -205,7 +352,6 @@ def test_execution_source_manifest_binds_inventory_and_launcher(tmp_path):
     assert "src/model_adaptation/phase41_evaluation.py" in source_paths
     assert "src/model_adaptation/phase41_protocols.py" in source_paths
     assert "src/model_adaptation/registry.py" in source_paths
-    assert "src/model_adaptation/release_evaluation.py" in source_paths
     assert manifest["closed_import_roots"] == [
         "src.model_adaptation.cli",
         "src.model_adaptation.phase41_evaluation",
@@ -263,7 +409,11 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
     phase39 = {
         "schema_version": "phase39-downstream-data-contract-v1",
         "generated_at": "2026-08-25T00:00:00+07:00",
-        "source_manifest": {"path": "data/manifests/manifest.json", "sha256": "a" * 64, "version": "synthetic"},
+        "source_manifest": {
+            "path": "data/manifests/manifest.json",
+            "sha256": "a" * 64,
+            "version": "synthetic",
+        },
         "total_records": 12,
         "splits": {"train": split("1"), "val": split("2"), "test": split("3")},
         "total_label_counts": {label: 3 for label in labels},
@@ -451,6 +601,7 @@ def test_canonical_prepare_validates_existing_closure_then_fails_at_missing_rece
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
         )
     assert not output_root.exists()
 
@@ -471,4 +622,5 @@ def test_canonical_prepare_rejects_ordinary_lora_before_bundle_access(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
         )
