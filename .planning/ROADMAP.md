@@ -909,7 +909,7 @@ Plans:
 7. Each full run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. The incomplete LoRA probe retains its explicit terminal status and resource evidence rather than pretending to be a full run. A Git commit identifier is not required in these bundles.
 8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
-**Plans**: 4/6 complete (in progress)
+**Plans**: 5/6 complete (in progress)
 **Wave 1**
 
 - [x] 40-01-PLAN.md
@@ -928,7 +928,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 40-05-PLAN.md
+- [x] 40-05-PLAN.md
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
