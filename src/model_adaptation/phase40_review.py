@@ -10,10 +10,115 @@ from __future__ import annotations
 
 import os
 from pathlib import Path, PurePosixPath
+import stat
 from typing import Sequence
 
 from src.model_adaptation import phase40_final_authority as _final
 from src.model_adaptation import phase40_handoff as _handoff
+
+
+FIXED_COMPARISON_MANIFEST_PATH = PurePosixPath(
+    "data/models/phase40/comparison-manifest.json"
+)
+
+
+def _canonical_review_path(
+    *,
+    repo_root: Path,
+    supplied_path: Path,
+    expected_relative: PurePosixPath,
+    description: str,
+) -> Path:
+    """Return one code-fixed Phase 40 review path without resolving redirects."""
+
+    root = _handoff._trusted_repo_root(repo_root)
+    expected = _handoff._lexical_absolute(root / expected_relative)
+    supplied = Path(supplied_path)
+    if not supplied.is_absolute():
+        supplied = root / supplied
+    candidate = _handoff._lexical_absolute(supplied)
+    if os.path.normcase(os.fspath(candidate)) != os.path.normcase(
+        os.fspath(expected)
+    ):
+        raise ValueError(f"{description} path is not the code-fixed authority")
+    return expected
+
+
+def _regular_file_identity(metadata: os.stat_result) -> tuple[object, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+    )
+
+
+def read_phase40_review_regular_bytes(path: Path, *, description: str) -> bytes:
+    """Read one non-redirecting, single-link regular file through a stable handle."""
+
+    candidate = _handoff._lexical_absolute(Path(path))
+    try:
+        _handoff._reject_redirecting_path_components((candidate,))
+        lexical_metadata = os.lstat(candidate)
+        if (
+            not stat.S_ISREG(lexical_metadata.st_mode)
+            or stat.S_ISLNK(lexical_metadata.st_mode)
+            or lexical_metadata.st_nlink != 1
+        ):
+            raise ValueError(f"{description} is not a single-link regular file")
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(candidate, flags)
+        try:
+            before = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or _regular_file_identity(before)
+                != _regular_file_identity(lexical_metadata)
+            ):
+                raise ValueError(f"{description} changed before it was opened")
+            with os.fdopen(descriptor, "rb", closefd=False) as handle:
+                payload = handle.read()
+            after = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        final_metadata = os.lstat(candidate)
+        if (
+            _regular_file_identity(before) != _regular_file_identity(after)
+            or _regular_file_identity(after)
+            != _regular_file_identity(final_metadata)
+        ):
+            raise ValueError(f"{description} changed while it was read")
+        return payload
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(f"{description} is missing, unreadable, or unsafe") from exc
+
+
+def load_canonical_phase40_comparison_manifest(
+    *, repo_root: Path, comparison_manifest_path: Path
+) -> tuple[_handoff.Phase40ComparisonManifest, bytes]:
+    """Load the exact code-fixed comparison with strict, canonical JSON bytes."""
+
+    path = _canonical_review_path(
+        repo_root=repo_root,
+        supplied_path=comparison_manifest_path,
+        expected_relative=FIXED_COMPARISON_MANIFEST_PATH,
+        description="comparison manifest",
+    )
+    payload = read_phase40_review_regular_bytes(
+        path, description="comparison manifest"
+    )
+    manifest = _handoff.Phase40ComparisonManifest.model_validate(
+        _handoff._strict_json_object(payload, description="comparison manifest")
+    )
+    if payload != _handoff._canonical_json_bytes(manifest.model_dump(mode="json")):
+        raise ValueError("comparison manifest is not canonical JSON")
+    return manifest, payload
 
 
 def _load_frozen_upstream_authority(

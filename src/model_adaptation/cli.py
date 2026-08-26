@@ -39,6 +39,7 @@ from src.model_adaptation.phase40_handoff import (
 )
 from src.model_adaptation.phase40_review import (
     finalize_phase40_human_review,
+    load_canonical_phase40_comparison_manifest,
     load_phase40_review_authority,
     verify_phase40_final_review_comparison,
 )
@@ -952,8 +953,9 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
         repo_root=args.repo_root,
         materialize=False,
     )
-    comparison = Phase40ComparisonManifest.model_validate_json(
-        args.comparison_manifest_path.read_text(encoding="utf-8", errors="strict")
+    comparison, _ = load_canonical_phase40_comparison_manifest(
+        repo_root=args.repo_root,
+        comparison_manifest_path=args.comparison_manifest_path,
     )
     if comparison.schema_version == "phase40-comparison-v3":
         final, scope_amendment_bytes = load_phase40_review_authority(

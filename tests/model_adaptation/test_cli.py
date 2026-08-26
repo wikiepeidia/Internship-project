@@ -209,8 +209,8 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
     )
     monkeypatch.setattr(
         cli_module,
-        "Phase40ComparisonManifest",
-        SimpleNamespace(model_validate_json=lambda payload: comparison),
+        "load_canonical_phase40_comparison_manifest",
+        lambda **kwargs: (comparison, b"{}\n"),
     )
     monkeypatch.setattr(
         cli_module,
@@ -266,6 +266,63 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
 
     assert loaded == (request, contract, comparison, bundles, queue, queue_bytes)
     assert calls == ["final-authority", "comparison", "queue"]
+
+
+@pytest.mark.parametrize("malformation", ("duplicate", "noncanonical", "partial"))
+def test_phase40_verify_review_queue_rejects_ambiguous_comparison_bytes(
+    tmp_path, monkeypatch, malformation
+):
+    cli_module = _load_cli_module()
+    source_repo = Path(__file__).resolve().parents[2]
+    repo = tmp_path / "repo"
+    comparison_path = repo / "data/models/phase40/comparison-manifest.json"
+    comparison_path.parent.mkdir(parents=True)
+    original = (
+        source_repo / "data/models/phase40/comparison-manifest.json"
+    ).read_bytes()
+    if malformation == "duplicate":
+        payload = original.replace(
+            b"{",
+            b'{"schema_version":"phase40-comparison-v3",',
+            1,
+        )
+    elif malformation == "noncanonical":
+        payload = b" " + original
+    else:
+        payload = original[:-1]
+    comparison_path.write_bytes(payload)
+
+    request = SimpleNamespace(
+        input_bundle=SimpleNamespace(repository_relative_path="phase40-input.zip")
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "load_frozen_phase40_run_request",
+        lambda **kwargs: request,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_phase40_input_bundle",
+        lambda *args, **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "load_phase40_review_authority",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("ambiguous comparison reached authority verification")
+        ),
+    )
+    args = SimpleNamespace(
+        repo_root=repo,
+        request_path=repo / "request.json",
+        scope_amendment_path=repo / "scope.json",
+        comparison_manifest_path=comparison_path,
+        selected_predictions_path=repo / "predictions.json",
+        queue_path=repo / "queue.jsonl",
+    )
+
+    with pytest.raises(ValueError):
+        cli_module.handle_phase40_verify_review_queue(args)
 
 
 def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypatch):
