@@ -2,20 +2,20 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
-current_phase: 42
-current_phase_name: Report Overhaul
-status: ready
-stopped_at: Phase 41 complete and verified; Phase 42 ready for evidence intake, gated on a real passed-student reference report
-last_updated: "2026-08-26T15:41:01.294Z"
-last_activity: 2026-08-26
-last_activity_desc: Phase 41 verified 12/12 and transitioned to Phase 42
-state_head: 30cd057a09e5d33b9e6fd05f31a2cf7300f401d9
+current_phase: 41.1
+current_phase_name: Codebase Architecture Overhaul
+status: ready_to_execute
+stopped_at: Phase 41.1 planned and independently checked; 41.1-01 is ready to execute
+last_updated: "2026-08-27T00:47:32+07:00"
+last_activity: 2026-08-27
+last_activity_desc: Phase 41.1 planned in six verified waves with full requirement and decision coverage
+state_head: 6cf1e7a762336925ab6bcdc8da9493a579b954ae
 progress:
-  total_phases: 22
+  total_phases: 23
   completed_phases: 3
-  total_plans: 81
+  total_plans: 87
   completed_plans: 55
-  percent: 14
+  percent: 13
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -23,7 +23,7 @@ progress:
 ## Project Reference
 
 - Core value: Users can safely verify suspicious Vietnamese financial messages on-device with explainable, high-recall detection that minimizes dangerous misses.
-- Current milestone focus: v7.0 Retake Redemption — rebuild credibility with the repaired corpus, a genuine final-snapshot human check, bounded RTX 5050 LoRA/QLoRA feasibility evidence, and two fresh full local models: Qwen QLoRA plus PhoBERT. Ordinary LoRA remains a completed resource/ETA probe only, with no full-run accuracy claim. Colab is an optional, version-pinned contingency only if validation is unacceptable before the reserved test is opened. Reserve the current 220-row test split for one final two-model evaluation; poor held-out results are terminal evidence and cannot trigger tuning or dataset repair on that split. Then overhaul the report/slides around the real evidence and finish guided code-comment cleanup as defense-prep.
+- Current milestone focus: v7.0 Retake Redemption — the repaired corpus, genuine human checks, bounded RTX 5050 LoRA/QLoRA feasibility evidence, two fresh local models, and the terminal one-shot two-model evaluation are complete and frozen. Phase 41.1 now separates the active application from historical experiment machinery without changing those results; the report/slides then consume the verified evidence and architecture handoff, and the student-authored code walkthrough remains last.
 - Hard constraints:
   - Text-only input boundary for v1 (no OCR/image, no audio/voice)
   - Offline/local inference as default privacy posture
@@ -37,11 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 42 — Report Overhaul
-Plan: 42-01 ready
-Status: Ready for report-overhaul foundations; the real reference-report intake remains human-gated
-Last activity: 2026-08-26 — Phase 41 passed final verification 12/12 and its release review is clean
-Progress: [██████████████░░░░░░] 62/89 plans (70%)
+Phase: 41.1 — Codebase Architecture Overhaul
+Plan: 41.1-01 ready
+Status: Ready to execute six sequential, compatibility-first refactor waves
+Last activity: 2026-08-27 — Phase 41.1 plans passed the GSD plan checker after two targeted revision rounds; 6/6 requirements and 8/8 decisions are covered
+Progress: [█████████████░░░░░░░] 55/87 plans (63%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -229,12 +229,13 @@ Progress: [██████████████░░░░░░] 62/89 p
 - Phase 40 edited: edited fields: goal, success_criteria
 - Phase 41 edited: edited fields: goal, dependencies, success_criteria
 - Phase 43 edited: edited fields: success_criteria
+- Phase 41.1 inserted after Phase 41: Codebase Architecture Overhaul (URGENT)
 
 ## Session Continuity
 
-**Last session:** 2026-08-26T15:41:01.294Z
-**Stopped at:** Phase 41 complete and verified; Phase 42/43 must consume the verified export and provenance erratum together
-**Resume file:** `.planning/phases/42-evidence-bound-report-rewrite/42-01-PLAN.md`
+**Last session:** 2026-08-27T00:47:32+07:00
+**Stopped at:** Phase 41.1 planned and independently verified; implementation has not started
+**Resume file:** `.planning/phases/41.1-codebase-architecture-overhaul/41.1-01-PLAN.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.

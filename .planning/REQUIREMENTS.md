@@ -668,6 +668,15 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 **Downstream handoff:** Phase 42 and Phase 43 must use the committed Phase 41 verified export and `data/models/phase41/phase41-provenance-erratum.json` together. The erratum's corrected access limitation and terminal no-retry/no-tuning policy are required context, not optional commentary.
 
+### Codebase Architecture Overhaul
+
+- [ ] **REFACTOR-01**: Preserve a hash-bound immutable legacy boundary for the exact Phase 40/41 source closure, verified evidence export, provenance erratum, schema strings, artifact names, and four evaluated model roots; refactored code must never be described as the code that generated the frozen metrics.
+- [ ] **REFACTOR-02**: Decompose `src/model_adaptation/cli.py` into a thin lazy compatibility dispatcher and focused command modules while preserving the installed `vnphish` interface plus every supported legacy subcommand, flag, exit code, and machine-readable output contract.
+- [ ] **REFACTOR-03**: Establish phase-neutral active boundaries for shared integrity primitives, Qwen/PhoBERT training, inference, evaluation, and evidence reading; eliminate active import cycles without modifying or reserializing frozen historical artifacts.
+- [ ] **REFACTOR-04**: Separate reusable data-pipeline core logic from generation/review workflows and one-off corpus migrations; retain original module/command paths as tested shims or hash-recorded archive entries until all callers are proven migrated.
+- [ ] **REFACTOR-05**: Add synthetic-only characterization, CLI-contract, import-boundary, dependency-cycle, and artifact-byte tests that prove compatibility without accessing or rerunning the reserved held-out evaluation.
+- [ ] **REFACTOR-06**: Produce a report-ready architecture/provenance map plus an exact D-drive storage inventory identifying required models, optional deployment exports, historical evidence, and explicitly reviewed cleanup candidates; no automated deletion is authorized by this requirement.
+
 ### Report Overhaul
 
 - [ ] **REPORT-03**: `WRITING_GUARDRAILS_REPORT.md` derived from a real passed-student reference report once obtained.
@@ -711,6 +720,12 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | TRAIN-06 | Phase 40 | Complete (hash-linked local evidence and raw-log graphs; Colab closed unused) |
 | EVAL-08 | Phase 41 | Complete (single shared-cohort model evaluation; terminal no-retry evidence; mandatory provenance erratum) |
 | EVAL-09 | Phase 41 | Complete (both results frozen; PhoBERT advantage reported; deployment fit deferred) |
+| REFACTOR-01 | Phase 41.1 | Pending |
+| REFACTOR-02 | Phase 41.1 | Pending |
+| REFACTOR-03 | Phase 41.1 | Pending |
+| REFACTOR-04 | Phase 41.1 | Pending |
+| REFACTOR-05 | Phase 41.1 | Pending |
+| REFACTOR-06 | Phase 41.1 | Pending |
 | REPORT-03 | Phase 42 | Pending |
 | REPORT-04 | Phase 42 | Pending |
 | REPORT-05 | Phase 42 | Pending |
@@ -726,14 +741,14 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 **Coverage (v7.0):**
 
-- tracked requirements: 28
-- mapped to phases: 28
+- tracked requirements: 34
+- mapped to phases: 34
 - Unmapped: 0
 
 **Coverage (all milestones):**
 
-- tracked requirements: 154 total (126 prior milestones + 28 v7.0)
-- mapped to phases: 154
+- tracked requirements: 160 total (126 prior milestones + 34 v7.0)
+- mapped to phases: 160
 - Unmapped: 0
 
 ---

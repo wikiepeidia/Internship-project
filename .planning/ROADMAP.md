@@ -71,12 +71,13 @@
 
 ### v7.0 — Retake Redemption (target: retake defense ~2026-10-07, Wave 2)
 
-**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically voiced report, and defense-ready code). Real sequencing dependencies, not phase-number order alone, govern execution: data repair and re-judging precede training; the two fresh full models are local Qwen QLoRA followed by local PhoBERT; and the completed ordinary-LoRA probe supplies resource/ETA evidence only. Colab is a version-pinned validation-stage contingency, not the primary training route, and any decision to use it must close before the reserved test is opened. Phase 41 then evaluates the two frozen full models exactly once; its result cannot trigger tuning or dataset repair on the same holdout. The report and slide overhauls share that evidence and can proceed in parallel (the report is additionally gated on a pending reference-report artifact — see Phase 42); code cleanup remains last so it reflects the final data and training code.
+**Note:** After an F grade, this milestone rebuilds credibility through genuine, hard-to-fake evidence (real training curves, a disclosed-and-repaired corpus, a restored real failure-and-recovery story, an authentically voiced report, and defense-ready code). Real sequencing dependencies, not phase-number order alone, govern execution: data repair and re-judging precede training; the two fresh full models are local Qwen QLoRA followed by local PhoBERT; and the completed ordinary-LoRA probe supplies resource/ETA evidence only. Colab is a version-pinned validation-stage contingency, not the primary training route, and any decision to use it must close before the reserved test is opened. Phase 41 then evaluates the two frozen full models exactly once; its result cannot trigger tuning or dataset repair on the same holdout. Phase 41.1 separates the active application from historical experiment machinery without rewriting the frozen evidence-producing source, so Phase 42 can explain a coherent current architecture. The report and slide overhauls share the Phase 41 evidence (the report is additionally gated on a pending reference-report artifact — see Phase 42). Phase 44 remains last and is the student's own file-by-file comment walkthrough and defense rehearsal, not another structural rewrite.
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
 - [x] **Phase 40: Multi-Model Training Evidence** - Preserve the bounded RTX 5050 LoRA/QLoRA resource probes, then finish fresh full local Qwen QLoRA and PhoBERT runs with auditable logs and genuine curves; make no full-LoRA accuracy claim. (completed 2026-08-26)
 - [x] **Phase 41: Held-Out Evaluation Discipline** - Evaluate the two finalized full models exactly once against the reserved test split and report the results plainly. (completed 2026-08-26)
+- [ ] **Phase 41.1: Codebase Architecture Overhaul** - Separate the stable application, reusable training/evaluation services, and immutable historical experiment tooling behind compatibility-preserving interfaces before the report rewrite.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
 - [ ] **Phase 44: Code Cleanup & Defense Prep** - Guided file-by-file walkthrough where the student writes their own replacement comments, covering SHA-256/manifest-integrity explicitly; sequenced last, right before the retake.
@@ -954,10 +955,51 @@ Plans:
 
 **Verification:** Passed 12/12 on 2026-08-26 after release-review remediation. The broad suite was intentionally not rerun after CR-01; bounded remediation checks passed 7/7 and independent re-review checks passed 6/6.
 
+### Phase 41.1: Codebase Architecture Overhaul (INSERTED)
+
+**Goal:** The active codebase has a coherent, phase-neutral architecture that is easy to operate and explain: thin stable CLIs, separated data/training/inference/evaluation responsibilities, archived one-off migrations, and an explicit immutable boundary around the exact source and model artifacts that produced Phase 40/41 evidence.
+**Requirements**: REFACTOR-01, REFACTOR-02, REFACTOR-03, REFACTOR-04, REFACTOR-05, REFACTOR-06
+**Depends on:** Phase 41 (the completed evaluation, verified export, provenance erratum, source closure, and exact four model roots are frozen inputs; this phase must not rerun evaluation or change any metric/model claim)
+**Success Criteria** (what must be TRUE):
+
+1. The installed `vnphish analyze|doctor|demo` interface and every currently supported `python -m src.model_adaptation.cli` command/flag remain behavior-compatible, while `src/model_adaptation/cli.py` becomes a thin lazy dispatcher rather than a 1,329-line import hub.
+2. Forward-facing code uses phase-neutral `integrity`, `training`, `inference`, and `evaluation` boundaries; reusable data logic is separated from judge/review workflows and one-off corpus migrations. Historical Phase 40/41 paths remain available through documented compatibility shims or a hash-bound legacy archive.
+3. The completed Phase 40/41 source tree, verified evidence export, provenance erratum, schema strings, serialized field names, artifact filenames, model identities, and exact D-drive model roots remain immutable and are never presented as having been produced by the refactored code.
+4. Characterization, import-boundary, CLI-contract, and dependency-cycle tests prove the migration with synthetic/temp fixtures only. No test, planner, or refactor command accesses or reruns the reserved held-out evaluation.
+5. Oversized active modules and dependency cycles are reduced through bounded extraction slices, with explicit size/import budgets and no private-symbol mass rewrite in one step.
+6. A report-ready architecture/provenance document and reviewed D-drive storage inventory explain what is active, what is historical, which files are safe cleanup candidates, and why the retained artifacts prove the actual training/evaluation story.
+
+**Plans:** 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 41.1-01-PLAN.md -- Archive the exact Phase 41 producer source and freeze synthetic compatibility/safety baselines
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 41.1-02-PLAN.md -- Replace the model-adaptation CLI hub with a thin static lazy compatibility router
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 41.1-03-PLAN.md -- Extract integrity, artifact, settings, runtime-import, and dependency-extra boundaries
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 41.1-04-PLAN.md -- Introduce phase-neutral modeling services, read-only evidence consumption, and one-way legacy adapters
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 41.1-05-PLAN.md -- Separate reusable data core, external workflows, and traceable one-off migrations
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 41.1-06-PLAN.md -- Enforce architecture policy and publish report-ready provenance/storage handoff
+
 ### Phase 42: Report Overhaul
 
 **Goal**: The thesis report is rewritten chapter by chapter in the student's own authentic voice, now grounded in the real training evidence, restored recovery story, and repair methodology produced above.
-**Depends on**: Phase 41
+**Depends on**: Phase 41.1 (must describe the coherent post-overhaul active architecture while treating Phase 41's verified export and provenance erratum as the immutable metric authority)
 
 **Gating note:** REPORT-03 requires a real passed-student reference report the user is sourcing externally, and `WRITING_GUARDRAILS_REPORT.md` must be derived from that real artifact. A human should confirm the reference report has actually arrived before this phase's chapter-rewrite work begins — do not start REPORT-03/04 against a placeholder or a guessed guardrails file.
 
@@ -1079,14 +1121,15 @@ Plans:
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
 | 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
 | 41. Held-Out Evaluation Discipline | 2/2 | Complete | 2026-08-26 |
+| 41.1 Codebase Architecture Overhaul | 0/6 | Ready to execute | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |
 
 ## Coverage Validation
 
-- tracked requirements total: 154 (126 prior milestones + 28 v7.0)
-- tracked requirements mapped: 154
+- tracked requirements total: 160 (126 prior milestones + 34 v7.0)
+- tracked requirements mapped: 160
 - orphaned tracked requirements: 0
 - duplicate mappings: 0
 
@@ -1241,6 +1284,12 @@ Coverage map:
 - TRAIN-06 -> Phase 40
 - EVAL-08 -> Phase 41
 - EVAL-09 -> Phase 41
+- REFACTOR-01 -> Phase 41.1
+- REFACTOR-02 -> Phase 41.1
+- REFACTOR-03 -> Phase 41.1
+- REFACTOR-04 -> Phase 41.1
+- REFACTOR-05 -> Phase 41.1
+- REFACTOR-06 -> Phase 41.1
 - REPORT-03 -> Phase 42
 - REPORT-04 -> Phase 42
 - REPORT-05 -> Phase 42
