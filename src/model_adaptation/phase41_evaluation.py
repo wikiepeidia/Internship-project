@@ -15,7 +15,6 @@ from datetime import datetime, timezone
 import ast
 import hashlib
 import json
-import marshal
 import math
 import ntpath
 import os
@@ -109,6 +108,7 @@ _PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS = (
     "staged_preclaim_failure_audit_sha256",
     "argument_preclaim_failure_audit_sha256",
     "autonomous_reseal_delegation_sha256",
+    "captured_helper_preclaim_failure_audit_sha256",
 )
 _PRIOR_HUMAN_EXPOSURE_DISCLOSURE = (
     "Held-out message content had prior human exposure during corpus-quality "
@@ -163,6 +163,15 @@ _ARGUMENT_FAILED_PREAUTH_MIRROR_RELATIVE = Path(
 )
 _AUTONOMOUS_RESEAL_DELEGATION_RELATIVE = Path(
     "data/models/phase41/autonomous-reseal-delegation.json"
+)
+_CAPTURED_HELPER_PRECLAIM_FAILURE_RELATIVE = Path(
+    "data/models/phase41/failed-invocation/"
+    "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+    "claim-capable-preclaim-failure.json"
+)
+_CAPTURED_HELPER_FAILED_PREAUTH_MIRROR_RELATIVE = Path(
+    "data/models/phase41/preauthorization-mirror/"
+    "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c"
 )
 _PHASE40_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-qlora",
@@ -3609,6 +3618,7 @@ def _production_preauthorization_record(
     staged_preclaim_failure_audit: Mapping[str, object],
     argument_preclaim_failure_audit: Mapping[str, object],
     autonomous_reseal_delegation: Mapping[str, object],
+    captured_helper_preclaim_failure_audit: Mapping[str, object],
 ) -> dict[str, object]:
     return {
         "schema_version": "phase41-preauthorization-receipt-v2",
@@ -3644,6 +3654,9 @@ def _production_preauthorization_record(
         "staged_preclaim_failure_audit": dict(staged_preclaim_failure_audit),
         "argument_preclaim_failure_audit": dict(argument_preclaim_failure_audit),
         "autonomous_reseal_delegation": dict(autonomous_reseal_delegation),
+        "captured_helper_preclaim_failure_audit": dict(
+            captured_helper_preclaim_failure_audit
+        ),
         "models_ready_before_claim_required": True,
         "validation_contingency_closed_required": True,
         "reserved_split_access_attempted": False,
@@ -3929,6 +3942,15 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             _canonical_json_bytes(autonomous_reseal_delegation)
         ):
             raise ContractError("production autonomous reseal delegation hash drifted")
+        captured_helper_preclaim_failure_audit = receipt.get(
+            "captured_helper_preclaim_failure_audit"
+        )
+        if not isinstance(captured_helper_preclaim_failure_audit, dict):
+            raise ContractError("production captured-helper failure audit is missing")
+        if authorities["captured_helper_preclaim_failure_audit_sha256"] != _sha256(
+            _canonical_json_bytes(captured_helper_preclaim_failure_audit)
+        ):
+            raise ContractError("production captured-helper failure audit hash drifted")
         if receipt.get("claim_registry") != registry:
             raise ContractError("production preauthorization registry snapshot drifted")
         if (
@@ -3959,6 +3981,9 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             staged_preclaim_failure_audit=staged_preclaim_failure_audit,
             argument_preclaim_failure_audit=argument_preclaim_failure_audit,
             autonomous_reseal_delegation=autonomous_reseal_delegation,
+            captured_helper_preclaim_failure_audit=(
+                captured_helper_preclaim_failure_audit
+            ),
         )
     else:
         expected_receipt = {
@@ -4389,6 +4414,45 @@ def _run_phase41_once_synthetic_for_test(
     return _run_phase41_synthetic_with_predictors(output_root, qwen, phobert)
 
 
+def _code_objects_match(left: CodeType, right: CodeType) -> bool:
+    """Compare executable structure without marshal reference-table artifacts."""
+
+    attributes = (
+        "co_argcount",
+        "co_posonlyargcount",
+        "co_kwonlyargcount",
+        "co_nlocals",
+        "co_stacksize",
+        "co_flags",
+        "co_code",
+        "co_names",
+        "co_varnames",
+        "co_filename",
+        "co_name",
+        "co_qualname",
+        "co_firstlineno",
+        "co_linetable",
+        "co_exceptiontable",
+        "co_freevars",
+        "co_cellvars",
+    )
+    if any(getattr(left, name) != getattr(right, name) for name in attributes):
+        return False
+    if len(left.co_consts) != len(right.co_consts):
+        return False
+    for left_value, right_value in zip(left.co_consts, right.co_consts, strict=True):
+        if isinstance(left_value, CodeType) or isinstance(right_value, CodeType):
+            if not (
+                isinstance(left_value, CodeType)
+                and isinstance(right_value, CodeType)
+                and _code_objects_match(left_value, right_value)
+            ):
+                return False
+        elif type(left_value) is not type(right_value) or left_value != right_value:
+            return False
+    return True
+
+
 def _code_is_compiled_from_source(loader: object, source: bytes) -> bool:
     code = getattr(loader, "__code__", None)
     if not isinstance(code, CodeType):
@@ -4404,10 +4468,9 @@ def _code_is_compiled_from_source(loader: object, source: bytes) -> bool:
     except (SyntaxError, ValueError):
         return False
     pending = [module_code]
-    expected = marshal.dumps(code)
     while pending:
         candidate = pending.pop()
-        if marshal.dumps(candidate) == expected:
+        if _code_objects_match(candidate, code):
             return True
         pending.extend(
             item for item in candidate.co_consts if isinstance(item, CodeType)
@@ -4419,7 +4482,10 @@ def _verify_captured_production_loader(
     output_root: Path,
     protocol_module: ModuleType,
     captured_loader: object,
-    reviewed_functions: tuple[tuple[str, object, CodeType], ...] = (),
+    reviewed_functions: tuple[
+        tuple[str, object, CodeType, tuple[object, ...] | None, dict[str, object] | None],
+        ...,
+    ] = (),
 ) -> None:
     """Bind reviewed protocol callables to exact materialized source bytes."""
 
@@ -4464,8 +4530,9 @@ def _verify_captured_production_loader(
         "sha256"
     ) != _sha256(source_bytes):
         raise ContractError("production loader source/function identity drifted")
-    callables = (("production predictor loader", captured_loader),) + tuple(
-        (name, function) for name, function, _code in reviewed_functions
+    callables = tuple(
+        (name, function)
+        for name, function, _code, _defaults, _kwdefaults in reviewed_functions
     )
     for name, function in callables:
         if (
@@ -4473,9 +4540,14 @@ def _verify_captured_production_loader(
             or not _code_is_compiled_from_source(function, source_bytes)
         ):
             raise ContractError(f"{name} source/function identity drifted")
-    for name, function, code in reviewed_functions:
-        if getattr(function, "__code__", None) is not code:
-            raise ContractError(f"{name} code identity drifted")
+    for name, function, code, defaults, kwdefaults in reviewed_functions:
+        if (
+            getattr(function, "__code__", None) is not code
+            or getattr(function, "__defaults__", None) != defaults
+            or getattr(function, "__kwdefaults__", None) != kwdefaults
+            or getattr(function, "__closure__", None) is not None
+        ):
+            raise ContractError(f"{name} callable state identity drifted")
 
 
 def _install_production_run_entry():  # noqa: ANN201
@@ -4534,29 +4606,51 @@ def _install_production_run_entry():  # noqa: ANN201
 
     qwen_contract = capture_predictor_contract(captured_qwen_type)
     phobert_contract = capture_predictor_contract(captured_phobert_type)
+    loader_code = getattr(captured_loader, "__code__", None)
     helper_code = getattr(captured_state_helper, "__code__", None)
     authority_loader_code = getattr(captured_authority_loader, "__code__", None)
-    if not isinstance(helper_code, CodeType) or not isinstance(
-        authority_loader_code, CodeType
+    if (
+        not isinstance(loader_code, CodeType)
+        or not isinstance(helper_code, CodeType)
+        or not isinstance(authority_loader_code, CodeType)
     ):
         raise RuntimeError("reviewed protocol helpers have no code authority")
 
+    def reviewed(function):  # noqa: ANN001, ANN202
+        if getattr(function, "__closure__", None) is not None:
+            raise RuntimeError("reviewed protocol callable unexpectedly closes state")
+        defaults = getattr(function, "__defaults__", None)
+        kwdefaults = getattr(function, "__kwdefaults__", None)
+        return (
+            defaults,
+            dict(kwdefaults) if isinstance(kwdefaults, dict) else None,
+        )
+
     reviewed_functions = (
+        (
+            "production predictor loader",
+            captured_loader,
+            loader_code,
+            *reviewed(captured_loader),
+        ),
         (
             "production predictor state helper",
             captured_state_helper,
             helper_code,
+            *reviewed(captured_state_helper),
         ),
         (
             "protocol authority loader",
             captured_authority_loader,
             authority_loader_code,
+            *reviewed(captured_authority_loader),
         ),
     ) + tuple(
         (
             f"{contract[0].__name__}.{name}",
             function,
             code,
+            *reviewed(function),
         )
         for contract in (qwen_contract, phobert_contract)
         for name, _descriptor, function, code in contract[2]
@@ -4565,6 +4659,7 @@ def _install_production_run_entry():  # noqa: ANN201
             f"{contract[0].__name__}.{name}",
             function,
             code,
+            *reviewed(function),
         )
         for contract in (qwen_contract, phobert_contract)
         for name, function, code in contract[3]
@@ -4606,9 +4701,14 @@ def _install_production_run_entry():  # noqa: ANN201
                     raise ContractError(
                         f"production predictor class descriptor drifted: {name}"
                     )
-        for name, function, code in reviewed_functions[:2]:
-            if function.__code__ is not code:
-                raise ContractError(f"{name} code identity drifted")
+        for name, function, code, defaults, kwdefaults in reviewed_functions:
+            if (
+                function.__code__ is not code
+                or function.__defaults__ != defaults
+                or function.__kwdefaults__ != kwdefaults
+                or function.__closure__ is not None
+            ):
+                raise ContractError(f"{name} callable state identity drifted")
 
     def contract_property(contract, name: str, predictor):  # noqa: ANN001, ANN202
         for candidate, _descriptor, function, _code in contract[2]:
@@ -5708,6 +5808,156 @@ def _autonomous_reseal_delegation_authority(
     return dict(raw), _sha256(payload)
 
 
+def _captured_helper_preclaim_failure_audit_authority(
+    path: Path, *, repo_root: Path
+) -> tuple[dict[str, object], str]:
+    audit_path = _code_fixed_authority_path(
+        repo_root,
+        path,
+        _CAPTURED_HELPER_PRECLAIM_FAILURE_RELATIVE,
+        "Phase 41 captured-helper pre-claim failure audit",
+    )
+    raw, payload = _load_canonical_json(
+        audit_path, "Phase 41 captured-helper pre-claim failure audit"
+    )
+    expected = {
+        "schema_version",
+        "recorded_at_utc",
+        "prepared_sha256",
+        "authorization_sha256",
+        "execution_materialization_receipt_sha256",
+        "launcher_sha256",
+        "reserved_split_sha256",
+        "invocation_class",
+        "invocation_host",
+        "invocation_arguments",
+        "launcher_invocations_under_authority",
+        "launcher_exit_code",
+        "failure_stage",
+        "safe_error",
+        "materialization_created",
+        "global_claim_created",
+        "global_completion_created",
+        "local_claim_created",
+        "access_receipt_created",
+        "evaluation_access_attempted",
+        "reserved_split_access_attempted",
+        "holdout_spent",
+        "retry_permitted_under_this_authority",
+    }
+    expected_arguments = [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        r"C:\ProgramData\VNPhish\phase41-evaluation-evidence\scripts\phase41_one_shot_launcher.ps1",
+        "-OutputRoot",
+        r"C:\ProgramData\VNPhish\phase41-evaluation-evidence",
+    ]
+    if (
+        set(raw) != expected
+        or raw.get("schema_version")
+        != "phase41-captured-helper-preclaim-failure-v1"
+    ):
+        raise ContractError("Phase 41 captured-helper failure audit drifted")
+    for name in (
+        "prepared_sha256",
+        "authorization_sha256",
+        "execution_materialization_receipt_sha256",
+        "launcher_sha256",
+        "reserved_split_sha256",
+    ):
+        _require_sha256(raw.get(name), name)
+    if (
+        raw.get("invocation_class") != "sole_claim_capable_staged_invocation"
+        or raw.get("invocation_host") != r"C:\Program Files\PowerShell\7\pwsh.exe"
+        or raw.get("invocation_arguments") != expected_arguments
+        or raw.get("launcher_invocations_under_authority") != 1
+        or raw.get("launcher_exit_code") != 1
+        or raw.get("failure_stage")
+        != "staged_production_captured_helper_identity"
+        or raw.get("safe_error")
+        != "production predictor state helper source/function identity drifted"
+        or raw.get("materialization_created") is not True
+        or any(
+            raw.get(name) is not False
+            for name in (
+                "global_claim_created",
+                "global_completion_created",
+                "local_claim_created",
+                "access_receipt_created",
+                "evaluation_access_attempted",
+                "reserved_split_access_attempted",
+                "holdout_spent",
+                "retry_permitted_under_this_authority",
+            )
+        )
+        or not isinstance(raw.get("recorded_at_utc"), str)
+        or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z",
+            str(raw.get("recorded_at_utc")),
+        )
+    ):
+        raise ContractError("Phase 41 captured-helper failure meaning drifted")
+    authorization_path = audit_path.with_name(AUTHORIZATION_NAME)
+    materialization_path = audit_path.with_name(MATERIALIZATION_RECEIPT_NAME)
+    if (
+        not authorization_path.is_file()
+        or authorization_path.is_symlink()
+        or _sha256(authorization_path.read_bytes()) != raw["authorization_sha256"]
+        or not materialization_path.is_file()
+        or materialization_path.is_symlink()
+        or _sha256(materialization_path.read_bytes())
+        != raw["execution_materialization_receipt_sha256"]
+    ):
+        raise ContractError("Phase 41 captured-helper failure evidence drifted")
+    authorization, _ = _load_canonical_json(
+        authorization_path, "captured-helper failure authorization"
+    )
+    materialization, _ = _load_canonical_json(
+        materialization_path, "captured-helper failure materialization"
+    )
+    old_root = _code_fixed_authority_path(
+        repo_root,
+        _CAPTURED_HELPER_FAILED_PREAUTH_MIRROR_RELATIVE,
+        _CAPTURED_HELPER_FAILED_PREAUTH_MIRROR_RELATIVE,
+        "Phase 41 captured-helper-failed preauthorization mirror",
+    )
+    old_request, old_request_bytes = _load_canonical_json(
+        old_root / PREPARED_NAME, "captured-helper-failed request"
+    )
+    old_source, old_source_bytes = _load_canonical_json(
+        old_root / SOURCE_MANIFEST_NAME, "captured-helper-failed source"
+    )
+    launcher = old_source.get("launcher")
+    held_out = old_request.get("held_out")
+    if (
+        authorization.get("prepared_sha256") != raw["prepared_sha256"]
+        or authorization.get("statement") != DEFERRED_AUTHORIZATION_SIGNAL
+        or _sha256(old_request_bytes) != raw["prepared_sha256"]
+        or not isinstance(held_out, dict)
+        or held_out.get("sha256") != raw["reserved_split_sha256"]
+        or not isinstance(launcher, dict)
+        or launcher.get("sha256") != raw["launcher_sha256"]
+        or materialization.get("launcher_sha256") != raw["launcher_sha256"]
+        or materialization.get("source_manifest_sha256")
+        != _sha256(old_source_bytes)
+        or materialization.get("source_tree_sha256")
+        != old_source.get("source_tree_sha256")
+        or materialization.get("mode") != "locked-clean-runtime"
+    ):
+        raise ContractError("Phase 41 captured-helper authority chain drifted")
+    registry = _claim_registry_root()
+    split_sha = str(raw["reserved_split_sha256"])
+    for suffix in ("claim", "completion"):
+        candidate = registry / f"{split_sha}.{suffix}.json"
+        if candidate.exists() or candidate.is_symlink():
+            raise ContractError("Phase 41 captured-helper machine claim exists")
+    return dict(raw), _sha256(payload)
+
+
 def _phase39_opaque_authority(
     path: Path, *, repo_root: Path | None = None
 ) -> tuple[OpaqueHeldOutAuthority, str]:
@@ -6292,6 +6542,7 @@ def prepare_phase41_from_canonical_authorities(
     staged_preclaim_failure_audit_path: Path | None = None,
     argument_preclaim_failure_audit_path: Path | None = None,
     autonomous_reseal_delegation_path: Path | None = None,
+    captured_helper_preclaim_failure_audit_path: Path | None = None,
 ) -> PreparedPhase41Evaluation:
     """Freeze the one canonical zero-access production preparation."""
 
@@ -6355,6 +6606,14 @@ def prepare_phase41_from_canonical_authorities(
             or _AUTONOMOUS_RESEAL_DELEGATION_RELATIVE,
             repo_root=repository,
         )
+    )
+    (
+        captured_helper_preclaim_failure_audit,
+        captured_helper_preclaim_failure_audit_sha,
+    ) = _captured_helper_preclaim_failure_audit_authority(
+        captured_helper_preclaim_failure_audit_path
+        or _CAPTURED_HELPER_PRECLAIM_FAILURE_RELATIVE,
+        repo_root=repository,
     )
     production_values = production.as_dict()
     if any(
@@ -6469,6 +6728,9 @@ def prepare_phase41_from_canonical_authorities(
             argument_preclaim_failure_audit_sha
         ),
         "autonomous_reseal_delegation_sha256": autonomous_reseal_delegation_sha,
+        "captured_helper_preclaim_failure_audit_sha256": (
+            captured_helper_preclaim_failure_audit_sha
+        ),
     }
     request_path = _freeze_evaluation_request(
         root,
@@ -6495,6 +6757,9 @@ def prepare_phase41_from_canonical_authorities(
         staged_preclaim_failure_audit=staged_preclaim_failure_audit,
         argument_preclaim_failure_audit=argument_preclaim_failure_audit,
         autonomous_reseal_delegation=autonomous_reseal_delegation,
+        captured_helper_preclaim_failure_audit=(
+            captured_helper_preclaim_failure_audit
+        ),
     )
     _exclusive_write(
         root / PREAUTHORIZATION_NAME, _canonical_json_bytes(receipt)

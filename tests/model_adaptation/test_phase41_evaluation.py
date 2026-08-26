@@ -961,6 +961,128 @@ def test_actual_launcher_bound_loader_sets_staged_source_path(tmp_path):
     assert observed["has_location"] is True
 
 
+def test_actual_staged_loader_binds_all_captured_production_callables(tmp_path):
+    """Exercise the launcher's exact importer against every frozen callable."""
+
+    launcher = Path("scripts/phase41_one_shot_launcher.ps1").read_text(
+        encoding="utf-8"
+    )
+    bootstrap_match = re.search(
+        r"\$Bootstrap = @'\n(?P<body>.*?)\n'@",
+        launcher.replace("\r\n", "\n"),
+        flags=re.DOTALL,
+    )
+    assert bootstrap_match is not None
+    loader_match = re.search(
+        r"class BoundSourceLoader.*?sys\.meta_path\.insert\(0, BoundSourceLoader\(\)\)",
+        bootstrap_match.group("body"),
+        flags=re.DOTALL,
+    )
+    assert loader_match is not None
+
+    staged = tmp_path / "clean-runtime"
+    sources = {
+        # Package initializers are deliberately inert so this focused importer
+        # probe cannot pull unrelated project modules into the closed source set.
+        "src/__init__.py": b"",
+        "src/model_adaptation/__init__.py": b"",
+        "src/model_adaptation/phase41_protocols.py": Path(
+            "src/model_adaptation/phase41_protocols.py"
+        ).read_bytes(),
+    }
+    for relative, payload in sources.items():
+        candidate = staged / relative
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_bytes(payload)
+
+    matcher_source = inspect.getsource(phase41_evaluation._code_objects_match)
+    source_check = inspect.getsource(
+        phase41_evaluation._code_is_compiled_from_source
+    )
+    script = "\n".join(
+        (
+            "import importlib, importlib.abc, importlib.util, json, os, sys",
+            "from pathlib import Path",
+            "from types import CodeType",
+            "root = Path(sys.argv[1]).absolute()",
+            "names = ('src/__init__.py','src/model_adaptation/__init__.py','src/model_adaptation/phase41_protocols.py')",
+            "bound_sources = {}",
+            "bound_packages = set()",
+            "for name in names:",
+            "    payload = (root / name).read_bytes()",
+            "    parts = name[:-3].split('/')",
+            "    is_package = parts[-1] == '__init__'",
+            "    if is_package: parts = parts[:-1]",
+            "    module_name = '.'.join(parts)",
+            "    bound_sources[module_name] = (payload, name)",
+            "    if is_package: bound_packages.add(module_name)",
+            loader_match.group(0),
+            "import src.model_adaptation.phase41_protocols as protocols",
+            matcher_source,
+            source_check,
+            "functions = [protocols.load_phase41_production_predictors, protocols.load_protocol_authority, protocols._assert_loaded_predictor_state]",
+            "for predictor_type in (protocols.FrozenQwenPredictor, protocols.FrozenPhoBertPredictor):",
+            "    functions.extend((predictor_type.production_verified.fget, predictor_type.launcher_capability_sha256.fget, predictor_type.synthetic_test_only.fget, predictor_type._has_launcher_binding, predictor_type.assert_lifetime_integrity, predictor_type.__call__))",
+            "assert len(functions) == 15 and all(function is not None for function in functions)",
+            "source = bound_sources['src.model_adaptation.phase41_protocols'][0]",
+            "assert all(_code_is_compiled_from_source(function, source) for function in functions)",
+            "print(json.dumps({'count': len(functions), 'file': protocols.__file__, 'origin': protocols.__spec__.origin, 'has_location': protocols.__spec__.has_location}, sort_keys=True))",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-I", "-S", "-s", "-B", "-c", script, os.fspath(staged)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    observed = json.loads(completed.stdout)
+    expected_path = staged / "src/model_adaptation/phase41_protocols.py"
+    assert observed == {
+        "count": 15,
+        "file": os.fspath(expected_path),
+        "origin": os.fspath(expected_path),
+        "has_location": True,
+    }
+
+
+def test_all_captured_production_helpers_match_reviewed_protocol_source():
+    import src.model_adaptation.phase41_protocols as protocols
+
+    source = Path(protocols.__file__).read_bytes()
+    functions = [
+        protocols.load_phase41_production_predictors,
+        protocols.load_protocol_authority,
+        protocols._assert_loaded_predictor_state,
+    ]
+    for predictor_type in (
+        protocols.FrozenQwenPredictor,
+        protocols.FrozenPhoBertPredictor,
+    ):
+        functions.extend(
+            [
+                predictor_type.production_verified.fget,
+                predictor_type.launcher_capability_sha256.fget,
+                predictor_type.synthetic_test_only.fget,
+                predictor_type._has_launcher_binding,
+                predictor_type.assert_lifetime_integrity,
+                predictor_type.__call__,
+            ]
+        )
+    assert all(function is not None for function in functions)
+    assert all(
+        phase41_evaluation._code_is_compiled_from_source(function, source)
+        for function in functions
+    )
+
+    def unrelated_helper():
+        return "not reviewed protocol source"
+
+    assert not phase41_evaluation._code_is_compiled_from_source(
+        unrelated_helper, source
+    )
+
+
 def test_staged_preclaim_failure_audit_is_canonical_and_unspent(
     tmp_path, monkeypatch
 ):
@@ -1011,6 +1133,29 @@ def test_argument_preclaim_failure_and_reseal_delegation_are_canonical(
     assert delegation["delegated_actions"]["authorize_fresh_resealed_authority"]
     assert delegation["forbidden_actions"]["retry_under_failed_authority"]
     assert delegation_sha == hashlib.sha256(_canonical_bytes(delegation)).hexdigest()
+
+
+def test_captured_helper_preclaim_failure_is_canonical_and_unspent(
+    tmp_path, monkeypatch
+):
+    repository = Path(__file__).resolve().parents[2]
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    monkeypatch.setattr(phase41_evaluation, "_claim_registry_root", lambda: registry)
+    raw, digest = (
+        phase41_evaluation._captured_helper_preclaim_failure_audit_authority(
+            Path(
+                "data/models/phase41/failed-invocation/"
+                "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+                "claim-capable-preclaim-failure.json"
+            ),
+            repo_root=repository,
+        )
+    )
+    assert raw["materialization_created"] is True
+    assert raw["global_claim_created"] is False
+    assert raw["reserved_split_access_attempted"] is False
+    assert digest == hashlib.sha256(_canonical_bytes(raw)).hexdigest()
 
 
 def test_preclaim_failure_audit_binds_old_bytes_and_claim_absence(

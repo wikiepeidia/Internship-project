@@ -635,6 +635,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/models/phase41/autonomous-reseal-delegation.json"),
     )
+    phase41_prepare_parser.add_argument(
+        "--captured-helper-preclaim-failure-audit-path",
+        type=Path,
+        default=Path(
+            "data/models/phase41/failed-invocation/"
+            "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+            "claim-capable-preclaim-failure.json"
+        ),
+    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -1200,6 +1209,15 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
             args,
             "autonomous_reseal_delegation_path",
             Path("data/models/phase41/autonomous-reseal-delegation.json"),
+        ),
+        captured_helper_preclaim_failure_audit_path=getattr(
+            args,
+            "captured_helper_preclaim_failure_audit_path",
+            Path(
+                "data/models/phase41/failed-invocation/"
+                "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+                "claim-capable-preclaim-failure.json"
+            ),
         ),
     )
     print(

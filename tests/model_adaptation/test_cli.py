@@ -800,6 +800,10 @@ def test_phase41_prepare_cli_defers_deployment_fit_choice_to_authorization():
     assert args.autonomous_reseal_delegation_path.name == (
         "autonomous-reseal-delegation.json"
     )
+    assert (
+        args.captured_helper_preclaim_failure_audit_path.name
+        == "claim-capable-preclaim-failure.json"
+    )
 
     with pytest.raises(SystemExit):
         parser.parse_args(
