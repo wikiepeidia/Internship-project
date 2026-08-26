@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import subprocess
 import sys
 import sysconfig
 from types import CodeType, ModuleType
@@ -86,6 +87,28 @@ _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS = (
     "runtime_dependency_authority_sha256",
     "runtime_materialization_receipt_sha256",
 )
+_PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS = (
+    "phase39_contract_file_sha256",
+    "phase39_data_contract_sha256",
+    "scope_amendment_sha256",
+    "superseded_scope_amendment_sha256",
+    "final_comparison_authority_sha256",
+    "comparison_finalizer_source_sha256",
+    "claim_registry_authority_sha256",
+    "model_smokes_sha256",
+)
+_PRIOR_HUMAN_EXPOSURE_DISCLOSURE = (
+    "Held-out message content had prior human exposure during corpus-quality "
+    "review and thesis drafting; Phase 41 remains a one-shot model evaluation, "
+    "not a claim of untouched human blinding."
+)
+_TERMINAL_PREAUTHORIZATION_POLICY = {
+    "model_selection_after_test": False,
+    "tuning_after_test": False,
+    "dataset_repair_after_test": False,
+    "retry_after_claim": False,
+    "post_test_contingency_activation": False,
+}
 _SYNTHETIC_REQUIRED_AUTHORITY_HASHES = {
     name: hashlib.sha256(f"phase41-synthetic:{name}".encode("ascii")).hexdigest()
     for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
@@ -1071,6 +1094,68 @@ def _deployment_fit_precommit(
     }
 
 
+def _freeze_evaluation_request(
+    output_root: Path,
+    *,
+    reserved_split_path: Path | str,
+    expected_records: int,
+    expected_bytes: int,
+    expected_sha256: str,
+    expected_label_counts: Mapping[str, int],
+    models: Sequence[ModelIdentity],
+    deployment_fit_choice: str,
+    preparation_scope: str,
+    authorities: Mapping[str, object],
+    prepared_at_utc: str | None = None,
+) -> Path:
+    """Internal byte freezer shared by the synthetic and canonical producers."""
+
+    ordered_models = tuple(models)
+    if len(ordered_models) != 2 or tuple(model.role for model in ordered_models) != (
+        "qwen",
+        "phobert",
+    ):
+        raise ContractError("PREPARED state requires exactly Qwen then PhoBERT")
+    if len({model.run_id for model in ordered_models}) != 2:
+        raise ContractError("PREPARED model run IDs must be unique")
+    if set(expected_label_counts) != set(LABEL_ORDER):
+        raise ContractError("expected label counts must contain exactly four labels")
+    split = SplitIdentity(
+        path=_normalize_reserved_path_without_io(reserved_split_path),
+        records=expected_records,
+        bytes=expected_bytes,
+        sha256=expected_sha256,
+        label_counts=tuple((label, expected_label_counts[label]) for label in LABEL_ORDER),
+    )
+    payload = {
+        "schema_version": "phase41-one-shot-request-v1",
+        "state": "prepared",
+        "preparation_scope": preparation_scope,
+        "prepared_at_utc": prepared_at_utc or _utc_now(),
+        "held_out": split.as_dict(),
+        "models": [model.as_dict() for model in ordered_models],
+        "deployment_fit_precommit": _deployment_fit_precommit(
+            deployment_fit_choice,
+            ordered_models,
+            allow_pending=preparation_scope == PRODUCTION_PREPARATION_SCOPE,
+        ),
+        "authorities": dict(authorities),
+        "prediction_policy": {
+            "qwen_retries": 0,
+            "qwen_repairs": False,
+            "phobert_decision": "fixed-four-logit-argmax",
+        },
+        "report_policy": {
+            "terminal_evidence_only": True,
+            "model_selection_after_test": False,
+            "training_action_after_test": False,
+        },
+    }
+    root = Path(output_root)
+    root.mkdir(parents=True, exist_ok=True)
+    return _exclusive_write(root / PREPARED_NAME, _canonical_json_bytes(payload))
+
+
 def prepare_evaluation(
     output_root: Path,
     *,
@@ -1098,50 +1183,21 @@ def prepare_evaluation(
         )
     else:
         raise ContractError("evaluation preparation scope is invalid")
-    ordered_models = tuple(models)
-    if len(ordered_models) != 2 or tuple(model.role for model in ordered_models) != (
-        "qwen",
-        "phobert",
-    ):
-        raise ContractError("PREPARED state requires exactly Qwen then PhoBERT")
-    if len({model.run_id for model in ordered_models}) != 2:
-        raise ContractError("PREPARED model run IDs must be unique")
-    if set(expected_label_counts) != set(LABEL_ORDER):
-        raise ContractError("expected label counts must contain exactly four labels")
     # Opaque by design: do not resolve, normalize, stat, hash, enumerate, or
     # open this declared path during preparation.
-    split = SplitIdentity(
-        path=_normalize_reserved_path_without_io(reserved_split_path),
-        records=expected_records,
-        bytes=expected_bytes,
-        sha256=expected_sha256,
-        label_counts=tuple((label, expected_label_counts[label]) for label in LABEL_ORDER),
+    return _freeze_evaluation_request(
+        output_root,
+        reserved_split_path=reserved_split_path,
+        expected_records=expected_records,
+        expected_bytes=expected_bytes,
+        expected_sha256=expected_sha256,
+        expected_label_counts=expected_label_counts,
+        models=models,
+        deployment_fit_choice=deployment_fit_choice,
+        preparation_scope=preparation_scope,
+        authorities=dict(authorities or {}),
+        prepared_at_utc=prepared_at_utc,
     )
-    payload = {
-        "schema_version": "phase41-one-shot-request-v1",
-        "state": "prepared",
-        "preparation_scope": preparation_scope,
-        "prepared_at_utc": prepared_at_utc or _utc_now(),
-        "held_out": split.as_dict(),
-        "models": [model.as_dict() for model in ordered_models],
-        "deployment_fit_precommit": _deployment_fit_precommit(
-            deployment_fit_choice, ordered_models
-        ),
-        "authorities": dict(authorities or {}),
-        "prediction_policy": {
-            "qwen_retries": 0,
-            "qwen_repairs": False,
-            "phobert_decision": "fixed-four-logit-argmax",
-        },
-        "report_policy": {
-            "terminal_evidence_only": True,
-            "model_selection_after_test": False,
-            "training_action_after_test": False,
-        },
-    }
-    root = Path(output_root)
-    root.mkdir(parents=True, exist_ok=True)
-    return _exclusive_write(root / PREPARED_NAME, _canonical_json_bytes(payload))
 
 
 def authorize_evaluation(
@@ -1261,6 +1317,8 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
             "prior_human_exposure_disclosed",
             *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
         }
+        if preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+            expected_authorities.update(_PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS)
         if set(authorities) != expected_authorities:
             raise ContractError("preauthorization authority fields drifted")
         for name in expected_authorities - {
@@ -1305,21 +1363,25 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
 def _require_canonical_production_authorities(
     prepared: Mapping[str, object],
 ) -> None:
-    """Reject production JSON until Phase 41 owns a fixed live bootstrap.
+    """Require the complete canonical production closure before authorization."""
 
-    Phase 40 now supplies a fixed portable receipt closure.  That closure does
-    not itself authorize Phase 41 to select a live interpreter/source tree or
-    to reuse the historical NF4-adapter protocol for the production Qwen GGUF.
-    Every production verb therefore remains closed before split or capability
-    access until the canonical producer installs and verifies that bootstrap.
-    """
-
-    if prepared.get("preparation_scope") == PRODUCTION_PREPARATION_SCOPE:
-        raise ContractError(
-            f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: caller-authored "
-            "production_canonical output-root JSON cannot substitute for the "
-            "fixed live runtime/source bootstrap and GGUF inference protocol"
-        )
+    if prepared.get("preparation_scope") != PRODUCTION_PREPARATION_SCOPE:
+        return
+    precommit = prepared.get("deployment_fit_precommit")
+    if not isinstance(precommit, dict) or precommit.get("choice") != (
+        PENDING_DEPLOYMENT_FIT_CHOICE
+    ):
+        raise ContractError("production preparation must await the human fit choice")
+    authorities = prepared.get("authorities")
+    if not isinstance(authorities, dict):
+        raise ContractError("production authorities are missing")
+    for name in _PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS:
+        _require_sha256(authorities.get(name), name)
+    registry = _claim_registry_authority(_claim_registry_root())
+    if authorities["claim_registry_authority_sha256"] != registry[
+        "authority_sha256"
+    ]:
+        raise ContractError("protected claim-registry authority drifted")
 
 
 def _required_phase40_authority_hashes(
@@ -1418,6 +1480,86 @@ def _validate_authorization(
     expected_identities = prepared_deployment_fit_precommit.get(
         "selected_checkpoint_identities"
     )
+
+
+def _provision_claim_registry_root() -> Path:
+    """Create the code-fixed protected registry without creating any claim."""
+
+    root = _claim_registry_root()
+    if _TEST_RUNTIME.get() is not None:
+        root.mkdir(parents=True, exist_ok=True)
+        _validate_claim_registry_root(root)
+        return root
+    try:
+        _validate_claim_registry_root(root)
+        return root
+    except ContractError:
+        pass
+    root.mkdir(parents=True, exist_ok=True)
+    for component in (_known_program_data_root() / "VNPhish", root):
+        attributes = _windows_file_attributes(component)
+        if not attributes & 0x10 or attributes & 0x400:
+            raise ContractError("claim-registry provisioning encountered a reparse path")
+    operator_sid = _current_operator_sid()
+    creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    commands = (
+        ("icacls", os.fspath(root), "/setowner", f"*{operator_sid}"),
+        (
+            "icacls",
+            os.fspath(root),
+            "/inheritance:r",
+            "/grant:r",
+            f"*{operator_sid}:(OI)(CI)F",
+            "*S-1-5-18:(OI)(CI)F",
+            "*S-1-5-32-544:(OI)(CI)F",
+        ),
+    )
+    for command in commands:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            creationflags=creation_flags,
+        )
+        if completed.returncode != 0:
+            raise ContractError("failed to provision the protected claim-registry ACL")
+    _validate_claim_registry_root(root)
+    return root
+
+
+def _claim_registry_authority(root: Path) -> dict[str, object]:
+    """Freeze the fixed path and exact protected ACL without listing claims."""
+
+    _validate_claim_registry_root(root)
+    owner_sid, protected, aces = _registry_acl_snapshot(root)
+    rows = sorted(
+        (
+            {
+                "sid": ace.sid,
+                "mask": ace.mask,
+                "allowed": ace.allowed,
+                "inherited": ace.inherited,
+            }
+            for ace in aces
+        ),
+        key=lambda item: (
+            str(item["sid"]),
+            int(item["mask"]),
+            bool(item["allowed"]),
+            bool(item["inherited"]),
+        ),
+    )
+    rendered = ntpath.normpath(os.fspath(root))
+    core: dict[str, object] = {
+        "path": rendered,
+        "path_sha256": _sha256(ntpath.normcase(rendered).encode("utf-8")),
+        "owner_sid": owner_sid,
+        "dacl_protected": protected,
+        "aces": rows,
+    }
+    core["authority_sha256"] = _sha256(_canonical_json_bytes(core))
+    return core
     if (
         list(parsed.selected_checkpoint_identities) != expected_identities
         or authorization["deployment_fit_precommit_sha256"]
@@ -2414,22 +2556,33 @@ def _write_source_manifest(
     declared_tree_sha256: str,
     *,
     preparation_scope: str,
+    repository_root: Path | None = None,
+    comparison_launch_receipt_sha256: str | None = None,
 ) -> tuple[Path, str]:
     _require_sha256(declared_tree_sha256, "execution source tree")
-    if (
-        preparation_scope != SYNTHETIC_PREPARATION_SCOPE
-        or _TEST_RUNTIME.get() is None
-    ):
-        raise ContractError(
-            f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: production source "
-            "materialization requires the explicitly authorized live PowerShell, "
-            "runtime, source, and GGUF protocol bootstrap"
+    if preparation_scope == SYNTHETIC_PREPARATION_SCOPE:
+        if _TEST_RUNTIME.get() is None:
+            raise ContractError("synthetic source materialization is unavailable")
+        repository = Path(__file__).resolve().parents[2]
+    elif preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+        if _TEST_RUNTIME.get() is not None or repository_root is None:
+            raise ContractError("production source materialization is unavailable")
+        repository = Path(
+            os.path.abspath(os.path.normpath(os.fspath(repository_root)))
         )
-    repository_root = Path(__file__).resolve().parents[2]
-    relative_files = _phase41_source_import_closure(repository_root)
+        code_root = Path(__file__).resolve().parents[2]
+        if os.path.normcase(os.fspath(repository)) != os.path.normcase(
+            os.fspath(code_root)
+        ):
+            raise ContractError("production source root differs from the running checkout")
+    else:
+        raise ContractError(
+            "execution source preparation scope is invalid"
+        )
+    relative_files = _phase41_source_import_closure(repository)
     inventory: list[dict[str, object]] = []
     for relative in relative_files:
-        candidate = repository_root / relative
+        candidate = repository / relative
         if not candidate.is_file() or candidate.is_symlink():
             raise ContractError(f"execution source is missing or unsafe: {relative}")
         content = candidate.read_bytes()
@@ -2437,11 +2590,35 @@ def _write_source_manifest(
             {"path": relative, "bytes": len(content), "sha256": _sha256(content)}
         )
     launcher_relative = "scripts/phase41_one_shot_launcher.ps1"
-    launcher_path = repository_root / launcher_relative
+    launcher_path = repository / launcher_relative
     if not launcher_path.is_file() or launcher_path.is_symlink():
         raise ContractError("Phase 41 launcher is missing or unsafe")
     launcher_bytes = launcher_path.read_bytes()
-    launcher_host_path = Path(sys.executable)
+    launcher_host_extra: dict[str, object] = {}
+    if preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+        from src.model_adaptation.phase40_comparison_launch import (
+            verify_phase40_comparison_launch_receipt,
+        )
+
+        external_receipt = verify_phase40_comparison_launch_receipt(
+            repo_root=repository
+        )
+        external_receipt_sha = _require_sha256(
+            external_receipt.get("receipt_sha256"),
+            "external comparison-launch receipt",
+        )
+        if external_receipt_sha != comparison_launch_receipt_sha256:
+            raise ContractError("external comparison-launch authority drifted")
+        external_host = external_receipt.get("launcher_host")
+        if not isinstance(external_host, Mapping):
+            raise ContractError("external comparison launcher host is malformed")
+        launcher_host_path = Path(r"C:\Program Files\PowerShell\7\pwsh.exe")
+        launcher_host_extra = {
+            "external_launch_receipt_sha256": external_receipt_sha
+        }
+    else:
+        external_host = None
+        launcher_host_path = Path(sys.executable)
     if (
         not launcher_host_path.is_absolute()
         or not launcher_host_path.is_file()
@@ -2449,6 +2626,11 @@ def _write_source_manifest(
     ):
         raise ContractError("synthetic launcher host is missing or unsafe")
     launcher_host_bytes = launcher_host_path.read_bytes()
+    if external_host is not None and (
+        external_host.get("bytes") != len(launcher_host_bytes)
+        or external_host.get("sha256") != _sha256(launcher_host_bytes)
+    ):
+        raise ContractError("external comparison launcher host bytes drifted")
     source_tree_sha256 = _sha256(
         b"phase41-execution-source-tree-v1\0" + _canonical_json_bytes(inventory)
     )
@@ -2465,10 +2647,15 @@ def _write_source_manifest(
                 "sha256": _sha256(launcher_bytes),
             },
             "launcher_host": {
-                "mode": SYNTHETIC_PREPARATION_SCOPE,
+                "mode": (
+                    SYNTHETIC_PREPARATION_SCOPE
+                    if preparation_scope == SYNTHETIC_PREPARATION_SCOPE
+                    else "phase40_external_launcher_authority"
+                ),
                 "path": os.fspath(launcher_host_path),
                 "bytes": len(launcher_host_bytes),
                 "sha256": _sha256(launcher_host_bytes),
+                **launcher_host_extra,
             },
             "python": _python_runtime_authority(),
             "closed_import_roots": [
@@ -3097,6 +3284,50 @@ def _prepare_phase41_synthetic_for_test(
     return PreparedPhase41Evaluation(request_path, prepared_sha)
 
 
+def _production_preauthorization_record(
+    *,
+    request: Mapping[str, object],
+    request_bytes: bytes,
+    authorities: Mapping[str, object],
+    model_smokes: Sequence[Mapping[str, object]],
+    claim_registry: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        "schema_version": "phase41-preauthorization-receipt-v2",
+        "state": "prepared",
+        "prepared_sha256": _sha256(request_bytes),
+        "protocols_sha256": authorities["protocols_sha256"],
+        "model_bundle_authorities_sha256": _sha256(
+            _canonical_json_bytes(authorities["model_bundle_authorities"])
+        ),
+        "execution_source_manifest_sha256": authorities[
+            "execution_source_manifest_sha256"
+        ],
+        "comparison_authority_sha256": authorities["comparison_authority_sha256"],
+        "review_closure_sha256": authorities["review_closure_sha256"],
+        "comparison_launch_receipt_sha256": authorities[
+            "comparison_launch_receipt_sha256"
+        ],
+        **{
+            name: authorities[name]
+            for name in (
+                *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
+                *_PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS,
+            )
+        },
+        "models": request["models"],
+        "opaque_held_out": request["held_out"],
+        "deployment_fit_choice": PENDING_DEPLOYMENT_FIT_CHOICE,
+        "model_smokes": [dict(item) for item in model_smokes],
+        "claim_registry": dict(claim_registry),
+        "models_ready_before_claim_required": True,
+        "validation_contingency_closed_required": True,
+        "reserved_split_access_attempted": False,
+        "prior_human_exposure_disclosure": _PRIOR_HUMAN_EXPOSURE_DISCLOSURE,
+        "terminal_policy": dict(_TERMINAL_PREAUTHORIZATION_POLICY),
+    }
+
+
 def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluation:
     """Verify preauthorization artifacts without accepting or touching a split path."""
 
@@ -3131,6 +3362,12 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
         raise ContractError("execution source manifest fields drifted")
     if source["preparation_scope"] != request["preparation_scope"]:
         raise ContractError("execution source/request preparation scope drifted")
+    if (
+        source["preparation_scope"] == PRODUCTION_PREPARATION_SCOPE
+        and source["upstream_declared_source_tree_sha256"]
+        != request["authorities"].get("comparison_finalizer_source_sha256")
+    ):
+        raise ContractError("execution source differs from the Phase 40 source authority")
     _require_sha256(
         source["upstream_declared_source_tree_sha256"], "upstream execution source tree"
     )
@@ -3299,29 +3536,75 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
     receipt, _ = _load_canonical_json(
         root / PREAUTHORIZATION_NAME, "Phase 41 preauthorization receipt"
     )
-    expected_receipt = {
-        "schema_version": "phase41-preauthorization-receipt-v1",
-        "state": "prepared",
-        "prepared_sha256": _sha256(request_bytes),
-        "protocols_sha256": authorities["protocols_sha256"],
-        "model_bundle_authorities_sha256": _sha256(
-            _canonical_json_bytes(authorities["model_bundle_authorities"])
-        ),
-        "execution_source_manifest_sha256": authorities[
-            "execution_source_manifest_sha256"
-        ],
-        "comparison_authority_sha256": authorities["comparison_authority_sha256"],
-        "review_closure_sha256": authorities["review_closure_sha256"],
-        "comparison_launch_receipt_sha256": authorities[
-            "comparison_launch_receipt_sha256"
-        ],
-        **{
-            name: authorities[name]
-            for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
-        },
-        "models_ready_before_claim_required": True,
-        "validation_contingency_closed_required": True,
-    }
+    if request["preparation_scope"] == PRODUCTION_PREPARATION_SCOPE:
+        raw_smokes = receipt.get("model_smokes")
+        if not isinstance(raw_smokes, list) or len(raw_smokes) != 2:
+            raise ContractError("production preauthorization model smokes are incomplete")
+        model_smokes: list[dict[str, object]] = []
+        for protocol, item in zip(
+            (protocols.qwen, protocols.phobert), raw_smokes, strict=True
+        ):
+            if (
+                not isinstance(item, dict)
+                or set(item)
+                != {
+                    "role",
+                    "input_sha256",
+                    "expected_state",
+                    "observed_state",
+                    "passed",
+                }
+                or item["role"] != protocol.role
+                or item["input_sha256"]
+                != protocol.body["synthetic_smoke"]["input_sha256"]
+                or item["expected_state"]
+                != protocol.body["synthetic_smoke"]["expected_state"]
+                or item["observed_state"] != item["expected_state"]
+                or item["passed"] is not True
+            ):
+                raise ContractError("production preauthorization model smoke drifted")
+            model_smokes.append(dict(item))
+        registry = _claim_registry_authority(_claim_registry_root())
+        if receipt.get("claim_registry") != registry:
+            raise ContractError("production preauthorization registry snapshot drifted")
+        if (
+            authorities["model_smokes_sha256"]
+            != _sha256(_canonical_json_bytes(model_smokes))
+            or authorities["claim_registry_authority_sha256"]
+            != registry["authority_sha256"]
+        ):
+            raise ContractError("production smoke/registry authority hash drifted")
+        expected_receipt = _production_preauthorization_record(
+            request=request,
+            request_bytes=request_bytes,
+            authorities=authorities,
+            model_smokes=model_smokes,
+            claim_registry=registry,
+        )
+    else:
+        expected_receipt = {
+            "schema_version": "phase41-preauthorization-receipt-v1",
+            "state": "prepared",
+            "prepared_sha256": _sha256(request_bytes),
+            "protocols_sha256": authorities["protocols_sha256"],
+            "model_bundle_authorities_sha256": _sha256(
+                _canonical_json_bytes(authorities["model_bundle_authorities"])
+            ),
+            "execution_source_manifest_sha256": authorities[
+                "execution_source_manifest_sha256"
+            ],
+            "comparison_authority_sha256": authorities["comparison_authority_sha256"],
+            "review_closure_sha256": authorities["review_closure_sha256"],
+            "comparison_launch_receipt_sha256": authorities[
+                "comparison_launch_receipt_sha256"
+            ],
+            **{
+                name: authorities[name]
+                for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+            },
+            "models_ready_before_claim_required": True,
+            "validation_contingency_closed_required": True,
+        }
     if receipt != expected_receipt:
         raise ContractError("preauthorization receipt drifted")
     expected_bundle_authorities = [
@@ -4926,6 +5209,139 @@ def _verify_phase40_closure(
     )
 
 
+def _discover_phase41_production_roots(
+    *,
+    repo_root: Path,
+    models: Sequence[FrozenModelIdentity],
+) -> tuple[Path, Path, Path, Path, object]:
+    """Locate external bytes by receipt hashes, then run the full Phase 40 closure."""
+
+    from src.model_adaptation.phase40_production_authorities import (
+        EXTERNAL_MODELS_PORTABLE_RUNTIME,
+        VerifiedPhase40ProductionAuthorities,
+        verify_phase40_production_authorities,
+    )
+
+    repository_qwen_bundle = (
+        Path(repo_root) / "data/models/phase40/full/qwen-qlora/adapter-or-model"
+    )
+    adapter_config_path = repository_qwen_bundle / "adapter_config.json"
+    if not adapter_config_path.is_file() or adapter_config_path.is_symlink():
+        raise ContractError("Phase 40 Qwen adapter configuration is missing or unsafe")
+    adapter_config = _parse_json_bytes(
+        adapter_config_path.read_bytes(), "Phase 40 Qwen adapter configuration"
+    )
+    qwen_base = Path(str(adapter_config.get("base_model_name_or_path", "")))
+    if not qwen_base.is_absolute() or qwen_base.parent == qwen_base:
+        raise ContractError("Phase 40 Qwen local base-model root is not absolute")
+    transfer_roots = tuple(
+        parent for parent in qwen_base.parents if parent.name.startswith("transfer-root-")
+    )
+    if len(transfer_roots) != 1:
+        raise ContractError("Phase 40 external transfer root is ambiguous")
+    transfer_root = transfer_roots[0]
+    package_root = transfer_root.parent
+    qwen_bundle = (
+        transfer_root / "data/models/phase40/full/qwen-qlora/adapter-or-model"
+    )
+
+    qwen_receipt, _ = _load_canonical_json(
+        Path(repo_root) / "data/models/phase40/qwen-gguf-verification-receipt.json",
+        "Phase 40 Qwen GGUF verification receipt",
+    )
+    phobert_receipt, _ = _load_canonical_json(
+        Path(repo_root) / "data/models/phase40/phobert-tokenizer-authority.json",
+        "Phase 40 PhoBERT release receipt",
+    )
+    qwen_export = qwen_receipt.get("export")
+    if not isinstance(qwen_export, dict):
+        raise ContractError("Phase 40 Qwen GGUF receipt export authority is missing")
+    qwen_manifest_sha = _require_sha256(
+        qwen_export.get("manifest_sha256"), "Phase 40 Qwen export manifest"
+    )
+    phobert_manifest_sha = _require_sha256(
+        phobert_receipt.get("bundle_manifest_sha256"),
+        "Phase 40 PhoBERT bundle manifest",
+    )
+    if not package_root.is_dir() or package_root.is_symlink():
+        raise ContractError("Phase 40 external package root is missing or unsafe")
+    qwen_candidates: list[Path] = []
+    phobert_candidates: list[Path] = []
+    for child in package_root.iterdir():
+        if not child.is_dir() or child.is_symlink():
+            continue
+        qwen_manifest = child / "qwen-qlora-q8_0.gguf.manifest.json"
+        if (
+            qwen_manifest.is_file()
+            and not qwen_manifest.is_symlink()
+            and _sha256(qwen_manifest.read_bytes()) == qwen_manifest_sha
+        ):
+            qwen_candidates.append(child)
+        phobert_manifest = (
+            child
+            / "data/models/phase40/inference/phobert/phobert-release-manifest.json"
+        )
+        if (
+            phobert_manifest.is_file()
+            and not phobert_manifest.is_symlink()
+            and _sha256(phobert_manifest.read_bytes()) == phobert_manifest_sha
+        ):
+            phobert_candidates.append(child)
+    if len(qwen_candidates) != 1 or len(phobert_candidates) != 1:
+        raise ContractError("Phase 40 external receipt-bound roots are missing or ambiguous")
+    phobert_provenance, _ = _load_canonical_json(
+        phobert_candidates[0]
+        / "data/models/phase40/inference/phobert/model-artifact/"
+        "phase40-base-model-provenance.json",
+        "Phase 40 PhoBERT base-model provenance",
+    )
+    expected_phobert_path_sha = _require_sha256(
+        phobert_provenance.get("local_path_sha256"),
+        "Phase 40 PhoBERT local base path",
+    )
+    phobert_base_candidates: list[Path] = []
+    for child in package_root.iterdir():
+        if not child.name.startswith("transfer-root"):
+            continue
+        candidate = child / "data/models/phase40/base/phobert-base-v2"
+        if not candidate.is_dir() or candidate.is_symlink():
+            continue
+        normalized = os.path.normcase(
+            os.fspath(Path(os.path.abspath(os.path.normpath(os.fspath(candidate)))))
+        ).replace("\\", "/")
+        path_sha = _sha256(
+            b"phase40-phobert-local-base-path-v1\0"
+            + normalized.encode("utf-8", errors="strict")
+        )
+        if path_sha == expected_phobert_path_sha:
+            phobert_base_candidates.append(candidate)
+    if len(phobert_base_candidates) != 1:
+        raise ContractError("Phase 40 PhoBERT base-model root is missing or ambiguous")
+    phobert_base = phobert_base_candidates[0]
+    try:
+        production = verify_phase40_production_authorities(
+            repo_root=Path(repo_root),
+            qwen_export_root=qwen_candidates[0],
+            phobert_transfer_root=phobert_candidates[0],
+        )
+    except Exception as exc:
+        raise ContractError("Phase 40 live production authority closure failed") from exc
+    if (
+        type(production) is not VerifiedPhase40ProductionAuthorities
+        or production.verification_mode != EXTERNAL_MODELS_PORTABLE_RUNTIME
+        or production.qwen_selected_checkpoint_identity
+        != models[0].selected_checkpoint_identity
+        or production.phobert_selected_checkpoint_identity
+        != models[1].selected_checkpoint_identity
+        or production.phobert_selected_artifact_sha256 != models[1].artifact_sha256
+    ):
+        raise ContractError("Phase 40 live production identities differ from comparison")
+    phobert_bundle = (
+        phobert_candidates[0] / "data/models/phase40/inference/phobert"
+    )
+    return qwen_bundle, qwen_base, phobert_bundle, phobert_base, production
+
+
 def prepare_phase41_from_canonical_authorities(
     output_root: Path,
     *,
@@ -4933,17 +5349,8 @@ def prepare_phase41_from_canonical_authorities(
     phase39_contract_path: Path,
     phase40_comparison_manifest_path: Path,
     phase40_review_manifest_path: Path,
-    deployment_fit_choice: str,
 ) -> PreparedPhase41Evaluation:
-    """Validate fixed upstream authorities, then stop before live bootstrap.
-
-    The portable Phase 40 v3 receipt closure is authenticated and cross-bound
-    here.  It is not a live runtime recapture and does not authorize Phase 41 to
-    choose executable/source bytes or reuse the old NF4-adapter protocol for
-    the production Qwen GGUF.  Until that bootstrap is separately fixed, this
-    function performs no filesystem operation on the opaque held-out path and
-    creates no production request.
-    """
+    """Freeze the one canonical zero-access production preparation."""
 
     repository = Path(os.path.abspath(os.path.normpath(os.fspath(repo_root))))
     phase39_path = _code_fixed_authority_path(
@@ -4964,24 +5371,134 @@ def prepare_phase41_from_canonical_authorities(
         _PHASE40_REVIEW_RELATIVE,
         "Phase 40 human-review manifest",
     )
-    if deployment_fit_choice not in {"deferred", "authorized_post_evaluation_fit"}:
-        raise ContractError("deployment-fit precommitment is outside the fixed enum")
-    _, phase39_identity = _phase39_opaque_authority(
+    held_out, phase39_identity = _phase39_opaque_authority(
         phase39_path, repo_root=repository
     )
-    _verify_phase40_closure(
+    models, comparison_sha, review_sha = _verify_phase40_closure(
         repo_root=repository,
         comparison_path=comparison_path,
         review_path=review_path,
         phase39_contract_identity=phase39_identity,
     )
-    del output_root
-    raise ContractError(
-        f"{PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED}: the fixed portable Phase 40 "
-        "closure is necessary but does not authorize a live Phase 41 runtime, "
-        "execution-source materialization, or production Qwen GGUF inference "
-        "protocol; the held-out split remains unopened"
+    comparison, _ = _load_canonical_json(
+        comparison_path, "Phase 40 comparison manifest"
     )
+    qwen_bundle, qwen_base, phobert_bundle, phobert_base, production = (
+        _discover_phase41_production_roots(repo_root=repository, models=models)
+    )
+    production_values = production.as_dict()
+    if any(
+        comparison.get(name) != production_values.get(name)
+        for name in (
+            "comparison_launch_receipt_sha256",
+            *_PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS,
+        )
+    ):
+        raise ContractError("Phase 40 live authorities differ from the final comparison")
+
+    from src.model_adaptation.phase41_protocols import (
+        build_production_protocol_authority,
+        run_phase41_preauthorization_smokes,
+        write_protocol_authority,
+    )
+
+    protocols = build_production_protocol_authority(
+        repo_root=repository,
+        qwen_bundle_root=qwen_bundle,
+        qwen_base_root=qwen_base,
+        phobert_bundle_root=phobert_bundle,
+        phobert_base_root=phobert_base,
+        models=models,
+    )
+    root = Path(output_root)
+    if root.exists():
+        if not root.is_dir() or root.is_symlink() or tuple(root.iterdir()):
+            raise ContractError("Phase 41 production output root must be an empty directory")
+    else:
+        root.mkdir(parents=True, exist_ok=False)
+    protocol_path = write_protocol_authority(root, protocols)
+    protocol_bytes = protocol_path.read_bytes()
+    _, source_sha = _write_source_manifest(
+        root,
+        _require_sha256(
+            comparison.get("comparison_finalizer_source_sha256"),
+            "Phase 40 comparison finalizer source",
+        ),
+        preparation_scope=PRODUCTION_PREPARATION_SCOPE,
+        repository_root=repository,
+        comparison_launch_receipt_sha256=str(
+            comparison["comparison_launch_receipt_sha256"]
+        ),
+    )
+    registry = _claim_registry_authority(_provision_claim_registry_root())
+    model_smokes = tuple(run_phase41_preauthorization_smokes(root))
+    model_smokes_sha = _sha256(_canonical_json_bytes(model_smokes))
+    bundle_authorities = [
+        {
+            "role": protocol.role,
+            "bundle_root": protocol.body["bundle_root"],
+            "bundle_root_sha256": protocol.body["bundle_root_sha256"],
+        }
+        for protocol in (protocols.qwen, protocols.phobert)
+    ]
+    authorities: dict[str, object] = {
+        "protocols_sha256": _sha256(protocol_bytes),
+        "model_bundle_authorities": bundle_authorities,
+        "execution_source_manifest_sha256": source_sha,
+        "comparison_authority_sha256": comparison_sha,
+        "review_closure_sha256": review_sha,
+        "comparison_launch_receipt_sha256": production_values[
+            "comparison_launch_receipt_sha256"
+        ],
+        **{
+            name: production_values[name]
+            for name in _PHASE40_REQUIRED_AUTHORITY_HASH_FIELDS
+        },
+        "prior_human_exposure_disclosed": True,
+        "phase39_contract_file_sha256": _sha256(phase39_path.read_bytes()),
+        "phase39_data_contract_sha256": phase39_identity,
+        "scope_amendment_sha256": _require_sha256(
+            comparison.get("scope_amendment_sha256"), "Phase 40 scope amendment"
+        ),
+        "superseded_scope_amendment_sha256": _require_sha256(
+            comparison.get("superseded_scope_amendment_sha256"),
+            "Phase 40 superseded scope amendment",
+        ),
+        "final_comparison_authority_sha256": _require_sha256(
+            comparison.get("final_comparison_authority_sha256"),
+            "Phase 40 final comparison authority",
+        ),
+        "comparison_finalizer_source_sha256": _require_sha256(
+            comparison.get("comparison_finalizer_source_sha256"),
+            "Phase 40 comparison finalizer source",
+        ),
+        "claim_registry_authority_sha256": registry["authority_sha256"],
+        "model_smokes_sha256": model_smokes_sha,
+    }
+    request_path = _freeze_evaluation_request(
+        root,
+        reserved_split_path=held_out.path,
+        expected_records=held_out.records,
+        expected_bytes=held_out.bytes,
+        expected_sha256=held_out.sha256,
+        expected_label_counts=dict(held_out.label_counts),
+        models=models,
+        deployment_fit_choice=PENDING_DEPLOYMENT_FIT_CHOICE,
+        preparation_scope=PRODUCTION_PREPARATION_SCOPE,
+        authorities=authorities,
+    )
+    request_bytes = request_path.read_bytes()
+    receipt = _production_preauthorization_record(
+        request=_parse_json_bytes(request_bytes, "Phase 41 evaluation request"),
+        request_bytes=request_bytes,
+        authorities=authorities,
+        model_smokes=model_smokes,
+        claim_registry=registry,
+    )
+    _exclusive_write(
+        root / PREAUTHORIZATION_NAME, _canonical_json_bytes(receipt)
+    )
+    return verify_phase41_preauthorization(root)
 
 
 __all__ = [

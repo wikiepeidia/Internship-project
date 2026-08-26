@@ -126,6 +126,8 @@ QWEN_FIELDS = {
     "base_model_id",
     "base_revision",
     "base_snapshot_sha256",
+    "base_model_root",
+    "base_model_root_sha256",
     "model_artifact_relative_path",
     "tokenizer_artifact_relative_path",
     "adapter_checkpoint_identity",
@@ -154,6 +156,8 @@ PHOBERT_FIELDS = {
     "base_model_id",
     "base_revision",
     "base_snapshot_sha256",
+    "base_model_root",
+    "base_model_root_sha256",
     "model_artifact_relative_path",
     "tokenizer_artifact_relative_path",
     "classifier_checkpoint_identity",
@@ -340,6 +344,27 @@ def _validate_protocol_body(role: str, body: Mapping[str, object]) -> None:
     ):
         raise ProtocolContractError(
             f"{role}.bundle_root must be an absolute non-root immutable bundle path"
+        )
+    base_root = Path(str(body["base_model_root"]))
+    if body["runtime"]["python"] == "synthetic":
+        if (
+            not isinstance(body["base_model_root"], str)
+            or not body["base_model_root"]
+            or base_root.is_absolute()
+            or ".." in base_root.parts
+        ):
+            raise ProtocolContractError(
+                f"{role}.base_model_root must be a safe synthetic relative path"
+            )
+    elif (
+        not isinstance(body["base_model_root"], str)
+        or not body["base_model_root"]
+        or not base_root.is_absolute()
+        or ".." in base_root.parts
+        or base_root.parent == base_root
+    ):
+        raise ProtocolContractError(
+            f"{role}.base_model_root must be an absolute non-root immutable path"
         )
     for key in ("model_artifact_relative_path", "tokenizer_artifact_relative_path"):
         value = body[key]
@@ -1117,6 +1142,8 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
         "base_model_id": "synthetic/qwen",
         "base_revision": "synthetic-qwen-revision",
         "base_snapshot_sha256": "a" * 64,
+        "base_model_root": "synthetic/qwen-base",
+        "base_model_root_sha256": "4" * 64,
         "model_artifact_relative_path": "model-artifact",
         "tokenizer_artifact_relative_path": "tokenizer",
         "adapter_checkpoint_identity": qwen_model.selected_checkpoint_identity,
@@ -1162,6 +1189,8 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
         "base_model_id": "synthetic/phobert",
         "base_revision": "synthetic-phobert-revision",
         "base_snapshot_sha256": "f" * 64,
+        "base_model_root": "synthetic/phobert-base",
+        "base_model_root_sha256": "3" * 64,
         "model_artifact_relative_path": "model-artifact",
         "tokenizer_artifact_relative_path": "tokenizer",
         "classifier_checkpoint_identity": phobert_model.selected_checkpoint_identity,
@@ -1187,6 +1216,242 @@ def build_synthetic_protocol_authority(models) -> Phase41ProtocolAuthority:  # n
     prompt_bytes = qwen_body["prompt_template"].encode("utf-8")  # type: ignore[union-attr]
     qwen_body["prompt_template_bytes"] = len(prompt_bytes)
     qwen_body["prompt_template_utf8_sha256"] = _sha256(prompt_bytes)
+    return build_protocol_authority(qwen_body, phobert_body)
+
+
+def _strict_json_file(path: Path, description: str) -> dict[str, object]:
+    candidate = Path(path)
+    if not candidate.is_file() or _path_is_redirecting(candidate):
+        raise ProtocolContractError(f"{description} is missing or redirecting")
+    try:
+        value = json.loads(
+            candidate.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicates,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                ProtocolContractError(
+                    f"{description} contains a non-finite constant: {item}"
+                )
+            ),
+        )
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ProtocolContractError(f"{description} is not strict UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise ProtocolContractError(f"{description} must be a JSON object")
+    return value
+
+
+def _runtime_packages(names: Sequence[str]) -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for name in names:
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise ProtocolContractError(
+                f"Phase 41 runtime package is unavailable: {name}"
+            ) from exc
+    return versions
+
+
+def build_production_protocol_authority(
+    *,
+    repo_root: Path,
+    qwen_bundle_root: Path,
+    qwen_base_root: Path,
+    phobert_bundle_root: Path,
+    phobert_base_root: Path,
+    models,
+) -> Phase41ProtocolAuthority:  # noqa: ANN001
+    """Derive the exact live QLoRA/PhoBERT protocols from frozen local bytes."""
+
+    from src.model_adaptation.phobert_training import (
+        PHOBERT_BASE_MODEL_MANIFEST_NAME,
+        PHOBERT_PREPROCESSOR_SHA256,
+        verify_phobert_base_model_provenance,
+    )
+    from src.model_adaptation.registry import build_model_checksum
+    from src.model_adaptation.training import (
+        PHASE40_BASE_MODEL_MANIFEST_NAME,
+        verify_qwen_base_model_provenance,
+    )
+
+    qwen_model, phobert_model = tuple(models)
+    if (qwen_model.role, phobert_model.role) != ("qwen", "phobert"):
+        raise ProtocolContractError("production models must be Qwen then PhoBERT")
+    roots = tuple(
+        Path(path)
+        for path in (
+            qwen_bundle_root,
+            qwen_base_root,
+            phobert_bundle_root,
+            phobert_base_root,
+        )
+    )
+    if any(
+        not root.is_absolute()
+        or not root.is_dir()
+        or root.parent == root
+        or any(_path_is_redirecting(part) for part in (root, *root.parents))
+        for root in roots
+    ):
+        raise ProtocolContractError("production protocol root is missing or redirecting")
+    qwen_bundle, qwen_base, phobert_bundle, phobert_base = roots
+    qwen_bundle_sha = build_model_checksum(qwen_bundle)
+    qwen_base_sha = build_model_checksum(qwen_base)
+    phobert_bundle_sha = build_model_checksum(phobert_bundle)
+    phobert_base_sha = build_model_checksum(phobert_base)
+    if qwen_bundle_sha != qwen_model.artifact_sha256:
+        raise ProtocolContractError("Qwen adapter bundle differs from the selected artifact")
+
+    qwen_config = _strict_json_file(
+        qwen_bundle.parent / "resolved-config.json", "Qwen resolved configuration"
+    )
+    qwen_provenance = verify_qwen_base_model_provenance(
+        qwen_base,
+        qwen_bundle / PHASE40_BASE_MODEL_MANIFEST_NAME,
+        model_id=str(qwen_config.get("model_id")),
+        model_revision=str(qwen_config.get("model_revision")),
+    )
+    qwen_tokenizer_config = qwen_bundle / "tokenizer_config.json"
+    if not qwen_tokenizer_config.is_file() or _path_is_redirecting(
+        qwen_tokenizer_config
+    ):
+        raise ProtocolContractError("Qwen tokenizer configuration is missing or unsafe")
+    parser_path = Path(repo_root) / "src/model_adaptation/phase40_metrics.py"
+    if not parser_path.is_file() or _path_is_redirecting(parser_path):
+        raise ProtocolContractError("Qwen parser source is missing or unsafe")
+    response_schema = {
+        "label": "bank_impersonation | zalo_social_engineering | task_scam | benign",
+        "risk_tier": "benign | suspicious | high-risk",
+        "suspicious_spans": ["exact suspicious substrings"],
+        "xai_explanation": "localized explanation for the end user",
+    }
+    system_instruction = "\n".join(
+        (
+            f"Candidate: {qwen_config['model_id']}",
+            "You are fine-tuning a local Vietnamese phishing detector.",
+            "Analyze the following raw message text and produce a structured response.",
+            f"Response schema: {json.dumps(response_schema, ensure_ascii=False)}",
+        )
+    )
+    prompt_template = json.dumps(
+        {
+            "system_instruction": system_instruction,
+            "user_template": (
+                "<UNTRUSTED_RAW_MESSAGE_JSON>\n{text}\n"
+                "</UNTRUSTED_RAW_MESSAGE_JSON>"
+            ),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    prompt_bytes = prompt_template.encode("utf-8")
+    qwen_precision = qwen_config.get("precision")
+    if not isinstance(qwen_precision, dict):
+        raise ProtocolContractError("Qwen precision authority is missing")
+    qwen_body: dict[str, object] = {
+        "role": "qwen",
+        "bundle_root": os.fspath(qwen_bundle),
+        "bundle_root_sha256": qwen_bundle_sha,
+        "base_model_id": qwen_provenance.model_id,
+        "base_revision": qwen_provenance.model_revision,
+        "base_snapshot_sha256": qwen_provenance.snapshot_content_sha256,
+        "base_model_root": os.fspath(qwen_base),
+        "base_model_root_sha256": qwen_base_sha,
+        "model_artifact_relative_path": ".",
+        "tokenizer_artifact_relative_path": ".",
+        "adapter_checkpoint_identity": qwen_model.selected_checkpoint_identity,
+        "adapter_sha256": qwen_model.artifact_sha256,
+        "tokenizer_sha256": qwen_bundle_sha,
+        "tokenizer_config_sha256": _sha256(qwen_tokenizer_config.read_bytes()),
+        "prompt_template_utf8_sha256": _sha256(prompt_bytes),
+        "prompt_template_bytes": len(prompt_bytes),
+        "prompt_template": prompt_template,
+        "formatter_sha256": str(qwen_config["formatter_or_preprocessor_sha256"]),
+        "max_sequence_length": int(qwen_config["max_sequence_length"]),
+        "quantization": {
+            "load_in_4bit": True,
+            "bnb_4bit_compute_dtype": str(qwen_precision["compute_dtype"]),
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_use_double_quant": True,
+            "device_map": {"": 0},
+            "low_cpu_mem_usage": True,
+        },
+        "decoder": dict(_QWEN_DECODER),
+        "label_verbalizer": list(_LABELS),
+        "parser_source_sha256": _sha256(parser_path.read_bytes()),
+        "invalid_output_mapping": "invalid_output",
+        "retry_policy": {"retries": 0, "repairs": False},
+        "runtime": {
+            "python": platform.python_version(),
+            "packages": _runtime_packages(sorted(_QWEN_RUNTIME_PACKAGES)),
+            "device": "cuda:0",
+        },
+        "synthetic_smoke": {
+            "input_sha256": _sha256("tin nhắn tổng hợp".encode("utf-8")),
+            "expected_state": "benign",
+        },
+    }
+
+    phobert_manifest = _strict_json_file(
+        phobert_bundle / "phobert-release-manifest.json",
+        "PhoBERT release manifest",
+    )
+    selected_model = phobert_manifest.get("selected_model")
+    tokenizer_tree = phobert_manifest.get("tokenizer_tree")
+    if not isinstance(selected_model, dict) or not isinstance(tokenizer_tree, dict):
+        raise ProtocolContractError("PhoBERT release identities are incomplete")
+    if (
+        selected_model.get("artifact_sha256") != phobert_model.artifact_sha256
+        or selected_model.get("checkpoint_identity")
+        != phobert_model.selected_checkpoint_identity
+    ):
+        raise ProtocolContractError("PhoBERT release differs from the selected artifact")
+    phobert_model_root = phobert_bundle / "model-artifact"
+    phobert_provenance = verify_phobert_base_model_provenance(
+        phobert_base,
+        phobert_model_root / PHOBERT_BASE_MODEL_MANIFEST_NAME,
+    )
+    phobert_body: dict[str, object] = {
+        "role": "phobert",
+        "bundle_root": os.fspath(phobert_bundle),
+        "bundle_root_sha256": phobert_bundle_sha,
+        "base_model_id": phobert_provenance.model_id,
+        "base_revision": phobert_provenance.model_revision,
+        "base_snapshot_sha256": phobert_provenance.snapshot_content_sha256,
+        "base_model_root": os.fspath(phobert_base),
+        "base_model_root_sha256": phobert_base_sha,
+        "model_artifact_relative_path": "model-artifact",
+        "tokenizer_artifact_relative_path": "tokenizer",
+        "classifier_checkpoint_identity": phobert_model.selected_checkpoint_identity,
+        "classifier_state_sha256": phobert_model.artifact_sha256,
+        "tokenizer_sha256": str(tokenizer_tree["content_sha256"]),
+        "preprocessor_sha256": PHOBERT_PREPROCESSOR_SHA256,
+        "segmenter_package": "underthesea",
+        "segmenter_version": "9.5.0",
+        "preprocessing": [
+            "raw_text_utf8_strict_no_normalization",
+            "underthesea.word_tokenize(format=text)",
+            "tokenizer(add_special_tokens=true)",
+        ],
+        "max_length": 256,
+        "truncation": "right",
+        "padding": "dynamic-longest",
+        "label_index_map": {
+            str(index): label for index, label in enumerate(_LABELS)
+        },
+        "logit_shape": [4],
+        "decision_rule": "argmax",
+        "runtime": {
+            "python": platform.python_version(),
+            "packages": _runtime_packages(sorted(_PHOBERT_RUNTIME_PACKAGES)),
+            "device": "cuda:0",
+        },
+        "synthetic_smoke": {
+            "input_sha256": _sha256("tin nhắn tổng hợp".encode("utf-8")),
+            "expected_state": "benign",
+        },
+    }
     return build_protocol_authority(qwen_body, phobert_body)
 
 
@@ -1335,13 +1600,17 @@ def _qwen_generation_controls(protocol: FrozenInferenceProtocol) -> dict[str, ob
     return controls
 
 
-def _load_phase41_production_predictors_impl(
+def _load_phase41_models_impl(
     output_root: Path,
-) -> tuple[FrozenQwenPredictor, FrozenPhoBertPredictor]:
+    *,
+    preauthorization_smoke: bool,
+) -> tuple[object, object]:
     """Load and smoke the two code-fixed local artifacts without a data opener.
 
     Heavy libraries are imported only inside this run-only function, so prepare
-    and verify-only commands cannot allocate GPU memory or load a model.
+    and run commands can share one exact loader while verify-only remains free of
+    GPU allocation.  The preauthorization branch deliberately has no launcher
+    capability and returns only fixed-input smoke observations.
     """
 
     from src.model_adaptation.phase41_evaluation import (
@@ -1352,16 +1621,17 @@ def _load_phase41_production_predictors_impl(
 
     root = Path(output_root)
     authority = load_protocol_authority(root)
-    launcher_binding = _require_live_launcher_capability(root, consume=False)
-    materialization = _load_materialization_receipt(root)
-    if launcher_binding is None or materialization is None:
-        raise ProtocolContractError("production loader lacks a live launcher capability")
-    launcher_capability_sha256 = materialization[0].get(
-        "launcher_capability_sha256"
-    )
-    launcher_capability_sha256 = _require_sha(
-        launcher_capability_sha256, "live launcher capability"
-    )
+    launcher_binding = None
+    launcher_capability_sha256 = None
+    if not preauthorization_smoke:
+        launcher_binding = _require_live_launcher_capability(root, consume=False)
+        materialization = _load_materialization_receipt(root)
+        if launcher_binding is None or materialization is None:
+            raise ProtocolContractError("production loader lacks a live launcher capability")
+        launcher_capability_sha256 = _require_sha(
+            materialization[0].get("launcher_capability_sha256"),
+            "live launcher capability",
+        )
     bundle_leases = {
         protocol.role: _bound_bundle_root(
             protocol,
@@ -1432,7 +1702,6 @@ def _load_phase41_production_predictors_impl(
     try:
         import bitsandbytes
         import torch
-        from huggingface_hub import snapshot_download
         import src.model_adaptation.phase40_metrics as phase40_metrics
         from src.model_adaptation.phase40_metrics import parse_qwen_prediction
         from src.model_adaptation.phobert_training import (
@@ -1472,19 +1741,12 @@ def _load_phase41_production_predictors_impl(
     qwen_device, qwen_device_index = frozen_cuda_device(authority.qwen)
     phobert_device, _ = frozen_cuda_device(authority.phobert)
 
-    qwen_base_root = Path(
-        _run_with_immutable_leases(
-            (bundle_leases["qwen"],),
-            lambda: snapshot_download(
-                repo_id=str(authority.qwen.body["base_model_id"]),
-                revision=str(authority.qwen.body["base_revision"]),
-                local_files_only=True,
-            ),
-        )
-    )
+    qwen_base_root = Path(str(authority.qwen.body["base_model_root"]))
     qwen_base_lease = _ImmutableTreeLease(
         qwen_base_root,
         description="Qwen base snapshot",
+        checksum_builder=build_model_checksum,
+        expected_sha256=str(authority.qwen.body["base_model_root_sha256"]),
     )
     qwen_base = _run_with_immutable_leases(
         (bundle_leases["qwen"], qwen_base_lease),
@@ -1497,22 +1759,12 @@ def _load_phase41_production_predictors_impl(
     )
     if qwen_base.snapshot_content_sha256 != authority.qwen.body["base_snapshot_sha256"]:
         raise ProtocolContractError("Qwen base snapshot identity drifted")
-    qwen_base_lease.bind_semantic_identity(
-        str(authority.qwen.body["base_snapshot_sha256"])
-    )
-    phobert_base_root = Path(
-        _run_with_immutable_leases(
-            (bundle_leases["phobert"],),
-            lambda: snapshot_download(
-                repo_id=str(authority.phobert.body["base_model_id"]),
-                revision=str(authority.phobert.body["base_revision"]),
-                local_files_only=True,
-            ),
-        )
-    )
+    phobert_base_root = Path(str(authority.phobert.body["base_model_root"]))
     phobert_base_lease = _ImmutableTreeLease(
         phobert_base_root,
         description="PhoBERT base snapshot",
+        checksum_builder=build_model_checksum,
+        expected_sha256=str(authority.phobert.body["base_model_root_sha256"]),
     )
     phobert_base = _run_with_immutable_leases(
         (bundle_leases["phobert"], phobert_base_lease),
@@ -1528,9 +1780,6 @@ def _load_phase41_production_predictors_impl(
         != PHOBERT_PREPROCESSOR_SHA256
     ):
         raise ProtocolContractError("PhoBERT base/preprocessor identity drifted")
-    phobert_base_lease.bind_semantic_identity(
-        str(authority.phobert.body["base_snapshot_sha256"])
-    )
 
     qwen_leases = (bundle_leases["qwen"], qwen_base_lease)
     phobert_leases = (bundle_leases["phobert"], phobert_base_lease)
@@ -1585,15 +1834,23 @@ def _load_phase41_production_predictors_impl(
         else 0
     )
     device_map = getattr(qwen_base, "hf_device_map", None)
+    parameter_devices = {str(parameter.device) for parameter in qwen_base.parameters()}
+    device_map_valid = device_map is None or (
+        isinstance(device_map, Mapping)
+        and set(device_map) == {""}
+        and str(device_map[""]) in {str(qwen_device_index), str(qwen_device)}
+    )
     if (
         getattr(qwen_base, "is_loaded_in_4bit", False) is not True
         or quantized_layers <= 0
-        or not isinstance(device_map, Mapping)
-        or set(device_map) != {""}
-        or str(device_map[""]) not in {str(qwen_device_index), str(qwen_device)}
+        or parameter_devices != {str(qwen_device)}
+        or not device_map_valid
     ):
         raise ProtocolContractError(
-            "Qwen runtime did not reproduce genuine single-device NF4 loading"
+            "Qwen runtime did not reproduce genuine single-device NF4 loading: "
+            f"is_loaded_in_4bit={getattr(qwen_base, 'is_loaded_in_4bit', None)!r}, "
+            f"linear4bit_layers={quantized_layers}, parameter_devices={parameter_devices!r}, "
+            f"hf_device_map={device_map!r}"
         )
     qwen_model = _run_with_immutable_leases(
         qwen_leases,
@@ -1724,6 +1981,7 @@ def _load_phase41_production_predictors_impl(
 
     smoke_text = "tin nhắn tổng hợp"
     smoke = InMemorySnapshot((InferenceRow("phase41-smoke", 0, smoke_text),))
+    smoke_results: list[dict[str, object]] = []
     for protocol, predictor in (
         (authority.qwen, qwen_predict),
         (authority.phobert, phobert_predict),
@@ -1735,6 +1993,21 @@ def _load_phase41_production_predictors_impl(
         expected_state = protocol.body["synthetic_smoke"]["expected_state"]
         if len(predictions) != 1 or predictions[0].predicted_state != expected_state:
             raise ProtocolContractError(f"{protocol.role} synthetic smoke output drifted")
+        smoke_results.append(
+            {
+                "role": protocol.role,
+                "input_sha256": expected_hash,
+                "expected_state": expected_state,
+                "observed_state": predictions[0].predicted_state,
+                "passed": True,
+            }
+        )
+    if preauthorization_smoke:
+        for lease in (*qwen_leases, *phobert_leases):
+            lease.assert_intact()
+        for lease in reversed((*qwen_leases, *phobert_leases)):
+            lease.close()
+        return tuple(smoke_results)  # type: ignore[return-value]
     live_binding_after_smoke = _require_live_launcher_capability(root, consume=False)
     if live_binding_after_smoke is not launcher_binding:
         raise ProtocolContractError("launcher capability changed during model load/smoke")
@@ -1774,6 +2047,20 @@ def _load_phase41_production_predictors_impl(
     return qwen, phobert
 
 
+def _load_phase41_production_predictors_impl(
+    output_root: Path,
+) -> tuple[FrozenQwenPredictor, FrozenPhoBertPredictor]:
+    return _load_phase41_models_impl(output_root, preauthorization_smoke=False)  # type: ignore[return-value]
+
+
+def run_phase41_preauthorization_smokes(
+    output_root: Path,
+) -> tuple[Mapping[str, object], Mapping[str, object]]:
+    """Run only the two fixed synthetic inputs before authorization."""
+
+    return _load_phase41_models_impl(output_root, preauthorization_smoke=True)  # type: ignore[return-value]
+
+
 load_phase41_production_predictors = _load_phase41_production_predictors_impl
 
 
@@ -1784,10 +2071,12 @@ __all__ = [
     "PROTOCOL_NAME",
     "Phase41ProtocolAuthority",
     "ProtocolContractError",
+    "build_production_protocol_authority",
     "build_synthetic_protocol_authority",
     "build_protocol_authority",
     "canonical_json_bytes",
     "load_protocol_authority",
     "load_phase41_production_predictors",
+    "run_phase41_preauthorization_smokes",
     "write_protocol_authority",
 ]

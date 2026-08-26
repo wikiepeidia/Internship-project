@@ -559,7 +559,7 @@ def test_self_declared_production_files_fail_before_authority_or_payload_access(
     for verb in verbs:
         with pytest.raises(
             ContractError,
-            match=phase41_evaluation.PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED,
+            match="authority fields drifted|precommitment drifted",
         ):
             verb()
     assert capability_attempted is False
@@ -633,36 +633,15 @@ def test_public_run_rejects_caller_predictors_and_private_core_requires_runtime(
     assert not (tmp_path / "one-shot-claim.json").exists()
 
 
-def test_canonical_preparation_names_live_phase41_bootstrap_as_blocker(
-    tmp_path, monkeypatch
-):
-    monkeypatch.setattr(
-        phase41_evaluation,
-        "_code_fixed_authority_path",
-        lambda *_args, **_kwargs: tmp_path / "synthetic-authority.json",
-    )
-    monkeypatch.setattr(
-        phase41_evaluation,
-        "_phase39_opaque_authority",
-        lambda *_args, **_kwargs: (None, "a" * 64),
-    )
-    monkeypatch.setattr(
-        phase41_evaluation,
-        "_verify_phase40_closure",
-        lambda **_kwargs: None,
-    )
-    with pytest.raises(ContractError) as exc_info:
-        phase41_evaluation.prepare_phase41_from_canonical_authorities(
-            tmp_path / "output",
-            repo_root=tmp_path,
-            phase39_contract_path=tmp_path / "phase39.json",
-            phase40_comparison_manifest_path=tmp_path / "comparison.json",
-            phase40_review_manifest_path=tmp_path / "review.json",
-            deployment_fit_choice="deferred",
-        )
-    message = str(exc_info.value)
-    assert phase41_evaluation.PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED in message
-    assert "production Qwen GGUF inference protocol" in message
+def test_canonical_preparation_defers_fit_choice_to_authorization():
+    prepare_parameters = inspect.signature(
+        phase41_evaluation.prepare_phase41_from_canonical_authorities
+    ).parameters
+    authorization_parameters = inspect.signature(
+        phase41_evaluation.authorize_phase41_evaluation
+    ).parameters
+    assert "deployment_fit_choice" not in prepare_parameters
+    assert "deployment_fit_choice" in authorization_parameters
 
 
 def test_programdata_environment_cannot_redirect_machine_registry(tmp_path, monkeypatch):

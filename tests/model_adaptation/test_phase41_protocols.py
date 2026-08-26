@@ -19,7 +19,6 @@ from src.model_adaptation.phase41_evaluation import (
     ContractError,
     FrozenModelIdentity,
     OpaqueHeldOutAuthority,
-    PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED,
     _phase41_test_runtime,
     _prepare_phase41_synthetic_for_test,
     prepare_phase41_from_canonical_authorities,
@@ -84,6 +83,8 @@ def _production_protocol_bodies() -> tuple[dict[str, object], dict[str, object]]
     phobert_body = json.loads(canonical_json_bytes(authority.phobert.body))
     qwen_body["bundle_root"] = str((Path.cwd() / ".gsd/qwen-bundle").absolute())
     phobert_body["bundle_root"] = str((Path.cwd() / ".gsd/phobert-bundle").absolute())
+    qwen_body["base_model_root"] = str((Path.cwd() / ".gsd/qwen-base").absolute())
+    phobert_body["base_model_root"] = str((Path.cwd() / ".gsd/phobert-base").absolute())
     qwen_body["runtime"] = {
         "python": "3.12.4",
         "packages": {
@@ -990,26 +991,31 @@ def _write_phase40_closure_fixture(
     return repo, phase39_path, comparison_path, review_path
 
 
-def test_canonical_prepare_validates_existing_closure_then_requires_live_bootstrap(
+def test_canonical_prepare_validates_existing_closure_before_live_root_discovery(
     tmp_path, monkeypatch
 ):
     repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
         tmp_path, monkeypatch
     )
     output_root = repo / "data/models/phase41"
-    with pytest.raises(ContractError, match=PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED):
+    monkeypatch.setattr(
+        "src.model_adaptation.phase41_evaluation._discover_phase41_production_roots",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ContractError("external roots unavailable")
+        ),
+    )
+    with pytest.raises(ContractError, match="external roots unavailable"):
         prepare_phase41_from_canonical_authorities(
             output_root,
             repo_root=repo,
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
     assert not output_root.exists()
 
 
-def test_canonical_prepare_accepts_v3_review_lineage_then_requires_live_bootstrap(
+def test_canonical_prepare_accepts_v3_review_lineage_before_live_root_discovery(
     tmp_path, monkeypatch
 ):
     repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
@@ -1018,14 +1024,19 @@ def test_canonical_prepare_accepts_v3_review_lineage_then_requires_live_bootstra
         review_schema="phase40-human-review-v3",
     )
 
-    with pytest.raises(ContractError, match=PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED):
+    monkeypatch.setattr(
+        "src.model_adaptation.phase41_evaluation._discover_phase41_production_roots",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ContractError("external roots unavailable")
+        ),
+    )
+    with pytest.raises(ContractError, match="external roots unavailable"):
         prepare_phase41_from_canonical_authorities(
             repo / "data/models/phase41",
             repo_root=repo,
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1064,7 +1075,6 @@ def test_canonical_prepare_rejects_cross_schema_or_drifted_review_lineage(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1093,7 +1103,6 @@ def test_canonical_prepare_rehashes_every_human_review_side_artifact(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1114,7 +1123,6 @@ def test_canonical_prepare_rejects_missing_human_review_side_artifact(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1141,7 +1149,6 @@ def test_canonical_prepare_rejects_redirected_human_review_manifest(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1162,7 +1169,6 @@ def test_canonical_prepare_rejects_materialization_receipt_manifest_drift(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )
 
 
@@ -1182,5 +1188,4 @@ def test_canonical_prepare_rejects_ordinary_lora_before_bundle_access(
             phase39_contract_path=phase39_path,
             phase40_comparison_manifest_path=comparison_path,
             phase40_review_manifest_path=review_path,
-            deployment_fit_choice="deferred",
         )

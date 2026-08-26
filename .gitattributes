@@ -32,3 +32,5 @@ data/models/phase40/review/human-review-manifest.json -text
 data/models/phase40/review/human-review-report.md -text whitespace=-blank-at-eof
 .planning/phases/40-multi-model-training-evidence/40-VALIDATION-COMPARISON.md -text whitespace=-blank-at-eof
 .planning/phases/40-multi-model-training-evidence/40-VIETNAMESE-ERROR-REVIEW.md -text whitespace=-blank-at-eof
+# Phase 41 preauthorization artifacts must retain their canonical bytes.
+data/models/phase41/*.json -text
