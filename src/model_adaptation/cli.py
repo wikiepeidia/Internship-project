@@ -38,7 +38,9 @@ from src.model_adaptation.phase40_handoff import (
     verify_phase40_run_request,
 )
 from src.model_adaptation.phase40_review import (
+    FIXED_REVIEW_QUEUE_PATH,
     FIXED_REVIEWER_RETURN_PATH,
+    FIXED_SELECTED_PREDICTIONS_PATH,
     finalize_phase40_human_review,
     load_canonical_phase40_comparison_manifest,
     load_phase40_review_authority,
@@ -985,19 +987,33 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
             raise ValueError(
                 "comparison manifest differs from the frozen scope amendment"
             )
+    selected_path, selected_bytes = read_canonical_phase40_review_regular_bytes(
+        repo_root=args.repo_root,
+        supplied_path=args.selected_predictions_path,
+        expected_relative=FIXED_SELECTED_PREDICTIONS_PATH,
+        description="selected prediction bundles",
+    )
     bundles = load_phase40_selected_prediction_bundles(
-        args.selected_predictions_path,
+        selected_path,
         comparison_manifest=comparison,
     )
-    try:
-        queue_bytes = args.queue_path.read_bytes()
-    except OSError as exc:
-        raise ValueError(
-            f"required JSONL input is missing or unreadable: {args.queue_path}"
-        ) from exc
+    _, selected_bytes_after = read_canonical_phase40_review_regular_bytes(
+        repo_root=args.repo_root,
+        supplied_path=selected_path,
+        expected_relative=FIXED_SELECTED_PREDICTIONS_PATH,
+        description="selected prediction bundles",
+    )
+    if selected_bytes_after != selected_bytes:
+        raise ValueError("selected prediction bundles changed while loading")
+    queue_path, queue_bytes = read_canonical_phase40_review_regular_bytes(
+        repo_root=args.repo_root,
+        supplied_path=args.queue_path,
+        expected_relative=FIXED_REVIEW_QUEUE_PATH,
+        description="review queue",
+    )
     queue = _load_jsonl_models_from_bytes(
         queue_bytes,
-        args.queue_path,
+        queue_path,
         ReviewQueueRow,
     )
     verify_phase40_review_queue(

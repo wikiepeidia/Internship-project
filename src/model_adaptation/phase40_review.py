@@ -20,9 +20,22 @@ from src.model_adaptation import phase40_handoff as _handoff
 FIXED_COMPARISON_MANIFEST_PATH = PurePosixPath(
     "data/models/phase40/comparison-manifest.json"
 )
+FIXED_COMPARISON_REPORT_PATH = PurePosixPath(
+    "data/models/phase40/comparison-report.md"
+)
+FIXED_SELECTED_PREDICTIONS_PATH = PurePosixPath(
+    "data/models/phase40/selected-prediction-bundles.json"
+)
+FIXED_REVIEW_QUEUE_PATH = PurePosixPath(
+    "data/models/phase40/review/review-queue.jsonl"
+)
+FIXED_REVIEW_QUEUE_MANIFEST_PATH = PurePosixPath(
+    "data/models/phase40/review/review-queue-manifest.json"
+)
 FIXED_REVIEWER_RETURN_PATH = PurePosixPath(
     "data/models/phase40/review/reviewer-return.jsonl"
 )
+FIXED_REVIEW_OUTPUT_ROOT = PurePosixPath("data/models/phase40/review")
 
 
 def _canonical_review_path(
@@ -55,6 +68,7 @@ def _regular_file_identity(metadata: os.stat_result) -> tuple[object, ...]:
         metadata.st_nlink,
         metadata.st_size,
         metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
     )
 
 
@@ -116,6 +130,37 @@ def read_canonical_phase40_review_regular_bytes(
         description=description,
     )
     return path, read_phase40_review_regular_bytes(path, description=description)
+
+
+def canonical_phase40_review_output_root(
+    *, repo_root: Path, supplied_root: Path
+) -> Path:
+    """Authenticate the existing code-fixed directory used for review outputs."""
+
+    root = _canonical_review_path(
+        repo_root=repo_root,
+        supplied_path=supplied_root,
+        expected_relative=FIXED_REVIEW_OUTPUT_ROOT,
+        description="human-review output root",
+    )
+    try:
+        _handoff._reject_redirecting_path_components((root,))
+        metadata = os.lstat(root)
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            "human-review output root is missing, unreadable, or unsafe"
+        ) from exc
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise ValueError("human-review output root is not a regular directory")
+    return root
+
+
+def _preflight_review_output_leaf(path: Path, *, description: str) -> None:
+    """Reject redirected or non-regular output leaves before publication."""
+
+    if not os.path.lexists(path):
+        return
+    read_phase40_review_regular_bytes(path, description=description)
 
 
 def load_canonical_phase40_comparison_manifest(
@@ -495,11 +540,9 @@ def finalize_phase40_human_review(
     vietnamese_fluent_attestation: bool,
     verify_only: bool = False,
 ) -> _handoff.HumanReviewArtifacts:
-    comparison_bytes = Path(comparison_manifest_path).read_bytes()
-    comparison = _handoff.Phase40ComparisonManifest.model_validate(
-        _handoff._strict_json_object(
-            comparison_bytes, description="comparison manifest"
-        )
+    comparison, comparison_bytes = load_canonical_phase40_comparison_manifest(
+        repo_root=repo_root,
+        comparison_manifest_path=comparison_manifest_path,
     )
     if comparison.schema_version != _handoff.PHASE40_COMPARISON_SCHEMA_VERSION:
         return _handoff.finalize_phase40_human_review(
@@ -522,10 +565,6 @@ def finalize_phase40_human_review(
         request,
         repo_root=repo_root,
     )
-    if comparison_bytes != _handoff._canonical_json_bytes(
-        comparison.model_dump(mode="json")
-    ):
-        raise ValueError("comparison manifest is not canonical JSON")
     if comparison.status != "complete":
         raise ValueError("human review requires a complete comparison manifest")
     final, amendment_bytes = load_phase40_review_authority(
@@ -578,15 +617,15 @@ def finalize_phase40_human_review(
         raise ValueError("reviewer return immutable queue fields differ from the queue")
 
     notes_bytes = _handoff._review_jsonl(reviews)
-    comparison_report_path = Path(comparison_manifest_path).with_name(
-        "comparison-report.md"
+    _, comparison_report_bytes = read_canonical_phase40_review_regular_bytes(
+        repo_root=repo_root,
+        supplied_path=Path(comparison_manifest_path).with_name(
+            "comparison-report.md"
+        ),
+        expected_relative=FIXED_COMPARISON_REPORT_PATH,
+        description="comparison report",
     )
-    if (
-        not comparison_report_path.is_file()
-        or comparison_report_path.is_symlink()
-        or comparison_report_path.read_bytes()
-        != _handoff._comparison_report(comparison)
-    ):
+    if comparison_report_bytes != _handoff._comparison_report(comparison):
         raise ValueError("comparison report differs from the frozen manifest")
     if (
         comparison.review_queue_rows != len(queue)
@@ -639,7 +678,12 @@ def finalize_phase40_human_review(
     ):
         raise ValueError("human-review predictions differ from the frozen comparison")
 
-    queue_manifest_bytes = Path(queue_manifest_path).read_bytes()
+    _, queue_manifest_bytes = read_canonical_phase40_review_regular_bytes(
+        repo_root=repo_root,
+        supplied_path=queue_manifest_path,
+        expected_relative=FIXED_REVIEW_QUEUE_MANIFEST_PATH,
+        description="review queue manifest",
+    )
     queue_manifest = _handoff.ReviewQueueManifest.model_validate(
         _handoff._strict_json_object(
             queue_manifest_bytes, description="review queue manifest"
@@ -706,7 +750,10 @@ def finalize_phase40_human_review(
         "limitations": list(comparison.limitations),
     }
     manifest_bytes = _handoff._canonical_json_bytes(manifest)
-    root = Path(output_root)
+    root = canonical_phase40_review_output_root(
+        repo_root=repo_root,
+        supplied_root=output_root,
+    )
     artifacts = _handoff.HumanReviewArtifacts(
         root / "human-review-notes.jsonl",
         root / "human-review-manifest.json",
@@ -717,10 +764,18 @@ def finalize_phase40_human_review(
         (artifacts.manifest_path, manifest_bytes),
         (artifacts.report_path, report_bytes),
     )
+    for path, _ in payloads:
+        _preflight_review_output_leaf(
+            path, description=f"human-review {path.name}"
+        )
     if verify_only:
         for path, payload in payloads:
-            if not path.is_file() or path.read_bytes() != payload:
-                raise ValueError(f"human-review artifact verification failed: {path}")
+            if read_phase40_review_regular_bytes(
+                path, description=f"human-review {path.name}"
+            ) != payload:
+                raise ValueError(
+                    f"human-review artifact verification failed: {path.name}"
+                )
         return artifacts
     for path, payload in payloads:
         _handoff._write_frozen_bytes(path, payload)

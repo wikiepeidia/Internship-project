@@ -226,10 +226,17 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
     final = object()
     bundles = (object(),)
     queue = (object(),)
-    queue_path = tmp_path / "review-queue.jsonl"
+    queue_path = tmp_path / "data/models/phase40/review/review-queue.jsonl"
+    queue_path.parent.mkdir(parents=True)
     queue_bytes = b'{"model_run_id":"qwen-qlora"}\n'
     queue_path.write_bytes(queue_bytes)
-    (tmp_path / "comparison.json").write_text("{}", encoding="utf-8")
+    selected_path = (
+        tmp_path / "data/models/phase40/selected-prediction-bundles.json"
+    )
+    selected_path.parent.mkdir(parents=True, exist_ok=True)
+    selected_path.write_text("[]\n", encoding="utf-8")
+    comparison_path = tmp_path / "data/models/phase40/comparison-manifest.json"
+    comparison_path.write_text("{}\n", encoding="utf-8")
     calls: list[str] = []
 
     monkeypatch.setattr(
@@ -292,8 +299,8 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
         repo_root=tmp_path,
         request_path=tmp_path / "request.json",
         scope_amendment_path=tmp_path / "scope.json",
-        comparison_manifest_path=tmp_path / "comparison.json",
-        selected_predictions_path=tmp_path / "predictions.json",
+        comparison_manifest_path=comparison_path,
+        selected_predictions_path=selected_path,
         queue_path=queue_path,
     )
 
