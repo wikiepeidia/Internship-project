@@ -4701,9 +4701,22 @@ def _verify_phase40_closure(
             "Phase 40 model identities differ from fixed portable authorities"
         )
 
-    review, review_bytes = _load_canonical_json(
-        review_path, "Phase 40 human-review manifest"
+    from src.model_adaptation.phase40_review import (
+        read_phase40_review_regular_bytes,
     )
+
+    try:
+        review_bytes = read_phase40_review_regular_bytes(
+            review_path,
+            description="Phase 40 human-review manifest",
+        )
+    except ValueError as exc:
+        raise ContractError(
+            "Phase 40 human-review manifest is missing or unsafe"
+        ) from exc
+    review = _parse_json_bytes(review_bytes, "Phase 40 human-review manifest")
+    if review_bytes != _canonical_json_bytes(review):
+        raise ContractError("Phase 40 human-review manifest is not canonical JSON")
     base_review_fields = {
         "schema_version",
         "vietnamese_fluent_attestation",
@@ -4763,10 +4776,6 @@ def _verify_phase40_closure(
         != comparison.final_comparison_authority_sha256
     ):
         raise ContractError("Phase 40 human-review v3 lineage drifted")
-
-    from src.model_adaptation.phase40_review import (
-        read_phase40_review_regular_bytes,
-    )
 
     review_side_paths = {
         "reviewer_return_sha256": review_path.with_name("reviewer-return.jsonl"),
