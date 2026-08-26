@@ -8,6 +8,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -791,6 +792,313 @@ def test_programdata_environment_cannot_redirect_machine_registry(tmp_path, monk
     assert phase41_evaluation._claim_registry_root() == (
         known_folder / "VNPhish" / "phase41-one-shot-claims"
     )
+
+
+def test_operational_root_rejects_repo_or_onedrive_output(tmp_path, monkeypatch):
+    known_folder = tmp_path / "trusted-program-data"
+    monkeypatch.setattr(
+        phase41_evaluation, "_known_program_data_root", lambda: known_folder
+    )
+    repo_output = tmp_path / "OneDrive" / "data" / "models" / "phase41"
+    repo_output.mkdir(parents=True)
+
+    with pytest.raises(ContractError, match="fixed operational root"):
+        phase41_evaluation._validate_operational_root(repo_output)
+
+
+def test_operational_root_authority_sorts_acl_rows_stably(tmp_path, monkeypatch):
+    root = tmp_path / "operational"
+    root.mkdir()
+    monkeypatch.setattr(phase41_evaluation, "_validate_operational_root", lambda value: None)
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_registry_acl_snapshot",
+        lambda value: (
+            "operator",
+            True,
+            (
+                phase41_evaluation._RegistryAce("z", 2, True, False),
+                phase41_evaluation._RegistryAce("a", 2, True, False),
+            ),
+        ),
+    )
+
+    first = phase41_evaluation._operational_root_authority(root)
+    second = phase41_evaluation._operational_root_authority(root)
+    assert [row["sid"] for row in first["aces"]] == ["a", "z"]
+    assert first == second
+
+
+def test_operational_source_package_is_exactly_manifest_bound(tmp_path):
+    repository = tmp_path / "repository"
+    operational = tmp_path / "operational"
+    (repository / "src").mkdir(parents=True)
+    (repository / "scripts").mkdir()
+    operational.mkdir()
+    source_payload = b"source bytes\n"
+    launcher_payload = b"launcher bytes\n"
+    (repository / "src" / "entry.py").write_bytes(source_payload)
+    (repository / "scripts" / "phase41_one_shot_launcher.ps1").write_bytes(
+        launcher_payload
+    )
+    manifest = {
+        "files": [
+            {
+                "path": "src/entry.py",
+                "bytes": len(source_payload),
+                "sha256": hashlib.sha256(source_payload).hexdigest(),
+            }
+        ],
+        "launcher": {
+            "path": "scripts/phase41_one_shot_launcher.ps1",
+            "bytes": len(launcher_payload),
+            "sha256": hashlib.sha256(launcher_payload).hexdigest(),
+        },
+    }
+    (operational / phase41_evaluation.SOURCE_MANIFEST_NAME).write_bytes(
+        _canonical_bytes(manifest)
+    )
+
+    with _phase41_test_runtime(registry_root=tmp_path / "registry"):
+        phase41_evaluation._materialize_operational_source_package(
+            repository_root=repository, operational_root=operational
+        )
+        authority = phase41_evaluation._operational_source_package_authority(
+            operational
+        )
+        assert [row["path"] for row in authority["files"]] == [
+            "src/entry.py",
+            "scripts/phase41_one_shot_launcher.ps1",
+        ]
+        extra = operational / "src" / "alternate.py"
+        extra.write_bytes(b"alternate evaluator\n")
+        with pytest.raises(ContractError, match="inventory drifted"):
+            phase41_evaluation._operational_source_package_authority(operational)
+        extra.unlink()
+        (operational / "src" / "entry.py").write_bytes(b"tampered\n")
+        with pytest.raises(ContractError, match="bytes drifted"):
+            phase41_evaluation._operational_source_package_authority(operational)
+
+
+def test_launcher_requires_fixed_operational_staged_root():
+    launcher = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "phase41_one_shot_launcher.ps1"
+    ).read_text(encoding="utf-8")
+    assert "phase41-evaluation-evidence" in launcher
+    assert "Assert-ProtectedRegistryAcl -RegistryPath $ResolvedOutput" in launcher
+    assert "Staged launcher root differs from the operational evidence root" in launcher
+    assert "[System.StringComparison]::OrdinalIgnoreCase" in launcher
+
+
+def test_preclaim_failure_audit_binds_old_bytes_and_claim_absence(
+    tmp_path, monkeypatch
+):
+    repository = tmp_path / "repository"
+    phase_dir = (
+        repository
+        / ".planning"
+        / "phases"
+        / "41-one-shot-two-model-evaluation"
+    )
+    old_root = repository / "data" / "models" / "phase41"
+    phase_dir.mkdir(parents=True)
+    old_root.mkdir(parents=True)
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    monkeypatch.setattr(phase41_evaluation, "_claim_registry_root", lambda: registry)
+    split_sha = "9" * 64
+    launcher_sha = "8" * 64
+    old_payloads = {
+        phase41_evaluation.PREPARED_NAME: _canonical_bytes(
+            {"held_out": {"sha256": split_sha}}
+        ),
+        phase41_evaluation.PROTOCOLS_NAME: _canonical_bytes({"protocols": True}),
+        phase41_evaluation.SOURCE_MANIFEST_NAME: _canonical_bytes(
+            {"launcher": {"sha256": launcher_sha}}
+        ),
+        phase41_evaluation.PREAUTHORIZATION_NAME: _canonical_bytes(
+            {"preauthorization": True}
+        ),
+    }
+    for name, payload in old_payloads.items():
+        (old_root / name).write_bytes(payload)
+    request_sha = hashlib.sha256(old_payloads[phase41_evaluation.PREPARED_NAME]).hexdigest()
+    superseded = _canonical_bytes(
+        {
+            "prepared_sha256": request_sha,
+            "statement": DEFERRED_AUTHORIZATION_SIGNAL,
+        }
+    )
+    superseded_relative = (
+        "data/models/phase41/preclaim-audit/"
+        "41-02-superseded-authorization.json"
+    )
+    (repository / superseded_relative).parent.mkdir(parents=True, exist_ok=True)
+    (repository / superseded_relative).write_bytes(superseded)
+    audit = {
+        "absent_post_gate_artifacts": list(phase41_evaluation._PRECLAIM_OUTPUT_NAMES),
+        "attempted_output_root_attributes": [
+            "ReadOnly",
+            "Directory",
+            "Archive",
+            "ReparsePoint",
+        ],
+        "attempted_output_root_path_sha256": phase41_evaluation._normalized_path_sha256(
+            old_root
+        ),
+        "authorization_sha256": hashlib.sha256(superseded).hexdigest(),
+        "execution_source_manifest_sha256": hashlib.sha256(
+            old_payloads[phase41_evaluation.SOURCE_MANIFEST_NAME]
+        ).hexdigest(),
+        "failure_stage": "output_root_reparse_guard",
+        "global_claim_created": False,
+        "holdout_spent": False,
+        "launcher_exit_code": 1,
+        "launcher_invocations": 1,
+        "launcher_sha256": launcher_sha,
+        "local_claim_created": False,
+        "materialization_created": False,
+        "preauthorization_receipt_sha256": hashlib.sha256(
+            old_payloads[phase41_evaluation.PREAUTHORIZATION_NAME]
+        ).hexdigest(),
+        "protocols_sha256": hashlib.sha256(
+            old_payloads[phase41_evaluation.PROTOCOLS_NAME]
+        ).hexdigest(),
+        "recorded_at_utc": "2026-08-26T11:21:46Z",
+        "request_sha256": request_sha,
+        "reserved_split_access_attempted": False,
+        "safe_error": "OutputRoot cannot be a reparse point",
+        "schema_version": "phase41-preclaim-launch-rejection-v1",
+        "source_commit": "7" * 40,
+        "superseded_authorization_path": superseded_relative,
+        "superseded_for_execution": True,
+        "supersession_reason": (
+            "Operational evidence must run from a fixed protected non-reparse "
+            "ProgramData root with a staged source package."
+        ),
+    }
+    audit_relative = (
+        "data/models/phase41/preclaim-audit/"
+        "41-02-preclaim-failure.json"
+    )
+    (repository / audit_relative).write_bytes(_canonical_bytes(audit))
+
+    verified, digest = phase41_evaluation._preclaim_rejection_audit_authority(
+        Path(audit_relative), repo_root=repository
+    )
+    assert verified == audit
+    assert digest == hashlib.sha256(_canonical_bytes(audit)).hexdigest()
+    (registry / f"{split_sha}.claim.json").write_bytes(b"claim\n")
+    with pytest.raises(ContractError, match="machine claim already exists"):
+        phase41_evaluation._preclaim_rejection_audit_authority(
+            Path(audit_relative), repo_root=repository
+        )
+    (registry / f"{split_sha}.claim.json").unlink()
+    (old_root / "clean-runtime").mkdir()
+    with pytest.raises(ContractError, match="materialization artifact exists"):
+        phase41_evaluation._preclaim_rejection_audit_authority(
+            Path(audit_relative), repo_root=repository
+        )
+
+
+def test_verified_export_is_copy_only_and_rechecks_destination(tmp_path, monkeypatch):
+    operational = tmp_path / "operational"
+    repository_output = tmp_path / "repository" / "data" / "models" / "phase41"
+    operational.mkdir()
+    export_names = (
+        *phase41_evaluation.EVIDENCE_ARTIFACT_NAMES,
+        phase41_evaluation.EVIDENCE_MANIFEST_NAME,
+        phase41_evaluation.COMPLETION_SEAL_NAME,
+        phase41_evaluation.TERMINAL_NAME,
+        phase41_evaluation.DEPLOYMENT_DISPOSITION_NAME,
+    )
+    for name in export_names:
+        (operational / name).write_bytes(f"{name}\n".encode())
+    (operational / phase41_evaluation.PREPARED_NAME).write_bytes(
+        _canonical_bytes(
+            {"preparation_scope": phase41_evaluation.SYNTHETIC_PREPARATION_SCOPE}
+        )
+    )
+    manifest_sha = "a" * 64
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "verify_phase41_evidence",
+        lambda root: SimpleNamespace(evidence_manifest_sha256=manifest_sha),
+    )
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_code_fixed_authority_path",
+        lambda repo_root, supplied, expected_relative, description: repository_output,
+    )
+
+    receipt = phase41_evaluation.export_phase41_evidence_to_repository(
+        operational, repository_output_root=repository_output
+    )
+    destination = repository_output / "verified-export" / manifest_sha
+    assert receipt == destination / phase41_evaluation.EXPORT_RECEIPT_NAME
+    for name in export_names:
+        assert (destination / name).read_bytes() == (operational / name).read_bytes()
+    with pytest.raises(ContractError, match="already exists"):
+        phase41_evaluation.export_phase41_evidence_to_repository(
+            operational, repository_output_root=repository_output
+        )
+
+
+def test_verified_export_rejects_corrupt_copy_and_path_escape(tmp_path, monkeypatch):
+    operational = tmp_path / "operational"
+    operational.mkdir()
+    export_names = (
+        *phase41_evaluation.EVIDENCE_ARTIFACT_NAMES,
+        phase41_evaluation.EVIDENCE_MANIFEST_NAME,
+        phase41_evaluation.COMPLETION_SEAL_NAME,
+        phase41_evaluation.TERMINAL_NAME,
+        phase41_evaluation.DEPLOYMENT_DISPOSITION_NAME,
+    )
+    for name in export_names:
+        (operational / name).write_bytes(f"{name}\n".encode())
+    (operational / phase41_evaluation.PREPARED_NAME).write_bytes(
+        _canonical_bytes(
+            {"preparation_scope": phase41_evaluation.SYNTHETIC_PREPARATION_SCOPE}
+        )
+    )
+    manifest_sha = "b" * 64
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "verify_phase41_evidence",
+        lambda root: SimpleNamespace(evidence_manifest_sha256=manifest_sha),
+    )
+    with pytest.raises(ContractError, match="code-fixed authority"):
+        phase41_evaluation.export_phase41_evidence_to_repository(
+            operational,
+            repository_output_root=tmp_path / "outside-disclosure-root",
+        )
+
+    repository_output = tmp_path / "repository" / "data" / "models" / "phase41"
+    monkeypatch.setattr(
+        phase41_evaluation,
+        "_code_fixed_authority_path",
+        lambda repo_root, supplied, expected_relative, description: repository_output,
+    )
+    destination = repository_output / "verified-export" / manifest_sha
+    real_write = phase41_evaluation._exclusive_write
+    corrupted = False
+
+    def corrupting_write(path: Path, payload: bytes) -> Path:
+        nonlocal corrupted
+        result = real_write(path, payload)
+        if path.parent == destination and not corrupted:
+            path.write_bytes(b"corrupted\n")
+            corrupted = True
+        return result
+
+    monkeypatch.setattr(phase41_evaluation, "_exclusive_write", corrupting_write)
+    with pytest.raises(ContractError, match="copy differs"):
+        phase41_evaluation.export_phase41_evidence_to_repository(
+            operational, repository_output_root=repository_output
+        )
+    assert not (destination / phase41_evaluation.EXPORT_RECEIPT_NAME).exists()
 
 
 def test_claim_registry_acl_requires_protected_exact_trusted_writers():

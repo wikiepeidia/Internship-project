@@ -58,6 +58,7 @@ def test_cli_exposes_pilot_and_train_commands():
         "phase40-verify-run-evidence",
         "phase40-verify-run-request",
         "phase41-authorize-evaluation",
+        "phase41-export-evidence",
         "phase41-freeze-deployment-fit-disposition",
         "phase41-prepare-evaluation",
         "phase41-run-once",
@@ -737,7 +738,7 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
     assert option_strings.isdisjoint(forbidden)
     handler_source = inspect.getsource(cli_module.handle_phase41_run_once)
     assert "load_phase41_production_predictors" not in handler_source
-    assert "run_phase41_once(args.output_root)" in handler_source
+    assert "run_phase41_once(_phase41_output_root(args.output_root))" in handler_source
 
     prepare_parser = subparsers_action.choices["phase41-prepare-evaluation"]
     prepare_options = {
@@ -786,6 +787,8 @@ def test_phase41_prepare_cli_defers_deployment_fit_choice_to_authorization():
 
     args = parser.parse_args(["phase41-prepare-evaluation", *required_authorities])
     assert not hasattr(args, "deployment_fit_choice")
+    assert args.output_root is None
+    assert args.preclaim_rejection_audit_path.name == "41-02-preclaim-failure.json"
 
     with pytest.raises(SystemExit):
         parser.parse_args(

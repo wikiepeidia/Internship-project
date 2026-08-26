@@ -591,7 +591,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Freeze the code-fixed Phase 41 preauthorization without opening the holdout",
     )
     phase41_prepare_parser.add_argument(
-        "--output-root", type=Path, default=Path("data/models/phase41")
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default; overrides must match it)",
     )
     phase41_prepare_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     phase41_prepare_parser.add_argument(
@@ -603,6 +604,14 @@ def build_parser() -> argparse.ArgumentParser:
     phase41_prepare_parser.add_argument(
         "--phase40-review-manifest-path", type=Path, required=True
     )
+    phase41_prepare_parser.add_argument(
+        "--preclaim-rejection-audit-path",
+        type=Path,
+        default=Path(
+            "data/models/phase41/preclaim-audit/"
+            "41-02-preclaim-failure.json"
+        ),
+    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -610,7 +619,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify frozen Phase 41 preauthorization without loading models or data",
     )
     phase41_verify_pre_parser.add_argument(
-        "--output-root", type=Path, default=Path("data/models/phase41")
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
     )
     phase41_verify_pre_parser.set_defaults(
         handler=handle_phase41_verify_preauthorization
@@ -621,7 +631,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Record the exact explicit one-shot authorization",
     )
     phase41_authorize_parser.add_argument(
-        "--output-root", type=Path, default=Path("data/models/phase41")
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
     )
     phase41_authorize_parser.add_argument("--prepared-sha256", required=True)
     phase41_authorize_parser.add_argument(
@@ -635,7 +646,10 @@ def build_parser() -> argparse.ArgumentParser:
         "phase41-run-once",
         help="Run the sole canonical two-model reserved evaluation",
     )
-    phase41_run_parser.add_argument("--output-root", type=Path, required=True)
+    phase41_run_parser.add_argument(
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
+    )
     phase41_run_parser.set_defaults(handler=handle_phase41_run_once)
 
     phase41_disposition_parser = subparsers.add_parser(
@@ -643,18 +657,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Freeze the precommitted post-evaluation deployment-fit choice",
     )
     phase41_disposition_parser.add_argument(
-        "--output-root", type=Path, default=Path("data/models/phase41")
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
     )
     phase41_disposition_parser.set_defaults(
         handler=handle_phase41_freeze_deployment_fit_disposition
     )
+
+    phase41_export_parser = subparsers.add_parser(
+        "phase41-export-evidence",
+        help="Mirror verified ProgramData evidence into an immutable repo export",
+    )
+    phase41_export_parser.add_argument(
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
+    )
+    phase41_export_parser.add_argument(
+        "--repository-output-root",
+        type=Path,
+        default=Path("data/models/phase41"),
+    )
+    phase41_export_parser.set_defaults(handler=handle_phase41_export_evidence)
 
     phase41_verify_parser = subparsers.add_parser(
         "phase41-verify-evidence",
         help="Verify terminal evidence without an opener, split, predictor, or model",
     )
     phase41_verify_parser.add_argument(
-        "--output-root", type=Path, default=Path("data/models/phase41")
+        "--output-root", type=Path, default=None,
+        help="Fixed ProgramData operational root (default)",
     )
     phase41_verify_parser.set_defaults(handler=handle_phase41_verify_evidence)
 
@@ -1097,6 +1128,12 @@ def handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _phase41_output_root(value: Path | None) -> Path:
+    from src.model_adaptation.phase41_evaluation import phase41_operational_root
+
+    return value if value is not None else phase41_operational_root()
+
+
 def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
     """Freeze authorities from code-fixed Phase 39/40 handoff locations."""
 
@@ -1105,11 +1142,19 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
     )
 
     prepared = prepare_phase41_from_canonical_authorities(
-        args.output_root,
+        _phase41_output_root(args.output_root),
         repo_root=args.repo_root,
         phase39_contract_path=args.phase39_contract_path,
         phase40_comparison_manifest_path=args.phase40_comparison_manifest_path,
         phase40_review_manifest_path=args.phase40_review_manifest_path,
+        preclaim_rejection_audit_path=getattr(
+            args,
+            "preclaim_rejection_audit_path",
+            Path(
+                "data/models/phase41/preclaim-audit/"
+                "41-02-preclaim-failure.json"
+            ),
+        ),
     )
     print(
         f"Phase 41 prepared: request={prepared.path} "
@@ -1123,7 +1168,7 @@ def handle_phase41_verify_preauthorization(args: argparse.Namespace) -> int:
         verify_phase41_preauthorization,
     )
 
-    prepared = verify_phase41_preauthorization(args.output_root)
+    prepared = verify_phase41_preauthorization(_phase41_output_root(args.output_root))
     print(f"Phase 41 preauthorization verified: sha256={prepared.prepared_sha256}")
     return 0
 
@@ -1134,7 +1179,7 @@ def handle_phase41_authorize_evaluation(args: argparse.Namespace) -> int:
     )
 
     path = authorize_phase41_evaluation(
-        args.output_root,
+        _phase41_output_root(args.output_root),
         prepared_sha256=args.prepared_sha256,
         statement=args.statement,
     )
@@ -1145,7 +1190,7 @@ def handle_phase41_authorize_evaluation(args: argparse.Namespace) -> int:
 def handle_phase41_run_once(args: argparse.Namespace) -> int:
     from src.model_adaptation.phase41_evaluation import run_phase41_once
 
-    manifest = run_phase41_once(args.output_root)
+    manifest = run_phase41_once(_phase41_output_root(args.output_root))
     print(f"Phase 41 completed: evidence={manifest.path}")
     return 0
 
@@ -1155,15 +1200,28 @@ def handle_phase41_freeze_deployment_fit_disposition(args: argparse.Namespace) -
         freeze_deployment_fit_disposition,
     )
 
-    path = freeze_deployment_fit_disposition(args.output_root)
+    path = freeze_deployment_fit_disposition(_phase41_output_root(args.output_root))
     print(f"Phase 41 deployment-fit disposition frozen: {path}")
+    return 0
+
+
+def handle_phase41_export_evidence(args: argparse.Namespace) -> int:
+    from src.model_adaptation.phase41_evaluation import (
+        export_phase41_evidence_to_repository,
+    )
+
+    path = export_phase41_evidence_to_repository(
+        _phase41_output_root(args.output_root),
+        repository_output_root=args.repository_output_root,
+    )
+    print(f"Phase 41 verified evidence exported: {path}")
     return 0
 
 
 def handle_phase41_verify_evidence(args: argparse.Namespace) -> int:
     from src.model_adaptation.phase41_evaluation import verify_phase41_evidence
 
-    manifest = verify_phase41_evidence(args.output_root)
+    manifest = verify_phase41_evidence(_phase41_output_root(args.output_root))
     print(
         f"Phase 41 evidence verified: manifest={manifest.path} "
         f"sha256={manifest.evidence_manifest_sha256}"

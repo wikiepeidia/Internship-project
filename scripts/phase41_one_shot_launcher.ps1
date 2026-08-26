@@ -178,8 +178,21 @@ $ProgramDataRoot = [Environment]::GetFolderPath(
 if ([string]::IsNullOrWhiteSpace($ProgramDataRoot)) {
     throw "Windows CommonApplicationData identity is unavailable"
 }
+$ExpectedOperationalRoot = [System.IO.Path]::GetFullPath(
+    (Join-Path $ProgramDataRoot "VNPhish\phase41-evaluation-evidence")
+)
+if (-not [string]::Equals(
+    $ResolvedOutput.TrimEnd([System.IO.Path]::DirectorySeparatorChar),
+    $ExpectedOperationalRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar),
+    [System.StringComparison]::OrdinalIgnoreCase
+)) {
+    throw "OutputRoot differs from the fixed operational evidence root"
+}
+Assert-ProtectedRegistryAcl -RegistryPath $ResolvedOutput
 $ClaimRegistry = Join-Path $ProgramDataRoot "VNPhish\phase41-one-shot-claims"
 Assert-NoReparseDirectoryAncestors -DirectoryPath $ProgramDataRoot
+$ProtectedParent = Join-Path $ProgramDataRoot "VNPhish"
+Assert-ProtectedRegistryAcl -RegistryPath $ProtectedParent
 Assert-NonReparseDirectoryChain -Root $ProgramDataRoot -Leaf $ClaimRegistry
 Assert-ProtectedRegistryAcl -RegistryPath $ClaimRegistry
 
@@ -190,6 +203,13 @@ if ([System.IO.Path]::GetFileName($LauncherPath) -cne "phase41_one_shot_launcher
 $RepositoryRoot = [System.IO.Directory]::GetParent(
     [System.IO.Directory]::GetParent($LauncherPath).FullName
 ).FullName
+if (-not [string]::Equals(
+    $RepositoryRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar),
+    $ResolvedOutput.TrimEnd([System.IO.Path]::DirectorySeparatorChar),
+    [System.StringComparison]::OrdinalIgnoreCase
+)) {
+    throw "Staged launcher root differs from the operational evidence root"
+}
 Assert-NoReparseDirectoryAncestors -DirectoryPath $RepositoryRoot
 
 $AuthorityLocks = [System.Collections.Generic.List[System.IDisposable]]::new()

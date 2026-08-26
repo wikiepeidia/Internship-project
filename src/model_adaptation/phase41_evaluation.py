@@ -77,6 +77,8 @@ SOURCE_MANIFEST_NAME = "execution-source-manifest.json"
 ACCESS_RECEIPT_NAME = "evaluation-access-receipt.json"
 EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
+OPERATIONAL_ROOT_NAME = "phase41-evaluation-evidence"
+EXPORT_RECEIPT_NAME = "verified-export-receipt.json"
 PENDING_DEPLOYMENT_FIT_CHOICE = "pending_human_authorization"
 MATERIALIZATION_RECEIPT_NAME = "execution-materialization-receipt.json"
 COMPLETION_SEAL_NAME = "protected-completion-seal.json"
@@ -101,6 +103,9 @@ _PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS = (
     "comparison_finalizer_source_sha256",
     "claim_registry_authority_sha256",
     "model_smokes_sha256",
+    "operational_root_authority_sha256",
+    "operational_source_package_sha256",
+    "preclaim_rejection_audit_sha256",
 )
 _PRIOR_HUMAN_EXPOSURE_DISCLOSURE = (
     "Held-out message content had prior human exposure during corpus-quality "
@@ -126,6 +131,14 @@ _PHASE39_AUTHORITY_RELATIVE = Path(
 _PHASE40_COMPARISON_RELATIVE = Path("data/models/phase40/comparison-manifest.json")
 _PHASE40_REVIEW_RELATIVE = Path(
     "data/models/phase40/review/human-review-manifest.json"
+)
+_PRECLAIM_REJECTION_AUDIT_RELATIVE = Path(
+    "data/models/phase41/preclaim-audit/"
+    "41-02-preclaim-failure.json"
+)
+_SUPERSEDED_AUTHORIZATION_RELATIVE = Path(
+    "data/models/phase41/preclaim-audit/"
+    "41-02-superseded-authorization.json"
 )
 _PHASE40_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-qlora",
@@ -305,6 +318,12 @@ def _claim_registry_root() -> Path:
     if runtime is not None:
         return runtime.registry_root
     return _known_program_data_root() / "VNPhish" / "phase41-one-shot-claims"
+
+
+def phase41_operational_root() -> Path:
+    """Return the code-fixed non-reparse root that owns the one-shot evidence."""
+
+    return _known_program_data_root() / "VNPhish" / OPERATIONAL_ROOT_NAME
 
 
 def _known_program_data_root() -> Path:
@@ -559,6 +578,15 @@ def _validate_claim_registry_root(root: Path) -> None:
                 "ProgramData claim-registry ancestry must be provisioned and non-reparse"
             )
     operator_sid = _current_operator_sid()
+    parent_owner, parent_protected, parent_aces = _registry_acl_snapshot(
+        program_data / "VNPhish"
+    )
+    _validate_registry_acl_snapshot(
+        owner_sid=parent_owner,
+        dacl_protected=parent_protected,
+        aces=parent_aces,
+        operator_sid=operator_sid,
+    )
     owner_sid, protected, aces = _registry_acl_snapshot(expected)
     _validate_registry_acl_snapshot(
         owner_sid=owner_sid,
@@ -566,6 +594,75 @@ def _validate_claim_registry_root(root: Path) -> None:
         aces=aces,
         operator_sid=operator_sid,
     )
+
+
+def _validate_operational_root(root: Path) -> None:
+    """Require the fixed protected ProgramData evidence root."""
+
+    if _TEST_RUNTIME.get() is not None:
+        if not root.is_dir() or root.is_symlink():
+            raise ContractError("synthetic operational root is missing or unsafe")
+        return
+    program_data = _known_program_data_root()
+    expected = phase41_operational_root()
+    if ntpath.normcase(ntpath.normpath(os.fspath(root))) != ntpath.normcase(
+        ntpath.normpath(os.fspath(expected))
+    ):
+        raise ContractError("Phase 41 output differs from the fixed operational root")
+    for component in (program_data, program_data / "VNPhish", expected):
+        attributes = _windows_file_attributes(component)
+        if not attributes & 0x10 or attributes & 0x400:
+            raise ContractError(
+                "ProgramData operational-root ancestry must be non-reparse"
+            )
+    operator_sid = _current_operator_sid()
+    parent_owner, parent_protected, parent_aces = _registry_acl_snapshot(
+        program_data / "VNPhish"
+    )
+    _validate_registry_acl_snapshot(
+        owner_sid=parent_owner,
+        dacl_protected=parent_protected,
+        aces=parent_aces,
+        operator_sid=operator_sid,
+    )
+    owner_sid, protected, aces = _registry_acl_snapshot(expected)
+    _validate_registry_acl_snapshot(
+        owner_sid=owner_sid,
+        dacl_protected=protected,
+        aces=aces,
+        operator_sid=operator_sid,
+    )
+
+
+def _operational_root_authority(root: Path) -> dict[str, object]:
+    _validate_operational_root(root)
+    owner_sid, protected, aces = _registry_acl_snapshot(root)
+    rows = sorted(
+        (
+            {
+                "sid": ace.sid,
+                "mask": ace.mask,
+                "allowed": ace.allowed,
+                "inherited": ace.inherited,
+            }
+            for ace in aces
+        ),
+        key=lambda item: (
+            str(item["sid"]),
+            int(item["mask"]),
+            bool(item["allowed"]),
+            bool(item["inherited"]),
+        ),
+    )
+    body: dict[str, object] = {
+        "path": os.fspath(root),
+        "path_sha256": _normalized_path_sha256(root),
+        "owner_sid": owner_sid,
+        "dacl_protected": protected,
+        "aces": rows,
+    }
+    body["authority_sha256"] = _sha256(_canonical_json_bytes(body))
+    return body
 
 
 def _current_operator_sid() -> str:
@@ -1391,6 +1488,18 @@ def _require_canonical_production_authorities(
         "authority_sha256"
     ]:
         raise ContractError("protected claim-registry authority drifted")
+    operational = _operational_root_authority(phase41_operational_root())
+    if authorities["operational_root_authority_sha256"] != operational[
+        "authority_sha256"
+    ]:
+        raise ContractError("protected operational-root authority drifted")
+    operational_source = _operational_source_package_authority(
+        phase41_operational_root()
+    )
+    if authorities["operational_source_package_sha256"] != operational_source[
+        "authority_sha256"
+    ]:
+        raise ContractError("operational source-package authority drifted")
 
 
 def _required_phase40_authority_hashes(
@@ -1543,17 +1652,21 @@ def _provision_claim_registry_root() -> Path:
             raise ContractError("claim-registry provisioning encountered a reparse path")
     operator_sid = _current_operator_sid()
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    commands = (
-        ("icacls", os.fspath(root), "/setowner", f"*{operator_sid}"),
-        (
-            "icacls",
-            os.fspath(root),
-            "/inheritance:r",
-            "/grant:r",
-            f"*{operator_sid}:(OI)(CI)F",
-            "*S-1-5-18:(OI)(CI)F",
-            "*S-1-5-32-544:(OI)(CI)F",
-        ),
+    commands = tuple(
+        command
+        for target in (_known_program_data_root() / "VNPhish", root)
+        for command in (
+            ("icacls", os.fspath(target), "/setowner", f"*{operator_sid}"),
+            (
+                "icacls",
+                os.fspath(target),
+                "/inheritance:r",
+                "/grant:r",
+                f"*{operator_sid}:(OI)(CI)F",
+                "*S-1-5-18:(OI)(CI)F",
+                "*S-1-5-32-544:(OI)(CI)F",
+            ),
+        )
     )
     for command in commands:
         completed = subprocess.run(
@@ -1566,6 +1679,56 @@ def _provision_claim_registry_root() -> Path:
         if completed.returncode != 0:
             raise ContractError("failed to provision the protected claim-registry ACL")
     _validate_claim_registry_root(root)
+    return root
+
+
+def _provision_operational_root() -> Path:
+    """Create the protected evidence root without creating any authorization."""
+
+    root = phase41_operational_root()
+    if _TEST_RUNTIME.get() is not None:
+        root.mkdir(parents=True, exist_ok=True)
+        _validate_operational_root(root)
+        return root
+    if root.exists():
+        _validate_operational_root(root)
+        return root
+    root.mkdir(parents=True, exist_ok=False)
+    for component in (_known_program_data_root() / "VNPhish", root):
+        attributes = _windows_file_attributes(component)
+        if not attributes & 0x10 or attributes & 0x400:
+            raise ContractError(
+                "operational-root provisioning encountered a reparse path"
+            )
+    operator_sid = _current_operator_sid()
+    creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    commands = tuple(
+        command
+        for target in (_known_program_data_root() / "VNPhish", root)
+        for command in (
+            ("icacls", os.fspath(target), "/setowner", f"*{operator_sid}"),
+            (
+                "icacls",
+                os.fspath(target),
+                "/inheritance:r",
+                "/grant:r",
+                f"*{operator_sid}:(OI)(CI)F",
+                "*S-1-5-18:(OI)(CI)F",
+                "*S-1-5-32-544:(OI)(CI)F",
+            ),
+        )
+    )
+    for command in commands:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            creationflags=creation_flags,
+        )
+        if completed.returncode != 0:
+            raise ContractError("failed to protect the operational evidence root")
+    _validate_operational_root(root)
     return root
 
 
@@ -1601,13 +1764,6 @@ def _claim_registry_authority(root: Path) -> dict[str, object]:
     }
     core["authority_sha256"] = _sha256(_canonical_json_bytes(core))
     return core
-    if (
-        list(parsed.selected_checkpoint_identities) != expected_identities
-        or authorization["deployment_fit_precommit_sha256"]
-        != _sha256(_canonical_json_bytes(precommit))
-    ):
-        raise AuthorizationError("authorization deployment-fit precommitment drifted")
-    return dict(precommit)
 
 
 def _global_claim_path(identity: SplitIdentity) -> Path:
@@ -2709,6 +2865,92 @@ def _write_source_manifest(
     return path, _sha256(payload)
 
 
+def _materialize_operational_source_package(
+    *, repository_root: Path, operational_root: Path
+) -> None:
+    """Copy only manifest-bound source and launcher bytes into ProgramData."""
+
+    _validate_operational_root(operational_root)
+    source, _ = _load_canonical_json(
+        operational_root / SOURCE_MANIFEST_NAME,
+        "Phase 41 execution source manifest",
+    )
+    rows = source.get("files")
+    launcher = source.get("launcher")
+    if not isinstance(rows, list) or not isinstance(launcher, dict):
+        raise ContractError("operational source package authority is malformed")
+    relative_paths = [
+        item.get("path") for item in rows if isinstance(item, dict)
+    ]
+    relative_paths.append(launcher.get("path"))
+    if any(not isinstance(value, str) for value in relative_paths):
+        raise ContractError("operational source package path is malformed")
+    for relative in relative_paths:
+        assert isinstance(relative, str)
+        parts = Path(relative).parts
+        if Path(relative).is_absolute() or ".." in parts:
+            raise ContractError("operational source package path escaped")
+        source_path = repository_root / relative
+        destination = operational_root / relative
+        if not source_path.is_file() or source_path.is_symlink():
+            raise ContractError("operational source package input is unsafe")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        _exclusive_write(destination, source_path.read_bytes())
+
+
+def _operational_source_package_authority(root: Path) -> dict[str, object]:
+    _validate_operational_root(root)
+    source, _ = _load_canonical_json(
+        root / SOURCE_MANIFEST_NAME, "Phase 41 execution source manifest"
+    )
+    rows = source.get("files")
+    launcher = source.get("launcher")
+    if not isinstance(rows, list) or not isinstance(launcher, dict):
+        raise ContractError("operational source package authority is malformed")
+    expected = [*rows, launcher]
+    expected_paths = {
+        str(item.get("path")) for item in expected if isinstance(item, dict)
+    }
+    discovered_paths: set[str] = set()
+    for package_dir in (root / "src", root / "scripts"):
+        if not package_dir.is_dir() or package_dir.is_symlink():
+            raise ContractError("operational source package directory is unsafe")
+        for candidate in package_dir.rglob("*"):
+            if candidate.is_symlink():
+                raise ContractError("operational source package contains a symlink")
+            if candidate.is_file():
+                discovered_paths.add(candidate.relative_to(root).as_posix())
+    if discovered_paths != expected_paths:
+        raise ContractError("operational source package inventory drifted")
+    verified: list[dict[str, object]] = []
+    for item in expected:
+        if not isinstance(item, dict) or set(item) != {"path", "bytes", "sha256"}:
+            raise ContractError("operational source package row drifted")
+        relative = item["path"]
+        if not isinstance(relative, str) or Path(relative).is_absolute() or (
+            ".." in Path(relative).parts
+        ):
+            raise ContractError("operational source package path escaped")
+        candidate = root / relative
+        if not candidate.is_file() or candidate.is_symlink():
+            raise ContractError("operational source package file is missing or unsafe")
+        payload = candidate.read_bytes()
+        observed = {
+            "path": relative,
+            "bytes": len(payload),
+            "sha256": _sha256(payload),
+        }
+        if observed != item:
+            raise ContractError("operational source package bytes drifted")
+        verified.append(observed)
+    body: dict[str, object] = {
+        "operational_root_path_sha256": _normalized_path_sha256(root),
+        "files": verified,
+    }
+    body["authority_sha256"] = _sha256(_canonical_json_bytes(body))
+    return body
+
+
 def _normalized_path_sha256(path: Path) -> str:
     normalized = os.path.normcase(
         os.path.abspath(os.path.normpath(os.fspath(path)))
@@ -2830,9 +3072,14 @@ def _load_materialization_receipt(
 
 
 def _materialized_source_root(
-    output_root: Path, receipt: Mapping[str, object] | None
+    output_root: Path,
+    receipt: Mapping[str, object] | None,
+    *,
+    preparation_scope: str,
 ) -> Path:
     if receipt is None:
+        if preparation_scope == PRODUCTION_PREPARATION_SCOPE:
+            return Path(output_root)
         return Path(__file__).resolve().parents[2]
     mode = receipt.get("mode")
     if mode == "locked-clean-runtime":
@@ -3332,6 +3579,9 @@ def _production_preauthorization_record(
     authorities: Mapping[str, object],
     model_smokes: Sequence[Mapping[str, object]],
     claim_registry: Mapping[str, object],
+    operational_root: Mapping[str, object],
+    operational_source_package: Mapping[str, object],
+    preclaim_rejection_audit: Mapping[str, object],
 ) -> dict[str, object]:
     return {
         "schema_version": "phase41-preauthorization-receipt-v2",
@@ -3361,6 +3611,9 @@ def _production_preauthorization_record(
         "deployment_fit_choice": PENDING_DEPLOYMENT_FIT_CHOICE,
         "model_smokes": [dict(item) for item in model_smokes],
         "claim_registry": dict(claim_registry),
+        "operational_root": dict(operational_root),
+        "operational_source_package": dict(operational_source_package),
+        "preclaim_rejection_audit": dict(preclaim_rejection_audit),
         "models_ready_before_claim_required": True,
         "validation_contingency_closed_required": True,
         "reserved_split_access_attempted": False,
@@ -3379,6 +3632,8 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
     _validate_prepared(request)
+    if request.get("preparation_scope") == PRODUCTION_PREPARATION_SCOPE:
+        _validate_operational_root(root)
     _require_canonical_production_authorities(request)
     protocols = load_protocol_authority(root)
     protocol_bytes = (root / PROTOCOLS_NAME).read_bytes()
@@ -3387,7 +3642,11 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
     )
     materialization = _load_materialization_receipt(root)
     materialization_record = materialization[0] if materialization is not None else None
-    repository_root = _materialized_source_root(root, materialization_record)
+    repository_root = _materialized_source_root(
+        root,
+        materialization_record,
+        preparation_scope=str(request["preparation_scope"]),
+    )
     if set(source) != {
         "schema_version",
         "preparation_scope",
@@ -3606,21 +3865,42 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
                 raise ContractError("production preauthorization model smoke drifted")
             model_smokes.append(dict(item))
         registry = _claim_registry_authority(_claim_registry_root())
+        operational = _operational_root_authority(root)
+        operational_source = _operational_source_package_authority(root)
+        preclaim_rejection_audit = receipt.get("preclaim_rejection_audit")
+        if not isinstance(preclaim_rejection_audit, dict):
+            raise ContractError("production pre-claim rejection audit is missing")
+        if authorities["preclaim_rejection_audit_sha256"] != _sha256(
+            _canonical_json_bytes(preclaim_rejection_audit)
+        ):
+            raise ContractError("production pre-claim rejection audit hash drifted")
         if receipt.get("claim_registry") != registry:
             raise ContractError("production preauthorization registry snapshot drifted")
+        if (
+            receipt.get("operational_root") != operational
+            or receipt.get("operational_source_package") != operational_source
+        ):
+            raise ContractError("production operational authority snapshot drifted")
         if (
             authorities["model_smokes_sha256"]
             != _sha256(_canonical_json_bytes(model_smokes))
             or authorities["claim_registry_authority_sha256"]
             != registry["authority_sha256"]
+            or authorities["operational_root_authority_sha256"]
+            != operational["authority_sha256"]
+            or authorities["operational_source_package_sha256"]
+            != operational_source["authority_sha256"]
         ):
-            raise ContractError("production smoke/registry authority hash drifted")
+            raise ContractError("production protected authority hash drifted")
         expected_receipt = _production_preauthorization_record(
             request=request,
             request_bytes=request_bytes,
             authorities=authorities,
             model_smokes=model_smokes,
             claim_registry=registry,
+            operational_root=operational,
+            operational_source_package=operational_source,
+            preclaim_rejection_audit=preclaim_rejection_audit,
         )
     else:
         expected_receipt = {
@@ -4092,7 +4372,11 @@ def _verify_captured_production_loader(
     source, _ = _load_canonical_json(
         root / SOURCE_MANIFEST_NAME, "Phase 41 execution source manifest"
     )
-    source_root = _materialized_source_root(root, materialization[0])
+    source_root = _materialized_source_root(
+        root,
+        materialization[0],
+        preparation_scope=str(source.get("preparation_scope")),
+    )
     relative = "src/model_adaptation/phase41_protocols.py"
     rows = source.get("files")
     matches = [
@@ -4787,6 +5071,83 @@ def freeze_deployment_fit_disposition(output_root: Path) -> Path:
     return _exclusive_write(root / DEPLOYMENT_DISPOSITION_NAME, payload)
 
 
+def export_phase41_evidence_to_repository(
+    output_root: Path, *, repository_output_root: Path
+) -> Path:
+    """Mirror verified terminal evidence into a new immutable repository subdir."""
+
+    root = Path(output_root)
+    manifest = verify_phase41_evidence(root)
+    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    if request.get("preparation_scope") == PRODUCTION_PREPARATION_SCOPE:
+        _validate_operational_root(root)
+    export_names = (
+        *EVIDENCE_ARTIFACT_NAMES,
+        EVIDENCE_MANIFEST_NAME,
+        COMPLETION_SEAL_NAME,
+        TERMINAL_NAME,
+        DEPLOYMENT_DISPOSITION_NAME,
+    )
+    repository_destination_root = _code_fixed_authority_path(
+        Path(__file__).resolve().parents[2],
+        repository_output_root,
+        Path("data/models/phase41"),
+        "Phase 41 repository export root",
+    )
+    destination = (
+        repository_destination_root
+        / "verified-export"
+        / manifest.evidence_manifest_sha256
+    )
+    if destination.exists() or destination.is_symlink():
+        raise ContractError("verified repository export already exists")
+    destination.mkdir(parents=True, exist_ok=False)
+    rows: list[dict[str, object]] = []
+    for name in export_names:
+        source_path = root / name
+        if not source_path.is_file() or source_path.is_symlink():
+            raise ContractError(f"verified export source is missing or unsafe: {name}")
+        source_payload = source_path.read_bytes()
+        destination_path = destination / name
+        _exclusive_write(destination_path, source_payload)
+        destination_payload = destination_path.read_bytes()
+        if destination_payload != source_payload:
+            raise ContractError(f"verified export copy differs from source: {name}")
+        rows.append(
+            {
+                "name": name,
+                "bytes": len(destination_payload),
+                "sha256": _sha256(destination_payload),
+            }
+        )
+    post_copy_manifest = verify_phase41_evidence(root)
+    if post_copy_manifest.evidence_manifest_sha256 != manifest.evidence_manifest_sha256:
+        raise ContractError("operational evidence changed during repository export")
+    for row in rows:
+        name = str(row["name"])
+        source_payload = (root / name).read_bytes()
+        destination_payload = (destination / name).read_bytes()
+        if (
+            destination_payload != source_payload
+            or len(destination_payload) != row["bytes"]
+            or _sha256(destination_payload) != row["sha256"]
+        ):
+            raise ContractError(f"verified repository export drifted: {name}")
+    receipt = {
+        "schema_version": "phase41-verified-repository-export-v1",
+        "evidence_manifest_sha256": manifest.evidence_manifest_sha256,
+        "operational_root_path_sha256": _normalized_path_sha256(root),
+        "destination_path_sha256": _normalized_path_sha256(destination),
+        "artifacts": rows,
+        "source_remains_authoritative": True,
+        "raw_messages_exported": False,
+        "overwrite_permitted": False,
+    }
+    return _exclusive_write(
+        destination / EXPORT_RECEIPT_NAME, _canonical_json_bytes(receipt)
+    )
+
+
 def selected_phase41_checkpoint_identities(output_root: Path) -> tuple[str, str]:
     verify_phase41_preauthorization(output_root)
     request, _ = _load_canonical_json(
@@ -4808,6 +5169,161 @@ def _code_fixed_authority_path(
     if os.path.normcase(os.fspath(candidate)) != os.path.normcase(os.fspath(expected)):
         raise ContractError(f"{description} path is not the code-fixed authority")
     return expected
+
+
+def _preclaim_rejection_audit_authority(
+    path: Path, *, repo_root: Path
+) -> tuple[dict[str, object], str]:
+    """Validate the immutable audit of the sole rejected pre-claim launch."""
+
+    audit_path = _code_fixed_authority_path(
+        repo_root,
+        path,
+        _PRECLAIM_REJECTION_AUDIT_RELATIVE,
+        "Phase 41 pre-claim rejection audit",
+    )
+    raw, payload = _load_canonical_json(
+        audit_path, "Phase 41 pre-claim rejection audit"
+    )
+    expected_fields = {
+        "schema_version",
+        "recorded_at_utc",
+        "source_commit",
+        "request_sha256",
+        "protocols_sha256",
+        "execution_source_manifest_sha256",
+        "preauthorization_receipt_sha256",
+        "authorization_sha256",
+        "launcher_sha256",
+        "superseded_authorization_path",
+        "launcher_invocations",
+        "launcher_exit_code",
+        "failure_stage",
+        "safe_error",
+        "attempted_output_root_path_sha256",
+        "attempted_output_root_attributes",
+        "materialization_created",
+        "global_claim_created",
+        "local_claim_created",
+        "reserved_split_access_attempted",
+        "holdout_spent",
+        "superseded_for_execution",
+        "supersession_reason",
+        "absent_post_gate_artifacts",
+    }
+    if set(raw) != expected_fields or raw["schema_version"] != (
+        "phase41-preclaim-launch-rejection-v1"
+    ):
+        raise ContractError("Phase 41 pre-claim rejection audit fields/schema drifted")
+    for name in (
+        "request_sha256",
+        "protocols_sha256",
+        "execution_source_manifest_sha256",
+        "preauthorization_receipt_sha256",
+        "authorization_sha256",
+        "launcher_sha256",
+        "attempted_output_root_path_sha256",
+    ):
+        _require_sha256(raw[name], name)
+    if (
+        raw["launcher_invocations"] != 1
+        or raw["launcher_exit_code"] != 1
+        or raw["failure_stage"] != "output_root_reparse_guard"
+        or raw["safe_error"] != "OutputRoot cannot be a reparse point"
+        or raw["materialization_created"] is not False
+        or raw["global_claim_created"] is not False
+        or raw["local_claim_created"] is not False
+        or raw["reserved_split_access_attempted"] is not False
+        or raw["holdout_spent"] is not False
+        or raw["superseded_for_execution"] is not True
+        or raw["absent_post_gate_artifacts"] != list(_PRECLAIM_OUTPUT_NAMES)
+    ):
+        raise ContractError("Phase 41 pre-claim rejection audit meaning drifted")
+    if (
+        not isinstance(raw["recorded_at_utc"], str)
+        or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z",
+            raw["recorded_at_utc"],
+        )
+        or not isinstance(raw["source_commit"], str)
+        or not re.fullmatch(r"[0-9a-f]{40}", raw["source_commit"])
+        or raw["attempted_output_root_attributes"]
+        != ["ReadOnly", "Directory", "Archive", "ReparsePoint"]
+        or raw["supersession_reason"]
+        != (
+            "Operational evidence must run from a fixed protected non-reparse "
+            "ProgramData root with a staged source package."
+        )
+    ):
+        raise ContractError("Phase 41 pre-claim rejection audit metadata drifted")
+    superseded_path = _code_fixed_authority_path(
+        repo_root,
+        Path(str(raw["superseded_authorization_path"])),
+        _SUPERSEDED_AUTHORIZATION_RELATIVE,
+        "Phase 41 superseded authorization",
+    )
+    if (
+        not superseded_path.is_file()
+        or superseded_path.is_symlink()
+        or _sha256(superseded_path.read_bytes()) != raw["authorization_sha256"]
+    ):
+        raise ContractError("Phase 41 superseded authorization authority drifted")
+    old_root = Path(repo_root) / "data/models/phase41"
+    if raw["attempted_output_root_path_sha256"] != _normalized_path_sha256(old_root):
+        raise ContractError("Phase 41 attempted output-root identity drifted")
+    old_names = {
+        PREPARED_NAME: "request_sha256",
+        PROTOCOLS_NAME: "protocols_sha256",
+        SOURCE_MANIFEST_NAME: "execution_source_manifest_sha256",
+        PREAUTHORIZATION_NAME: "preauthorization_receipt_sha256",
+    }
+    for name, field in old_names.items():
+        candidate = old_root / name
+        if (
+            not candidate.is_file()
+            or candidate.is_symlink()
+            or _sha256(candidate.read_bytes()) != raw[field]
+        ):
+            raise ContractError(f"superseded Phase 41 artifact drifted: {name}")
+    old_request, old_request_bytes = _load_canonical_json(
+        old_root / PREPARED_NAME, "superseded Phase 41 request"
+    )
+    old_authorization, old_authorization_bytes = _load_canonical_json(
+        superseded_path, "superseded Phase 41 authorization"
+    )
+    if (
+        _sha256(old_request_bytes) != raw["request_sha256"]
+        or _sha256(old_authorization_bytes) != raw["authorization_sha256"]
+        or old_authorization.get("prepared_sha256") != raw["request_sha256"]
+        or old_authorization.get("statement") != DEFERRED_AUTHORIZATION_SIGNAL
+    ):
+        raise ContractError("superseded Phase 41 authorization binding drifted")
+    old_source, _ = _load_canonical_json(
+        old_root / SOURCE_MANIFEST_NAME, "superseded execution source manifest"
+    )
+    launcher = old_source.get("launcher")
+    if not isinstance(launcher, dict) or launcher.get("sha256") != raw["launcher_sha256"]:
+        raise ContractError("superseded Phase 41 launcher authority drifted")
+    for name in _PRECLAIM_OUTPUT_NAMES:
+        candidate = old_root / name
+        if candidate.exists() or candidate.is_symlink():
+            raise ContractError(f"superseded Phase 41 post-gate artifact exists: {name}")
+    for relative in (MATERIALIZATION_RECEIPT_NAME, "clean-runtime"):
+        candidate = old_root / relative
+        if candidate.exists() or candidate.is_symlink():
+            raise ContractError(
+                f"superseded Phase 41 materialization artifact exists: {relative}"
+            )
+    held_out = old_request.get("held_out")
+    if not isinstance(held_out, dict):
+        raise ContractError("superseded Phase 41 held-out identity is missing")
+    split_sha = _require_sha256(held_out.get("sha256"), "superseded held-out identity")
+    registry = _claim_registry_root()
+    for suffix in ("claim", "completion"):
+        candidate = registry / f"{split_sha}.{suffix}.json"
+        if candidate.exists() or candidate.is_symlink():
+            raise ContractError("superseded Phase 41 machine claim already exists")
+    return dict(raw), _sha256(payload)
 
 
 def _phase39_opaque_authority(
@@ -5390,6 +5906,7 @@ def prepare_phase41_from_canonical_authorities(
     phase39_contract_path: Path,
     phase40_comparison_manifest_path: Path,
     phase40_review_manifest_path: Path,
+    preclaim_rejection_audit_path: Path | None = None,
 ) -> PreparedPhase41Evaluation:
     """Freeze the one canonical zero-access production preparation."""
 
@@ -5427,6 +5944,12 @@ def prepare_phase41_from_canonical_authorities(
     qwen_bundle, qwen_base, phobert_bundle, phobert_base, production = (
         _discover_phase41_production_roots(repo_root=repository, models=models)
     )
+    preclaim_rejection_audit, preclaim_rejection_audit_sha = (
+        _preclaim_rejection_audit_authority(
+            preclaim_rejection_audit_path or _PRECLAIM_REJECTION_AUDIT_RELATIVE,
+            repo_root=repository,
+        )
+    )
     production_values = production.as_dict()
     if any(
         comparison.get(name) != production_values.get(name)
@@ -5451,12 +5974,19 @@ def prepare_phase41_from_canonical_authorities(
         phobert_base_root=phobert_base,
         models=models,
     )
-    root = Path(output_root)
-    if root.exists():
-        if not root.is_dir() or root.is_symlink() or tuple(root.iterdir()):
-            raise ContractError("Phase 41 production output root must be an empty directory")
-    else:
-        root.mkdir(parents=True, exist_ok=False)
+    requested_root = Path(
+        os.path.abspath(os.path.normpath(os.fspath(output_root)))
+    )
+    fixed_root = phase41_operational_root()
+    if ntpath.normcase(ntpath.normpath(os.fspath(requested_root))) != ntpath.normcase(
+        ntpath.normpath(os.fspath(fixed_root))
+    ):
+        raise ContractError(
+            "Phase 41 production output must use the fixed ProgramData operational root"
+        )
+    root = _provision_operational_root()
+    if tuple(root.iterdir()):
+        raise ContractError("Phase 41 production operational root must be empty")
     protocol_path = write_protocol_authority(root, protocols)
     protocol_bytes = protocol_path.read_bytes()
     _, source_sha = _write_source_manifest(
@@ -5471,7 +6001,13 @@ def prepare_phase41_from_canonical_authorities(
             comparison["comparison_launch_receipt_sha256"]
         ),
     )
+    _materialize_operational_source_package(
+        repository_root=repository,
+        operational_root=root,
+    )
     registry = _claim_registry_authority(_provision_claim_registry_root())
+    operational = _operational_root_authority(root)
+    operational_source = _operational_source_package_authority(root)
     model_smokes = tuple(run_phase41_preauthorization_smokes(root))
     model_smokes_sha = _sha256(_canonical_json_bytes(model_smokes))
     bundle_authorities = [
@@ -5515,6 +6051,11 @@ def prepare_phase41_from_canonical_authorities(
         ),
         "claim_registry_authority_sha256": registry["authority_sha256"],
         "model_smokes_sha256": model_smokes_sha,
+        "operational_root_authority_sha256": operational["authority_sha256"],
+        "operational_source_package_sha256": operational_source[
+            "authority_sha256"
+        ],
+        "preclaim_rejection_audit_sha256": preclaim_rejection_audit_sha,
     }
     request_path = _freeze_evaluation_request(
         root,
@@ -5535,6 +6076,9 @@ def prepare_phase41_from_canonical_authorities(
         authorities=authorities,
         model_smokes=model_smokes,
         claim_registry=registry,
+        operational_root=operational,
+        operational_source_package=operational_source,
+        preclaim_rejection_audit=preclaim_rejection_audit,
     )
     _exclusive_write(
         root / PREAUTHORIZATION_NAME, _canonical_json_bytes(receipt)
@@ -5563,6 +6107,8 @@ __all__ = [
     "comparison_statements",
     "compute_metrics",
     "freeze_deployment_fit_disposition",
+    "export_phase41_evidence_to_repository",
+    "phase41_operational_root",
     "prepare_phase41_from_canonical_authorities",
     "run_phase41_once",
     "selected_phase41_checkpoint_identities",
