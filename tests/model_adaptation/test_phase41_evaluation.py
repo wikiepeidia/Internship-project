@@ -981,6 +981,38 @@ def test_staged_preclaim_failure_audit_is_canonical_and_unspent(
     assert digest == hashlib.sha256(_canonical_bytes(raw)).hexdigest()
 
 
+def test_argument_preclaim_failure_and_reseal_delegation_are_canonical(
+    tmp_path, monkeypatch
+):
+    repository = Path(__file__).resolve().parents[2]
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    monkeypatch.setattr(phase41_evaluation, "_claim_registry_root", lambda: registry)
+    failure, failure_sha = (
+        phase41_evaluation._argument_preclaim_failure_audit_authority(
+            Path(
+                "data/models/phase41/failed-invocation/"
+                "0cdd803d0f145b147e34c5a8b0a9b1846496192bf6b002a46c3dbccaaf2e9c22/"
+                "claim-capable-preclaim-failure.json"
+            ),
+            repo_root=repository,
+        )
+    )
+    delegation, delegation_sha = (
+        phase41_evaluation._autonomous_reseal_delegation_authority(
+            Path("data/models/phase41/autonomous-reseal-delegation.json"),
+            repo_root=repository,
+        )
+    )
+    assert failure["invocation_arguments"] == []
+    assert failure["materialization_created"] is False
+    assert failure["holdout_spent"] is False
+    assert failure_sha == hashlib.sha256(_canonical_bytes(failure)).hexdigest()
+    assert delegation["delegated_actions"]["authorize_fresh_resealed_authority"]
+    assert delegation["forbidden_actions"]["retry_under_failed_authority"]
+    assert delegation_sha == hashlib.sha256(_canonical_bytes(delegation)).hexdigest()
+
+
 def test_preclaim_failure_audit_binds_old_bytes_and_claim_absence(
     tmp_path, monkeypatch
 ):

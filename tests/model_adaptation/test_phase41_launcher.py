@@ -77,9 +77,62 @@ def test_launcher_is_clean_runtime_self_bound_and_has_no_authority_overrides():
 def test_launcher_exposes_only_output_root_and_requires_canonical_run_command():
     source = LAUNCHER.read_text(encoding="utf-8")
     assert re.search(r"param\s*\([^)]*\$OutputRoot", source, flags=re.IGNORECASE | re.DOTALL)
+    assert "CommonApplicationData" in source.split("Set-StrictMode", 1)[0]
     assert "phase41-run-once" in source
     for forbidden in ("--split-path", "--model-path", "--registry-root", "--retry"):
         assert forbidden not in source
+
+
+@pytest.mark.skipif(os.name != "nt", reason="launcher parameter binding is Windows-only")
+def test_no_argument_production_command_binds_fixed_output_root(tmp_path):
+    source = LAUNCHER.read_text(encoding="utf-8")
+    parameter_block = source.split("Set-StrictMode", 1)[0]
+    probe = tmp_path / "phase41_one_shot_launcher.ps1"
+    probe.write_text(
+        parameter_block + "Write-Output $OutputRoot\n",
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["pwsh", "-NoProfile", "-NonInteractive", "-File", os.fspath(probe)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert Path(completed.stdout.strip()) == Path(
+        os.environ.get("ProgramData", r"C:\ProgramData")
+    ) / "VNPhish" / "phase41-evaluation-evidence"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="production launcher is Windows-only")
+def test_exact_outer_launcher_command_reaches_fixed_root_guard(tmp_path):
+    output = tmp_path / "synthetic-output"
+    output.mkdir()
+    host = Path(r"C:\Program Files\PowerShell\7\pwsh.exe")
+    completed = subprocess.run(
+        [
+            os.fspath(host),
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            os.fspath(LAUNCHER.resolve()),
+            "-OutputRoot",
+            os.fspath(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode != 0
+    assert "OutputRoot differs from the fixed operational evidence root" in (
+        completed.stderr
+    )
+    assert "OutputRoot is required" not in completed.stderr
+    assert not (output / "execution-materialization-receipt.json").exists()
+    assert not (output / "clean-runtime").exists()
 
 
 def test_launcher_embedded_python_is_syntax_valid_and_bootstrap_is_source_only():

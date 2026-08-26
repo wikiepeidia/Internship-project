@@ -1,6 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$OutputRoot
+    [string]$OutputRoot = [System.IO.Path]::Combine(
+        [Environment]::GetFolderPath(
+            [Environment+SpecialFolder]::CommonApplicationData
+        ),
+        "VNPhish",
+        "phase41-evaluation-evidence"
+    )
 )
 
 Set-StrictMode -Version Latest
