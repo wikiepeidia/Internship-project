@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import inspect
 import json
+import os
 import shutil
 from collections import Counter
 from pathlib import Path
@@ -38,7 +39,10 @@ from src.data_pipeline.apply_mislabel_triage import (
     sha256_path,
     validate_staged_candidate,
 )
-from src.data_pipeline.judge_merge import validate_downstream_data_contract
+from src.data_pipeline.judge_merge import (
+    validate_downstream_data_contract,
+    validate_downstream_data_contract_live,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -910,15 +914,15 @@ def _between_once(text: str, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
-def test_downstream_contract_matches_live_manifest_and_active_planning_regions():
+def test_downstream_contract_matches_manifest_metadata_and_active_planning_regions():
     contract_path = (
         PHASE_DIR / "39-DOWNSTREAM-DATA-CONTRACT.json"
     )
     report = validate_downstream_data_contract(
         contract_path=contract_path,
         manifest_path=REPO_ROOT / "data/manifests/manifest.json",
-        splits_dir=REPO_ROOT / "data/splits",
     )
+    assert report["validation_scope"] == "metadata_only"
     assert report["total_records"] == 2_097
     assert report["split_counts"] == {"train": 1_658, "val": 219, "test": 220}
     assert report["held_out_test"]["sha256"] == (
@@ -990,3 +994,20 @@ def test_downstream_contract_matches_live_manifest_and_active_planning_regions()
     assert report["held_out_test"]["sha256"] in "\n".join(active_regions)
     # The dated quick-task statement remains historical and intentionally old.
     assert "corrected 2,403-row retraining snapshot" in state
+
+
+@pytest.mark.live_split_integrity
+@pytest.mark.skipif(
+    os.environ.get("VNPHISH_ENABLE_LIVE_SPLIT_INTEGRITY_AUDIT")
+    != "I_UNDERSTAND_THIS_READS_LIVE_SPLITS",
+    reason="explicit live split integrity audit was not enabled",
+)
+def test_explicit_live_downstream_contract_integrity_audit():
+    """Manual audit only; default/full suites exclude this split-reading test."""
+
+    report = validate_downstream_data_contract_live(
+        contract_path=PHASE_DIR / "39-DOWNSTREAM-DATA-CONTRACT.json",
+        manifest_path=REPO_ROOT / "data/manifests/manifest.json",
+        splits_dir=REPO_ROOT / "data/splits",
+    )
+    assert report["validation_scope"] == "explicit_live_data_integrity_audit"

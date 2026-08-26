@@ -21,6 +21,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
@@ -58,6 +59,8 @@ _COORDINATE_SPLIT_ORDER = {name: index for index, name in enumerate(_SPLIT_NAMES
 _FINAL_RELEASE_SCHEMA_VERSION = "phase39-final-release-v1"
 _FINAL_PROVENANCE_SCHEMA_VERSION = "phase39-final-judge-provenance-v1"
 _DOWNSTREAM_CONTRACT_SCHEMA_VERSION = "phase39-downstream-data-contract-v1"
+_LIVE_SPLIT_INTEGRITY_ENV = "VNPHISH_ENABLE_LIVE_SPLIT_INTEGRITY_AUDIT"
+_LIVE_SPLIT_INTEGRITY_TOKEN = "I_UNDERSTAND_THIS_READS_LIVE_SPLITS"
 _HISTORICAL_JUDGE_SHA256 = {
     "codex-judge-pass.jsonl": "00f8b4116a6d9cd48317eb7bc7921d44d41c641d1fe9c49aeb8af8fc8e84b142",
     "judge-merged.jsonl": "e8b4d947271717e56556a74136c57d83dd58589c78699d557999140a9fb55750",
@@ -3159,16 +3162,150 @@ def promote_final_release(
     return report
 
 
-def render_downstream_data_contract(
-    *, manifest_path: Path, splits_dir: Path, generated_at: str
-) -> dict[str, Any]:
-    """Render the sole machine-readable Phase 40/41 data contract."""
+def _load_downstream_manifest(manifest_path: Path) -> dict[str, Any]:
     try:
         manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"canonical manifest is unreadable: {exc}") from exc
     if manifest.get("phase39_final_release", {}).get("status") != "promoted":
         raise ValueError("downstream contract requires a promoted Phase 39 manifest")
+    return manifest
+
+
+def _require_live_split_integrity_opt_in() -> None:
+    """Fail before path handling unless a live-data audit was explicitly enabled."""
+
+    if os.environ.get(_LIVE_SPLIT_INTEGRITY_ENV) != _LIVE_SPLIT_INTEGRITY_TOKEN:
+        raise ValueError(
+            "live split integrity validation is disabled by default; set "
+            f"{_LIVE_SPLIT_INTEGRITY_ENV}={_LIVE_SPLIT_INTEGRITY_TOKEN} and use "
+            "the explicit live-data audit entry point"
+        )
+
+
+def _manifest_split_metadata(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    files = manifest.get("manifest", {}).get("files", {})
+    distributions = manifest.get("split_class_distribution", {})
+    labels = (
+        "bank_impersonation",
+        "task_scam",
+        "benign",
+        "zalo_social_engineering",
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for name in _SPLIT_NAMES:
+        file_metadata = files.get(f"{name}.jsonl")
+        distribution = distributions.get(name)
+        if not isinstance(file_metadata, dict) or not isinstance(distribution, dict):
+            raise ValueError(f"canonical manifest lacks downstream metadata for {name}")
+        if set(file_metadata) != {"sha256", "records", "bytes"}:
+            raise ValueError(f"canonical manifest has invalid file metadata for {name}")
+        sha256 = file_metadata.get("sha256")
+        records = file_metadata.get("records")
+        byte_count = file_metadata.get("bytes")
+        if not isinstance(sha256, str) or re.fullmatch(_SHA256_PATTERN, sha256) is None:
+            raise ValueError(f"canonical manifest has invalid sha256 for {name}")
+        if not isinstance(records, int) or isinstance(records, bool) or records < 0:
+            raise ValueError(f"canonical manifest has invalid record count for {name}")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool) or byte_count < 0:
+            raise ValueError(f"canonical manifest has invalid byte count for {name}")
+        if set(distribution) != set(labels):
+            raise ValueError(f"canonical manifest has invalid label metadata for {name}")
+        label_counts: dict[str, int] = {}
+        for label in labels:
+            count = distribution.get(label)
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                raise ValueError(
+                    f"canonical manifest has invalid {label} count for {name}"
+                )
+            label_counts[label] = count
+        if sum(label_counts.values()) != records:
+            raise ValueError(f"canonical manifest label counts do not total {name}")
+        result[name] = {
+            "records": records,
+            "bytes": byte_count,
+            "sha256": sha256,
+            "label_counts": label_counts,
+        }
+    return result
+
+
+def render_downstream_data_contract_from_metadata(
+    *, manifest_path: Path, generated_at: str
+) -> dict[str, Any]:
+    """Render the downstream contract without resolving or touching split paths."""
+
+    manifest = _load_downstream_manifest(manifest_path)
+    split_contract = _manifest_split_metadata(manifest)
+    total_labels: Counter[str] = Counter()
+    for metadata in split_contract.values():
+        total_labels.update(metadata["label_counts"])
+    total = sum(item["records"] for item in split_contract.values())
+    test = split_contract["test"]
+    split_governance = manifest.get("task_scam_mislabel_triage", {}).get(
+        "split_governance", {}
+    )
+    split_salt = split_governance.get("salt")
+    if not isinstance(split_salt, str) or not split_salt:
+        raise ValueError("canonical manifest lacks a split-governance salt")
+    max_seed_share = manifest.get("task_scam_mislabel_triage", {}).get(
+        "validation", {}
+    ).get("max_seed_share")
+    if not isinstance(max_seed_share, (int, float)) or isinstance(max_seed_share, bool):
+        raise ValueError("canonical manifest lacks a valid maximum seed share")
+    return {
+        "schema_version": _DOWNSTREAM_CONTRACT_SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "source_manifest": {
+            "path": _manifest_path_string(manifest_path),
+            "sha256": sha256_path(manifest_path),
+            "version": manifest["manifest"]["version"],
+        },
+        "total_records": total,
+        "splits": split_contract,
+        "total_label_counts": {
+            label: total_labels.get(label, 0)
+            for label in (
+                "bank_impersonation",
+                "task_scam",
+                "benign",
+                "zalo_social_engineering",
+            )
+        },
+        "split_governance": {
+            "salt": split_salt,
+            "whole_seed_groups": True,
+            "max_global_seed_share": max_seed_share,
+        },
+        "phase40_training_boundary": {
+            "allowed_splits": ["train", "val"],
+            "forbidden_split": "test",
+            "rule": "Phase 40 may train/select on train and validation only; it must not read test rows.",
+            "starts_after": "Phase 39 final human and report gates are complete",
+        },
+        "held_out_test": {
+            "path": "data/splits/test.jsonl",
+            "records": test["records"],
+            "bytes": test["bytes"],
+            "sha256": test["sha256"],
+            "evaluation_phase": 41,
+            "touch_policy": "evaluate once after all three checkpoints are frozen",
+        },
+        "phase41_post_evaluation_fit": {
+            "all_data_records": total,
+            "allowed_only_after": "held-out results and checkpoint identities are frozen",
+            "unbiased_test_score_claim": False,
+        },
+    }
+
+
+def render_downstream_data_contract(
+    *, manifest_path: Path, splits_dir: Path, generated_at: str
+) -> dict[str, Any]:
+    """Render from live split bytes after an explicit integrity-audit opt-in."""
+
+    _require_live_split_integrity_opt_in()
+    manifest = _load_downstream_manifest(manifest_path)
     splits = load_source_splits(splits_dir)
     split_contract: dict[str, dict[str, Any]] = {}
     total_labels: Counter[str] = Counter()
@@ -3251,8 +3388,10 @@ def render_downstream_data_contract(
 
 
 def validate_downstream_data_contract(
-    *, contract_path: Path, manifest_path: Path, splits_dir: Path
+    *, contract_path: Path, manifest_path: Path
 ) -> dict[str, Any]:
+    """Validate committed metadata without accepting or touching a split path."""
+
     try:
         actual = json.loads(Path(contract_path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -3262,9 +3401,8 @@ def validate_downstream_data_contract(
     generated_at = actual.get("generated_at")
     if not isinstance(generated_at, str) or not generated_at:
         raise ValueError("downstream data contract lacks generated_at")
-    expected = render_downstream_data_contract(
+    expected = render_downstream_data_contract_from_metadata(
         manifest_path=manifest_path,
-        splits_dir=splits_dir,
         generated_at=generated_at,
     )
     if actual != expected:
@@ -3278,14 +3416,40 @@ def validate_downstream_data_contract(
             name: expected["splits"][name]["records"] for name in _SPLIT_NAMES
         },
         "held_out_test": expected["held_out_test"],
+        "validation_scope": "metadata_only",
     }
+
+
+def validate_downstream_data_contract_live(
+    *, contract_path: Path, manifest_path: Path, splits_dir: Path
+) -> dict[str, Any]:
+    """Explicit audit entry point that parses, stats, and hashes live splits."""
+
+    _require_live_split_integrity_opt_in()
+    metadata_report = validate_downstream_data_contract(
+        contract_path=contract_path,
+        manifest_path=manifest_path,
+    )
+    try:
+        actual = json.loads(Path(contract_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"downstream data contract is unreadable: {exc}") from exc
+    expected = render_downstream_data_contract(
+        manifest_path=manifest_path,
+        splits_dir=splits_dir,
+        generated_at=actual["generated_at"],
+    )
+    if actual != expected:
+        raise ValueError("downstream data contract differs from live split bytes")
+    return {**metadata_report, "validation_scope": "explicit_live_data_integrity_audit"}
 
 
 def write_downstream_data_contract(
     *, contract_path: Path, manifest_path: Path, splits_dir: Path
 ) -> dict[str, Any]:
+    _require_live_split_integrity_opt_in()
     if Path(contract_path).is_file():
-        return validate_downstream_data_contract(
+        return validate_downstream_data_contract_live(
             contract_path=contract_path,
             manifest_path=manifest_path,
             splits_dir=splits_dir,
@@ -3299,7 +3463,7 @@ def write_downstream_data_contract(
         generated_at=generated_at,
     )
     _write_bytes_atomically(contract_path, _pretty_json_bytes(contract))
-    return validate_downstream_data_contract(
+    return validate_downstream_data_contract_live(
         contract_path=contract_path,
         manifest_path=manifest_path,
         splits_dir=splits_dir,
@@ -3691,20 +3855,32 @@ def _downstream_contract_cli(argv: Sequence[str], *, write: bool) -> None:
         "--manifest", type=Path, default=Path("data/manifests/manifest.json")
     )
     parser.add_argument("--splits-dir", type=Path, default=Path("data/splits"))
-    args = parser.parse_args(list(argv))
-    report = (
-        write_downstream_data_contract(
-            contract_path=args.contract,
-            manifest_path=args.manifest,
-            splits_dir=args.splits_dir,
-        )
-        if write
-        else validate_downstream_data_contract(
-            contract_path=args.contract,
-            manifest_path=args.manifest,
-            splits_dir=args.splits_dir,
-        )
+    parser.add_argument(
+        "--live-data-integrity-audit",
+        action="store_true",
+        help=(
+            "Select the split-reading integrity audit; also requires "
+            f"{_LIVE_SPLIT_INTEGRITY_ENV}={_LIVE_SPLIT_INTEGRITY_TOKEN}"
+        ),
     )
+    args = parser.parse_args(list(argv))
+    if write:
+        report = write_downstream_data_contract(
+            contract_path=args.contract,
+            manifest_path=args.manifest,
+            splits_dir=args.splits_dir,
+        )
+    elif args.live_data_integrity_audit:
+        report = validate_downstream_data_contract_live(
+            contract_path=args.contract,
+            manifest_path=args.manifest,
+            splits_dir=args.splits_dir,
+        )
+    else:
+        report = validate_downstream_data_contract(
+            contract_path=args.contract,
+            manifest_path=args.manifest,
+        )
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

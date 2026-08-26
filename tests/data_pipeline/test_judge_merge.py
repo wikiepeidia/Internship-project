@@ -35,9 +35,12 @@ from src.data_pipeline.judge_merge import (
     main,
     materialize_batch_bundle,
     merge_judge_results,
+    render_downstream_data_contract_from_metadata,
     sha256_path,
     validate_batch_bundle,
     validate_carries_against_historical_backup,
+    validate_downstream_data_contract,
+    validate_downstream_data_contract_live,
     validate_semantic_convergence,
     write_merge_outputs,
 )
@@ -51,6 +54,145 @@ _DIMENSIONS = (
     "risk_tier_correctness",
     "suspicious_span_accuracy",
 )
+
+
+def _downstream_metadata_fixture() -> dict[str, Any]:
+    split_rows = {"train": 8, "val": 1, "test": 1}
+    split_distributions = {
+        "train": {
+            "bank_impersonation": 2,
+            "task_scam": 2,
+            "benign": 2,
+            "zalo_social_engineering": 2,
+        },
+        "val": {
+            "bank_impersonation": 1,
+            "task_scam": 0,
+            "benign": 0,
+            "zalo_social_engineering": 0,
+        },
+        "test": {
+            "bank_impersonation": 0,
+            "task_scam": 1,
+            "benign": 0,
+            "zalo_social_engineering": 0,
+        },
+    }
+    files = {
+        name + ".jsonl": {
+            "sha256": str(index + 1) * 64,
+            "records": split_rows[name],
+            "bytes": 100 + index,
+        }
+        for index, name in enumerate(("train", "val", "test"))
+    }
+    return {
+        "manifest": {"version": "fixture-v1", "files": files},
+        "split_class_distribution": split_distributions,
+        "task_scam_mislabel_triage": {
+            "split_governance": {"salt": "fixture-salt"},
+            "validation": {"max_seed_share": 0.08},
+        },
+        "phase39_final_release": {"status": "promoted"},
+    }
+
+
+def test_downstream_contract_default_validation_is_metadata_only(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "manifest.json"
+    contract_path = tmp_path / "contract.json"
+    manifest_path.write_text(
+        json.dumps(_downstream_metadata_fixture(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    contract = render_downstream_data_contract_from_metadata(
+        manifest_path=manifest_path,
+        generated_at="2026-08-26T00:00:00+07:00",
+    )
+    contract_path.write_text(
+        json.dumps(contract, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    import src.data_pipeline.judge_merge as module
+
+    monkeypatch.setattr(
+        module,
+        "load_source_splits",
+        lambda *_args, **_kwargs: pytest.fail("metadata validation loaded split rows"),
+    )
+    monkeypatch.setattr(
+        module,
+        "render_downstream_data_contract",
+        lambda *_args, **_kwargs: pytest.fail("metadata validation used live renderer"),
+    )
+
+    report = validate_downstream_data_contract(
+        contract_path=contract_path,
+        manifest_path=manifest_path,
+    )
+
+    assert report["validation_scope"] == "metadata_only"
+    assert report["split_counts"] == {"train": 8, "val": 1, "test": 1}
+
+
+def test_live_downstream_validator_rejects_trap_path_before_any_io(
+    tmp_path, monkeypatch
+):
+    import src.data_pipeline.judge_merge as module
+
+    trap_root = tmp_path / "reserved-split-trap"
+    monkeypatch.delenv("VNPHISH_ENABLE_LIVE_SPLIT_INTEGRITY_AUDIT", raising=False)
+    original_stat = Path.stat
+    original_open = Path.open
+    original_iterdir = Path.iterdir
+    original_scandir = module.os.scandir
+    original_sha256 = module.sha256_path
+
+    def is_trap(path: Path) -> bool:
+        candidate = Path(path)
+        return candidate == trap_root or trap_root in candidate.parents
+
+    def trap_stat(path: Path, *args, **kwargs):
+        if is_trap(path):
+            pytest.fail("live validator statted the trap path before opt-in")
+        return original_stat(path, *args, **kwargs)
+
+    def trap_open(path: Path, *args, **kwargs):
+        if is_trap(path):
+            pytest.fail("live validator opened the trap path before opt-in")
+        return original_open(path, *args, **kwargs)
+
+    def trap_iterdir(path: Path):
+        if is_trap(path):
+            pytest.fail("live validator enumerated the trap path before opt-in")
+        return original_iterdir(path)
+
+    def trap_scandir(path):
+        if is_trap(Path(path)):
+            pytest.fail("live validator scanned the trap path before opt-in")
+        return original_scandir(path)
+
+    def trap_sha256(path: Path):
+        if is_trap(path):
+            pytest.fail("live validator hashed the trap path before opt-in")
+        return original_sha256(path)
+
+    monkeypatch.setattr(Path, "stat", trap_stat)
+    monkeypatch.setattr(Path, "open", trap_open)
+    monkeypatch.setattr(Path, "iterdir", trap_iterdir)
+    monkeypatch.setattr(module.os, "scandir", trap_scandir)
+    monkeypatch.setattr(module, "sha256_path", trap_sha256)
+    monkeypatch.setattr(
+        module,
+        "load_source_splits",
+        lambda *_args, **_kwargs: pytest.fail("live validator parsed trap split rows"),
+    )
+
+    with pytest.raises(ValueError, match="disabled by default"):
+        validate_downstream_data_contract_live(
+            contract_path=tmp_path / "absent-contract.json",
+            manifest_path=tmp_path / "absent-manifest.json",
+            splits_dir=trap_root,
+        )
 
 
 def _make_source_row(

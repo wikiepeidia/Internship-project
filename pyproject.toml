@@ -50,3 +50,7 @@ include = ["src*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "src"]
+addopts = "-m 'not live_split_integrity'"
+markers = [
+    "live_split_integrity: explicit audit that parses, stats, and hashes live split files",
+]
