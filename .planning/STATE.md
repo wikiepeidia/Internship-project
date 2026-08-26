@@ -4,17 +4,17 @@ milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41
 current_phase_name: Held-Out Evaluation Discipline
-status: ready
-stopped_at: Phase 40 complete; Phase 41 plans ready for safe pre-authorization execution
-last_updated: "2026-08-26T03:56:52.644Z"
+status: executing
+stopped_at: Completed 41-01-PLAN.md; proceeding to safe Plan 41-02 preparation
+last_updated: "2026-08-26T04:13:00.078Z"
 last_activity: 2026-08-26
-last_activity_desc: Phase 40 complete, transitioned to Phase 41
-state_head: 28e4cb3642d52c1e70f74275a50a9cef2bbfff11
+last_activity_desc: Phase 41 execution started
+state_head: 02be25c660888b7c7b5a63459b1103677e5262d4
 progress:
   total_phases: 22
   completed_phases: 2
   total_plans: 81
-  completed_plans: 53
+  completed_plans: 54
   percent: 9
 ---
 
@@ -37,11 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 41 — Held-Out Evaluation Discipline
-Plan: 41-01 ready
-Status: Ready to execute safe pre-authorization work
-Last activity: 2026-08-26 — Phase 40 complete, transitioned to Phase 41
-Progress: [██████████████░░░░░░] 61/89 plans (69%)
+Phase: 41 (Held-Out Evaluation Discipline) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-08-26 — Phase 41 execution started
+Progress: [██████████████░░░░░░] 62/89 plans (70%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -232,9 +232,9 @@ Progress: [██████████████░░░░░░] 61/89 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-26T00:14:07.036Z
-**Stopped at:** Phase 40 complete; Phase 41 plans ready for safe pre-authorization execution
-**Resume file:** `.planning/phases/40-multi-model-training-evidence/40-06-PLAN.md`
+**Last session:** 2026-08-26T04:12:59.639Z
+**Stopped at:** Completed 41-01-PLAN.md; proceeding to safe Plan 41-02 preparation
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -325,6 +325,7 @@ Progress: [██████████████░░░░░░] 61/89 p
 - [Phase 41 preparation spike]: A synthetic-only prototype passed 13 tests for `PREPARED -> EXPLICITLY_AUTHORIZED -> SPENT -> COMPLETED|SPENT_FAILED`, a durable SHA-keyed claim before the sole opener, one immutable snapshot shared by both models, terminal failures, replay/concurrency resistance, and fixed-order metrics/confusion matrices. It did not discover, stat, hash, or open the reserved split. The old resumable single-model evaluator now lexically rejects the canonical reserved path before any audit/runtime/loader action, including Win32 namespace and NTFS-stream spellings; hardlinks, junctions, mapped drives, and Volume-GUID aliases remain outside a lexical guard. Production must own the OS handle, reject reparse ancestors, store the claim outside the mutable checkout, and freeze/hash the complete Qwen and PhoBERT inference protocols before explicit one-shot authorization.
 - [Phase 41 held-out wording correction, 2026-08-25]: The canonical test rows were already inspected during Phase 39 corpus-quality work, and the current thesis methodology chapter explicitly quotes one promoted-test record as a worked example. Therefore the defensible claim is exactly one post-freeze **model-evaluation** pass against the two frozen models, not that no human ever saw the partition. This prior content exposure must be disclosed in Phase 41/report limitations and must not influence training, checkpoint selection, thresholds, validation acceptance, Colab activation, or any later repair. Poor Phase 41 results remain terminal evidence for this partition.
 - [Phase 40 Plan 05 completion, 2026-08-26]: Final comparison authority file SHA-256 `7ac5541d42a60d7b86619cb34af1006f9b6bad7f34183b5f7073a9574fbd89c7` binds the 33-file source tree `520aeb6a58276750c3dd37be1e9ee6983fdd7f6c807c24332625020ec0334cc2`. The clean launcher retained both completed local runs over the same 219-row validation snapshot: Qwen macro-F1 `0.9885153110318673`, PhoBERT `0.9848929139790588`, both safety PASS and zero invalid outputs. Quality comparison is admissible; speed comparison, significance, t-test, and stable-superiority claims are not. External Qwen GGUF, PhoBERT release, portable runtime, and launch verification passed, as did 832/832 model-adaptation tests. The deterministic 52-row queue now creates a real Plan 06 human gate; automation may verify but may not invent reviewer-return judgments. No retraining occurred and Phase 41 remains unopened.
+- [Phase 41]: Keep all preauthorization evaluator verification synthetic and isolated; no reserved-split or production-model access before the exact human gate. — The irreversible claim-before-open boundary must be proven without consuming the real one-shot opportunity.
 
 ## Performance Metrics
 
@@ -333,6 +334,7 @@ Progress: [██████████████░░░░░░] 61/89 p
 | Phase 38 P01 | 42min | 2 tasks | 2 files |
 | Phase 38 P02 | 14min | 2 tasks | 4 files |
 | Phase 39 P01 | 25min | 2 tasks | 4 files |
+| Phase 41 P01 | 3h 36m active | 3 tasks | 8 files |
 
 ### Blockers
 

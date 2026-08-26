@@ -945,11 +945,11 @@ Plans:
 2. A results artifact reports macro and weighted F1 plus per-class precision/recall/F1 for both models plainly, including an explicit, unhedged statement if PhoBERT outscores the deployed QLoRA system on any metric.
 3. Held-out results are terminal evidence, not a tuning signal: poor test performance is reported honestly and cannot trigger dataset repair, retraining, threshold selection, or repeated evaluation on the same partition. Any later corrected experiment requires a newly acquired untouched holdout for an unbiased claim. Only after the comparison and selected-checkpoint identities are frozen may an optional deployment model be fitted on all 2,097 rows; it is labeled a post-evaluation all-data fit and receives no claim of an unbiased test score.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
 
-- [ ] 41-01-PLAN.md -- Production one-shot evaluator, protected claim registry, frozen two-model protocols, clean launcher, and synthetic-only hardening
+- [x] 41-01-PLAN.md -- Production one-shot evaluator, protected claim registry, frozen two-model protocols, clean launcher, and synthetic-only hardening
 - [ ] 41-02-PLAN.md -- Phase 40 closure gate, explicit authorization, exactly one two-model held-out pass, terminal evidence freeze, and all-data deployment-fit disposition
 
 ### Phase 42: Report Overhaul
@@ -1073,7 +1073,7 @@ Plans:
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
 | 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
-| 41. Held-Out Evaluation Discipline | 0/2 | Not started | - |
+| 41. Held-Out Evaluation Discipline | 1/2 | In Progress | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |
