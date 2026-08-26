@@ -11,7 +11,9 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 import stat
+import tempfile
 from typing import Sequence
+import uuid
 
 from src.model_adaptation import phase40_final_authority as _final
 from src.model_adaptation import phase40_handoff as _handoff
@@ -64,11 +66,8 @@ def _regular_file_identity(metadata: os.stat_result) -> tuple[object, ...]:
     return (
         metadata.st_dev,
         metadata.st_ino,
-        metadata.st_mode,
-        metadata.st_nlink,
         metadata.st_size,
         metadata.st_mtime_ns,
-        metadata.st_ctime_ns,
     )
 
 
@@ -107,6 +106,8 @@ def read_phase40_review_regular_bytes(path: Path, *, description: str) -> bytes:
             _regular_file_identity(before) != _regular_file_identity(after)
             or _regular_file_identity(after)
             != _regular_file_identity(final_metadata)
+            or final_metadata.st_nlink != 1
+            or lexical_metadata.st_ctime_ns != final_metadata.st_ctime_ns
         ):
             raise ValueError(f"{description} changed while it was read")
         return payload
@@ -161,6 +162,165 @@ def _preflight_review_output_leaf(path: Path, *, description: str) -> None:
     if not os.path.lexists(path):
         return
     read_phase40_review_regular_bytes(path, description=description)
+
+
+def _stage_review_payload(root: Path, destination: Path, payload: bytes) -> Path:
+    handle = tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix=f".{destination.name}.",
+        suffix=".stage",
+        dir=root,
+        delete=False,
+    )
+    staged = Path(handle.name)
+    try:
+        with handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if read_phase40_review_regular_bytes(
+            staged, description=f"staged human-review {destination.name}"
+        ) != payload:
+            raise RuntimeError("staged human-review payload failed read-back")
+        return staged
+    except BaseException:
+        if os.path.lexists(staged):
+            staged.unlink()
+        raise
+
+
+def _promote_review_file(staged: Path, destination: Path) -> None:
+    """Publish without overwriting a leaf introduced after preflight."""
+
+    os.link(staged, destination, follow_symlinks=False)
+    staged.unlink()
+
+
+def _fsync_review_directory(root: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        descriptor = os.open(root, flags)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        # Windows does not expose a portable fsync-capable directory handle.
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _retire_review_manifest(path: Path) -> Path:
+    retired = path.with_name(f".{path.name}.incomplete-{uuid.uuid4().hex}")
+    os.replace(path, retired)
+    _fsync_review_directory(path.parent)
+    return retired
+
+
+def _publish_human_review_artifacts(
+    artifacts: _handoff.HumanReviewArtifacts,
+    *,
+    notes_bytes: bytes,
+    report_bytes: bytes,
+    manifest_bytes: bytes,
+    accepted_prior_manifest_bytes: Sequence[bytes] = (),
+) -> None:
+    """Stage the closure and publish its completion manifest strictly last."""
+
+    root = artifacts.manifest_path.parent
+    expected_paths = (
+        (artifacts.notes_path, notes_bytes),
+        (artifacts.report_path, report_bytes),
+        (artifacts.manifest_path, manifest_bytes),
+    )
+    if (
+        artifacts.notes_path.parent != root
+        or artifacts.report_path.parent != root
+        or tuple(path.name for path, _ in expected_paths)
+        != (
+            "human-review-notes.jsonl",
+            "human-review-report.md",
+            "human-review-manifest.json",
+        )
+    ):
+        raise ValueError("human-review publication paths are not the fixed artifact set")
+    _handoff._reject_redirecting_path_components((root,))
+
+    existing: dict[Path, bytes | None] = {}
+    for path, _ in expected_paths:
+        if os.path.lexists(path):
+            existing[path] = read_phase40_review_regular_bytes(
+                path, description=f"human-review {path.name}"
+            )
+        else:
+            existing[path] = None
+
+    side_conflicts = tuple(
+        path
+        for path, payload in expected_paths[:2]
+        if existing[path] is not None and existing[path] != payload
+    )
+    manifest_existing = existing[artifacts.manifest_path]
+    if side_conflicts:
+        if manifest_existing is not None:
+            _retire_review_manifest(artifacts.manifest_path)
+        raise RuntimeError("human-review side artifact conflicts with the closure payload")
+    if manifest_existing == manifest_bytes:
+        if all(existing[path] == payload for path, payload in expected_paths):
+            return
+        _retire_review_manifest(artifacts.manifest_path)
+        raise RuntimeError("human-review completion marker exists for a partial closure")
+    if (
+        manifest_existing is not None
+        and manifest_existing not in tuple(accepted_prior_manifest_bytes)
+    ):
+        _retire_review_manifest(artifacts.manifest_path)
+        raise RuntimeError("human-review completion marker conflicts with the closure payload")
+
+    staged: dict[Path, Path] = {}
+    retired_manifest: Path | None = None
+    try:
+        for destination, payload in expected_paths:
+            staged[destination] = _stage_review_payload(
+                root, destination, payload
+            )
+        if manifest_existing is not None:
+            retired_manifest = _retire_review_manifest(artifacts.manifest_path)
+
+        for destination, payload in expected_paths[:2]:
+            if existing[destination] == payload:
+                staged[destination].unlink()
+                continue
+            _promote_review_file(staged[destination], destination)
+            if read_phase40_review_regular_bytes(
+                destination, description=f"human-review {destination.name}"
+            ) != payload:
+                raise RuntimeError("human-review side artifact failed promotion read-back")
+            _fsync_review_directory(root)
+
+        _promote_review_file(
+            staged[artifacts.manifest_path], artifacts.manifest_path
+        )
+        if read_phase40_review_regular_bytes(
+            artifacts.manifest_path,
+            description="human-review completion manifest",
+        ) != manifest_bytes:
+            raise RuntimeError("human-review completion manifest failed read-back")
+        _fsync_review_directory(root)
+        if retired_manifest is not None:
+            retired_manifest.unlink()
+    except BaseException:
+        if os.path.lexists(artifacts.manifest_path):
+            try:
+                _retire_review_manifest(artifacts.manifest_path)
+            except OSError:
+                pass
+        raise
+    finally:
+        for staged_path in staged.values():
+            if os.path.lexists(staged_path):
+                staged_path.unlink()
 
 
 def load_canonical_phase40_comparison_manifest(
@@ -777,8 +937,12 @@ def finalize_phase40_human_review(
                     f"human-review artifact verification failed: {path.name}"
                 )
         return artifacts
-    for path, payload in payloads:
-        _handoff._write_frozen_bytes(path, payload)
+    _publish_human_review_artifacts(
+        artifacts,
+        notes_bytes=notes_bytes,
+        report_bytes=report_bytes,
+        manifest_bytes=manifest_bytes,
+    )
     return artifacts
 
 
