@@ -129,7 +129,7 @@ def test_phase40_probe_and_review_cli_controls_parse_without_latest_alias(tmp_pa
 
 
 def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capsys
 ):
     cli_module = _load_cli_module()
     reviewer_return_path = (
@@ -180,6 +180,10 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     assert captured["reviews"] is sentinel_reviews
     assert captured["queue_bytes"] == queue_bytes
     assert captured["reviewer_return_bytes"] == original_bytes
+    output = capsys.readouterr().out
+    assert str(tmp_path) not in output
+    assert "notes=data/models/phase40/review/human-review-notes.jsonl" in output
+    assert "report=data/models/phase40/review/human-review-report.md" in output
 
 
 def test_phase40_human_review_cli_sanitizes_unreadable_reviewer_input(

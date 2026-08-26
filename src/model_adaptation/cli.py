@@ -1078,8 +1078,9 @@ def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
         verify_only=args.verify_only,
     )
     print(
-        f"Phase 40 human review finalized: notes={artifacts.notes_path} "
-        f"report={artifacts.report_path}"
+        "Phase 40 human review finalized: "
+        "notes=data/models/phase40/review/human-review-notes.jsonl "
+        "report=data/models/phase40/review/human-review-report.md"
     )
     return 0
 
