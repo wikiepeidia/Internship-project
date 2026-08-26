@@ -166,12 +166,12 @@ _AUTONOMOUS_RESEAL_DELEGATION_RELATIVE = Path(
 )
 _CAPTURED_HELPER_PRECLAIM_FAILURE_RELATIVE = Path(
     "data/models/phase41/failed-invocation/"
-    "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+    "28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7/"
     "claim-capable-preclaim-failure.json"
 )
 _CAPTURED_HELPER_FAILED_PREAUTH_MIRROR_RELATIVE = Path(
     "data/models/phase41/preauthorization-mirror/"
-    "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c"
+    "28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7"
 )
 _PHASE40_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-qlora",
@@ -5859,7 +5859,7 @@ def _captured_helper_preclaim_failure_audit_authority(
     if (
         set(raw) != expected
         or raw.get("schema_version")
-        != "phase41-captured-helper-preclaim-failure-v1"
+        != "phase41-qwen-lease-preclaim-failure-v1"
     ):
         raise ContractError("Phase 41 captured-helper failure audit drifted")
     for name in (
@@ -5877,9 +5877,9 @@ def _captured_helper_preclaim_failure_audit_authority(
         or raw.get("launcher_invocations_under_authority") != 1
         or raw.get("launcher_exit_code") != 1
         or raw.get("failure_stage")
-        != "staged_production_captured_helper_identity"
+        != "staged_production_qwen_lease_identity"
         or raw.get("safe_error")
-        != "production predictor state helper source/function identity drifted"
+        != "qwen production lease identities drifted"
         or raw.get("materialization_created") is not True
         or any(
             raw.get(name) is not False

@@ -640,7 +640,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path(
             "data/models/phase41/failed-invocation/"
-            "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+            "28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7/"
             "claim-capable-preclaim-failure.json"
         ),
     )
@@ -1215,7 +1215,7 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
             "captured_helper_preclaim_failure_audit_path",
             Path(
                 "data/models/phase41/failed-invocation/"
-                "25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/"
+                "28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7/"
                 "claim-capable-preclaim-failure.json"
             ),
         ),

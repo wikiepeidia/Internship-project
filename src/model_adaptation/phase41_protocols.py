@@ -852,6 +852,59 @@ def _lexical_path_key(path: Path) -> str:
     return os.path.normcase(os.path.abspath(os.path.normpath(os.fspath(path))))
 
 
+def _expected_lease_identities(
+    protocol: FrozenInferenceProtocol,
+) -> tuple[str, str]:
+    """Return the two tree identities actually bound by the live leases."""
+
+    role = protocol.role
+    return (
+        _require_sha(protocol.body["bundle_root_sha256"], f"{role} bundle identity"),
+        _require_sha(
+            protocol.body["base_model_root_sha256"],
+            f"{role} base-root identity",
+        ),
+    )
+
+
+def _assert_model_lease_pair(
+    leases: object,
+    protocol: FrozenInferenceProtocol,
+) -> tuple[_ImmutableTreeLease, _ImmutableTreeLease]:
+    """Prove exact bundle/base lease order, roots, identities, and liveness."""
+
+    role = protocol.role
+    if (
+        type(leases) is not tuple
+        or len(leases) != 2
+        or leases[0] is leases[1]
+        or any(type(lease) is not _ImmutableTreeLease for lease in leases)
+    ):
+        raise ProtocolContractError(
+            f"{role} production predictor requires exactly two live model leases"
+        )
+    pair = leases
+    try:
+        for lease in pair:
+            lease.assert_intact()
+        identities = tuple(lease.identity_sha256 for lease in pair)
+    except Exception as exc:
+        raise ProtocolContractError(
+            f"{role} production predictor lacks live OS-backed model leases"
+        ) from exc
+    if identities != _expected_lease_identities(protocol):
+        raise ProtocolContractError(f"{role} production lease identities drifted")
+    expected_roots = (
+        Path(str(protocol.body["bundle_root"])),
+        Path(str(protocol.body["base_model_root"])),
+    )
+    if tuple(_lexical_path_key(lease.root) for lease in pair) != tuple(
+        _lexical_path_key(root) for root in expected_roots
+    ):
+        raise ProtocolContractError(f"{role} production lease roots drifted")
+    return pair
+
+
 def _assert_loaded_predictor_state(
     value: object,
     *,
@@ -871,32 +924,7 @@ def _assert_loaded_predictor_state(
             f"{role} production predictor was not loaded and smoke-verified"
         )
     leases = getattr(value, "_leases", None)
-    if (
-        type(leases) is not tuple
-        or len(leases) != 2
-        or leases[0] is leases[1]
-        or any(type(lease) is not _ImmutableTreeLease for lease in leases)
-    ):
-        raise ProtocolContractError(
-            f"{role} production predictor requires exactly two live model leases"
-        )
-    try:
-        for lease in leases:
-            lease.assert_intact()
-        lease_identities = tuple(lease.identity_sha256 for lease in leases)
-    except Exception as exc:
-        raise ProtocolContractError(
-            f"{role} production predictor lacks live OS-backed model leases"
-        ) from exc
-    expected_identities = (
-        _require_sha(protocol.body["bundle_root_sha256"], f"{role} bundle identity"),
-        _require_sha(protocol.body["base_snapshot_sha256"], f"{role} base identity"),
-    )
-    if lease_identities != expected_identities:
-        raise ProtocolContractError(f"{role} production lease identities drifted")
-    expected_bundle_root = Path(str(protocol.body["bundle_root"]))
-    if _lexical_path_key(leases[0].root) != _lexical_path_key(expected_bundle_root):
-        raise ProtocolContractError(f"{role} production bundle lease root drifted")
+    _assert_model_lease_pair(leases, protocol)
     authority_sha256 = _require_sha(
         getattr(value, "_authority_sha256", None),
         f"{role} protocol authority identity",
@@ -2003,6 +2031,8 @@ def _load_phase41_models_impl(
             }
         )
     if preauthorization_smoke:
+        _assert_model_lease_pair(qwen_leases, authority.qwen)
+        _assert_model_lease_pair(phobert_leases, authority.phobert)
         for lease in (*qwen_leases, *phobert_leases):
             lease.assert_intact()
         for lease in reversed((*qwen_leases, *phobert_leases)):

@@ -28,8 +28,10 @@ from src.model_adaptation.phase41_protocols import (
     FrozenQwenPredictor,
     ProtocolContractError,
     _ImmutableTreeLease,
+    _assert_model_lease_pair,
     _bound_bundle_root,
     _build_qwen_qlora_loader_kwargs,
+    _expected_lease_identities,
     _qwen_generation_controls,
     _run_with_immutable_leases,
     build_synthetic_protocol_authority,
@@ -191,6 +193,57 @@ def test_public_callback_cannot_claim_production_verification():
     )
     assert "def _verified_qwen_predictor" not in source
     assert "def _verified_phobert_predictor" not in source
+
+
+def test_both_production_predictors_bind_tree_not_semantic_lease_identities():
+    qwen_body, phobert_body = _production_protocol_bodies()
+    authority = build_protocol_authority(qwen_body, phobert_body)
+    for protocol in (authority.qwen, authority.phobert):
+        assert _expected_lease_identities(protocol) == (
+            protocol.body["bundle_root_sha256"],
+            protocol.body["base_model_root_sha256"],
+        )
+        assert protocol.body["base_snapshot_sha256"] not in (
+            _expected_lease_identities(protocol)
+        )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows share-mode locks required")
+def test_shared_lease_validator_checks_both_roles_and_both_roots(tmp_path):
+    bodies = list(_production_protocol_bodies())
+    held: list[_ImmutableTreeLease] = []
+    try:
+        for role_index, role in enumerate(("qwen", "phobert")):
+            bundle = (tmp_path / role / "bundle").absolute()
+            base = (tmp_path / role / "base").absolute()
+            bundle.mkdir(parents=True)
+            base.mkdir(parents=True)
+            (bundle / "artifact.bin").write_bytes(b"bundle")
+            (base / "weights.bin").write_bytes(b"base")
+            body = bodies[role_index]
+            body["bundle_root"] = str(bundle)
+            body["base_model_root"] = str(base)
+            bundle_identity = str(body["bundle_root_sha256"])
+            base_identity = str(body["base_model_root_sha256"])
+            pair = (
+                _ImmutableTreeLease(bundle, description=f"{role} bundle"),
+                _ImmutableTreeLease(base, description=f"{role} base"),
+            )
+            held.extend(pair)
+            pair[0].bind_semantic_identity(bundle_identity)
+            pair[1].bind_semantic_identity(base_identity)
+            authority = build_protocol_authority(*bodies)
+            protocol = authority.qwen if role == "qwen" else authority.phobert
+            assert _assert_model_lease_pair(pair, protocol) == pair
+            body["base_model_root"] = str((tmp_path / role / "wrong-base").absolute())
+            drifted = build_protocol_authority(*bodies)
+            drifted_protocol = drifted.qwen if role == "qwen" else drifted.phobert
+            with pytest.raises(ProtocolContractError, match="lease roots drifted"):
+                _assert_model_lease_pair(pair, drifted_protocol)
+            body["base_model_root"] = str(base)
+    finally:
+        for lease in reversed(held):
+            lease.close()
 
 
 def test_object_new_and_recovered_python_state_cannot_forge_production_predictor(
