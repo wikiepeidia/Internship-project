@@ -663,8 +663,8 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Held-Out Evaluation Discipline
 
-- [ ] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) receives exactly one model-evaluation pass, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. The final evidence discloses known prior human/content exposure from corpus-quality review and thesis drafting instead of claiming literal untouchedness. Colab remains an optional validation-stage contingency only before model-evaluation access; held-out results must never trigger retraining, dataset repair, threshold selection, or model selection.
-- [ ] **EVAL-09**: Final held-out results for both full models are frozen and reported plainly, including a PhoBERT win over the deployed Qwen system. The ordinary-LoRA probe receives no held-out accuracy claim. Any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
+- [x] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) receives exactly one model-evaluation pass, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. The final evidence discloses known prior human/content exposure from corpus-quality review and thesis drafting instead of claiming literal untouchedness. Colab remains an optional validation-stage contingency only before model-evaluation access; held-out results must never trigger retraining, dataset repair, threshold selection, or model selection.
+- [x] **EVAL-09**: Final held-out results for both full models are frozen and reported plainly, including a PhoBERT win over the deployed Qwen system. The ordinary-LoRA probe receives no held-out accuracy claim. Any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
 
 ### Report Overhaul
 
@@ -707,8 +707,8 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | TRAIN-04 | Phase 40 | Complete (fresh full local PhoBERT classification-head run) |
 | TRAIN-05 | Phase 40 | Complete (frozen two-model validation comparison plus 52-row human review) |
 | TRAIN-06 | Phase 40 | Complete (hash-linked local evidence and raw-log graphs; Colab closed unused) |
-| EVAL-08 | Phase 41 | Pending (one-time two-model held-out evaluation) |
-| EVAL-09 | Phase 41 | Pending (two-model result freeze; no LoRA accuracy claim) |
+| EVAL-08 | Phase 41 | Complete (single claimed shared-cohort evaluation; terminal no-retry evidence) |
+| EVAL-09 | Phase 41 | Complete (both results frozen; PhoBERT advantage reported; deployment fit deferred) |
 | REPORT-03 | Phase 42 | Pending |
 | REPORT-04 | Phase 42 | Pending |
 | REPORT-05 | Phase 42 | Pending |

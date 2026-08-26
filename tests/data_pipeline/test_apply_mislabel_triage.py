@@ -950,7 +950,10 @@ def test_downstream_contract_matches_live_manifest_and_active_planning_regions()
         line for line in state.splitlines() if line.startswith("- Current milestone focus:")
     )
     phase40_decisions = [
-        line for line in state.splitlines() if line.startswith("- [Phase 40 planning]:")
+        line
+        for line in state.splitlines()
+        if line.startswith("- [Phase 40 planning")
+        and "]:" in line.partition("planning")[2]
     ]
     assert len(phase40_decisions) == 1
     context = (
