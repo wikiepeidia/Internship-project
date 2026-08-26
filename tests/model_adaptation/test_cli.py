@@ -345,7 +345,7 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
 
 @pytest.mark.parametrize("malformation", ("duplicate", "noncanonical", "partial"))
 def test_phase40_verify_review_queue_rejects_ambiguous_comparison_bytes(
-    tmp_path, monkeypatch, malformation
+    tmp_path, monkeypatch, malformation, capsys
 ):
     cli_module = _load_cli_module()
     source_repo = Path(__file__).resolve().parents[2]
@@ -387,17 +387,27 @@ def test_phase40_verify_review_queue_rejects_ambiguous_comparison_bytes(
             AssertionError("ambiguous comparison reached authority verification")
         ),
     )
-    args = SimpleNamespace(
-        repo_root=repo,
-        request_path=repo / "request.json",
-        scope_amendment_path=repo / "scope.json",
-        comparison_manifest_path=comparison_path,
-        selected_predictions_path=repo / "predictions.json",
-        queue_path=repo / "queue.jsonl",
+    exit_code = cli_module.main(
+        [
+            "phase40-verify-review-queue",
+            "--repo-root",
+            str(repo),
+            "--request-path",
+            str(repo / "request.json"),
+            "--scope-amendment-path",
+            str(repo / "scope.json"),
+            "--comparison-manifest-path",
+            str(comparison_path),
+            "--selected-predictions-path",
+            str(repo / "predictions.json"),
+            "--queue-path",
+            str(repo / "queue.jsonl"),
+        ]
     )
 
-    with pytest.raises(ValueError):
-        cli_module.handle_phase40_verify_review_queue(args)
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "review queue verified" not in captured.out
 
 
 def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypatch):
