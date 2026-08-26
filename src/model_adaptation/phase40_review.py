@@ -311,12 +311,16 @@ def _publish_human_review_artifacts(
         _fsync_review_directory(root)
         if retired_manifest is not None:
             retired_manifest.unlink()
-    except BaseException:
+    except BaseException as exc:
         if os.path.lexists(artifacts.manifest_path):
             try:
                 _retire_review_manifest(artifacts.manifest_path)
             except OSError:
                 pass
+        if isinstance(exc, OSError):
+            raise RuntimeError(
+                "human-review publication failed before completion"
+            ) from exc
         raise
     finally:
         for staged_path in staged.values():
@@ -911,6 +915,13 @@ def finalize_phase40_human_review(
         "limitations": list(comparison.limitations),
     }
     manifest_bytes = _handoff._canonical_json_bytes(manifest)
+    misversioned_manifest = dict(manifest)
+    misversioned_manifest["schema_version"] = (
+        _handoff.PHASE40_HUMAN_REVIEW_SCHEMA_VERSION
+    )
+    misversioned_manifest_bytes = _handoff._canonical_json_bytes(
+        misversioned_manifest
+    )
     legacy_manifest = dict(manifest)
     legacy_manifest["schema_version"] = _handoff.PHASE40_HUMAN_REVIEW_SCHEMA_VERSION
     legacy_manifest.pop("superseded_scope_amendment_sha256")
@@ -948,7 +959,10 @@ def finalize_phase40_human_review(
         notes_bytes=notes_bytes,
         report_bytes=report_bytes,
         manifest_bytes=manifest_bytes,
-        accepted_prior_manifest_bytes=(legacy_manifest_bytes,),
+        accepted_prior_manifest_bytes=(
+            misversioned_manifest_bytes,
+            legacy_manifest_bytes,
+        ),
     )
     return artifacts
 

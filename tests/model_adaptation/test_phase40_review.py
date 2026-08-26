@@ -321,7 +321,7 @@ def test_review_publication_failure_never_leaves_completion_marker_and_retries(
 
     with monkeypatch.context() as patch:
         patch.setattr(phase40_review, "_promote_review_file", fail_once)
-        with pytest.raises(OSError, match="injected promotion failure"):
+        with pytest.raises(RuntimeError, match="publication failed before completion"):
             phase40_review._publish_human_review_artifacts(
                 artifacts,
                 notes_bytes=b"notes\n",
@@ -435,6 +435,28 @@ def test_v3_finalizer_publishes_and_verify_only_replays_exact_closure(
             artifacts.manifest_path,
         )
     ) == before
+
+
+def test_v3_finalizer_migrates_the_exact_misversioned_v2_manifest(
+    v3_review_fixture,
+) -> None:
+    artifacts = _finalize_v3_fixture(v3_review_fixture)
+    manifest = handoff._strict_json_object(
+        artifacts.manifest_path.read_bytes(),
+        description="v3 review manifest",
+    )
+    manifest["schema_version"] = "phase40-human-review-v2"
+    artifacts.manifest_path.write_bytes(handoff._canonical_json_bytes(manifest))
+
+    replayed = _finalize_v3_fixture(v3_review_fixture)
+    migrated = handoff._strict_json_object(
+        replayed.manifest_path.read_bytes(),
+        description="migrated review manifest",
+    )
+
+    assert migrated["schema_version"] == "phase40-human-review-v3"
+    assert "superseded_scope_amendment_sha256" in migrated
+    assert "final_comparison_authority_sha256" in migrated
 
 
 @pytest.mark.parametrize("malformation", ("missing", "duplicate", "reordered"))
