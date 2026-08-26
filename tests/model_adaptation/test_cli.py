@@ -745,7 +745,15 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
         for action in prepare_parser._actions
         for option in action.option_strings
     }
-    assert "--deployment-fit-choice" in prepare_options
+    assert "--deployment-fit-choice" not in prepare_options
+
+    authorize_parser = subparsers_action.choices["phase41-authorize-evaluation"]
+    authorize_options = {
+        option
+        for action in authorize_parser._actions
+        for option in action.option_strings
+    }
+    assert "--deployment-fit-choice" in authorize_options
 
     disposition_parser = subparsers_action.choices[
         "phase41-freeze-deployment-fit-disposition"
@@ -759,10 +767,7 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
     assert "--choice" not in disposition_options
 
 
-@pytest.mark.parametrize(
-    "choice", ["deferred", "authorized_post_evaluation_fit"]
-)
-def test_phase41_prepare_cli_requires_valid_deployment_fit_precommit(choice: str):
+def test_phase41_prepare_cli_defers_deployment_fit_choice_to_authorization():
     parser = _load_cli_module().build_parser()
     required_authorities = [
         "--phase39-contract-path",
@@ -773,41 +778,40 @@ def test_phase41_prepare_cli_requires_valid_deployment_fit_precommit(choice: str
         "phase40-review.json",
     ]
 
-    with pytest.raises(SystemExit):
-        parser.parse_args(["phase41-prepare-evaluation", *required_authorities])
-
-    args = parser.parse_args(
-        [
-            "phase41-prepare-evaluation",
-            *required_authorities,
-            "--deployment-fit-choice",
-            choice,
-        ]
-    )
-
-    assert args.deployment_fit_choice == choice
-
-
-def test_phase41_prepare_cli_rejects_unknown_deployment_fit_precommit():
-    parser = _load_cli_module().build_parser()
+    args = parser.parse_args(["phase41-prepare-evaluation", *required_authorities])
+    assert not hasattr(args, "deployment_fit_choice")
 
     with pytest.raises(SystemExit):
         parser.parse_args(
             [
                 "phase41-prepare-evaluation",
-                "--phase39-contract-path",
-                "phase39-contract.json",
-                "--phase40-comparison-manifest-path",
-                "phase40-comparison.json",
-                "--phase40-review-manifest-path",
-                "phase40-review.json",
+                *required_authorities,
                 "--deployment-fit-choice",
-                "choose-after-results",
+                "deferred",
             ]
         )
 
 
-def test_phase41_prepare_handler_forwards_deployment_fit_precommit(monkeypatch):
+@pytest.mark.parametrize(
+    "choice", ["deferred", "authorized_post_evaluation_fit"]
+)
+def test_phase41_authorize_cli_requires_valid_deployment_fit_precommit(choice: str):
+    parser = _load_cli_module().build_parser()
+    base = [
+        "phase41-authorize-evaluation",
+        "--prepared-sha256",
+        "a" * 64,
+        "--statement",
+        "exact-statement",
+    ]
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(base)
+    args = parser.parse_args([*base, "--deployment-fit-choice", choice])
+    assert args.deployment_fit_choice == choice
+
+
+def test_phase41_prepare_handler_does_not_invent_deployment_fit_precommit(monkeypatch):
     cli_module = _load_cli_module()
     import src.model_adaptation.phase41_evaluation as evaluation_module
 
@@ -830,11 +834,10 @@ def test_phase41_prepare_handler_forwards_deployment_fit_precommit(monkeypatch):
         phase39_contract_path=Path("phase39-contract.json"),
         phase40_comparison_manifest_path=Path("phase40-comparison.json"),
         phase40_review_manifest_path=Path("phase40-review.json"),
-        deployment_fit_choice="deferred",
     )
 
     assert cli_module.handle_phase41_prepare_evaluation(args) == 0
-    assert captured["deployment_fit_choice"] == "deferred"
+    assert "deployment_fit_choice" not in captured
 
 
 def test_phase41_disposition_handler_cannot_supply_post_result_choice(monkeypatch):

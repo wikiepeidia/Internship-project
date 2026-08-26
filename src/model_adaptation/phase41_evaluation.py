@@ -71,6 +71,7 @@ SOURCE_MANIFEST_NAME = "execution-source-manifest.json"
 ACCESS_RECEIPT_NAME = "evaluation-access-receipt.json"
 EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
 DEPLOYMENT_DISPOSITION_NAME = "deployment-fit-disposition.json"
+PENDING_DEPLOYMENT_FIT_CHOICE = "pending_human_authorization"
 MATERIALIZATION_RECEIPT_NAME = "execution-materialization-receipt.json"
 COMPLETION_SEAL_NAME = "protected-completion-seal.json"
 PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED = (
@@ -1052,9 +1053,15 @@ def _normalize_reserved_path_without_io(path: Path | str) -> str:
 
 
 def _deployment_fit_precommit(
-    choice: str, models: Sequence[ModelIdentity]
+    choice: str,
+    models: Sequence[ModelIdentity],
+    *,
+    allow_pending: bool = False,
 ) -> dict[str, object]:
-    if choice not in {"deferred", "authorized_post_evaluation_fit"}:
+    allowed = {"deferred", "authorized_post_evaluation_fit"}
+    if allow_pending:
+        allowed.add(PENDING_DEPLOYMENT_FIT_CHOICE)
+    if choice not in allowed:
         raise ContractError("deployment-fit precommitment is outside the fixed enum")
     return {
         "choice": choice,
@@ -1142,6 +1149,7 @@ def authorize_evaluation(
     *,
     operator_id: str,
     statement: str,
+    deployment_fit_choice: str | None = None,
     authorized_at_utc: str | None = None,
 ) -> Path:
     """Freeze an explicit, hash-bound local authorization; this is not a signature."""
@@ -1154,9 +1162,26 @@ def authorize_evaluation(
     prepared, prepared_bytes = _load_canonical_json(
         root / PREPARED_NAME, "Phase 41 evaluation request"
     )
-    _validate_prepared(prepared)
+    _, models = _validate_prepared(prepared)
     _require_canonical_production_authorities(prepared)
-    payload = {
+    prepared_precommit = prepared["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    pending = prepared_precommit.get("choice") == PENDING_DEPLOYMENT_FIT_CHOICE
+    if pending:
+        if deployment_fit_choice is None:
+            raise AuthorizationError(
+                "production authorization requires the human deployment-fit choice"
+            )
+        effective_precommit = _deployment_fit_precommit(
+            deployment_fit_choice, models
+        )
+    else:
+        if deployment_fit_choice not in {None, prepared_precommit.get("choice")}:
+            raise AuthorizationError(
+                "authorization deployment-fit choice differs from preparation"
+            )
+        effective_precommit = dict(prepared_precommit)
+    payload: dict[str, object] = {
         "schema_version": "phase41-explicit-authorization-v1",
         "state": "explicitly_authorized",
         "authorization_method": "explicit_local_attestation",
@@ -1166,6 +1191,12 @@ def authorize_evaluation(
         "prepared_sha256": _sha256(prepared_bytes),
         "phase40_authorities_sha256": _phase40_authorities_sha256(prepared),
     }
+    if pending:
+        payload["schema_version"] = "phase41-explicit-authorization-v2"
+        payload["deployment_fit_precommit"] = effective_precommit
+        payload["deployment_fit_precommit_sha256"] = _sha256(
+            _canonical_json_bytes(effective_precommit)
+        )
     try:
         return _exclusive_write(root / AUTHORIZATION_NAME, _canonical_json_bytes(payload))
     except FileExistsError as exc:
@@ -1211,7 +1242,9 @@ def _validate_prepared(prepared: Mapping[str, object]) -> tuple[
     models = _parse_models(prepared["models"])
     precommit = prepared["deployment_fit_precommit"]
     if not isinstance(precommit, dict) or precommit != _deployment_fit_precommit(
-        precommit.get("choice") if isinstance(precommit, dict) else "", models  # type: ignore[arg-type]
+        precommit.get("choice") if isinstance(precommit, dict) else "",  # type: ignore[arg-type]
+        models,
+        allow_pending=preparation_scope == PRODUCTION_PREPARATION_SCOPE,
     ):
         raise ContractError("deployment-fit precommitment drifted")
     authorities = prepared["authorities"]
@@ -1319,8 +1352,9 @@ def _validate_authorization(
     *,
     prepared_sha256: str,
     phase40_authorities_sha256: str,
-) -> None:
-    if set(authorization) != {
+    prepared_deployment_fit_precommit: Mapping[str, object],
+) -> dict[str, object]:
+    v1_fields = {
         "schema_version",
         "state",
         "authorization_method",
@@ -1329,10 +1363,19 @@ def _validate_authorization(
         "statement",
         "prepared_sha256",
         "phase40_authorities_sha256",
-    }:
+    }
+    v2_fields = v1_fields | {
+        "deployment_fit_precommit",
+        "deployment_fit_precommit_sha256",
+    }
+    schema = authorization.get("schema_version")
+    if set(authorization) not in (v1_fields, v2_fields):
         raise AuthorizationError("authorization fields differ from the fixed contract")
     if (
-        authorization["schema_version"] != "phase41-explicit-authorization-v1"
+        schema not in {
+            "phase41-explicit-authorization-v1",
+            "phase41-explicit-authorization-v2",
+        }
         or authorization["state"] != "explicitly_authorized"
         or authorization["authorization_method"] != "explicit_local_attestation"
         or authorization["statement"] != EXPLICIT_AUTHORIZATION_STATEMENT
@@ -1345,6 +1388,43 @@ def _validate_authorization(
         authorization["operator_id"]
     ):
         raise AuthorizationError("authorization operator_id is invalid")
+    if schema == "phase41-explicit-authorization-v1":
+        if set(authorization) != v1_fields:
+            raise AuthorizationError("legacy authorization fields drifted")
+        if (
+            prepared_deployment_fit_precommit.get("choice")
+            == PENDING_DEPLOYMENT_FIT_CHOICE
+        ):
+            raise AuthorizationError(
+                "production authorization must record the human deployment-fit choice"
+            )
+        return dict(prepared_deployment_fit_precommit)
+    if set(authorization) != v2_fields:
+        raise AuthorizationError("authorization deployment-fit fields drifted")
+    precommit = authorization["deployment_fit_precommit"]
+    if not isinstance(precommit, dict):
+        raise AuthorizationError("authorization deployment-fit precommitment is invalid")
+    try:
+        parsed = DeploymentFitDisposition(
+            choice=str(precommit.get("choice")),
+            selected_checkpoint_identities=tuple(
+                precommit.get("selected_checkpoint_identities", ())  # type: ignore[arg-type]
+            ),
+        )
+    except (ContractError, TypeError) as exc:
+        raise AuthorizationError(
+            "authorization deployment-fit precommitment is invalid"
+        ) from exc
+    expected_identities = prepared_deployment_fit_precommit.get(
+        "selected_checkpoint_identities"
+    )
+    if (
+        list(parsed.selected_checkpoint_identities) != expected_identities
+        or authorization["deployment_fit_precommit_sha256"]
+        != _sha256(_canonical_json_bytes(precommit))
+    ):
+        raise AuthorizationError("authorization deployment-fit precommitment drifted")
+    return dict(precommit)
 
 
 def _global_claim_path(identity: SplitIdentity) -> Path:
@@ -1830,18 +1910,19 @@ def _run_once(
     )
     prepared_sha = _sha256(prepared_bytes)
     authorization_sha = _sha256(authorization_bytes)
-    _validate_authorization(
+    prepared_precommit = prepared["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    precommit = _validate_authorization(
         authorization,
         prepared_sha256=prepared_sha,
         phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+        prepared_deployment_fit_precommit=prepared_precommit,
     )
     if identity.path != _normalize_reserved_path_without_io(identity.path):
         raise ContractError("reserved path lexical authority drifted before claim")
     materialization = _load_materialization_receipt(root)
     if materialization is None:
         raise ContractError("the protected launcher materialization receipt is required")
-    precommit = prepared["deployment_fit_precommit"]
-    assert isinstance(precommit, dict)
     precommit_sha = _sha256(_canonical_json_bytes(precommit))
     global_claim = _global_claim_path(identity)
     _assert_unspent_and_clean(root, global_claim)
@@ -2037,10 +2118,13 @@ def verify_only(output_root: Path) -> dict[str, object]:
     )
     prepared_sha = _sha256(prepared_bytes)
     authorization_sha = _sha256(authorization_bytes)
-    _validate_authorization(
+    prepared_precommit = prepared["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    effective_precommit = _validate_authorization(
         authorization,
         prepared_sha256=prepared_sha,
         phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+        prepared_deployment_fit_precommit=prepared_precommit,
     )
     _validate_claim_registry_root(_claim_registry_root())
     claim, claim_bytes = _load_canonical_json(root / CLAIM_NAME, "Phase 41 claim")
@@ -2077,7 +2161,7 @@ def verify_only(output_root: Path) -> dict[str, object]:
             )[1]
         )
         or claim["deployment_fit_precommit_sha256"]
-        != _sha256(_canonical_json_bytes(prepared["deployment_fit_precommit"]))
+        != _sha256(_canonical_json_bytes(effective_precommit))
         or claim["reserved_split_sha256"] != identity.sha256
         or claim["reserved_split_path_sha256"]
         != _sha256(identity.path.encode("utf-8"))
@@ -3258,6 +3342,7 @@ def authorize_phase41_evaluation(
     *,
     prepared_sha256: str,
     statement: str,
+    deployment_fit_choice: str | None = None,
 ) -> Path:
     verified = verify_phase41_preauthorization(output_root)
     if prepared_sha256 != verified.prepared_sha256:
@@ -3266,6 +3351,7 @@ def authorize_phase41_evaluation(
         output_root,
         operator_id="local-operator",
         statement=statement,
+        deployment_fit_choice=deployment_fit_choice,
     )
 
 
@@ -3979,15 +4065,16 @@ def _install_production_run_entry():  # noqa: ANN201
             )
             prepared_sha = _sha256(prepared_bytes)
             authorization_sha = _sha256(authorization_bytes)
-            _validate_authorization(
+            prepared_precommit = prepared["deployment_fit_precommit"]
+            assert isinstance(prepared_precommit, dict)
+            precommit = _validate_authorization(
                 authorization,
                 prepared_sha256=prepared_sha,
                 phase40_authorities_sha256=_phase40_authorities_sha256(prepared),
+                prepared_deployment_fit_precommit=prepared_precommit,
             )
             if identity.path != _normalize_reserved_path_without_io(identity.path):
                 raise ContractError("reserved path lexical authority drifted before claim")
-            precommit = prepared["deployment_fit_precommit"]
-            assert isinstance(precommit, dict)
             precommit_sha = _sha256(_canonical_json_bytes(precommit))
             global_claim = _global_claim_path(identity)
             _assert_unspent_and_clean(root, global_claim)
@@ -4133,9 +4220,22 @@ del _install_production_run_entry
 
 
 def _verify_protected_completion_seal(root: Path) -> None:
-    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    request, request_bytes = _load_canonical_json(
+        root / PREPARED_NAME, "Phase 41 request"
+    )
     identity, _ = _validate_prepared(request)
     _require_canonical_production_authorities(request)
+    authorization, _ = _load_canonical_json(
+        root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
+    )
+    prepared_precommit = request["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    _validate_authorization(
+        authorization,
+        prepared_sha256=_sha256(request_bytes),
+        phase40_authorities_sha256=_phase40_authorities_sha256(request),
+        prepared_deployment_fit_precommit=prepared_precommit,
+    )
     _validate_claim_registry_root(_claim_registry_root())
     claim, claim_bytes = _load_canonical_json(root / CLAIM_NAME, "Phase 41 claim")
     local, local_bytes = _load_canonical_json(
@@ -4192,9 +4292,22 @@ def _verify_phase41_evidence_core(
     root = Path(output_root)
     _verify_protected_completion_seal(root)
     verify_only(root)
-    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    request, request_bytes = _load_canonical_json(
+        root / PREPARED_NAME, "Phase 41 request"
+    )
     identity, _ = _validate_prepared(request)
     _require_canonical_production_authorities(request)
+    authorization, _ = _load_canonical_json(
+        root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
+    )
+    prepared_precommit = request["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    effective_precommit = _validate_authorization(
+        authorization,
+        prepared_sha256=_sha256(request_bytes),
+        phase40_authorities_sha256=_phase40_authorities_sha256(request),
+        prepared_deployment_fit_precommit=prepared_precommit,
+    )
     claim_bytes = (root / CLAIM_NAME).read_bytes()
     access, _ = _load_canonical_json(
         root / ACCESS_RECEIPT_NAME, "Phase 41 evaluation access receipt"
@@ -4284,18 +4397,16 @@ def _verify_phase41_evidence_core(
                 disposition["selected_checkpoint_identities"]  # type: ignore[arg-type]
             ),
         )
-        precommit = request["deployment_fit_precommit"]
-        assert isinstance(precommit, dict)
         expected_disposition = DeploymentFitDisposition(
-            choice=str(precommit["choice"]),
+            choice=str(effective_precommit["choice"]),
             selected_checkpoint_identities=tuple(
-                precommit["selected_checkpoint_identities"]  # type: ignore[arg-type]
+                effective_precommit["selected_checkpoint_identities"]  # type: ignore[arg-type]
             ),
         )
         if (
             parsed_disposition != expected_disposition
             or disposition["deployment_fit_precommit_sha256"]
-            != _sha256(_canonical_json_bytes(precommit))
+            != _sha256(_canonical_json_bytes(effective_precommit))
         ):
             raise ContractError("deployment-fit disposition differs from precommitment")
     return manifest
@@ -4310,11 +4421,22 @@ def verify_phase41_evidence(output_root: Path) -> Phase41EvidenceManifest:
 def freeze_deployment_fit_disposition(output_root: Path) -> Path:
     root = Path(output_root)
     manifest = _verify_phase41_evidence_core(root, require_disposition=False)
-    request, _ = _load_canonical_json(root / PREPARED_NAME, "Phase 41 request")
+    request, request_bytes = _load_canonical_json(
+        root / PREPARED_NAME, "Phase 41 request"
+    )
     _validate_prepared(request)
     _require_canonical_production_authorities(request)
-    precommit = request["deployment_fit_precommit"]
-    assert isinstance(precommit, dict)
+    authorization, _ = _load_canonical_json(
+        root / AUTHORIZATION_NAME, "Phase 41 explicit authorization"
+    )
+    prepared_precommit = request["deployment_fit_precommit"]
+    assert isinstance(prepared_precommit, dict)
+    precommit = _validate_authorization(
+        authorization,
+        prepared_sha256=_sha256(request_bytes),
+        phase40_authorities_sha256=_phase40_authorities_sha256(request),
+        prepared_deployment_fit_precommit=prepared_precommit,
+    )
     _, terminal_bytes = _load_canonical_json(
         root / TERMINAL_NAME, "Phase 41 terminal record"
     )

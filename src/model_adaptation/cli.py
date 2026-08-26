@@ -603,12 +603,6 @@ def build_parser() -> argparse.ArgumentParser:
     phase41_prepare_parser.add_argument(
         "--phase40-review-manifest-path", type=Path, required=True
     )
-    phase41_prepare_parser.add_argument(
-        "--deployment-fit-choice",
-        required=True,
-        choices=["deferred", "authorized_post_evaluation_fit"],
-        help="Precommit the post-evaluation deployment-fit disposition before authorization",
-    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -631,6 +625,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     phase41_authorize_parser.add_argument("--prepared-sha256", required=True)
     phase41_authorize_parser.add_argument("--statement", required=True)
+    phase41_authorize_parser.add_argument(
+        "--deployment-fit-choice",
+        required=True,
+        choices=["deferred", "authorized_post_evaluation_fit"],
+        help="Record the operator's pre-result deployment-fit choice at authorization",
+    )
     phase41_authorize_parser.set_defaults(handler=handle_phase41_authorize_evaluation)
 
     phase41_run_parser = subparsers.add_parser(
@@ -1112,7 +1112,6 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
         phase39_contract_path=args.phase39_contract_path,
         phase40_comparison_manifest_path=args.phase40_comparison_manifest_path,
         phase40_review_manifest_path=args.phase40_review_manifest_path,
-        deployment_fit_choice=args.deployment_fit_choice,
     )
     print(
         f"Phase 41 prepared: request={prepared.path} "
@@ -1140,6 +1139,7 @@ def handle_phase41_authorize_evaluation(args: argparse.Namespace) -> int:
         args.output_root,
         prepared_sha256=args.prepared_sha256,
         statement=args.statement,
+        deployment_fit_choice=args.deployment_fit_choice,
     )
     print(f"Phase 41 explicitly authorized: {path}")
     return 0
