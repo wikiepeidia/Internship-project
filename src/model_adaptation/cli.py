@@ -59,6 +59,25 @@ from src.model_adaptation.schemas import (
 from src.model_adaptation.training import build_training_config, run_training
 
 
+def _print_console_safe(message: object, *, stream=None) -> None:
+    """Write one line without letting a legacy console change command success."""
+
+    target = sys.stdout if stream is None else stream
+    text = f"{message}\n"
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    try:
+        safe_text = text.encode(encoding, errors="backslashreplace").decode(encoding)
+    except LookupError:
+        safe_text = text.encode("ascii", errors="backslashreplace").decode("ascii")
+    try:
+        target.write(safe_text)
+    except UnicodeEncodeError:
+        target.write(text.encode("ascii", errors="backslashreplace").decode("ascii"))
+    flush = getattr(target, "flush", None)
+    if callable(flush):
+        flush()
+
+
 def _default_split_root() -> Path:
     settings = get_settings()
     retained_root = settings.data_dir / "splits" / "recovered-balanced-claude-v2"
@@ -1278,7 +1297,7 @@ def handle_phase41_export_evidence(args: argparse.Namespace) -> int:
         _phase41_output_root(args.output_root),
         repository_output_root=args.repository_output_root,
     )
-    print(f"Phase 41 verified evidence exported: {path}")
+    _print_console_safe(f"Phase 41 verified evidence exported: {path}")
     return 0
 
 
@@ -1302,7 +1321,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.handler(args)
     except (RuntimeError, ValueError, FileNotFoundError) as exc:
-        print(str(exc))
+        _print_console_safe(str(exc), stream=sys.stderr)
         return 1
 
 

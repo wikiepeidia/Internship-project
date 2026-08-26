@@ -917,3 +917,108 @@ def test_phase41_disposition_handler_cannot_supply_post_result_choice(monkeypatc
 
     assert cli_module.handle_phase41_freeze_deployment_fit_disposition(args) == 0
     assert captured == [Path("synthetic-output")]
+
+
+class _StrictLegacyConsole:
+    encoding = "cp1252"
+
+    def __init__(self) -> None:
+        self.text = ""
+
+    def write(self, value: str) -> int:
+        value.encode(self.encoding, errors="strict")
+        self.text += value
+        return len(value)
+
+    def flush(self) -> None:
+        return None
+
+
+def test_phase41_export_cli_returns_success_on_legacy_console_after_real_temp_export(
+    tmp_path, monkeypatch
+):
+    cli_module = _load_cli_module()
+    import src.model_adaptation.phase41_evaluation as evaluation_module
+
+    operational = tmp_path / "operational"
+    repository_output = (
+        tmp_path / "bai-tap-tập" / "data" / "models" / "phase41"
+    )
+    operational.mkdir()
+    export_names = (
+        *evaluation_module.EVIDENCE_ARTIFACT_NAMES,
+        evaluation_module.EVIDENCE_MANIFEST_NAME,
+        evaluation_module.COMPLETION_SEAL_NAME,
+        evaluation_module.TERMINAL_NAME,
+        evaluation_module.DEPLOYMENT_DISPOSITION_NAME,
+    )
+    for name in export_names:
+        (operational / name).write_bytes(f"{name}\n".encode())
+    (operational / evaluation_module.PREPARED_NAME).write_bytes(
+        evaluation_module._canonical_json_bytes(
+            {"preparation_scope": evaluation_module.SYNTHETIC_PREPARATION_SCOPE}
+        )
+    )
+    manifest_sha = "c" * 64
+    monkeypatch.setattr(
+        evaluation_module,
+        "verify_phase41_evidence",
+        lambda root: SimpleNamespace(evidence_manifest_sha256=manifest_sha),
+    )
+    monkeypatch.setattr(
+        evaluation_module,
+        "_code_fixed_authority_path",
+        lambda repo_root, supplied, expected_relative, description: repository_output,
+    )
+    console = _StrictLegacyConsole()
+    monkeypatch.setattr(cli_module.sys, "stdout", console)
+
+    exit_code = cli_module.main(
+        [
+            "phase41-export-evidence",
+            "--output-root",
+            str(operational),
+            "--repository-output-root",
+            str(repository_output),
+        ]
+    )
+
+    receipt = (
+        repository_output
+        / "verified-export"
+        / manifest_sha
+        / evaluation_module.EXPORT_RECEIPT_NAME
+    )
+    parsed, _ = evaluation_module._load_canonical_json(
+        receipt, "temporary export receipt"
+    )
+    assert exit_code == 0
+    assert parsed["evidence_manifest_sha256"] == manifest_sha
+    assert "\\u1eadp" in console.text
+
+
+def test_phase41_export_cli_error_is_safe_on_legacy_console(tmp_path, monkeypatch):
+    cli_module = _load_cli_module()
+    import src.model_adaptation.phase41_evaluation as evaluation_module
+
+    def fail_export(*_args, **_kwargs):
+        raise evaluation_module.ContractError("không thể xuất vào thư mục tập")
+
+    monkeypatch.setattr(
+        evaluation_module, "export_phase41_evidence_to_repository", fail_export
+    )
+    console = _StrictLegacyConsole()
+    monkeypatch.setattr(cli_module.sys, "stderr", console)
+
+    exit_code = cli_module.main(
+        [
+            "phase41-export-evidence",
+            "--output-root",
+            str(tmp_path / "operational"),
+            "--repository-output-root",
+            str(tmp_path / "repository"),
+        ]
+    )
+
+    assert exit_code == 1
+    assert "\\u1eadp" in console.text

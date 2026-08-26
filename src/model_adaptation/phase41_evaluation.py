@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import sysconfig
@@ -5232,7 +5233,7 @@ def freeze_deployment_fit_disposition(output_root: Path) -> Path:
 def export_phase41_evidence_to_repository(
     output_root: Path, *, repository_output_root: Path
 ) -> Path:
-    """Mirror verified terminal evidence into a new immutable repository subdir."""
+    """Transactionally mirror evidence, or accept an identical complete export."""
 
     root = Path(output_root)
     manifest = verify_phase41_evidence(root)
@@ -5257,12 +5258,83 @@ def export_phase41_evidence_to_repository(
         / "verified-export"
         / manifest.evidence_manifest_sha256
     )
-    if destination.exists() or destination.is_symlink():
-        raise ContractError("verified repository export already exists")
-    destination.mkdir(parents=True, exist_ok=False)
+    if destination.is_symlink():
+        raise ContractError("verified repository export destination is unsafe")
+    if destination.exists():
+        return _verify_repository_export(
+            source_root=root,
+            destination=destination,
+            export_names=export_names,
+            evidence_manifest_sha256=manifest.evidence_manifest_sha256,
+        )
+    verified_export_root = destination.parent
+    verified_export_root.mkdir(parents=True, exist_ok=True)
+    staging = verified_export_root / (
+        f".{manifest.evidence_manifest_sha256}.{uuid.uuid4().hex}.staging"
+    )
+    staging.mkdir(parents=False, exist_ok=False)
+    try:
+        _copy_repository_export(
+            source_root=root,
+            destination=staging,
+            export_names=export_names,
+            evidence_manifest_sha256=manifest.evidence_manifest_sha256,
+            final_destination=destination,
+        )
+        post_copy_manifest = verify_phase41_evidence(root)
+        if post_copy_manifest.evidence_manifest_sha256 != manifest.evidence_manifest_sha256:
+            raise ContractError("operational evidence changed during repository export")
+        _verify_repository_export(
+            source_root=root,
+            destination=staging,
+            export_names=export_names,
+            evidence_manifest_sha256=manifest.evidence_manifest_sha256,
+            receipt_destination=destination,
+        )
+        if destination.exists() or destination.is_symlink():
+            raise ContractError("verified repository export appeared during staging")
+        os.rename(staging, destination)
+    except Exception:
+        _cleanup_repository_export_staging(staging, verified_export_root)
+        raise
+    return _verify_repository_export(
+        source_root=root,
+        destination=destination,
+        export_names=export_names,
+        evidence_manifest_sha256=manifest.evidence_manifest_sha256,
+    )
+
+
+def _repository_export_receipt(
+    *,
+    source_root: Path,
+    destination: Path,
+    evidence_manifest_sha256: str,
+    rows: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    return {
+        "schema_version": "phase41-verified-repository-export-v1",
+        "evidence_manifest_sha256": evidence_manifest_sha256,
+        "operational_root_path_sha256": _normalized_path_sha256(source_root),
+        "destination_path_sha256": _normalized_path_sha256(destination),
+        "artifacts": list(rows),
+        "source_remains_authoritative": True,
+        "raw_messages_exported": False,
+        "overwrite_permitted": False,
+    }
+
+
+def _copy_repository_export(
+    *,
+    source_root: Path,
+    destination: Path,
+    export_names: Sequence[str],
+    evidence_manifest_sha256: str,
+    final_destination: Path,
+) -> Path:
     rows: list[dict[str, object]] = []
     for name in export_names:
-        source_path = root / name
+        source_path = source_root / name
         if not source_path.is_file() or source_path.is_symlink():
             raise ContractError(f"verified export source is missing or unsafe: {name}")
         source_payload = source_path.read_bytes()
@@ -5278,12 +5350,68 @@ def export_phase41_evidence_to_repository(
                 "sha256": _sha256(destination_payload),
             }
         )
-    post_copy_manifest = verify_phase41_evidence(root)
-    if post_copy_manifest.evidence_manifest_sha256 != manifest.evidence_manifest_sha256:
-        raise ContractError("operational evidence changed during repository export")
+    receipt = _repository_export_receipt(
+        source_root=source_root,
+        destination=final_destination,
+        evidence_manifest_sha256=evidence_manifest_sha256,
+        rows=rows,
+    )
+    return _exclusive_write(
+        destination / EXPORT_RECEIPT_NAME, _canonical_json_bytes(receipt)
+    )
+
+
+def _verify_repository_export(
+    *,
+    source_root: Path,
+    destination: Path,
+    export_names: Sequence[str],
+    evidence_manifest_sha256: str,
+    receipt_destination: Path | None = None,
+) -> Path:
+    if not destination.is_dir() or destination.is_symlink():
+        raise ContractError("verified repository export is missing or unsafe")
+    expected_names = {*export_names, EXPORT_RECEIPT_NAME}
+    actual_names = {entry.name for entry in destination.iterdir()}
+    if actual_names != expected_names:
+        raise ContractError("verified repository export inventory differs")
+    rows: list[dict[str, object]] = []
+    for name in export_names:
+        source_path = source_root / name
+        destination_path = destination / name
+        if (
+            not source_path.is_file()
+            or source_path.is_symlink()
+            or not destination_path.is_file()
+            or destination_path.is_symlink()
+        ):
+            raise ContractError(f"verified repository export member is unsafe: {name}")
+        source_payload = source_path.read_bytes()
+        destination_payload = destination_path.read_bytes()
+        if destination_payload != source_payload:
+            raise ContractError(f"verified export copy differs from source: {name}")
+        rows.append(
+            {
+                "name": name,
+                "bytes": len(destination_payload),
+                "sha256": _sha256(destination_payload),
+            }
+        )
+    receipt_path = destination / EXPORT_RECEIPT_NAME
+    receipt, _ = _load_canonical_json(
+        receipt_path, "verified repository export receipt"
+    )
+    expected_receipt = _repository_export_receipt(
+        source_root=source_root,
+        destination=receipt_destination or destination,
+        evidence_manifest_sha256=evidence_manifest_sha256,
+        rows=rows,
+    )
+    if receipt != expected_receipt:
+        raise ContractError("verified repository export receipt differs")
     for row in rows:
         name = str(row["name"])
-        source_payload = (root / name).read_bytes()
+        source_payload = (source_root / name).read_bytes()
         destination_payload = (destination / name).read_bytes()
         if (
             destination_payload != source_payload
@@ -5291,19 +5419,20 @@ def export_phase41_evidence_to_repository(
             or _sha256(destination_payload) != row["sha256"]
         ):
             raise ContractError(f"verified repository export drifted: {name}")
-    receipt = {
-        "schema_version": "phase41-verified-repository-export-v1",
-        "evidence_manifest_sha256": manifest.evidence_manifest_sha256,
-        "operational_root_path_sha256": _normalized_path_sha256(root),
-        "destination_path_sha256": _normalized_path_sha256(destination),
-        "artifacts": rows,
-        "source_remains_authoritative": True,
-        "raw_messages_exported": False,
-        "overwrite_permitted": False,
-    }
-    return _exclusive_write(
-        destination / EXPORT_RECEIPT_NAME, _canonical_json_bytes(receipt)
-    )
+    return receipt_path
+
+
+def _cleanup_repository_export_staging(staging: Path, verified_export_root: Path) -> None:
+    staging = Path(staging)
+    verified_export_root = Path(verified_export_root)
+    if staging.parent != verified_export_root:
+        raise ContractError("refusing to clean an export stage outside its fixed parent")
+    if not staging.name.startswith(".") or not staging.name.endswith(".staging"):
+        raise ContractError("refusing to clean a non-staging export path")
+    if staging.is_symlink():
+        staging.unlink()
+    elif staging.exists():
+        shutil.rmtree(staging)
 
 
 def selected_phase41_checkpoint_identities(output_root: Path) -> tuple[str, str]:

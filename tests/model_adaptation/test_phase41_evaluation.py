@@ -1306,10 +1306,10 @@ def test_verified_export_is_copy_only_and_rechecks_destination(tmp_path, monkeyp
     assert receipt == destination / phase41_evaluation.EXPORT_RECEIPT_NAME
     for name in export_names:
         assert (destination / name).read_bytes() == (operational / name).read_bytes()
-    with pytest.raises(ContractError, match="already exists"):
-        phase41_evaluation.export_phase41_evidence_to_repository(
-            operational, repository_output_root=repository_output
-        )
+    repeated = phase41_evaluation.export_phase41_evidence_to_repository(
+        operational, repository_output_root=repository_output
+    )
+    assert repeated == receipt
 
 
 def test_verified_export_rejects_corrupt_copy_and_path_escape(tmp_path, monkeypatch):
@@ -1347,14 +1347,13 @@ def test_verified_export_rejects_corrupt_copy_and_path_escape(tmp_path, monkeypa
         "_code_fixed_authority_path",
         lambda repo_root, supplied, expected_relative, description: repository_output,
     )
-    destination = repository_output / "verified-export" / manifest_sha
     real_write = phase41_evaluation._exclusive_write
     corrupted = False
 
     def corrupting_write(path: Path, payload: bytes) -> Path:
         nonlocal corrupted
         result = real_write(path, payload)
-        if path.parent == destination and not corrupted:
+        if path.parent.name.endswith(".staging") and not corrupted:
             path.write_bytes(b"corrupted\n")
             corrupted = True
         return result
@@ -1364,7 +1363,9 @@ def test_verified_export_rejects_corrupt_copy_and_path_escape(tmp_path, monkeypa
         phase41_evaluation.export_phase41_evidence_to_repository(
             operational, repository_output_root=repository_output
         )
+    destination = repository_output / "verified-export" / manifest_sha
     assert not (destination / phase41_evaluation.EXPORT_RECEIPT_NAME).exists()
+    assert not list((repository_output / "verified-export").glob("*.staging"))
 
 
 def test_claim_registry_acl_requires_protected_exact_trusted_writers():
