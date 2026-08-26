@@ -722,7 +722,12 @@ def test_phase41_import_graph_has_no_legacy_or_runtime_evaluation_route():
     assert "progress_callback" not in source
 
 
-def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
+def _write_phase40_closure_fixture(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    review_schema: str = "phase40-human-review-v2",
+):
     import src.model_adaptation.phase40_evidence as phase40_evidence
     import src.model_adaptation.phase40_production_authorities as production
     import src.model_adaptation.phase41_evaluation as phase41_evaluation
@@ -929,14 +934,20 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
 
     review_path = repo / "data/models/phase40/review/human-review-manifest.json"
     review_path.parent.mkdir(parents=True)
+    reviewer_bytes = b'{"assessment":"prediction_supported"}\n'
+    notes_bytes = b'{"mechanism_note_vi":"Da doi chieu."}\n'
+    report_bytes = b"# Synthetic human review\n"
+    review_path.with_name("reviewer-return.jsonl").write_bytes(reviewer_bytes)
+    review_path.with_name("human-review-notes.jsonl").write_bytes(notes_bytes)
+    review_path.with_name("human-review-report.md").write_bytes(report_bytes)
     review = {
-        "schema_version": "phase40-human-review-v2",
+        "schema_version": review_schema,
         "vietnamese_fluent_attestation": True,
         "rows": 8,
         "queue_sha256": "1" * 64,
-        "reviewer_return_sha256": "3" * 64,
-        "notes_sha256": "4" * 64,
-        "report_sha256": "5" * 64,
+        "reviewer_return_sha256": hashlib.sha256(reviewer_bytes).hexdigest(),
+        "notes_sha256": hashlib.sha256(notes_bytes).hexdigest(),
+        "report_sha256": hashlib.sha256(report_bytes).hexdigest(),
         "comparison_manifest_sha256": hashlib.sha256(comparison_bytes).hexdigest(),
         "scope_amendment_sha256": "a" * 64,
         "review_queue_manifest_sha256": "6" * 64,
@@ -946,6 +957,9 @@ def _write_phase40_closure_fixture(tmp_path: Path, monkeypatch):
         "summary": {"reviewed": 8},
         "limitations": list(PHASE40_COMPARISON_LIMITATIONS),
     }
+    if review_schema == "phase40-human-review-v3":
+        review["superseded_scope_amendment_sha256"] = "a" * 64
+        review["final_comparison_authority_sha256"] = "3" * 64
     review_path.write_bytes(canonical_json_bytes(review))
 
     def fake_verify_bundle(path: Path):
@@ -993,6 +1007,94 @@ def test_canonical_prepare_validates_existing_closure_then_requires_live_bootstr
             deployment_fit_choice="deferred",
         )
     assert not output_root.exists()
+
+
+def test_canonical_prepare_accepts_v3_review_lineage_then_requires_live_bootstrap(
+    tmp_path, monkeypatch
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path,
+        monkeypatch,
+        review_schema="phase40-human-review-v3",
+    )
+
+    with pytest.raises(ContractError, match=PHASE41_PRODUCTION_BOOTSTRAP_REQUIRED):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
+
+
+@pytest.mark.parametrize(
+    ("schema", "mutation"),
+    (
+        ("phase40-human-review-v2", "extra-lineage"),
+        ("phase40-human-review-v3", "missing-lineage"),
+        ("phase40-human-review-v3", "mismatched-lineage"),
+    ),
+)
+def test_canonical_prepare_rejects_cross_schema_or_drifted_review_lineage(
+    tmp_path, monkeypatch, schema: str, mutation: str
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path,
+        monkeypatch,
+        review_schema=schema,
+    )
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    if mutation == "extra-lineage":
+        review["final_comparison_authority_sha256"] = "3" * 64
+    elif mutation == "missing-lineage":
+        review.pop("superseded_scope_amendment_sha256")
+    else:
+        review["final_comparison_authority_sha256"] = "0" * 64
+    review_path.write_bytes(canonical_json_bytes(review))
+
+    with pytest.raises(
+        ContractError,
+        match="closure drifted|v3 lineage drifted|SHA-256",
+    ):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
+
+
+@pytest.mark.parametrize(
+    "artifact_name",
+    (
+        "reviewer-return.jsonl",
+        "human-review-notes.jsonl",
+        "human-review-report.md",
+    ),
+)
+def test_canonical_prepare_rehashes_every_human_review_side_artifact(
+    tmp_path, monkeypatch, artifact_name: str
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path,
+        monkeypatch,
+        review_schema="phase40-human-review-v3",
+    )
+    review_path.with_name(artifact_name).write_bytes(b"tampered\n")
+
+    with pytest.raises(ContractError, match="side artifact hash drifted"):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
 
 
 def test_canonical_prepare_rejects_materialization_receipt_manifest_drift(

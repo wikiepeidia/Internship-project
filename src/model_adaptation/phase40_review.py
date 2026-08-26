@@ -38,6 +38,7 @@ FIXED_REVIEWER_RETURN_PATH = PurePosixPath(
     "data/models/phase40/review/reviewer-return.jsonl"
 )
 FIXED_REVIEW_OUTPUT_ROOT = PurePosixPath("data/models/phase40/review")
+PHASE40_HUMAN_REVIEW_SCHEMA_VERSION = "phase40-human-review-v3"
 
 
 def _canonical_review_path(
@@ -875,7 +876,7 @@ def finalize_phase40_human_review(
         limitations=comparison.limitations,
     )
     manifest = {
-        "schema_version": _handoff.PHASE40_HUMAN_REVIEW_SCHEMA_VERSION,
+        "schema_version": PHASE40_HUMAN_REVIEW_SCHEMA_VERSION,
         "vietnamese_fluent_attestation": True,
         "rows": len(queue),
         "queue_sha256": _handoff._sha256(queue_bytes),
@@ -910,6 +911,11 @@ def finalize_phase40_human_review(
         "limitations": list(comparison.limitations),
     }
     manifest_bytes = _handoff._canonical_json_bytes(manifest)
+    legacy_manifest = dict(manifest)
+    legacy_manifest["schema_version"] = _handoff.PHASE40_HUMAN_REVIEW_SCHEMA_VERSION
+    legacy_manifest.pop("superseded_scope_amendment_sha256")
+    legacy_manifest.pop("final_comparison_authority_sha256")
+    legacy_manifest_bytes = _handoff._canonical_json_bytes(legacy_manifest)
     root = canonical_phase40_review_output_root(
         repo_root=repo_root,
         supplied_root=output_root,
@@ -942,6 +948,7 @@ def finalize_phase40_human_review(
         notes_bytes=notes_bytes,
         report_bytes=report_bytes,
         manifest_bytes=manifest_bytes,
+        accepted_prior_manifest_bytes=(legacy_manifest_bytes,),
     )
     return artifacts
 

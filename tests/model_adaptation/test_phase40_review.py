@@ -187,3 +187,22 @@ def test_review_publication_preflights_all_destinations_before_side_changes(
     assert artifacts.notes_path.read_bytes() == b"notes\n"
     assert artifacts.report_path.read_bytes() == b"conflicting report\n"
     assert not os.path.lexists(artifacts.manifest_path)
+
+
+def test_review_publication_migrates_one_exact_prior_manifest(tmp_path: Path) -> None:
+    artifacts = _review_artifacts(tmp_path / "review-migration")
+    artifacts.notes_path.write_bytes(b"notes\n")
+    artifacts.report_path.write_bytes(b"report\n")
+    artifacts.manifest_path.write_bytes(b"legacy manifest\n")
+
+    phase40_review._publish_human_review_artifacts(
+        artifacts,
+        notes_bytes=b"notes\n",
+        report_bytes=b"report\n",
+        manifest_bytes=b"v3 manifest\n",
+        accepted_prior_manifest_bytes=(b"legacy manifest\n",),
+    )
+
+    assert artifacts.notes_path.read_bytes() == b"notes\n"
+    assert artifacts.report_path.read_bytes() == b"report\n"
+    assert artifacts.manifest_path.read_bytes() == b"v3 manifest\n"

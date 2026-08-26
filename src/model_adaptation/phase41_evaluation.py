@@ -4704,7 +4704,7 @@ def _verify_phase40_closure(
     review, review_bytes = _load_canonical_json(
         review_path, "Phase 40 human-review manifest"
     )
-    expected_review_fields = {
+    base_review_fields = {
         "schema_version",
         "vietnamese_fluent_attestation",
         "rows",
@@ -4721,6 +4721,17 @@ def _verify_phase40_closure(
         "summary",
         "limitations",
     }
+    lineage_review_fields = {
+        "superseded_scope_amendment_sha256",
+        "final_comparison_authority_sha256",
+    }
+    review_schema = review.get("schema_version")
+    if review_schema == "phase40-human-review-v2":
+        expected_review_fields = base_review_fields
+    elif review_schema == "phase40-human-review-v3":
+        expected_review_fields = base_review_fields | lineage_review_fields
+    else:
+        raise ContractError("Phase 40 human-review schema is unsupported")
     hash_fields = expected_review_fields.difference(
         {
             "schema_version",
@@ -4734,7 +4745,6 @@ def _verify_phase40_closure(
         _require_sha256(review.get(field), f"Phase 40 review {field}")
     if (
         set(review) != expected_review_fields
-        or review["schema_version"] != "phase40-human-review-v2"
         or review["vietnamese_fluent_attestation"] is not True
         or review["rows"] != comparison.review_queue_rows
         or review["queue_sha256"] != comparison.review_queue_sha256
@@ -4746,6 +4756,38 @@ def _verify_phase40_closure(
         or not review["summary"]
     ):
         raise ContractError("Phase 40 human-review closure drifted")
+    if review_schema == "phase40-human-review-v3" and (
+        review["superseded_scope_amendment_sha256"]
+        != comparison.superseded_scope_amendment_sha256
+        or review["final_comparison_authority_sha256"]
+        != comparison.final_comparison_authority_sha256
+    ):
+        raise ContractError("Phase 40 human-review v3 lineage drifted")
+
+    from src.model_adaptation.phase40_review import (
+        read_phase40_review_regular_bytes,
+    )
+
+    review_side_paths = {
+        "reviewer_return_sha256": review_path.with_name("reviewer-return.jsonl"),
+        "notes_sha256": review_path.with_name("human-review-notes.jsonl"),
+        "report_sha256": review_path.with_name("human-review-report.md"),
+    }
+    try:
+        review_side_bytes = {
+            field: read_phase40_review_regular_bytes(
+                path,
+                description=f"Phase 40 {field.removesuffix('_sha256')}",
+            )
+            for field, path in review_side_paths.items()
+        }
+    except ValueError as exc:
+        raise ContractError("Phase 40 human-review side artifact is missing or unsafe") from exc
+    if any(
+        _sha256(review_side_bytes[field]) != review[field]
+        for field in review_side_paths
+    ):
+        raise ContractError("Phase 40 human-review side artifact hash drifted")
     return (
         (models[0], models[1]),
         _sha256(comparison_bytes),
