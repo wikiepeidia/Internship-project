@@ -655,11 +655,11 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 **Scope amendment (accepted 2026-08-25):** the deliverable is two fresh full local models (Qwen genuine QLoRA and PhoBERT) plus a bounded ordinary-LoRA resource probe whose adapter is discarded. The previous full ordinary-LoRA accuracy-run requirement is withdrawn, not passed. Colab is outside the primary training path and remains available only as a version-pinned validation-stage recovery contingency before the reserved test is opened.
 
 - [x] **TRAIN-01**: A bounded non-quantized LoRA probe on the RTX 5050 records genuine feasibility, steady-state timing, ETA, VRAM, system RAM, temperature, power, and throughput, then discards its probe adapter. The former requirement for a fresh full ordinary-LoRA accuracy run is explicitly withdrawn by the 2026-08-25 local two-model scope amendment; it is not represented as a completed full training run.
-- [ ] **TRAIN-02**: A bounded RTX 5050 QLoRA probe records the same measurements and discards its adapter; a separate fresh full Qwen run then trains from step zero on the local RTX 5050 under the verified evidence pipeline and fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`. The retained Qwen artifact is the genuine full QLoRA model, exported to GGUF after verification.
-- [ ] **TRAIN-03**: The former full-run LoRA-vs-QLoRA accuracy comparison is superseded. The report compares ordinary LoRA and QLoRA only as bounded, same-laptop resource-feasibility probes (VRAM, system RAM, throughput, temperature/power, and extrapolated ETA), makes no LoRA-vs-QLoRA accuracy claim, and identifies QLoRA as the only full Qwen training route retained in scope.
-- [ ] **TRAIN-04**: A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data with a logged curve; QLoRA is not added to PhoBERT solely for novelty.
-- [ ] **TRAIN-05**: The two fresh full local models — PhoBERT classification head and Qwen genuine QLoRA — are compared with real measured validation numbers, reported honestly regardless of outcome; the bounded ordinary-LoRA probe is reported only as resource evidence.
-- [ ] **TRAIN-06**: Every graph is generated from retained raw logs. Both fresh full local runs and the bounded LoRA/QLoRA probes retain dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, local hardware plus CUDA/package versions, timestamped logs, peak VRAM/system RAM, temperature/power where captured, throughput, applicable `trainer_state`, adapter/checkpoint hashes, and validation metrics. Any contingency Colab artifact must be isolated, version-pinned, and labeled as external recovery evidence rather than silently mixed with the primary local runs; no Git commit identifier is required.
+- [x] **TRAIN-02**: A bounded RTX 5050 QLoRA probe records the same measurements and discards its adapter; a separate fresh full Qwen run then trains from step zero on the local RTX 5050 under the verified evidence pipeline and fails closed unless the runtime proves `quantization_mode == "4bit-qlora"`. The retained Qwen artifact is the genuine full QLoRA model, exported to GGUF after verification.
+- [x] **TRAIN-03**: The former full-run LoRA-vs-QLoRA accuracy comparison is superseded. The report compares ordinary LoRA and QLoRA only as bounded, same-laptop resource-feasibility probes (VRAM, system RAM, throughput, temperature/power, and extrapolated ETA), makes no LoRA-vs-QLoRA accuracy claim, and identifies QLoRA as the only full Qwen training route retained in scope.
+- [x] **TRAIN-04**: A real PhoBERT classification-head baseline is fully fine-tuned on the same frozen training/validation data with a logged curve; QLoRA is not added to PhoBERT solely for novelty.
+- [x] **TRAIN-05**: The two fresh full local models — PhoBERT classification head and Qwen genuine QLoRA — are compared with real measured validation numbers, reported honestly regardless of outcome; the bounded ordinary-LoRA probe is reported only as resource evidence.
+- [x] **TRAIN-06**: Every graph is generated from retained raw logs. Both fresh full local runs and the bounded LoRA/QLoRA probes retain dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, local hardware plus CUDA/package versions, timestamped logs, peak VRAM/system RAM, temperature/power where captured, throughput, applicable `trainer_state`, adapter/checkpoint hashes, and validation metrics. Any contingency Colab artifact must be isolated, version-pinned, and labeled as external recovery evidence rather than silently mixed with the primary local runs; no Git commit identifier is required.
 
 ### Held-Out Evaluation Discipline
 
@@ -702,11 +702,11 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | JUDGE-02 | Phase 39 | Complete |
 | JUDGE-03 | Phase 39 | Complete |
 | TRAIN-01 | Phase 40 | Complete (bounded probe); former full-LoRA clause withdrawn 2026-08-25 |
-| TRAIN-02 | Phase 40 | In progress (fresh full local QLoRA) |
-| TRAIN-03 | Phase 40 | Pending (resource-only comparison; full-LoRA accuracy comparison superseded) |
-| TRAIN-04 | Phase 40 | Pending (fresh full local PhoBERT) |
-| TRAIN-05 | Phase 40 | Pending (two-full-model validation comparison) |
-| TRAIN-06 | Phase 40 | Pending (local evidence package; Colab contingency isolated) |
+| TRAIN-02 | Phase 40 | Complete (genuine QLoRA probe, fresh local full run, verified Q8_0 GGUF) |
+| TRAIN-03 | Phase 40 | Complete (resource-only LoRA/QLoRA comparison; no full-LoRA accuracy claim) |
+| TRAIN-04 | Phase 40 | Complete (fresh full local PhoBERT classification-head run) |
+| TRAIN-05 | Phase 40 | Complete (frozen two-model validation comparison plus 52-row human review) |
+| TRAIN-06 | Phase 40 | Complete (hash-linked local evidence and raw-log graphs; Colab closed unused) |
 | EVAL-08 | Phase 41 | Pending (one-time two-model held-out evaluation) |
 | EVAL-09 | Phase 41 | Pending (two-model result freeze; no LoRA accuracy claim) |
 | REPORT-03 | Phase 42 | Pending |

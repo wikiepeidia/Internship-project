@@ -2,20 +2,20 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
-current_phase: 40
-current_phase_name: Multi-Model Training Evidence
-status: executing
-stopped_at: Phase 40 Plan 05 is complete with frozen Qwen QLoRA and PhoBERT validation evidence, external production closure, and a 52-row review queue; Plan 06 now waits for genuine Vietnamese human judgments, and Phase 41 remains blocked
-last_updated: "2026-08-26T00:14:07.036Z"
+current_phase: 41
+current_phase_name: Held-Out Evaluation Discipline
+status: ready
+stopped_at: Phase 40 complete; Phase 41 plans ready for safe pre-authorization execution
+last_updated: "2026-08-26T03:56:52.644Z"
 last_activity: 2026-08-26
-last_activity_desc: Completed the validation-only two-model finalizer with Qwen macro-F1 0.9885153110, PhoBERT macro-F1 0.9848929140, both safety gates PASS, 52 human-review rows, external production verification PASS, and 832/832 model-adaptation tests; no retraining or reserved-split access occurred
-state_head: b6a5673c0683a5d4239a5b10643d6b461842c9ec
+last_activity_desc: Phase 40 complete, transitioned to Phase 41
+state_head: 28e4cb3642d52c1e70f74275a50a9cef2bbfff11
 progress:
   total_phases: 22
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 81
-  completed_plans: 52
-  percent: 5
+  completed_plans: 53
+  percent: 9
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -37,10 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 40 (Multi-Model Training Evidence) — EXECUTING
-Plan: 6 of 6
-Status: Plan 05 complete. The frozen two-model validation comparison, external production closure, and 52-row reviewer package pass; Plan 06 is blocked only on genuine Vietnamese human judgments. Phase 41 stays fail-closed.
-Last activity: 2026-08-26 — Qwen QLoRA scored macro-F1 0.9885153110 and PhoBERT scored 0.9848929140 on the same 219-row validation snapshot; both safety gates passed with zero invalid outputs. The clean launcher, portable and external production verification, report mirror, queue hashes, and 832/832 regression tests passed. No model was retrained and the reserved split was not accessed.
+Phase: 41 — Held-Out Evaluation Discipline
+Plan: 41-01 ready
+Status: Ready to execute safe pre-authorization work
+Last activity: 2026-08-26 — Phase 40 complete, transitioned to Phase 41
+Progress: [██████████████░░░░░░] 61/89 plans (69%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -232,7 +233,7 @@ Last activity: 2026-08-26 — Qwen QLoRA scored macro-F1 0.9885153110 and PhoBER
 ## Session Continuity
 
 **Last session:** 2026-08-26T00:14:07.036Z
-**Stopped at:** Phase 40 Plan 05 is complete. The clean validation-only comparison retained Qwen QLoRA macro-F1 0.9885153110 and PhoBERT macro-F1 0.9848929140, both safety PASS, and generated 52 deterministic reviewer rows. External Qwen GGUF, PhoBERT release, runtime, and launch closure passed. Plan 06 must not proceed until the user supplies `Vietnamese review complete: data/models/phase40/review/reviewer-return.jsonl`; Phase 41 remains blocked and the reserved split was not accessed.
+**Stopped at:** Phase 40 complete; Phase 41 plans ready for safe pre-authorization execution
 **Resume file:** `.planning/phases/40-multi-model-training-evidence/40-06-PLAN.md`
 
 - Last session: 2026-07-02
@@ -291,8 +292,8 @@ Last activity: 2026-08-26 — Qwen QLoRA scored macro-F1 0.9885153110 and PhoBER
 
 - **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
 - **v6.0 Report Revision COMPLETE (2026-07-21).** All 13 requirements delivered across Phases 35-37; report recompiles clean at 34 pages. Archived to `.planning/milestones/v6.0-SUMMARY.md`.
-- **v7.0 Retake Redemption is active.** Phase 40 Plan 05 is executing: keep the clean v3 local QLoRA trainer, its fail-closed supervisor, and the armed no-overlap PhoBERT continuation running. After verified Qwen evidence/GGUF and the queued local PhoBERT branch complete, compare the two full models on validation, close the Colab contingency decision, freeze both model identities, and complete Plan 06 review. Do not start a full ordinary-LoRA run, a concurrent/accidental duplicate QLoRA or PhoBERT run, or the held-out test early; a later fresh cloud fallback is admissible only if the pre-test validation contingency is formally invoked.
-- **Compressed two-day order:** Day 1 is the uninterrupted local QLoRA → verified GGUF → local PhoBERT chain plus evidence sealing. Day 2 starts with the two-model validation comparison and mandatory manual review; if validation is acceptable, close all remediation choices, freeze both checkpoints, run Phase 41 on the reserved test once, then insert the frozen numbers/graphs into the report and slides. If validation is unacceptable, stop before Phase 41 and choose either the explicitly bounded Colab contingency or an honest incomplete result; any dataset repair changes the data contract and requires fresh training plus a new freeze before test access.
+- **v7.0 Retake Redemption is active.** Phase 40 is independently verified complete: both fresh local models, the validation comparison, and the 52-row Vietnamese review are frozen; Colab closed unused. Execute Phase 41 Plans 01–02 only through safe pre-authorization preparation, display the exact frozen identities and disclosures, then stop for the user's exact one-shot authorization signal. Do not access the reserved split before that gate.
+- **Compressed delivery order:** Finish Phase 41 production bootstrap and synthetic-only hardening, reach the blocking authorization gate, perform the one terminal two-model evaluation only if explicitly authorized, then immediately freeze results and move to report/slides. Poor held-out performance is terminal evidence and cannot trigger retraining, dataset repair, checkpoint selection, or another pass on this partition.
 
 ## Decisions
 
@@ -335,4 +336,4 @@ Last activity: 2026-08-26 — Qwen QLoRA scored macro-F1 0.9885153110 and PhoBER
 
 ### Blockers
 
-- Phase 41 Plan 01 production preparation remains blocked: runtime/segmenter capture tooling exists at `08761f8`, but its canonical post-training receipts and comparison binding are not yet materialized; the external comparison-launch receipt, comparison-bound GGUF verification receipt, and retained PhoBERT tokenizer authority also remain upstream. Every production and launcher-capability verb fails closed on the first missing code-fixed authority; see `41-01-BLOCKED.md`.
+- Phase 41 safe preparation still needs in-repo implementation before the human gate: replace the unconditional production-bootstrap stop, reconcile deployment-fit choice sequencing, provision/verify the protected claim registry, and freeze one consistent Qwen production artifact protocol. These are execution tasks, not permission to inspect the reserved split.

@@ -1,5 +1,7 @@
 # Phase 40 Local Full QLoRA Run
 
+> **Historical execution log (not current status).** The time-stamped sections below intentionally preserve what was known while training was live. Both local models later completed successfully, the frozen validation comparison and Vietnamese review closed, and the Colab contingency was not used. For current completion claims, use `40-VALIDATION-COMPARISON.md`, `40-VIETNAMESE-ERROR-REVIEW.md`, and `40-VERIFICATION.md`.
+
 **First attempt started:** 2026-08-25 08:59 +07:00
 
 **Clean v3 run started:** 2026-08-25 10:21 +07:00

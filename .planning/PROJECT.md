@@ -27,6 +27,7 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - Phase 32 closed for demo-focused defense readiness (2026-07-09): the final `scripts/START_DEMO_UI.bat` launcher passed a fresh-process browser dry-run with both locked golden prompts (`high-risk`/`bank_impersonation` scam and `benign` OTP notice), doctor remains READY, and 30 focused runtime/UI tests passed. Fallback recording, screenshot sequence, and pivot rehearsal were not supplied or verified; they are documented as accepted-risk skips because the operator scoped defense readiness mostly to the live demo. Slide sync remains a separate near-term presentation task.
 - Milestone v6.0 complete and closed (2026-07-21): report revision closing the defense's dataset-labeling gap — explicit JSON schema/label-field section, generative-classification (verbalizer) architecture rationale, honest Qwen-vs-PhoBERT comparison, concrete error analysis, and a full consistency/citation audit, all within the report's existing voice.
 - Phase 38 complete and closed (2026-08-08): corpus repaired and re-split by seed-group hash (80/10/10, zero leakage, 8% seed cap, zero invalid evidence spans). Execution surfaced a real, previously-hidden problem — `zalo_social_engineering`'s entire 825-row population traced to one seed_id, so correct group-integrity splitting left val/test with zero support for that class. Closed same-day via quick task `260808-otp`: 300 offline Codex-authored replacement rows across 60 independent seed lineages, re-run to `phase38-corpus-repaired-v3` (2,421 rows, all 4 labels present in every split). Post-review also found and fixed 2 real bugs in the shared repair pipeline (`9577394`) before either could affect a future run. All 5 acceptance gates independently re-verified against the real v3 files, not just self-reported.
+- Phase 40 complete and closed (2026-08-26): the bounded RTX 5050 LoRA/QLoRA resource decision, fresh full local genuine-Qwen-QLoRA and PhoBERT runs, verified Q8_0 GGUF, raw-log graphs, validation comparison, and genuine 52-row Vietnamese review are all hash-linked and independently verified. Qwen macro-F1 is 0.9885153110 and PhoBERT macro-F1 is 0.9848929140 on the same 219-row development-validation snapshot; both safety gates pass. The Colab contingency closed unused, no full-LoRA accuracy claim was made, and the reserved Phase 41 partition remained unopened.
 
 ### Active
 
@@ -34,9 +35,9 @@ Users can safely verify suspicious Vietnamese financial messages on-device with 
 - [x] Cut the t-test from the report; replace with plain descriptive quality stats and the manual-check results.
 - [ ] Restore the genuine task_scam 0.44→0.871 recovery story into the report.
 - [x] Complete the bounded ordinary-LoRA resource probe on the RTX 5050 and discard its adapter; the former full ordinary-LoRA accuracy run is withdrawn, not claimed as completed.
-- [ ] Finish the fresh full genuine 4-bit Qwen QLoRA run locally, verify its evidence, and export its retained deployment artifact to GGUF.
-- [ ] Fully fine-tune and graph a fresh local PhoBERT classification-head baseline on the same frozen training/validation data.
-- [ ] Compare the two full local models on validation, using Colab only as a version-pinned recovery contingency before the reserved test is opened if validation quality makes recovery necessary.
+- [x] Finish the fresh full genuine 4-bit Qwen QLoRA run locally, verify its evidence, and export its retained deployment artifact to GGUF.
+- [x] Fully fine-tune and graph a fresh local PhoBERT classification-head baseline on the same frozen training/validation data.
+- [x] Compare the two full local models on validation, using Colab only as a version-pinned recovery contingency before the reserved test is opened if validation quality makes recovery necessary.
 - [ ] Run the current reserved 220-row test split exactly once, at the end, across Qwen QLoRA and PhoBERT; test results must never trigger retraining or dataset repair, and only afterward may a separate deployment model use all 2,097 rows.
 - [ ] Overhaul the report in an authentic USTH-student voice, chapter by chapter, once the reference report arrives.
 - [ ] Overhaul the slides around real pipeline stages with real graphs and progressive reveals.
@@ -74,6 +75,7 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 | Add a proposal-aligned minimal local demo UI as a separate final milestone phase after release gates | The proposal promises a non-technical zero-prompt interface, but Phase 5 should stay focused on evaluation and release readiness first | Accepted 2026-05-25 |
 | Start a dedicated Phase 7 closeout milestone for dataset-scale and held-out-metric proof | The shipped six-phase v1 implementation is complete, but the school-facing quantitative claims still need one frozen dataset artifact and one valid final evaluation run | Accepted 2026-05-25 |
 | Amend Phase 40 to two full local models plus one bounded ordinary-LoRA probe | The local LoRA probe established genuine resource pressure and an impractical ETA; completing Qwen QLoRA and PhoBERT on the target laptop preserves hardware provenance and saves the remaining delivery time. The former full-LoRA accuracy requirement is withdrawn rather than marked passed. Colab remains only a pre-test validation contingency. | Accepted 2026-08-25 |
+| Close Phase 40 on the two verified local models and leave Colab unused | Both frozen development-validation results passed the predeclared safety gates, so a cloud rerun would add no justified recovery value. The Qwen and PhoBERT identities, validation results, and human-review closure are final before any reserved-test access. | Accepted 2026-08-26 |
 
 ## Current Milestone: v7.0 Retake Redemption
 
@@ -210,7 +212,8 @@ The project addresses two core failures in cloud LLM use for fraud checks: priva
 - v5.2 complete (2026-07-13): deck compressed 15->12 frames, Architecture/Data/Model untouched, XeLaTeX clean, demo split into Sample Output + Demo frames, timing at ~8:05 (2 min margin).
 - v5.3 complete (2026-07-14/15): speaking script + Q&A prep written, followed by extensive same-milestone slide iteration and live-rehearsal material (see `.planning/milestones/v5.3-SUMMARY.md`).
 - **DEFENSE HELD 2026-07-15 — COMPLETE.** Slides are now LOCKED, no further edits planned.
-- v6.0 complete (2026-07-21): report revision closing all judge-raised gaps (label-mechanism visibility, problem framing, architecture rationale, error analysis, citation/tone audit). Report recompiles clean at 34 pages. No next milestone scoped yet.
+- v6.0 complete (2026-07-21): report revision closing all judge-raised gaps (label-mechanism visibility, problem framing, architecture rationale, error analysis, citation/tone audit). Report recompiles clean at 34 pages.
+- v7.0 active (2026-08-26): Phases 38–40 are complete. The corpus, independent re-judge, local Qwen QLoRA/PhoBERT evidence, validation comparison, and human-review closure are frozen. Phase 41 is next and remains behind an explicit one-shot authorization gate; its reserved partition has not been opened.
 
 ## Evolution
 
@@ -232,4 +235,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-08-25 after approving the local two-model Phase 40 scope: full Qwen QLoRA plus full PhoBERT, with ordinary LoRA retained only as a bounded resource-feasibility probe and Colab as a pre-test validation contingency
+Last updated: 2026-08-26 after completing Phase 40 with two verified local full models, a genuine Vietnamese validation review, and the Colab contingency closed unused before the Phase 41 one-shot gate

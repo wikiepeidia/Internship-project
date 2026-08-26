@@ -75,7 +75,7 @@
 
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
-- [ ] **Phase 40: Multi-Model Training Evidence** - Preserve the bounded RTX 5050 LoRA/QLoRA resource probes, then finish fresh full local Qwen QLoRA and PhoBERT runs with auditable logs and genuine curves; make no full-LoRA accuracy claim.
+- [x] **Phase 40: Multi-Model Training Evidence** - Preserve the bounded RTX 5050 LoRA/QLoRA resource probes, then finish fresh full local Qwen QLoRA and PhoBERT runs with auditable logs and genuine curves; make no full-LoRA accuracy claim. (completed 2026-08-26)
 - [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate the two finalized full models exactly once against the reserved test split and report the results plainly.
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
@@ -909,7 +909,7 @@ Plans:
 7. Each full run retains an evidence bundle containing dataset hashes, model identifier/revision, exact sanitized command and resolved configuration, hardware plus CUDA/package versions, timestamped raw logs, training/validation curves, peak VRAM, throughput, `trainer_state`, adapter/checkpoint hashes, and final validation metrics. The incomplete LoRA probe retains its explicit terminal status and resource evidence rather than pretending to be a full run. A Git commit identifier is not required in these bundles.
 8. Every graph traces mechanically to a retained raw log; no graph is hand-drawn, reconstructed from memory, or based on the Phase 41 test partition.
 
-**Plans**: 5/6 complete (in progress)
+**Plans**: 6/6 complete
 **Wave 1**
 
 - [x] 40-01-PLAN.md
@@ -932,7 +932,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 40-06-PLAN.md
+- [x] 40-06-PLAN.md
 
 ### Phase 41: Held-Out Evaluation Discipline
 
@@ -1072,8 +1072,8 @@ Plans:
 | 37. Consistency Audit & Citation Verification | 0/TBD | Not started | - |
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
-| 40. Multi-Model Training Evidence | 4/6 | In Progress|  |
-| 41. Held-Out Evaluation Discipline | 0/TBD | Not started | - |
+| 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
+| 41. Held-Out Evaluation Discipline | 0/2 | Not started | - |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |
