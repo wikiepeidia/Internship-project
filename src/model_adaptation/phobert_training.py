@@ -74,6 +74,7 @@ from src.model_adaptation.phase40_evidence import (
 from src.model_adaptation.phase40_graphs import GraphRenderer, render_phase40_graphs
 from src.model_adaptation.phase40_metrics import (
     LABEL_ORDER,
+    RISKY_RECALL_FLOORS,
     CheckpointSelection,
     Phase40MetricResult,
     Phase40PredictionRow,
@@ -1393,15 +1394,20 @@ def _metric_summary(metrics: Phase40MetricResult) -> dict[str, object]:
 
 
 def _run_metric_summary(metrics: Phase40MetricResult) -> dict[str, float]:
+    by_label = {row.label: row for row in metrics.per_class}
     result = {
         "macro_f1": metrics.macro_f1,
         "weighted_f1": metrics.weighted_f1,
         "accuracy": metrics.accuracy,
+        "invalid_output_count": float(metrics.invalid_output_count),
         "invalid_output_rate": metrics.invalid_output_rate,
         "risky_to_benign_count": float(metrics.risky_to_benign_count),
+        "risky_to_invalid_count": float(metrics.risky_to_invalid_count),
     }
-    result.update({f"recall.{row.label}": row.recall for row in metrics.per_class})
-    return result
+    result.update(
+        {f"recall_{label}": by_label[label].recall for label in RISKY_RECALL_FLOORS}
+    )
+    return dict(sorted(result.items()))
 
 
 def _default_logits_predictor(

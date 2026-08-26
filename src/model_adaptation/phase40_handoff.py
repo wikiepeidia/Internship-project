@@ -2386,6 +2386,39 @@ def _run_metric_summary(metrics: Phase40MetricResult) -> dict[str, float]:
     return dict(sorted(summary.items()))
 
 
+def _legacy_phobert_run_metric_summary(
+    metrics: Phase40MetricResult,
+) -> dict[str, float]:
+    """Reproduce the v12 PhoBERT run-level summary exactly.
+
+    The retained raw predictions and per-checkpoint metric artifact remain the
+    authority.  This compatibility shape is accepted only for PhoBERT runs
+    produced before the shared summary schema was adopted.
+    """
+
+    summary = {
+        "macro_f1": metrics.macro_f1,
+        "weighted_f1": metrics.weighted_f1,
+        "accuracy": metrics.accuracy,
+        "invalid_output_rate": metrics.invalid_output_rate,
+        "risky_to_benign_count": float(metrics.risky_to_benign_count),
+    }
+    summary.update({f"recall.{row.label}": row.recall for row in metrics.per_class})
+    return summary
+
+
+def _run_metric_summary_matches(
+    evidence: RunEvidence,
+    metrics: Phase40MetricResult,
+) -> bool:
+    if evidence.validation_metrics == _run_metric_summary(metrics):
+        return True
+    return (
+        evidence.experiment_identity.model_family == ModelFamily.PHOBERT
+        and evidence.validation_metrics == _legacy_phobert_run_metric_summary(metrics)
+    )
+
+
 def _recompute_checkpoint_selection(
     run_root: Path,
     evidence: RunEvidence,
@@ -3240,7 +3273,6 @@ def _reverify_human_review_model_bundles(
         selected_metrics = recomputed_metrics[
             (recomputed_selection.selected_step, recomputed_selection.selected_artifact_identity)
         ]
-        expected_metrics = _run_metric_summary(selected_metrics)
         risky_recall = {
             label: next(
                 row.recall for row in selected_metrics.per_class if row.label == label
@@ -3262,7 +3294,7 @@ def _reverify_human_review_model_bundles(
             or record.comparison_eligible != evidence.comparison_eligible
             or record.validation_rows != len(retained_bundle.predictions)
             or record.validation_metrics != evidence.validation_metrics
-            or evidence.validation_metrics != expected_metrics
+            or not _run_metric_summary_matches(evidence, selected_metrics)
             or record.macro_f1 != selected_metrics.macro_f1
             or record.invalid_output_count != selected_metrics.invalid_output_count
             or record.risky_recall_by_label != risky_recall
@@ -3808,8 +3840,7 @@ def finalize_phase40_comparison(
         selected_metrics = recomputed_metrics[
             (recomputed_selection.selected_step, recomputed_selection.selected_artifact_identity)
         ]
-        expected_run_metrics = _run_metric_summary(selected_metrics)
-        if evidence.validation_metrics != expected_run_metrics:
+        if not _run_metric_summary_matches(evidence, selected_metrics):
             raise RuntimeError("run-level validation metrics differ from selected raw predictions")
         risky_recall = {
             label: next(row.recall for row in selected_metrics.per_class if row.label == label)
@@ -4157,8 +4188,7 @@ def finalize_phase40_final_comparison(
         selected_metrics = recomputed_metrics[
             (recomputed_selection.selected_step, recomputed_selection.selected_artifact_identity)
         ]
-        expected_run_metrics = _run_metric_summary(selected_metrics)
-        if evidence.validation_metrics != expected_run_metrics:
+        if not _run_metric_summary_matches(evidence, selected_metrics):
             raise RuntimeError("run-level validation metrics differ from selected raw predictions")
         risky_recall = {
             label: next(row.recall for row in selected_metrics.per_class if row.label == label)

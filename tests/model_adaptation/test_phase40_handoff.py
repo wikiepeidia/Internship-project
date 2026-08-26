@@ -1822,13 +1822,33 @@ def test_checkpoint_metrics_allow_byte_identical_duplicate_artifact_paths(
         update={"artifacts": (*evidence.artifacts, duplicate)}
     )
 
-    selected, _ = handoff._recompute_checkpoint_selection(
+    selected, metrics_by_checkpoint = handoff._recompute_checkpoint_selection(
         run_root,
         duplicated,
         fixture.contract.validation_snapshot,
     )
 
     assert selected.selected_step == evidence.selected_checkpoint.optimizer_step
+    selected_metrics = metrics_by_checkpoint[
+        (selected.selected_step, selected.selected_artifact_identity)
+    ]
+    legacy = duplicated.model_copy(
+        update={
+            "validation_metrics": handoff._legacy_phobert_run_metric_summary(
+                selected_metrics
+            )
+        }
+    )
+    assert handoff._run_metric_summary_matches(legacy, selected_metrics)
+    tampered = legacy.model_copy(
+        update={
+            "validation_metrics": {
+                **legacy.validation_metrics,
+                "macro_f1": legacy.validation_metrics["macro_f1"] - 0.01,
+            }
+        }
+    )
+    assert not handoff._run_metric_summary_matches(tampered, selected_metrics)
 
 
 def test_local_comparison_needs_no_colab_package_approval(
