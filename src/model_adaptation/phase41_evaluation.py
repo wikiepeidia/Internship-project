@@ -52,11 +52,16 @@ DATASET_KEYS = frozenset(
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
 SAFE_PARSER_ERROR_RE = re.compile(r"^[a-z0-9][a-z0-9_]{0,63}$")
-EXPLICIT_AUTHORIZATION_STATEMENT = (
-    "I authorize this one-shot two-model held-out evaluation. The validation "
-    "contingency is closed, and any claim or post-claim failure permanently "
-    "spends this holdout for unbiased evaluation."
+DEFERRED_AUTHORIZATION_SIGNAL = (
+    "AUTHORIZE PHASE 41 ONE-SHOT; DEPLOYMENT FIT DEFERRED"
 )
+AUTHORIZED_POST_EVALUATION_FIT_SIGNAL = (
+    "AUTHORIZE PHASE 41 ONE-SHOT; SEPARATE DEPLOYMENT FIT AUTHORIZED"
+)
+_AUTHORIZATION_SIGNAL_CHOICES = {
+    DEFERRED_AUTHORIZATION_SIGNAL: "deferred",
+    AUTHORIZED_POST_EVALUATION_FIT_SIGNAL: "authorized_post_evaluation_fit",
+}
 
 PREPARED_NAME = "evaluation-request.json"
 AUTHORIZATION_NAME = "one-shot-authorization.json"
@@ -1210,8 +1215,18 @@ def authorize_evaluation(
 ) -> Path:
     """Freeze an explicit, hash-bound local authorization; this is not a signature."""
 
-    if statement != EXPLICIT_AUTHORIZATION_STATEMENT:
-        raise AuthorizationError("authorization statement does not match the fixed acknowledgement")
+    signal_choice = _AUTHORIZATION_SIGNAL_CHOICES.get(statement)
+    if signal_choice is None:
+        raise AuthorizationError(
+            "authorization statement does not match an exact Phase 41 signal"
+        )
+    if (
+        deployment_fit_choice is not None
+        and deployment_fit_choice != signal_choice
+    ):
+        raise AuthorizationError(
+            "authorization signal and deployment-fit choice differ"
+        )
     if not SAFE_ID_RE.fullmatch(operator_id):
         raise AuthorizationError("operator_id is not a safe identifier")
     root = Path(output_root)
@@ -1224,17 +1239,11 @@ def authorize_evaluation(
     assert isinstance(prepared_precommit, dict)
     pending = prepared_precommit.get("choice") == PENDING_DEPLOYMENT_FIT_CHOICE
     if pending:
-        if deployment_fit_choice is None:
-            raise AuthorizationError(
-                "production authorization requires the human deployment-fit choice"
-            )
-        effective_precommit = _deployment_fit_precommit(
-            deployment_fit_choice, models
-        )
+        effective_precommit = _deployment_fit_precommit(signal_choice, models)
     else:
-        if deployment_fit_choice not in {None, prepared_precommit.get("choice")}:
+        if prepared_precommit.get("choice") != signal_choice:
             raise AuthorizationError(
-                "authorization deployment-fit choice differs from preparation"
+                "authorization signal differs from the prepared deployment-fit choice"
             )
         effective_precommit = dict(prepared_precommit)
     payload: dict[str, object] = {
@@ -1431,6 +1440,12 @@ def _validate_authorization(
         "deployment_fit_precommit_sha256",
     }
     schema = authorization.get("schema_version")
+    statement = authorization.get("statement")
+    signal_choice = (
+        _AUTHORIZATION_SIGNAL_CHOICES.get(statement)
+        if isinstance(statement, str)
+        else None
+    )
     if set(authorization) not in (v1_fields, v2_fields):
         raise AuthorizationError("authorization fields differ from the fixed contract")
     if (
@@ -1440,7 +1455,7 @@ def _validate_authorization(
         }
         or authorization["state"] != "explicitly_authorized"
         or authorization["authorization_method"] != "explicit_local_attestation"
-        or authorization["statement"] != EXPLICIT_AUTHORIZATION_STATEMENT
+        or signal_choice is None
         or authorization["prepared_sha256"] != prepared_sha256
         or authorization["phase40_authorities_sha256"]
         != phase40_authorities_sha256
@@ -1459,6 +1474,10 @@ def _validate_authorization(
         ):
             raise AuthorizationError(
                 "production authorization must record the human deployment-fit choice"
+            )
+        if prepared_deployment_fit_precommit.get("choice") != signal_choice:
+            raise AuthorizationError(
+                "authorization signal differs from the prepared deployment-fit choice"
             )
         return dict(prepared_deployment_fit_precommit)
     if set(authorization) != v2_fields:
@@ -1480,6 +1499,28 @@ def _validate_authorization(
     expected_identities = prepared_deployment_fit_precommit.get(
         "selected_checkpoint_identities"
     )
+    if (
+        not isinstance(expected_identities, list)
+        or not all(isinstance(value, str) for value in expected_identities)
+        or tuple(expected_identities) != parsed.selected_checkpoint_identities
+        or parsed.choice != signal_choice
+    ):
+        raise AuthorizationError(
+            "authorization signal and deployment-fit precommitment differ"
+        )
+    expected_precommit = {
+        "choice": signal_choice,
+        "selected_checkpoint_identities": list(expected_identities),
+    }
+    if (
+        precommit != expected_precommit
+        or authorization["deployment_fit_precommit_sha256"]
+        != _sha256(_canonical_json_bytes(expected_precommit))
+    ):
+        raise AuthorizationError(
+            "authorization deployment-fit precommitment is not canonical"
+        )
+    return expected_precommit
 
 
 def _provision_claim_registry_root() -> Path:
@@ -5503,10 +5544,11 @@ def prepare_phase41_from_canonical_authorities(
 
 __all__ = [
     "AlreadySpentError",
+    "AUTHORIZED_POST_EVALUATION_FIT_SIGNAL",
     "AuthorizationError",
     "ContractError",
+    "DEFERRED_AUTHORIZATION_SIGNAL",
     "DeploymentFitDisposition",
-    "EXPLICIT_AUTHORIZATION_STATEMENT",
     "FrozenModelIdentity",
     "InMemorySnapshot",
     "LABEL_ORDER",

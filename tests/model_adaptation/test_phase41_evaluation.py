@@ -13,8 +13,10 @@ import pytest
 
 import src.model_adaptation.phase41_evaluation as phase41_evaluation
 from src.model_adaptation.phase41_evaluation import (
-    EXPLICIT_AUTHORIZATION_STATEMENT,
+    AUTHORIZED_POST_EVALUATION_FIT_SIGNAL,
+    DEFERRED_AUTHORIZATION_SIGNAL,
     AlreadySpentError,
+    AuthorizationError,
     ContractError,
     FrozenModelIdentity,
     OpaqueHeldOutAuthority,
@@ -117,31 +119,167 @@ def _predictor_rows(snapshot):
     )
 
 
-def _prepare_authorize(root: Path, split: Path, payload: bytes):
+def _prepare_synthetic_choice(
+    root: Path,
+    split: Path,
+    payload: bytes,
+    *,
+    choice: str,
+):
     protocols = build_synthetic_protocol_authority(_models())
+    prepared = phase41_evaluation._prepare_phase41_synthetic_for_test(
+        root,
+        held_out=_authority(split, payload),
+        models=_models(),
+        protocols=protocols,
+        comparison_authority_sha256="5" * 64,
+        review_closure_sha256="6" * 64,
+        comparison_launch_receipt_sha256="7" * 64,
+        execution_source_manifest_sha256="8" * 64,
+        prior_human_exposure_disclosed=True,
+        deployment_fit_choice=choice,
+    )
+    assert (
+        verify_phase41_preauthorization(root).prepared_sha256
+        == prepared.prepared_sha256
+    )
+    return protocols, prepared
+
+
+def _prepare_authorize(root: Path, split: Path, payload: bytes):
     with _phase41_test_runtime(registry_root=root.parent / "preparation-claims"):
-        prepared = phase41_evaluation._prepare_phase41_synthetic_for_test(
-            root,
-            held_out=_authority(split, payload),
-            models=_models(),
-            protocols=protocols,
-            comparison_authority_sha256="5" * 64,
-            review_closure_sha256="6" * 64,
-            comparison_launch_receipt_sha256="7" * 64,
-            execution_source_manifest_sha256="8" * 64,
-            prior_human_exposure_disclosed=True,
-            deployment_fit_choice="deferred",
-        )
-        assert (
-            verify_phase41_preauthorization(root).prepared_sha256
-            == prepared.prepared_sha256
+        protocols, prepared = _prepare_synthetic_choice(
+            root, split, payload, choice="deferred"
         )
         authorize_phase41_evaluation(
             root,
             prepared_sha256=prepared.prepared_sha256,
-            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+            statement=DEFERRED_AUTHORIZATION_SIGNAL,
         )
     return protocols
+
+
+@pytest.mark.parametrize(
+    ("statement", "choice"),
+    (
+        (DEFERRED_AUTHORIZATION_SIGNAL, "deferred"),
+        (
+            AUTHORIZED_POST_EVALUATION_FIT_SIGNAL,
+            "authorized_post_evaluation_fit",
+        ),
+    ),
+)
+def test_exact_authorization_signal_binds_matching_fit_choice(
+    tmp_path, statement: str, choice: str
+):
+    root = tmp_path / "phase41"
+    split = tmp_path / "synthetic-held-out.jsonl"
+    payload = _payload()
+    split.write_bytes(payload)
+
+    with _phase41_test_runtime(registry_root=tmp_path / "machine-claims"):
+        _, prepared = _prepare_synthetic_choice(
+            root, split, payload, choice=choice
+        )
+        path = authorize_phase41_evaluation(
+            root,
+            prepared_sha256=prepared.prepared_sha256,
+            statement=statement,
+        )
+        request = json.loads(
+            (root / "evaluation-request.json").read_text(encoding="utf-8")
+        )
+        authorization = json.loads(path.read_text(encoding="utf-8"))
+        effective = phase41_evaluation._validate_authorization(
+            authorization,
+            prepared_sha256=prepared.prepared_sha256,
+            phase40_authorities_sha256=(
+                phase41_evaluation._phase40_authorities_sha256(request)
+            ),
+            prepared_deployment_fit_precommit=request[
+                "deployment_fit_precommit"
+            ],
+        )
+
+    assert authorization["statement"] == statement
+    assert effective["choice"] == choice
+
+
+@pytest.mark.parametrize(
+    "statement",
+    (
+        DEFERRED_AUTHORIZATION_SIGNAL.lower(),
+        f"{DEFERRED_AUTHORIZATION_SIGNAL} GO LMAO",
+        "DECLINE PHASE 41",
+    ),
+)
+def test_authorization_rejects_typo_or_extra_text(tmp_path, statement: str):
+    root = tmp_path / "phase41"
+    with pytest.raises(AuthorizationError, match="exact Phase 41 signal"):
+        phase41_evaluation.authorize_evaluation(
+            root,
+            operator_id="local-operator",
+            statement=statement,
+            deployment_fit_choice="deferred",
+        )
+    assert not (root / "one-shot-authorization.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("statement", "choice"),
+    (
+        (
+            DEFERRED_AUTHORIZATION_SIGNAL,
+            "authorized_post_evaluation_fit",
+        ),
+        (AUTHORIZED_POST_EVALUATION_FIT_SIGNAL, "deferred"),
+    ),
+)
+def test_authorization_rejects_signal_choice_mismatch(
+    tmp_path, statement: str, choice: str
+):
+    root = tmp_path / "phase41"
+    with pytest.raises(AuthorizationError, match="signal and deployment-fit"):
+        phase41_evaluation.authorize_evaluation(
+            root,
+            operator_id="local-operator",
+            statement=statement,
+            deployment_fit_choice=choice,
+        )
+    assert not (root / "one-shot-authorization.json").exists()
+
+
+def test_v2_authorization_validation_returns_signal_bound_precommit():
+    identities = [model.selected_checkpoint_identity for model in _models()]
+    effective = {
+        "choice": "deferred",
+        "selected_checkpoint_identities": identities,
+    }
+    authorization = {
+        "schema_version": "phase41-explicit-authorization-v2",
+        "state": "explicitly_authorized",
+        "authorization_method": "explicit_local_attestation",
+        "operator_id": "local-operator",
+        "authorized_at_utc": "2026-08-26T00:00:00Z",
+        "statement": DEFERRED_AUTHORIZATION_SIGNAL,
+        "prepared_sha256": "a" * 64,
+        "phase40_authorities_sha256": "b" * 64,
+        "deployment_fit_precommit": effective,
+        "deployment_fit_precommit_sha256": hashlib.sha256(
+            _canonical_bytes(effective)
+        ).hexdigest(),
+    }
+    pending = {
+        "choice": phase41_evaluation.PENDING_DEPLOYMENT_FIT_CHOICE,
+        "selected_checkpoint_identities": identities,
+    }
+
+    assert phase41_evaluation._validate_authorization(
+        authorization,
+        prepared_sha256="a" * 64,
+        phase40_authorities_sha256="b" * 64,
+        prepared_deployment_fit_precommit=pending,
+    ) == effective
 
 
 def test_synthetic_pass_is_claim_before_open_shared_snapshot_and_byte_stable(tmp_path):
@@ -370,7 +508,7 @@ def test_synthetic_preparation_is_durable_and_rejected_by_production_verbs(tmp_p
         authorize_phase41_evaluation(
             root,
             prepared_sha256="0" * 64,
-            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+            statement=DEFERRED_AUTHORIZATION_SIGNAL,
         )
     with pytest.raises(ContractError, match="synthetic.*production"):
         production_run_phase41_once(root)
@@ -547,7 +685,7 @@ def test_self_declared_production_files_fail_before_authority_or_payload_access(
         lambda: authorize_phase41_evaluation(
             root,
             prepared_sha256=hashlib.sha256(prepared_bytes).hexdigest(),
-            statement=EXPLICIT_AUTHORIZATION_STATEMENT,
+            statement=DEFERRED_AUTHORIZATION_SIGNAL,
         ),
         lambda: production_run_phase41_once(root),
         lambda: real_acquire_capability(root),

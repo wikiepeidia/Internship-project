@@ -753,7 +753,13 @@ def test_phase41_cli_surface_is_fixed_and_run_once_accepts_only_output_root():
         for action in authorize_parser._actions
         for option in action.option_strings
     }
-    assert "--deployment-fit-choice" in authorize_options
+    assert authorize_options == {
+        "-h",
+        "--help",
+        "--output-root",
+        "--prepared-sha256",
+        "--statement",
+    }
 
     disposition_parser = subparsers_action.choices[
         "phase41-freeze-deployment-fit-disposition"
@@ -793,22 +799,58 @@ def test_phase41_prepare_cli_defers_deployment_fit_choice_to_authorization():
 
 
 @pytest.mark.parametrize(
-    "choice", ["deferred", "authorized_post_evaluation_fit"]
+    "statement",
+    (
+        "AUTHORIZE PHASE 41 ONE-SHOT; DEPLOYMENT FIT DEFERRED",
+        "AUTHORIZE PHASE 41 ONE-SHOT; SEPARATE DEPLOYMENT FIT AUTHORIZED",
+    ),
 )
-def test_phase41_authorize_cli_requires_valid_deployment_fit_precommit(choice: str):
+def test_phase41_authorize_cli_accepts_exact_signal_as_sole_fit_choice(
+    statement: str,
+):
     parser = _load_cli_module().build_parser()
     base = [
         "phase41-authorize-evaluation",
         "--prepared-sha256",
         "a" * 64,
         "--statement",
-        "exact-statement",
+        statement,
     ]
 
+    args = parser.parse_args(base)
+    assert args.statement == statement
+    assert not hasattr(args, "deployment_fit_choice")
     with pytest.raises(SystemExit):
-        parser.parse_args(base)
-    args = parser.parse_args([*base, "--deployment-fit-choice", choice])
-    assert args.deployment_fit_choice == choice
+        parser.parse_args([*base, "--deployment-fit-choice", "deferred"])
+
+
+def test_phase41_authorize_handler_forwards_only_exact_signal(monkeypatch):
+    cli_module = _load_cli_module()
+    import src.model_adaptation.phase41_evaluation as evaluation_module
+
+    captured: dict[str, object] = {}
+
+    def fake_authorize(output_root, **kwargs):
+        captured["output_root"] = output_root
+        captured.update(kwargs)
+        return Path("synthetic-one-shot-authorization.json")
+
+    monkeypatch.setattr(
+        evaluation_module, "authorize_phase41_evaluation", fake_authorize
+    )
+    signal = "AUTHORIZE PHASE 41 ONE-SHOT; DEPLOYMENT FIT DEFERRED"
+    args = SimpleNamespace(
+        output_root=Path("synthetic-output"),
+        prepared_sha256="a" * 64,
+        statement=signal,
+    )
+
+    assert cli_module.handle_phase41_authorize_evaluation(args) == 0
+    assert captured == {
+        "output_root": Path("synthetic-output"),
+        "prepared_sha256": "a" * 64,
+        "statement": signal,
+    }
 
 
 def test_phase41_prepare_handler_does_not_invent_deployment_fit_precommit(monkeypatch):

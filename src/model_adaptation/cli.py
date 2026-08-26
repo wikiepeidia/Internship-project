@@ -624,12 +624,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-root", type=Path, default=Path("data/models/phase41")
     )
     phase41_authorize_parser.add_argument("--prepared-sha256", required=True)
-    phase41_authorize_parser.add_argument("--statement", required=True)
     phase41_authorize_parser.add_argument(
-        "--deployment-fit-choice",
+        "--statement",
         required=True,
-        choices=["deferred", "authorized_post_evaluation_fit"],
-        help="Record the operator's pre-result deployment-fit choice at authorization",
+        help="Exact Phase 41 checkpoint signal; extra text is rejected",
     )
     phase41_authorize_parser.set_defaults(handler=handle_phase41_authorize_evaluation)
 
@@ -1139,7 +1137,6 @@ def handle_phase41_authorize_evaluation(args: argparse.Namespace) -> int:
         args.output_root,
         prepared_sha256=args.prepared_sha256,
         statement=args.statement,
-        deployment_fit_choice=args.deployment_fit_choice,
     )
     print(f"Phase 41 explicitly authorized: {path}")
     return 0
