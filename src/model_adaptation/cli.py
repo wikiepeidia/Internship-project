@@ -28,7 +28,6 @@ from src.model_adaptation.phase40_handoff import (
     build_phase40_input_bundle,
     build_phase40_source_bundle,
     finalize_phase40_comparison,
-    finalize_phase40_human_review,
     freeze_phase40_scope_amendment,
     load_frozen_phase40_run_request,
     load_frozen_phase40_scope_amendment,
@@ -37,6 +36,11 @@ from src.model_adaptation.phase40_handoff import (
     verify_phase40_input_bundle,
     verify_phase40_review_queue,
     verify_phase40_run_request,
+)
+from src.model_adaptation.phase40_review import (
+    finalize_phase40_human_review,
+    load_phase40_review_authority,
+    verify_phase40_final_review_comparison,
 )
 from src.model_adaptation.phase40_evidence import verify_phase40_bundle
 from src.model_adaptation.phase40_graphs import render_phase40_graphs
@@ -951,18 +955,32 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
     comparison = Phase40ComparisonManifest.model_validate_json(
         args.comparison_manifest_path.read_text(encoding="utf-8", errors="strict")
     )
-    amendment = load_frozen_phase40_scope_amendment(
-        request=request,
-        repo_root=args.repo_root,
-        amendment_path=args.scope_amendment_path,
-    )
-    if (
-        hashlib.sha256(args.scope_amendment_path.read_bytes()).hexdigest()
-        != comparison.scope_amendment_sha256
-        or amendment.original_run_request_sha256
-        != comparison.original_run_request_sha256
-    ):
-        raise ValueError("comparison manifest differs from the frozen scope amendment")
+    if comparison.schema_version == "phase40-comparison-v3":
+        final, scope_amendment_bytes = load_phase40_review_authority(
+            repo_root=args.repo_root,
+            request=request,
+            scope_amendment_path=args.scope_amendment_path,
+        )
+        verify_phase40_final_review_comparison(
+            comparison,
+            final_authority=final,
+            scope_amendment_bytes=scope_amendment_bytes,
+        )
+    else:
+        amendment = load_frozen_phase40_scope_amendment(
+            request=request,
+            repo_root=args.repo_root,
+            amendment_path=args.scope_amendment_path,
+        )
+        if (
+            hashlib.sha256(args.scope_amendment_path.read_bytes()).hexdigest()
+            != comparison.scope_amendment_sha256
+            or amendment.original_run_request_sha256
+            != comparison.original_run_request_sha256
+        ):
+            raise ValueError(
+                "comparison manifest differs from the frozen scope amendment"
+            )
     bundles = load_phase40_selected_prediction_bundles(
         args.selected_predictions_path,
         comparison_manifest=comparison,

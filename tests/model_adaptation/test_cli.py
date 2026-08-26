@@ -179,6 +179,95 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     assert captured["reviewer_return_bytes"] == original_bytes
 
 
+def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
+    tmp_path, monkeypatch
+):
+    cli_module = _load_cli_module()
+    request = SimpleNamespace(
+        input_bundle=SimpleNamespace(repository_relative_path="phase40-input.zip")
+    )
+    contract = object()
+    comparison = SimpleNamespace(schema_version="phase40-comparison-v3")
+    final = object()
+    bundles = (object(),)
+    queue = (object(),)
+    queue_path = tmp_path / "review-queue.jsonl"
+    queue_bytes = b'{"model_run_id":"qwen-qlora"}\n'
+    queue_path.write_bytes(queue_bytes)
+    (tmp_path / "comparison.json").write_text("{}", encoding="utf-8")
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        cli_module,
+        "load_frozen_phase40_run_request",
+        lambda **kwargs: request,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_phase40_input_bundle",
+        lambda *args, **kwargs: contract,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "Phase40ComparisonManifest",
+        SimpleNamespace(model_validate_json=lambda payload: comparison),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "load_frozen_phase40_scope_amendment",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("v3 review reactivated the legacy amendment")
+        ),
+    )
+
+    def load_review_authority(**kwargs):
+        calls.append("final-authority")
+        assert kwargs["request"] is request
+        return final, b"historical-scope\n"
+
+    def verify_review_comparison(value, **kwargs):
+        calls.append("comparison")
+        assert value is comparison
+        assert kwargs["final_authority"] is final
+
+    monkeypatch.setattr(
+        cli_module, "load_phase40_review_authority", load_review_authority
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_phase40_final_review_comparison",
+        verify_review_comparison,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "load_phase40_selected_prediction_bundles",
+        lambda *args, **kwargs: bundles,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_load_jsonl_models_from_bytes",
+        lambda *args, **kwargs: queue,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "verify_phase40_review_queue",
+        lambda rows, **kwargs: calls.append("queue"),
+    )
+    args = SimpleNamespace(
+        repo_root=tmp_path,
+        request_path=tmp_path / "request.json",
+        scope_amendment_path=tmp_path / "scope.json",
+        comparison_manifest_path=tmp_path / "comparison.json",
+        selected_predictions_path=tmp_path / "predictions.json",
+        queue_path=queue_path,
+    )
+
+    loaded = cli_module._load_phase40_review_authorities(args)
+
+    assert loaded == (request, contract, comparison, bundles, queue, queue_bytes)
+    assert calls == ["final-authority", "comparison", "queue"]
+
+
 def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypatch):
     cli_module = _load_cli_module()
     request_path = tmp_path / "request.json"

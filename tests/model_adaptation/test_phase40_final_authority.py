@@ -9,6 +9,7 @@ import pytest
 
 from src.model_adaptation import phase40_handoff as handoff
 from src.model_adaptation import phase40_final_authority as final_authority
+from src.model_adaptation import phase40_review as review_authority
 from src.model_adaptation.phase40_final_authority import (
     FIXED_FINAL_COMPARISON_AUTHORITY_PATH,
     FIXED_HISTORICAL_SCOPE_AMENDMENT_PATH,
@@ -186,6 +187,60 @@ def test_build_freeze_load_derives_per_run_authorities(authority_repo: Path) -> 
             RECOVERY_PHOBERT_RUN_ID
         ]
     )
+
+
+def test_review_handoff_accepts_hash_bound_historical_scope_source(
+    authority_repo: Path,
+) -> None:
+    freeze_phase40_final_comparison_authority(repo_root=authority_repo)
+    request = handoff.load_frozen_phase40_run_request(repo_root=authority_repo)
+    scope_path = authority_repo / PurePosixPath(
+        FIXED_HISTORICAL_SCOPE_AMENDMENT_PATH
+    )
+    source = authority_repo / "pyproject.toml"
+    source.write_bytes(source.read_bytes() + b"\n# post-comparison review code\n")
+
+    with pytest.raises(
+        ValueError, match="local comparison finalizer source differs"
+    ):
+        load_frozen_phase40_final_comparison_authority(repo_root=authority_repo)
+
+    verified, scope_bytes = review_authority.load_phase40_review_authority(
+        repo_root=authority_repo,
+        request=request,
+        scope_amendment_path=scope_path,
+    )
+
+    assert final_authority._sha256(scope_bytes) == (
+        verified.authority.superseded_scope_amendment.sha256
+    )
+    assert (
+        verified.historical_scope_amendment.comparison_finalizer_authority.source_tree_sha256
+        != verified.authority.comparison_finalizer_authority.source_tree_sha256
+    )
+    assert tuple(verified.by_run_id) == (
+        QWEN_QLORA_RUN_ID,
+        RECOVERY_PHOBERT_RUN_ID,
+    )
+
+
+def test_review_handoff_rejects_noncanonical_scope_path(
+    authority_repo: Path,
+) -> None:
+    freeze_phase40_final_comparison_authority(repo_root=authority_repo)
+    request = handoff.load_frozen_phase40_run_request(repo_root=authority_repo)
+    canonical = authority_repo / PurePosixPath(
+        FIXED_HISTORICAL_SCOPE_AMENDMENT_PATH
+    )
+    decoy = authority_repo / "same-scope-bytes.json"
+    decoy.write_bytes(canonical.read_bytes())
+
+    with pytest.raises(ValueError, match="path is not the canonical regular file"):
+        review_authority.load_phase40_review_authority(
+            repo_root=authority_repo,
+            request=request,
+            scope_amendment_path=decoy,
+        )
 
 
 def test_public_apis_accept_no_authority_or_capsule_path(authority_repo: Path) -> None:
