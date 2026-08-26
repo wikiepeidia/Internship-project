@@ -459,6 +459,41 @@ def test_v3_finalizer_migrates_the_exact_misversioned_v2_manifest(
     assert "final_comparison_authority_sha256" in migrated
 
 
+def test_v3_verify_only_rejects_same_byte_redirected_output(
+    v3_review_fixture,
+) -> None:
+    artifacts = _finalize_v3_fixture(v3_review_fixture)
+    original = artifacts.notes_path.read_bytes()
+    outside = v3_review_fixture.repo / "same-notes-outside-review.jsonl"
+    outside.write_bytes(original)
+    artifacts.notes_path.unlink()
+    try:
+        artifacts.notes_path.symlink_to(outside)
+    except (OSError, NotImplementedError) as exc:
+        artifacts.notes_path.write_bytes(original)
+        pytest.skip(f"file symlinks unavailable: {exc}")
+
+    with pytest.raises(ValueError, match="missing, unreadable, or unsafe"):
+        _finalize_v3_fixture(v3_review_fixture, verify_only=True)
+
+
+def test_v3_write_rejects_redirected_review_root_before_publication(
+    v3_review_fixture,
+) -> None:
+    review_root = v3_review_fixture.output_root
+    real_root = review_root.with_name("review-real")
+    review_root.rename(real_root)
+    try:
+        review_root.symlink_to(real_root, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        real_root.rename(review_root)
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    with pytest.raises(ValueError, match="missing, unreadable, or unsafe"):
+        _finalize_v3_fixture(v3_review_fixture)
+    assert not (real_root / "human-review-manifest.json").exists()
+
+
 @pytest.mark.parametrize("malformation", ("missing", "duplicate", "reordered"))
 def test_v3_finalizer_rejects_inexact_reviewer_coverage(
     v3_review_fixture,

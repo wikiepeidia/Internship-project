@@ -1097,6 +1097,54 @@ def test_canonical_prepare_rehashes_every_human_review_side_artifact(
         )
 
 
+def test_canonical_prepare_rejects_missing_human_review_side_artifact(
+    tmp_path, monkeypatch
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path,
+        monkeypatch,
+        review_schema="phase40-human-review-v3",
+    )
+    review_path.with_name("human-review-report.md").unlink()
+
+    with pytest.raises(ContractError, match="side artifact is missing or unsafe"):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
+
+
+def test_canonical_prepare_rejects_redirected_human_review_manifest(
+    tmp_path, monkeypatch
+):
+    repo, phase39_path, comparison_path, review_path = _write_phase40_closure_fixture(
+        tmp_path,
+        monkeypatch,
+        review_schema="phase40-human-review-v3",
+    )
+    outside = repo / "same-review-manifest.json"
+    outside.write_bytes(review_path.read_bytes())
+    review_path.unlink()
+    try:
+        review_path.symlink_to(outside)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"file symlinks unavailable: {exc}")
+
+    with pytest.raises(ContractError, match="manifest is missing or unsafe"):
+        prepare_phase41_from_canonical_authorities(
+            repo / "data/models/phase41",
+            repo_root=repo,
+            phase39_contract_path=phase39_path,
+            phase40_comparison_manifest_path=comparison_path,
+            phase40_review_manifest_path=review_path,
+            deployment_fit_choice="deferred",
+        )
+
+
 def test_canonical_prepare_rejects_materialization_receipt_manifest_drift(
     tmp_path, monkeypatch
 ):
