@@ -233,7 +233,7 @@ Progress: [██████████████░░░░░░] 62/89 p
 ## Session Continuity
 
 **Last session:** 2026-08-26T15:04:40.821Z
-**Stopped at:** Completed 41-02-PLAN.md; independent Phase 41 verification/review pending
+**Stopped at:** Phase 41 review remediated without rerun; Phase 42/43 must consume the verified export plus provenance erratum
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -328,6 +328,8 @@ Progress: [██████████████░░░░░░] 62/89 p
 - [Phase 41]: Keep all preauthorization evaluator verification synthetic and isolated; no reserved-split or production-model access before the exact human gate. — The irreversible claim-before-open boundary must be proven without consuming the real one-shot opportunity.
 - [Phase 41]: Phase 41 one-shot evidence is terminal; no replay, tuning, repair, retraining, or selection may use this holdout.
 - [Phase 41]: Deployment fitting is deferred; Phase 41 authorizes no all-data deployment fit.
+- [Phase 41 release review, 2026-08-26]: The terminal metrics remain one immutable two-model evaluation pass, but absolute global zero-filesystem-access wording is retracted. At least two broad pre-run pytest executions and one post-run focused regression parsed/statted/hashed the live splits outside the launcher; none influenced training, tuning, selection, repair, inference, or retry. `data/models/phase41/phase41-provenance-erratum.json` (SHA-256 `c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672`) is a mandatory downstream companion.
+- [Phase 41 release review, 2026-08-26]: The sealed export and manifest `9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7` were not altered or resealed. Default downstream-contract validation is metadata-only; live integrity reads require explicit opt-in. Export publication is transactional/idempotent and legacy-console-safe. The erratum separately maps the captured-helper and model-lease preclaim audits that the frozen legacy field conflated.
 
 ## Performance Metrics
 

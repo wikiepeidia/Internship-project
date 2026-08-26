@@ -13,6 +13,7 @@
 | HANDOFF | H-04 | Consume Phase 41 only as one complete frozen result transaction; never publish a partial comparison. | 43-01, 43-02 | COVERED |
 | HANDOFF | H-05 | Deliberately include or explicitly exclude the currently orphaned `06_why_local.tex`, `09_confusion.tex`, and `12_future.tex`. | 43-01, 43-02 | COVERED |
 | HANDOFF | H-06 | Compile twice with XeLaTeX, reject log errors and unresolved evidence tokens, and create new Phase 43 compile evidence. | 43-02 | COVERED |
+| HANDOFF | H-07 | Bind `data/models/phase41/phase41-provenance-erratum.json` at SHA-256 `c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672`; every Phase 41 limitation states one terminal model-evaluation pass plus the automated integrity reads and never claims untouched/global zero filesystem access. | 43-01, 43-02 | COVERED |
 | CONTEXT | D-01 | This planning task owns only `.planning/phases/43-evidence-bound-slide-rebuild/`. | planning output only | COVERED |
 | CONTEXT | D-02 | Safe preparation is separate from evidence-gated live-deck execution. | Wave 1 versus Waves 2-3 | COVERED |
 | CONTEXT | D-03 | Preparation and its tests do not open datasets, model bundles, D:, or the reserved split. | 43-01, 43-02 | COVERED |

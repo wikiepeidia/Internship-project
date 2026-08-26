@@ -1,0 +1,77 @@
+{
+  "access_impact": {
+    "external_api_or_service_used": false,
+    "human_row_content_displayed_by_these_tests": false,
+    "model_inference_performed_by_these_tests": false,
+    "model_selection_or_thresholding_influenced": false,
+    "retraining_or_dataset_repair_influenced": false,
+    "terminal_model_evaluation_retried": false,
+    "user_or_model_row_exposure_from_these_tests": false
+  },
+  "audit_identity_clarification": {
+    "captured_helper_identity_failure": {
+      "canonical_final_receipt_binding": "not_independently_bound_due_to_legacy_field_conflation",
+      "failure_stage": "staged_production_captured_helper_identity",
+      "path": "data/models/phase41/failed-invocation/25de74c1e779bab818433930fc14a71ccef7886f05e913b472cbbbf060a7dc9c/claim-capable-preclaim-failure.json",
+      "schema_version": "phase41-captured-helper-preclaim-failure-v1",
+      "sha256": "52b11b418e0ec322230343ccae054460335bdbb523289166b207bb54876d1a3e"
+    },
+    "clarification": "The frozen authority member named captured_helper_preclaim_failure_audit actually binds the later model-lease audit. The earlier captured-helper audit is a separate committed artifact identified above. They are distinct failures and neither name may stand for both.",
+    "model_lease_identity_failure": {
+      "canonical_final_receipt_legacy_field": "captured_helper_preclaim_failure_audit",
+      "failure_stage": "staged_production_qwen_lease_identity",
+      "path": "data/models/phase41/failed-invocation/28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7/claim-capable-preclaim-failure.json",
+      "schema_version": "phase41-qwen-lease-preclaim-failure-v1",
+      "sha256": "45b5698b6b9d6d08a34d12bb5cf3ab625f5b013b1903b37b9e34b10b7b7dcb86"
+    }
+  },
+  "automated_split_reads": [
+    {
+      "minimum_occurrences": 2,
+      "operations": [
+        "parse_jsonl_rows",
+        "stat_split_files",
+        "sha256_split_files"
+      ],
+      "period": "before_terminal_model_evaluation",
+      "scope": "broad_default_pytest_runs",
+      "statement": "The live downstream-contract regression was default-enabled during at least two broad pytest executions before the terminal model run. The exact count may be higher; this erratum does not understate it as exactly two."
+    },
+    {
+      "minimum_occurrences": 1,
+      "operations": [
+        "parse_jsonl_rows",
+        "stat_split_files",
+        "sha256_split_files"
+      ],
+      "period": "after_terminal_model_evaluation",
+      "scope": "focused_stale_planning_label_test_rerun",
+      "statement": "The focused planning-label regression was rerun after its assertion-only repair and reread all live splits."
+    }
+  ],
+  "corrected_claim": "Phase 41 contains exactly one terminal shared-cohort model-evaluation pass over the frozen Qwen QLoRA and PhoBERT models. It does not have zero prior filesystem access to the held-out file.",
+  "downstream_requirement": "Phase 42, Phase 43, and the final report/defense must consume this erratum together with the frozen verified export and must not claim that the held-out file was untouched until the launcher.",
+  "failed_launcher_history": {
+    "claim_or_evaluation_access_within_each_failed_invocation": false,
+    "count": 5,
+    "distinction": "The five launcher failures remain valid pre-claim fail-closed records. Their zero-access scope is limited to those invocations and does not cover unrelated pytest processes."
+  },
+  "published_at_utc": "2026-08-26T15:27:19Z",
+  "retracted_claims": [
+    "absolute global zero reserved-split access before the launcher",
+    "the launcher was the only process that ever opened the held-out file",
+    "reserved_split_access_attempted=false as an externally enforced global audit fact"
+  ],
+  "schema_version": "phase41-provenance-erratum-v1",
+  "sealed_export": {
+    "erratum_location": "external_non_sealed_companion",
+    "evidence_manifest_sha256": "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7",
+    "modified_or_resealed": false,
+    "prediction_or_metric_artifacts_modified": false
+  },
+  "source_review": {
+    "finding": "CR-01_and_WR-02",
+    "path": ".planning/phases/41-one-shot-two-model-evaluation/41-REVIEW.md"
+  },
+  "status": "corrective_disclosure"
+}
