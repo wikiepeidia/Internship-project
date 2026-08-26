@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -147,26 +148,33 @@ def _reject_duplicate_json_keys(
     return result
 
 
-def _load_jsonl_models_from_bytes(payload: bytes, path: Path, model_type):  # noqa: ANN001
+def _load_jsonl_models_from_bytes(  # noqa: ANN001
+    payload: bytes,
+    path: Path,
+    model_type,
+    *,
+    description: str | None = None,
+):
+    display = description if description is not None else os.fspath(path)
     if not payload:
-        raise ValueError(f"required JSONL input is missing or empty: {path}")
+        raise ValueError(f"required JSONL input is missing or empty: {display}")
     try:
         text = payload.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
-        raise ValueError(f"JSONL input is not strict UTF-8: {path}") from exc
+        raise ValueError(f"JSONL input is not strict UTF-8: {display}") from exc
     if not text.endswith("\n"):
-        raise ValueError(f"JSONL input has a partial final record: {path}")
+        raise ValueError(f"JSONL input has a partial final record: {display}")
     rows = []
     for index, line in enumerate(text.splitlines()):
         if not line:
-            raise ValueError(f"JSONL input contains an empty row: {path}")
+            raise ValueError(f"JSONL input contains an empty row: {display}")
         try:
             parsed = json.loads(line, object_pairs_hook=_reject_duplicate_json_keys)
             if not isinstance(parsed, dict):
                 raise ValueError("JSONL row must be one object")
             rows.append(model_type.model_validate(parsed))
         except Exception as exc:
-            raise ValueError(f"invalid JSONL row {index}: {path}") from exc
+            raise ValueError(f"invalid JSONL row {index}: {display}") from exc
     return tuple(rows)
 
 
@@ -1015,6 +1023,7 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
         queue_bytes,
         queue_path,
         ReviewQueueRow,
+        description="review queue",
     )
     verify_phase40_review_queue(
         queue,
@@ -1050,6 +1059,7 @@ def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
         reviewer_return_bytes,
         reviewer_return_path,
         ReviewerReturnRow,
+        description="reviewer return",
     )
     artifacts = finalize_phase40_human_review(
         queue,

@@ -151,7 +151,7 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     monkeypatch.setattr(
         cli_module,
         "_load_jsonl_models_from_bytes",
-        lambda payload, path, model_type: sentinel_reviews,
+        lambda payload, path, model_type, **kwargs: sentinel_reviews,
     )
 
     def fake_finalize(queue, reviews, **kwargs):
@@ -211,6 +211,39 @@ def test_phase40_human_review_cli_sanitizes_unreadable_reviewer_input(
         cli_module.handle_phase40_finalize_human_review(args)
 
     assert str(exc_info.value) == "reviewer return is missing, unreadable, or unsafe"
+    assert str(tmp_path) not in str(exc_info.value)
+
+
+def test_phase40_human_review_cli_hides_path_for_malformed_reviewer_input(
+    tmp_path, monkeypatch
+):
+    cli_module = _load_cli_module()
+    reviewer_return_path = (
+        tmp_path / "data/models/phase40/review/reviewer-return.jsonl"
+    )
+    reviewer_return_path.parent.mkdir(parents=True)
+    reviewer_return_path.write_bytes(b"{not-json}\n")
+    sentinels = tuple(object() for _ in range(5))
+    monkeypatch.setattr(
+        cli_module,
+        "_load_phase40_review_authorities",
+        lambda args: (*sentinels, b"{}\n"),
+    )
+    args = SimpleNamespace(
+        reviewer_return_path=reviewer_return_path,
+        repo_root=tmp_path,
+        queue_manifest_path=tmp_path / "queue-manifest.json",
+        comparison_manifest_path=tmp_path / "comparison.json",
+        scope_amendment_path=tmp_path / "scope-amendment.json",
+        output_root=tmp_path / "out",
+        vietnamese_fluent_attestation=True,
+        verify_only=False,
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        cli_module.handle_phase40_finalize_human_review(args)
+
+    assert str(exc_info.value) == "invalid JSONL row 0: reviewer return"
     assert str(tmp_path) not in str(exc_info.value)
 
 
