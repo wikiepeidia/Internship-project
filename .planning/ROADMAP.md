@@ -76,7 +76,7 @@
 - [x] **Phase 38: Corpus Repair & Split Governance** - Repair the synthetic corpus's structural bugs (seed concentration, invalid evidence spans, cross-split seed leakage) against concrete acceptance gates and lock a seed-disjoint 80/10/10 split. (completed 2026-08-08)
 - [x] **Phase 39: Independent Quality Re-Judge** - Re-run the quality pass with Codex, disclose the 296-row same-family reconstruction exception, complete a genuine manual 100-example human check, and retire the t-test. (completed 2026-08-24)
 - [x] **Phase 40: Multi-Model Training Evidence** - Preserve the bounded RTX 5050 LoRA/QLoRA resource probes, then finish fresh full local Qwen QLoRA and PhoBERT runs with auditable logs and genuine curves; make no full-LoRA accuracy claim. (completed 2026-08-26)
-- [ ] **Phase 41: Held-Out Evaluation Discipline** - Evaluate the two finalized full models exactly once against the reserved test split and report the results plainly.
+- [x] **Phase 41: Held-Out Evaluation Discipline** - Evaluate the two finalized full models exactly once against the reserved test split and report the results plainly. (completed 2026-08-26)
 - [ ] **Phase 42: Report Overhaul** - Rewrite the thesis chapter by chapter in an authentic student voice (gated on a real reference report), integrating the real training evidence and the restored recovery story.
 - [ ] **Phase 43: Slide Overhaul** - Rebuild the defense deck around the real pipeline stages with real graphs and progressive reveals; lift LOCKED status for this milestone only.
 - [ ] **Phase 44: Code Cleanup & Defense Prep** - Guided file-by-file walkthrough where the student writes their own replacement comments, covering SHA-256/manifest-integrity explicitly; sequenced last, right before the retake.
@@ -952,12 +952,16 @@ Plans:
 - [x] 41-01-PLAN.md -- Production one-shot evaluator, protected claim registry, frozen two-model protocols, clean launcher, and synthetic-only hardening
 - [x] 41-02-PLAN.md -- Phase 40 closure gate, explicit authorization, exactly one two-model held-out pass, terminal evidence freeze, and all-data deployment-fit disposition
 
+**Verification:** Passed 12/12 on 2026-08-26 after release-review remediation. The broad suite was intentionally not rerun after CR-01; bounded remediation checks passed 7/7 and independent re-review checks passed 6/6.
+
 ### Phase 42: Report Overhaul
 
 **Goal**: The thesis report is rewritten chapter by chapter in the student's own authentic voice, now grounded in the real training evidence, restored recovery story, and repair methodology produced above.
 **Depends on**: Phase 41
 
 **Gating note:** REPORT-03 requires a real passed-student reference report the user is sourcing externally, and `WRITING_GUARDRAILS_REPORT.md` must be derived from that real artifact. A human should confirm the reference report has actually arrived before this phase's chapter-rewrite work begins — do not start REPORT-03/04 against a placeholder or a guessed guardrails file.
+
+**Phase 41 evidence handoff:** Treat the committed verified export under `data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/` and `data/models/phase41/phase41-provenance-erratum.json` as one inseparable reporting authority. The report must carry the erratum's limitation language and must not claim literal untouchedness or global zero filesystem access.
 
 **Requirements**: REPORT-03, REPORT-04, REPORT-05, REPORT-06
 **Success Criteria** (what must be TRUE):
@@ -991,6 +995,7 @@ Plans:
 
 **Goal**: The defense deck is rebuilt around the real pipeline stages with real graphs and progressive reveals, coming off LOCKED status for this milestone only.
 **Depends on**: Phase 41 (same evidence base as Phase 42; the two phases do not depend on each other and can run in parallel or in either order)
+**Phase 41 evidence handoff:** Treat the committed verified export under `data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/` and `data/models/phase41/phase41-provenance-erratum.json` as one inseparable reporting authority. Slides must preserve the corrected access limitation and the terminal no-retry/no-tuning policy.
 **Requirements**: SLIDE-08, SLIDE-09, SLIDE-10, SLIDE-11
 **Success Criteria** (what must be TRUE):
 
@@ -1073,7 +1078,7 @@ Plans:
 | 38. Corpus Repair and Split Governance | 2/2 | Complete    | 2026-08-08 |
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
 | 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
-| 41. Held-Out Evaluation Discipline | 2/2 | In Progress|  |
+| 41. Held-Out Evaluation Discipline | 2/2 | Complete | 2026-08-26 |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |

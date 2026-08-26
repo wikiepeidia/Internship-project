@@ -2,20 +2,20 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
-current_phase: 41
-current_phase_name: Held-Out Evaluation Discipline
-status: verifying
-stopped_at: Completed 41-02-PLAN.md; independent Phase 41 verification/review pending
-last_updated: "2026-08-26T15:04:41.573Z"
+current_phase: 42
+current_phase_name: Report Overhaul
+status: ready
+stopped_at: Phase 41 complete and verified; Phase 42 ready for evidence intake, gated on a real passed-student reference report
+last_updated: "2026-08-26T15:41:01.294Z"
 last_activity: 2026-08-26
-last_activity_desc: Phase 41 execution started
-state_head: 6a3830d9d08582a8d506a88258631944a90bd03e
+last_activity_desc: Phase 41 verified 12/12 and transitioned to Phase 42
+state_head: 30cd057a09e5d33b9e6fd05f31a2cf7300f401d9
 progress:
   total_phases: 22
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 81
   completed_plans: 55
-  percent: 9
+  percent: 14
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -37,11 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 41 (Held-Out Evaluation Discipline) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-08-26 — Phase 41 execution started
-Progress: [██████████████░░░░░░] 62/89 plans ([█░░░░░░░░░] 9%)
+Phase: 42 — Report Overhaul
+Plan: 42-01 ready
+Status: Ready for report-overhaul foundations; the real reference-report intake remains human-gated
+Last activity: 2026-08-26 — Phase 41 passed final verification 12/12 and its release review is clean
+Progress: [██████████████░░░░░░] 62/89 plans (70%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -232,9 +232,9 @@ Progress: [██████████████░░░░░░] 62/89 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-26T15:04:40.821Z
-**Stopped at:** Phase 41 review remediated without rerun; Phase 42/43 must consume the verified export plus provenance erratum
-**Resume file:** None
+**Last session:** 2026-08-26T15:41:01.294Z
+**Stopped at:** Phase 41 complete and verified; Phase 42/43 must consume the verified export and provenance erratum together
+**Resume file:** `.planning/phases/42-evidence-bound-report-rewrite/42-01-PLAN.md`
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -292,8 +292,8 @@ Progress: [██████████████░░░░░░] 62/89 p
 
 - **Defense held 2026-07-15. v5.2 and v5.3 both shipped and archived** (`.planning/milestones/v5.2-SUMMARY.md`, `v5.3-SUMMARY.md`). No further slide work is planned — **slides are LOCKED.**
 - **v6.0 Report Revision COMPLETE (2026-07-21).** All 13 requirements delivered across Phases 35-37; report recompiles clean at 34 pages. Archived to `.planning/milestones/v6.0-SUMMARY.md`.
-- **v7.0 Retake Redemption is active.** Phase 40 is independently verified complete: both fresh local models, the validation comparison, and the 52-row Vietnamese review are frozen; Colab closed unused. Execute Phase 41 Plans 01–02 only through safe pre-authorization preparation, display the exact frozen identities and disclosures, then stop for the user's exact one-shot authorization signal. Do not access the reserved split before that gate.
-- **Compressed delivery order:** Finish Phase 41 production bootstrap and synthetic-only hardening, reach the blocking authorization gate, perform the one terminal two-model evaluation only if explicitly authorized, then immediately freeze results and move to report/slides. Poor held-out performance is terminal evidence and cannot trigger retraining, dataset repair, checkpoint selection, or another pass on this partition.
+- **v7.0 Retake Redemption is active.** Phase 41 is complete and independently verified 12/12. Phase 42 and Phase 43 must consume the committed verified export and `data/models/phase41/phase41-provenance-erratum.json` together; neither may claim literal untouchedness or global zero filesystem access.
+- **Compressed delivery order:** Start Phase 42 with its safe anti-fabrication/evidence contracts, then stop at the real passed-student reference-report gate before REPORT-03/04 drafting. Phase 43 may proceed from the same export-plus-erratum authority in parallel. Deployment fitting remains deferred, and the terminal held-out result cannot drive retraining, repair, checkpoint selection, or replay.
 
 ## Decisions
 
@@ -330,6 +330,7 @@ Progress: [██████████████░░░░░░] 62/89 p
 - [Phase 41]: Deployment fitting is deferred; Phase 41 authorizes no all-data deployment fit.
 - [Phase 41 release review, 2026-08-26]: The terminal metrics remain one immutable two-model evaluation pass, but absolute global zero-filesystem-access wording is retracted. At least two broad pre-run pytest executions and one post-run focused regression parsed/statted/hashed the live splits outside the launcher; none influenced training, tuning, selection, repair, inference, or retry. `data/models/phase41/phase41-provenance-erratum.json` (SHA-256 `c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672`) is a mandatory downstream companion.
 - [Phase 41 release review, 2026-08-26]: The sealed export and manifest `9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7` were not altered or resealed. Default downstream-contract validation is metadata-only; live integrity reads require explicit opt-in. Export publication is transactional/idempotent and legacy-console-safe. The erratum separately maps the captured-helper and model-lease preclaim audits that the frozen legacy field conflated.
+- [Phase 41 verification closure, 2026-08-26]: Goal verification passed 12/12 and the independent release review is clean after commits `9037404`, `dde319e`, `48fe16d`, and `526393b`. Focused remediation checks passed 7/7 and the bounded re-review passed 6/6. The broad suite was intentionally not rerun after CR-01 because it was unnecessary and could cross the reserved-data boundary. The immutable export and mandatory erratum are one downstream reporting authority.
 
 ## Performance Metrics
 
@@ -343,4 +344,4 @@ Progress: [██████████████░░░░░░] 62/89 p
 
 ### Blockers
 
-- Phase 41 safe preparation still needs in-repo implementation before the human gate: replace the unconditional production-bootstrap stop, reconcile deployment-fit choice sequencing, provision/verify the protected claim registry, and freeze one consistent Qwen production artifact protocol. These are execution tasks, not permission to inspect the reserved split.
+- Phase 42 REPORT-03/04 remains gated on a real passed-student reference report supplied and confirmed by the user. Phase 42's safe anti-fabrication/evidence-contract preparation may proceed without inventing that artifact.

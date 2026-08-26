@@ -666,6 +666,8 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 - [x] **EVAL-08**: The current canonical 220-row test partition (SHA-256 `6f208fb6cd9399b8934225e6a25efd65d49bbb4f4846360837f6835a2561b6d7`) receives exactly one model-evaluation pass, after the two full local models (Qwen QLoRA and PhoBERT) are finalized, under identical conditions. The final evidence discloses known prior human/content exposure from corpus-quality review and thesis drafting plus the automated pre/post-run integrity reads recorded in `data/models/phase41/phase41-provenance-erratum.json`, instead of claiming literal untouchedness or global zero filesystem access. Colab remains an optional validation-stage contingency only before model-evaluation access; held-out results must never trigger retraining, dataset repair, threshold selection, or model selection.
 - [x] **EVAL-09**: Final held-out results for both full models are frozen and reported plainly, including a PhoBERT win over the deployed Qwen system. The ordinary-LoRA probe receives no held-out accuracy claim. Any later all-2,097-row deployment fit is separate and carries no unbiased test-score claim.
 
+**Downstream handoff:** Phase 42 and Phase 43 must use the committed Phase 41 verified export and `data/models/phase41/phase41-provenance-erratum.json` together. The erratum's corrected access limitation and terminal no-retry/no-tuning policy are required context, not optional commentary.
+
 ### Report Overhaul
 
 - [ ] **REPORT-03**: `WRITING_GUARDRAILS_REPORT.md` derived from a real passed-student reference report once obtained.
@@ -736,4 +738,4 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-08-08 — v7.0 Retake Redemption ROADMAP.md created: Phases 38-44 defined (Corpus Repair & Split Governance, Independent Quality Re-Judge, Multi-Model Training Evidence, Held-Out Evaluation Discipline, Report Overhaul, Slide Overhaul, Code Cleanup & Defense Prep); 28/28 v7.0 requirements mapped, 0 unmapped.*
+*Last updated: 2026-08-26 — Phase 41 verified complete; EVAL-08/EVAL-09 remain complete, and Phase 42/43 must consume the verified export plus provenance erratum together.*
