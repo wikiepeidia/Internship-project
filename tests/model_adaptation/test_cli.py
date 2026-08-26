@@ -132,7 +132,10 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     tmp_path, monkeypatch
 ):
     cli_module = _load_cli_module()
-    reviewer_return_path = tmp_path / "reviewer-return.jsonl"
+    reviewer_return_path = (
+        tmp_path / "data/models/phase40/review/reviewer-return.jsonl"
+    )
+    reviewer_return_path.parent.mkdir(parents=True)
     original_bytes = b'  {"assessment":"ambiguous"}\r\n'
     reviewer_return_path.write_bytes(original_bytes)
     sentinels = tuple(object() for _ in range(5))
@@ -177,6 +180,38 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     assert captured["reviews"] is sentinel_reviews
     assert captured["queue_bytes"] == queue_bytes
     assert captured["reviewer_return_bytes"] == original_bytes
+
+
+def test_phase40_human_review_cli_sanitizes_unreadable_reviewer_input(
+    tmp_path, monkeypatch
+):
+    cli_module = _load_cli_module()
+    reviewer_return_path = (
+        tmp_path / "data/models/phase40/review/reviewer-return.jsonl"
+    )
+    reviewer_return_path.mkdir(parents=True)
+    sentinels = tuple(object() for _ in range(5))
+    monkeypatch.setattr(
+        cli_module,
+        "_load_phase40_review_authorities",
+        lambda args: (*sentinels, b"{}\n"),
+    )
+    args = SimpleNamespace(
+        reviewer_return_path=reviewer_return_path,
+        repo_root=tmp_path,
+        queue_manifest_path=tmp_path / "queue-manifest.json",
+        comparison_manifest_path=tmp_path / "comparison.json",
+        scope_amendment_path=tmp_path / "scope-amendment.json",
+        output_root=tmp_path / "out",
+        vietnamese_fluent_attestation=True,
+        verify_only=False,
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        cli_module.handle_phase40_finalize_human_review(args)
+
+    assert str(exc_info.value) == "reviewer return is missing, unreadable, or unsafe"
+    assert str(tmp_path) not in str(exc_info.value)
 
 
 def test_phase40_v3_review_loader_uses_frozen_upstream_authority(

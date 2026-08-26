@@ -38,9 +38,11 @@ from src.model_adaptation.phase40_handoff import (
     verify_phase40_run_request,
 )
 from src.model_adaptation.phase40_review import (
+    FIXED_REVIEWER_RETURN_PATH,
     finalize_phase40_human_review,
     load_canonical_phase40_comparison_manifest,
     load_phase40_review_authority,
+    read_canonical_phase40_review_regular_bytes,
     verify_phase40_final_review_comparison,
 )
 from src.model_adaptation.phase40_evidence import verify_phase40_bundle
@@ -1020,10 +1022,17 @@ def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
     request, contract, _, bundles, queue, queue_bytes = (
         _load_phase40_review_authorities(args)
     )
-    reviewer_return_bytes = args.reviewer_return_path.read_bytes()
+    reviewer_return_path, reviewer_return_bytes = (
+        read_canonical_phase40_review_regular_bytes(
+            repo_root=args.repo_root,
+            supplied_path=args.reviewer_return_path,
+            expected_relative=FIXED_REVIEWER_RETURN_PATH,
+            description="reviewer return",
+        )
+    )
     reviews = _load_jsonl_models_from_bytes(
         reviewer_return_bytes,
-        args.reviewer_return_path,
+        reviewer_return_path,
         ReviewerReturnRow,
     )
     artifacts = finalize_phase40_human_review(

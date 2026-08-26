@@ -20,6 +20,9 @@ from src.model_adaptation import phase40_handoff as _handoff
 FIXED_COMPARISON_MANIFEST_PATH = PurePosixPath(
     "data/models/phase40/comparison-manifest.json"
 )
+FIXED_REVIEWER_RETURN_PATH = PurePosixPath(
+    "data/models/phase40/review/reviewer-return.jsonl"
+)
 
 
 def _canonical_review_path(
@@ -93,10 +96,26 @@ def read_phase40_review_regular_bytes(path: Path, *, description: str) -> bytes:
         ):
             raise ValueError(f"{description} changed while it was read")
         return payload
-    except ValueError:
-        raise
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         raise ValueError(f"{description} is missing, unreadable, or unsafe") from exc
+
+
+def read_canonical_phase40_review_regular_bytes(
+    *,
+    repo_root: Path,
+    supplied_path: Path,
+    expected_relative: PurePosixPath,
+    description: str,
+) -> tuple[Path, bytes]:
+    """Authenticate a fixed review path before returning its stable bytes."""
+
+    path = _canonical_review_path(
+        repo_root=repo_root,
+        supplied_path=supplied_path,
+        expected_relative=expected_relative,
+        description=description,
+    )
+    return path, read_phase40_review_regular_bytes(path, description=description)
 
 
 def load_canonical_phase40_comparison_manifest(
@@ -104,14 +123,11 @@ def load_canonical_phase40_comparison_manifest(
 ) -> tuple[_handoff.Phase40ComparisonManifest, bytes]:
     """Load the exact code-fixed comparison with strict, canonical JSON bytes."""
 
-    path = _canonical_review_path(
+    _, payload = read_canonical_phase40_review_regular_bytes(
         repo_root=repo_root,
         supplied_path=comparison_manifest_path,
         expected_relative=FIXED_COMPARISON_MANIFEST_PATH,
         description="comparison manifest",
-    )
-    payload = read_phase40_review_regular_bytes(
-        path, description="comparison manifest"
     )
     manifest = _handoff.Phase40ComparisonManifest.model_validate(
         _handoff._strict_json_object(payload, description="comparison manifest")
