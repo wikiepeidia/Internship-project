@@ -612,6 +612,15 @@ def build_parser() -> argparse.ArgumentParser:
             "41-02-preclaim-failure.json"
         ),
     )
+    phase41_prepare_parser.add_argument(
+        "--staged-preclaim-failure-audit-path",
+        type=Path,
+        default=Path(
+            "data/models/phase41/failed-invocation/"
+            "44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401/"
+            "claim-capable-preclaim-failure.json"
+        ),
+    )
     phase41_prepare_parser.set_defaults(handler=handle_phase41_prepare_evaluation)
 
     phase41_verify_pre_parser = subparsers.add_parser(
@@ -1153,6 +1162,15 @@ def handle_phase41_prepare_evaluation(args: argparse.Namespace) -> int:
             Path(
                 "data/models/phase41/preclaim-audit/"
                 "41-02-preclaim-failure.json"
+            ),
+        ),
+        staged_preclaim_failure_audit_path=getattr(
+            args,
+            "staged_preclaim_failure_audit_path",
+            Path(
+                "data/models/phase41/failed-invocation/"
+                "44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401/"
+                "claim-capable-preclaim-failure.json"
             ),
         ),
     )

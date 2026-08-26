@@ -789,6 +789,10 @@ def test_phase41_prepare_cli_defers_deployment_fit_choice_to_authorization():
     assert not hasattr(args, "deployment_fit_choice")
     assert args.output_root is None
     assert args.preclaim_rejection_audit_path.name == "41-02-preclaim-failure.json"
+    assert (
+        args.staged_preclaim_failure_audit_path.name
+        == "claim-capable-preclaim-failure.json"
+    )
 
     with pytest.raises(SystemExit):
         parser.parse_args(

@@ -685,12 +685,22 @@ class BoundSourceLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         if fullname == "src" or fullname.startswith("src."):
             if fullname not in bound_sources:
                 raise ModuleNotFoundError(f"unbound project module rejected: {fullname}")
-            return importlib.util.spec_from_loader(
+            expected_path = self.get_filename(fullname)
+            spec = importlib.util.spec_from_file_location(
                 fullname,
-                self,
-                origin=self.get_filename(fullname),
-                is_package=self.is_package(fullname),
+                expected_path,
+                loader=self,
+                submodule_search_locations=(
+                    [] if self.is_package(fullname) else None
+                ),
             )
+            if (
+                spec is None
+                or spec.has_location is not True
+                or spec.origin != expected_path
+            ):
+                raise RuntimeError("bound project module lacks its exact source location")
+            return spec
         return None
 
     def create_module(self, spec):
@@ -698,6 +708,15 @@ class BoundSourceLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         return None
 
     def exec_module(self, module):
+        expected_path = self.get_filename(module.__name__)
+        spec = getattr(module, "__spec__", None)
+        if (
+            getattr(module, "__file__", None) != expected_path
+            or spec is None
+            or spec.has_location is not True
+            or spec.origin != expected_path
+        ):
+            raise RuntimeError("bound project module source location drifted")
         code = self.get_code(module.__name__)
         exec(code, module.__dict__)
 

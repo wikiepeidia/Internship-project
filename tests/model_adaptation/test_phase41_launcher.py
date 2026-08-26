@@ -104,12 +104,14 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     files = {
         "src/__init__.py": b"",
         "src/model_adaptation/__init__.py": b"",
+        "src/model_adaptation/bound_probe.py": b"BOUND_PROBE = True\n",
         "src/model_adaptation/phase41_evaluation.py": Path(
             "src/model_adaptation/phase41_evaluation.py"
         ).read_bytes(),
         "src/model_adaptation/cli.py": (
             b"import hashlib, json, os, sys\n"
             b"from pathlib import Path\n"
+            b"from src.model_adaptation import bound_probe\n"
             b"output = Path(sys.argv[-1])\n"
             b"receipt = json.loads((output / 'execution-materialization-receipt.json').read_text(encoding='utf-8'))\n"
             b"nonce = os.read(0, 32)\n"
@@ -129,7 +131,10 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
             b"    injection_blocked = False\n"
             b"Path(output, 'bootstrap-marker.json').write_text("
             b"json.dumps({'argv': sys.argv, 'injection_blocked': injection_blocked, "
-            b"'launcher_live': True, 'reuse_blocked': reuse_blocked}), "
+            b"'launcher_live': True, 'reuse_blocked': reuse_blocked, "
+            b"'probe_file': bound_probe.__file__, "
+            b"'probe_origin': bound_probe.__spec__.origin, "
+            b"'probe_has_location': bound_probe.__spec__.has_location}), "
             b"encoding='utf-8')\n"
         ),
     }
@@ -336,6 +341,10 @@ def test_embedded_receipt_and_bootstrap_execute_with_one_runtime_identity(tmp_pa
     assert marker["injection_blocked"] is True
     assert marker["launcher_live"] is True
     assert marker["reuse_blocked"] is True
+    expected_probe = module_root / "bound_probe.py"
+    assert Path(marker["probe_file"]) == expected_probe
+    assert Path(marker["probe_origin"]) == expected_probe
+    assert marker["probe_has_location"] is True
     assert not (module_root / "injected-ran").exists()
     assert Path(marker["argv"][0]) == module_root / "cli.py"
     assert marker["argv"][1:] == [

@@ -106,6 +106,7 @@ _PRODUCTION_EXTRA_AUTHORITY_HASH_FIELDS = (
     "operational_root_authority_sha256",
     "operational_source_package_sha256",
     "preclaim_rejection_audit_sha256",
+    "staged_preclaim_failure_audit_sha256",
 )
 _PRIOR_HUMAN_EXPOSURE_DISCLOSURE = (
     "Held-out message content had prior human exposure during corpus-quality "
@@ -139,6 +140,15 @@ _PRECLAIM_REJECTION_AUDIT_RELATIVE = Path(
 _SUPERSEDED_AUTHORIZATION_RELATIVE = Path(
     "data/models/phase41/preclaim-audit/"
     "41-02-superseded-authorization.json"
+)
+_STAGED_PRECLAIM_FAILURE_RELATIVE = Path(
+    "data/models/phase41/failed-invocation/"
+    "44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401/"
+    "claim-capable-preclaim-failure.json"
+)
+_STAGED_FAILED_PREAUTH_MIRROR_RELATIVE = Path(
+    "data/models/phase41/preauthorization-mirror/"
+    "44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401"
 )
 _PHASE40_RETURNED_ROOTS = (
     "data/models/phase40/full/qwen-qlora",
@@ -3582,6 +3592,7 @@ def _production_preauthorization_record(
     operational_root: Mapping[str, object],
     operational_source_package: Mapping[str, object],
     preclaim_rejection_audit: Mapping[str, object],
+    staged_preclaim_failure_audit: Mapping[str, object],
 ) -> dict[str, object]:
     return {
         "schema_version": "phase41-preauthorization-receipt-v2",
@@ -3614,6 +3625,7 @@ def _production_preauthorization_record(
         "operational_root": dict(operational_root),
         "operational_source_package": dict(operational_source_package),
         "preclaim_rejection_audit": dict(preclaim_rejection_audit),
+        "staged_preclaim_failure_audit": dict(staged_preclaim_failure_audit),
         "models_ready_before_claim_required": True,
         "validation_contingency_closed_required": True,
         "reserved_split_access_attempted": False,
@@ -3874,6 +3886,15 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             _canonical_json_bytes(preclaim_rejection_audit)
         ):
             raise ContractError("production pre-claim rejection audit hash drifted")
+        staged_preclaim_failure_audit = receipt.get(
+            "staged_preclaim_failure_audit"
+        )
+        if not isinstance(staged_preclaim_failure_audit, dict):
+            raise ContractError("production staged pre-claim failure audit is missing")
+        if authorities["staged_preclaim_failure_audit_sha256"] != _sha256(
+            _canonical_json_bytes(staged_preclaim_failure_audit)
+        ):
+            raise ContractError("production staged pre-claim failure audit hash drifted")
         if receipt.get("claim_registry") != registry:
             raise ContractError("production preauthorization registry snapshot drifted")
         if (
@@ -3901,6 +3922,7 @@ def verify_phase41_preauthorization(output_root: Path) -> PreparedPhase41Evaluat
             operational_root=operational,
             operational_source_package=operational_source,
             preclaim_rejection_audit=preclaim_rejection_audit,
+            staged_preclaim_failure_audit=staged_preclaim_failure_audit,
         )
     else:
         expected_receipt = {
@@ -5326,6 +5348,147 @@ def _preclaim_rejection_audit_authority(
     return dict(raw), _sha256(payload)
 
 
+def _staged_preclaim_failure_audit_authority(
+    path: Path, *, repo_root: Path
+) -> tuple[dict[str, object], str]:
+    """Validate the immutable audit of the rejected staged pre-claim run."""
+
+    audit_path = _code_fixed_authority_path(
+        repo_root,
+        path,
+        _STAGED_PRECLAIM_FAILURE_RELATIVE,
+        "Phase 41 staged pre-claim failure audit",
+    )
+    raw, payload = _load_canonical_json(
+        audit_path, "Phase 41 staged pre-claim failure audit"
+    )
+    expected_fields = {
+        "schema_version",
+        "recorded_at_utc",
+        "prepared_sha256",
+        "authorization_sha256",
+        "execution_materialization_receipt_sha256",
+        "launcher_sha256",
+        "reserved_split_sha256",
+        "invocation_class",
+        "launcher_invocations_under_authority",
+        "launcher_exit_code",
+        "failure_stage",
+        "safe_error",
+        "global_claim_created",
+        "global_completion_created",
+        "local_claim_created",
+        "access_receipt_created",
+        "evaluation_access_attempted",
+        "reserved_split_access_attempted",
+        "holdout_spent",
+        "retry_permitted_under_this_authority",
+    }
+    if set(raw) != expected_fields or raw["schema_version"] != (
+        "phase41-claim-capable-preclaim-failure-v1"
+    ):
+        raise ContractError("Phase 41 staged pre-claim failure audit drifted")
+    for name in (
+        "prepared_sha256",
+        "authorization_sha256",
+        "execution_materialization_receipt_sha256",
+        "launcher_sha256",
+        "reserved_split_sha256",
+    ):
+        _require_sha256(raw[name], name)
+    if (
+        raw["invocation_class"] != "sole_claim_capable_staged_invocation"
+        or raw["launcher_invocations_under_authority"] != 1
+        or raw["launcher_exit_code"] != 1
+        or raw["failure_stage"]
+        != "staged_production_loader_source_path_binding"
+        or raw["safe_error"] != "production loader module has no bound source path"
+        or any(
+            raw[name] is not False
+            for name in (
+                "global_claim_created",
+                "global_completion_created",
+                "local_claim_created",
+                "access_receipt_created",
+                "evaluation_access_attempted",
+                "reserved_split_access_attempted",
+                "holdout_spent",
+                "retry_permitted_under_this_authority",
+            )
+        )
+        or not isinstance(raw["recorded_at_utc"], str)
+        or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z",
+            raw["recorded_at_utc"],
+        )
+    ):
+        raise ContractError("Phase 41 staged pre-claim failure meaning drifted")
+    authorization_path = audit_path.with_name(AUTHORIZATION_NAME)
+    materialization_path = audit_path.with_name(MATERIALIZATION_RECEIPT_NAME)
+    if (
+        not authorization_path.is_file()
+        or authorization_path.is_symlink()
+        or _sha256(authorization_path.read_bytes()) != raw["authorization_sha256"]
+        or not materialization_path.is_file()
+        or materialization_path.is_symlink()
+        or _sha256(materialization_path.read_bytes())
+        != raw["execution_materialization_receipt_sha256"]
+    ):
+        raise ContractError("Phase 41 staged failure evidence bytes drifted")
+    authorization, _ = _load_canonical_json(
+        authorization_path, "failed staged authorization"
+    )
+    if (
+        authorization.get("prepared_sha256") != raw["prepared_sha256"]
+        or authorization.get("statement") != DEFERRED_AUTHORIZATION_SIGNAL
+    ):
+        raise ContractError("Phase 41 staged failure authorization binding drifted")
+    old_root = _code_fixed_authority_path(
+        repo_root,
+        _STAGED_FAILED_PREAUTH_MIRROR_RELATIVE,
+        _STAGED_FAILED_PREAUTH_MIRROR_RELATIVE,
+        "Phase 41 failed staged preauthorization mirror",
+    )
+    old_request, old_request_bytes = _load_canonical_json(
+        old_root / PREPARED_NAME, "failed staged evaluation request"
+    )
+    old_protocols, old_protocol_bytes = _load_canonical_json(
+        old_root / PROTOCOLS_NAME, "failed staged protocols"
+    )
+    old_source, old_source_bytes = _load_canonical_json(
+        old_root / SOURCE_MANIFEST_NAME, "failed staged source manifest"
+    )
+    materialization, _ = _load_canonical_json(
+        materialization_path, "failed staged materialization receipt"
+    )
+    held_out = old_request.get("held_out")
+    launcher = old_source.get("launcher")
+    if (
+        _sha256(old_request_bytes) != raw["prepared_sha256"]
+        or not isinstance(held_out, dict)
+        or held_out.get("sha256") != raw["reserved_split_sha256"]
+        or _sha256(old_protocol_bytes) != materialization.get("protocols_sha256")
+        or _sha256(old_source_bytes) != materialization.get("source_manifest_sha256")
+        or old_source.get("source_tree_sha256")
+        != materialization.get("source_tree_sha256")
+        or not isinstance(launcher, dict)
+        or launcher.get("sha256") != raw["launcher_sha256"]
+        or materialization.get("launcher_sha256") != raw["launcher_sha256"]
+        or materialization.get("preparation_scope") != PRODUCTION_PREPARATION_SCOPE
+        or materialization.get("mode") != "locked-clean-runtime"
+        or old_protocols.get("schema_version")
+        != "phase41-frozen-inference-protocols-v2"
+    ):
+        raise ContractError("Phase 41 staged failure authority chain drifted")
+    registry = _claim_registry_root()
+    split_sha = str(raw["reserved_split_sha256"])
+    for suffix in ("claim", "completion"):
+        candidate = registry / f"{split_sha}.{suffix}.json"
+        if candidate.exists() or candidate.is_symlink():
+            raise ContractError("Phase 41 staged failure machine claim exists")
+    return dict(raw), _sha256(payload)
+
+
 def _phase39_opaque_authority(
     path: Path, *, repo_root: Path | None = None
 ) -> tuple[OpaqueHeldOutAuthority, str]:
@@ -5907,6 +6070,7 @@ def prepare_phase41_from_canonical_authorities(
     phase40_comparison_manifest_path: Path,
     phase40_review_manifest_path: Path,
     preclaim_rejection_audit_path: Path | None = None,
+    staged_preclaim_failure_audit_path: Path | None = None,
 ) -> PreparedPhase41Evaluation:
     """Freeze the one canonical zero-access production preparation."""
 
@@ -5947,6 +6111,13 @@ def prepare_phase41_from_canonical_authorities(
     preclaim_rejection_audit, preclaim_rejection_audit_sha = (
         _preclaim_rejection_audit_authority(
             preclaim_rejection_audit_path or _PRECLAIM_REJECTION_AUDIT_RELATIVE,
+            repo_root=repository,
+        )
+    )
+    staged_preclaim_failure_audit, staged_preclaim_failure_audit_sha = (
+        _staged_preclaim_failure_audit_authority(
+            staged_preclaim_failure_audit_path
+            or _STAGED_PRECLAIM_FAILURE_RELATIVE,
             repo_root=repository,
         )
     )
@@ -6056,6 +6227,9 @@ def prepare_phase41_from_canonical_authorities(
             "authority_sha256"
         ],
         "preclaim_rejection_audit_sha256": preclaim_rejection_audit_sha,
+        "staged_preclaim_failure_audit_sha256": (
+            staged_preclaim_failure_audit_sha
+        ),
     }
     request_path = _freeze_evaluation_request(
         root,
@@ -6079,6 +6253,7 @@ def prepare_phase41_from_canonical_authorities(
         operational_root=operational,
         operational_source_package=operational_source,
         preclaim_rejection_audit=preclaim_rejection_audit,
+        staged_preclaim_failure_audit=staged_preclaim_failure_audit,
     )
     _exclusive_write(
         root / PREAUTHORIZATION_NAME, _canonical_json_bytes(receipt)

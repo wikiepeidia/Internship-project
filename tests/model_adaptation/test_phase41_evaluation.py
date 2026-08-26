@@ -8,6 +8,9 @@ import inspect
 import json
 import os
 from pathlib import Path
+import re
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -890,6 +893,92 @@ def test_launcher_requires_fixed_operational_staged_root():
     assert "Assert-ProtectedRegistryAcl -RegistryPath $ResolvedOutput" in launcher
     assert "Staged launcher root differs from the operational evidence root" in launcher
     assert "[System.StringComparison]::OrdinalIgnoreCase" in launcher
+    assert "importlib.util.spec_from_file_location(" in launcher
+
+
+def test_actual_launcher_bound_loader_sets_staged_source_path(tmp_path):
+    launcher_path = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "phase41_one_shot_launcher.ps1"
+    )
+    launcher = launcher_path.read_text(encoding="utf-8")
+    bootstrap_match = re.search(
+        r"\$Bootstrap = @'\n(?P<body>.*?)\n'@",
+        launcher.replace("\r\n", "\n"),
+        flags=re.DOTALL,
+    )
+    assert bootstrap_match is not None
+    loader_match = re.search(
+        r"class BoundSourceLoader.*?sys\.meta_path\.insert\(0, BoundSourceLoader\(\)\)",
+        bootstrap_match.group("body"),
+        flags=re.DOTALL,
+    )
+    assert loader_match is not None
+    staged = tmp_path / "clean-runtime"
+    sources = {
+        "src/__init__.py": b"",
+        "src/model_adaptation/__init__.py": b"",
+        "src/model_adaptation/probe.py": b"OBSERVED_SOURCE_PATH = __file__\n",
+    }
+    for relative, payload in sources.items():
+        candidate = staged / relative
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_bytes(payload)
+    bootstrap = "\n".join(
+        (
+            "import importlib, importlib.abc, importlib.util, os, sys",
+            "from pathlib import Path",
+            "root = Path(sys.argv[1]).absolute()",
+            "names = ('src/__init__.py','src/model_adaptation/__init__.py','src/model_adaptation/probe.py')",
+            "bound_sources = {}",
+            "bound_packages = set()",
+            "for name in names:",
+            "    payload = (root / name).read_bytes()",
+            "    parts = name[:-3].split('/')",
+            "    is_package = parts[-1] == '__init__'",
+            "    if is_package: parts = parts[:-1]",
+            "    module_name = '.'.join(parts)",
+            "    bound_sources[module_name] = (payload, name)",
+            "    if is_package: bound_packages.add(module_name)",
+            loader_match.group(0),
+            "import src.model_adaptation.probe as probe",
+            "import json",
+            "print(json.dumps({'file': probe.OBSERVED_SOURCE_PATH, 'origin': probe.__spec__.origin, 'has_location': probe.__spec__.has_location}, sort_keys=True))",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-I", "-S", "-c", bootstrap, os.fspath(staged)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    observed = json.loads(completed.stdout)
+    expected_path = staged / "src/model_adaptation/probe.py"
+    assert Path(observed["file"]) == expected_path
+    assert Path(observed["origin"]) == expected_path
+    assert observed["has_location"] is True
+
+
+def test_staged_preclaim_failure_audit_is_canonical_and_unspent(
+    tmp_path, monkeypatch
+):
+    repository = Path(__file__).resolve().parents[2]
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    monkeypatch.setattr(phase41_evaluation, "_claim_registry_root", lambda: registry)
+    raw, digest = phase41_evaluation._staged_preclaim_failure_audit_authority(
+        Path(
+            "data/models/phase41/failed-invocation/"
+            "44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401/"
+            "claim-capable-preclaim-failure.json"
+        ),
+        repo_root=repository,
+    )
+    assert raw["holdout_spent"] is False
+    assert raw["reserved_split_access_attempted"] is False
+    assert digest == hashlib.sha256(_canonical_bytes(raw)).hexdigest()
 
 
 def test_preclaim_failure_audit_binds_old_bytes_and_claim_absence(
