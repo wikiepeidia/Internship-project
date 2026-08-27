@@ -7,7 +7,7 @@
       "source_commit": "5ef59ea44d3bfc203d46a343fd8850d1e068a925",
       "git_blob_oid": "a3d0664caaf5c95e281b1b783809e5875935b23e",
       "pre_edit_source_sha256": "ac11b3d51693c877fee805773bfab78a94c40620f342057e59adc2c990f5353e",
-      "masked_ast_sha256": "c5ccd5ef131aa097af525653d4c83065ed80b8c85aed384272d27b5ce32c86b1",
+      "masked_ast_sha256": "363b7cf76a3d9ad3595e2a6384aedb8ac172f595d4333b49991a8801c16b6b4d",
       "prose_slots": [{"id": "cli-module-description", "kind": "module_docstring"}]
     },
     {
@@ -39,7 +39,7 @@
       "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
       "git_blob_oid": "a5dcc3cf4cf61e37329801cac507c2f603964ef7",
       "pre_edit_source_sha256": "4defe80ccef4c842776ff0d05b60a6ad32dd5dd3bae7b4bbd070666864ebb93a",
-      "masked_ast_sha256": "8f49f820f356ef624aa3fe89a292c15ad57973fd4a4d4ae3c6b978a05dd750cc",
+      "masked_ast_sha256": "f25e6d3d6184b9820653100b1f3101d76737b729a3a8c320b05aa1f08b8b7ce4",
       "prose_slots": [{"id": "demo-module-description", "kind": "module_docstring"}]
     },
     {
