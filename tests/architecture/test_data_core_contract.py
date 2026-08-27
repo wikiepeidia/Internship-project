@@ -12,6 +12,8 @@ from pydantic import ValidationError
 
 from src.data_pipeline import schemas as legacy_records
 from src.data_pipeline.core import records as core_records
+from src.data_pipeline.core import splits as core_splits
+from src.data_pipeline.core import text as core_text
 
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -185,3 +187,144 @@ def test_legacy_schema_module_is_only_an_explicit_compatibility_surface() -> Non
         isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
         for node in tree.body
     )
+
+
+def test_text_core_preserves_unicode_normalization_and_lexical_order() -> None:
+    from src.data_pipeline.processing.normalizer import normalize_text as legacy_normalize
+    from src.data_pipeline.processing.dedup import lexical_dedup as legacy_dedup
+
+    source = "  NgÃ¢n hÃ ng   Tiếng  Việt\tOTP  "
+    assert core_text.normalize_text(source) == "Ngân hàng Tiếng Việt OTP"
+    assert legacy_normalize is core_text.normalize_text
+
+    records = [
+        {"text": "Tin nhắn OTP giả mạo ngân hàng", "seed_id": "seed-a"},
+        {"text": "Tin nhắn OTP giả mạo ngân hàng", "seed_id": "seed-b"},
+        {"text": "Thông báo giao dịch hợp lệ", "seed_id": "seed-c"},
+    ]
+    expected = [records[0], records[2]]
+    assert core_text.lexical_dedup(records, threshold=0.95) == expected
+    assert legacy_dedup is core_text.lexical_dedup
+
+
+def test_group_split_core_is_deterministic_and_old_path_compatible() -> None:
+    from src.data_pipeline.processing.splitter import (
+        assign_seed_split as legacy_assign,
+        split_dataset as legacy_split,
+    )
+
+    expected = {
+        "seed-a": "test",
+        "seed-b": "test",
+        "seed-c": "val",
+        "seed-d": "val",
+        "seed-e": "train",
+    }
+    actual = {
+        seed_id: core_splits.assign_seed_split(
+            seed_id,
+            split_ratios=(0.6, 0.2, 0.2),
+            salt="synthetic-v1",
+        )
+        for seed_id in expected
+    }
+    assert actual == expected
+    assert legacy_assign is core_splits.assign_seed_split
+
+    records = [
+        core_records.DatasetRecord(
+            text=f"Tin nhắn tổng hợp hợp lệ số {index}",
+            label="benign",
+            risk_tier="benign",
+            xai_explanation="Giải thích tổng hợp đủ dài cho kiểm thử phân chia.",
+            source="synthetic_claude",
+            seed_id="seed-shared",
+        ).model_dump()
+        for index in range(6)
+    ]
+    new_result = core_splits.split_dataset(
+        records,
+        split_ratios=(0.8, 0.1, 0.1),
+        salt="synthetic-group",
+    )
+    old_result = legacy_split(
+        records,
+        split_ratios=(0.8, 0.1, 0.1),
+        salt="synthetic-group",
+    )
+    assert old_result == new_result
+    assert {name: len(rows) for name, rows in new_result.items()} == {
+        "train": 4,
+        "val": 1,
+        "test": 1,
+    }
+
+
+def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path) -> None:
+    from src.data_pipeline.versioning.manifest import (
+        build_manifest as legacy_build,
+        save_manifest as legacy_save,
+        verify_manifest as legacy_verify,
+    )
+
+    payload = "{\"synthetic\":true}\n\n{\"synthetic\":false}\n".encode("utf-8")
+    dataset = tmp_path / "fixture.jsonl"
+    dataset.write_bytes(payload)
+    manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
+
+    assert legacy_build is core_splits.build_manifest
+    assert legacy_save is core_splits.save_manifest
+    assert legacy_verify is core_splits.verify_manifest
+    assert manifest.version == "synthetic-v1"
+    assert manifest.files["fixture.jsonl"].sha256 == hashlib.sha256(payload).hexdigest()
+    assert manifest.files["fixture.jsonl"].records == 2
+    assert manifest.files["fixture.jsonl"].bytes == len(payload)
+    assert core_splits.verify_manifest(manifest, tmp_path) == (True, [])
+
+    saved = core_splits.save_manifest(manifest, tmp_path / "manifest.json")
+    assert core_records.ManifestEntry.model_validate_json(
+        saved.read_text(encoding="utf-8")
+    ).version == "synthetic-v1"
+
+
+def test_active_data_modules_are_neutral_and_within_static_budgets() -> None:
+    paths = (
+        "src/data_pipeline/core/records.py",
+        "src/data_pipeline/core/text.py",
+        "src/data_pipeline/core/splits.py",
+        "src/data_pipeline/workflows.py",
+        "src/data_pipeline/cli.py",
+    )
+    forbidden_import_roots = (
+        "src.data_pipeline.generation",
+        "src.data_pipeline.scraper",
+        "src.data_pipeline.judge_merge",
+        "src.data_pipeline.migrations",
+        "src.model_adaptation",
+        "src.modeling",
+        "sentence_transformers",
+    )
+    for relative in paths:
+        source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        assert len(source.splitlines()) <= 600, relative
+        assert "data/splits" not in source.replace("\\", "/")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = tuple(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = (node.module,)
+            else:
+                names = ()
+            if relative.startswith("src/data_pipeline/core/"):
+                assert not any(
+                    name == root or name.startswith(f"{root}.")
+                    for name in names
+                    for root in forbidden_import_roots
+                ), (relative, names)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                assert node.end_lineno is not None
+                assert node.end_lineno - node.lineno + 1 <= 100, (
+                    relative,
+                    node.name,
+                )
