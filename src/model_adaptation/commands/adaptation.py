@@ -456,15 +456,25 @@ def preflight_phase40_inputs(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
 
 
 def build_training_config(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-    from src.modeling.training import qwen_training_service
+    from src.modeling.training import TrainingError, qwen_training_service
 
-    return qwen_training_service().build_config(*args, **kwargs)
+    try:
+        return qwen_training_service().build_config(*args, **kwargs)
+    except TrainingError as exc:
+        if isinstance(exc.__cause__, (ValueError, FileNotFoundError, RuntimeError)):
+            raise exc.__cause__
+        raise
 
 
 def run_training(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-    from src.modeling.training import qwen_training_service
+    from src.modeling.training import TrainingError, qwen_training_service
 
-    return qwen_training_service().train(*args, **kwargs)
+    try:
+        return qwen_training_service().train(*args, **kwargs)
+    except TrainingError as exc:
+        if isinstance(exc.__cause__, (ValueError, FileNotFoundError, RuntimeError)):
+            raise exc.__cause__
+        raise
 
 
 def build_gguf_request(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202

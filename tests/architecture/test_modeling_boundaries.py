@@ -136,6 +136,38 @@ def test_training_service_translates_backend_errors_once(method_name: str) -> No
     assert error.value.__cause__.__cause__ is None
 
 
+@pytest.mark.parametrize(
+    ("wrapper_name", "error_type"),
+    (
+        ("build_training_config", ValueError),
+        ("run_training", FileNotFoundError),
+        ("run_training", RuntimeError),
+    ),
+)
+def test_compatibility_training_wrappers_preserve_frozen_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    wrapper_name: str,
+    error_type: type[Exception],
+) -> None:
+    adaptation = importlib.import_module("src.model_adaptation.commands.adaptation")
+    training = importlib.import_module("src.modeling.training")
+    message = f"frozen {error_type.__name__} message"
+
+    class FailingService:
+        def build_config(self, *args: object, **kwargs: object) -> object:
+            try:
+                raise error_type(message)
+            except Exception as exc:
+                raise training.TrainingError("generic wrapper") from exc
+
+        train = build_config
+
+    monkeypatch.setattr(training, "qwen_training_service", lambda: FailingService())
+    with pytest.raises(error_type, match=message) as error:
+        getattr(adaptation, wrapper_name)()
+    assert type(error.value) is error_type
+
+
 def test_legacy_training_adapters_are_injectable_without_historical_imports(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -334,6 +334,9 @@ def test_training_command_uses_the_neutral_service_bridge() -> None:
     }
     assert set(wrappers) == {"build_training_config", "run_training"}
     for wrapper in wrappers.values():
-        assert "from src.modeling.training import qwen_training_service" in wrapper
+        assert (
+            "from src.modeling.training import TrainingError, qwen_training_service"
+            in wrapper
+        )
         assert "src.model_adaptation.training" not in wrapper
         assert "qwen_training_service()" in wrapper
