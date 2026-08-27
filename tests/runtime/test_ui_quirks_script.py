@@ -7,7 +7,7 @@ import pytest
 
 
 def _load_module():
-    path = Path("scripts/verify_ui_quirks.py")
+    path = Path("historical/tooling/runtime-validation/verify_ui_quirks.py")
     spec = importlib.util.spec_from_file_location("verify_ui_quirks", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

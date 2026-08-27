@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 BAT_PATH = ROOT / "scripts" / "START_DEMO_UI.bat"
 PHASE28_GOLDEN_PATH = (
     ROOT
@@ -55,7 +55,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def load_golden_module() -> Any:
-    module_path = ROOT / "scripts" / "verify_golden_prompts.py"
+    module_path = (
+        ROOT
+        / "historical"
+        / "tooling"
+        / "runtime-validation"
+        / "verify_golden_prompts.py"
+    )
     spec = importlib.util.spec_from_file_location("verify_golden_prompts", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {module_path}")
@@ -70,12 +76,18 @@ def load_golden_prompts() -> dict[str, dict[str, str]]:
         "golden_scam": {
             "text": str(module.DEFAULT_SCAM_TEXT),
             "channel": "sms",
-            "source": "scripts/verify_golden_prompts.py:DEFAULT_SCAM_TEXT",
+            "source": (
+                "historical/tooling/runtime-validation/"
+                "verify_golden_prompts.py:DEFAULT_SCAM_TEXT"
+            ),
         },
         "golden_benign": {
             "text": str(module.DEFAULT_BENIGN_TEXT),
             "channel": "sms",
-            "source": "scripts/verify_golden_prompts.py:DEFAULT_BENIGN_TEXT",
+            "source": (
+                "historical/tooling/runtime-validation/"
+                "verify_golden_prompts.py:DEFAULT_BENIGN_TEXT"
+            ),
         },
     }
     if PHASE28_GOLDEN_PATH.exists():

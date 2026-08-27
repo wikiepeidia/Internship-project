@@ -9,7 +9,7 @@ import pytest
 
 
 def _load_module():
-    path = Path("scripts/measure_cold_latency.py")
+    path = Path("historical/tooling/runtime-validation/measure_cold_latency.py")
     spec = importlib.util.spec_from_file_location("measure_cold_latency", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

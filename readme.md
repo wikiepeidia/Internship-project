@@ -2,6 +2,27 @@
 
 Localized explainable AI pipeline for Vietnamese financial phishing detection.
 
+## Repository Map
+
+For a code review or defense, start with the maintained surfaces below rather than
+the retained experiment history:
+
+- [`src/runtime/`](src/runtime/) — installed CLI, local UI, analyzers, and service.
+- [`src/data_pipeline/core/`](src/data_pipeline/core/) — record and leakage-safe split
+  contracts.
+- [`src/modeling/`](src/modeling/) — maintained training, inference, evaluation, and
+  evidence interfaces.
+- [`src/source_archiving/`](src/source_archiving/) — provenance archiving.
+- [`walkthrough/`](walkthrough/) — ten numbered, read-only code walkthroughs.
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — complete system
+  map and machine-checked boundaries.
+- [`docs/architecture/training-evaluation.md`](docs/architecture/training-evaluation.md)
+  — maintained training ports and frozen evaluation authority.
+- [`data/README.md`](data/README.md) — seed lineage and split-governance contract.
+
+`src/model_adaptation/` and `historical/tooling/` retain prior experiment machinery
+for reproducibility; they are not the preferred application entry points.
+
 ## Local Runtime
 
 The stdin-first local runtime analyzes one message at a time. The normal path is local-only and does not persist raw text by default.
@@ -73,12 +94,16 @@ message or short conversation, choose an optional channel hint, and the browser 
 will render risk tier, threat labels, grounded cues, and safe next steps from the
 existing runtime output contract.
 
-## Dataset Operator Flow
+## Optional Dataset Regeneration
 
 The data pipeline builds and retains the artifacts needed for downstream model work.
 The repository exposes one operator command path through `python -m src.data_pipeline.cli`.
 
-## Prerequisites
+The installed analyzer is local-only and does not require provider credentials.
+Credentials below are required only when deliberately regenerating synthetic data
+with the retained external-provider workflows.
+
+### Regeneration Prerequisites
 
 - Python 3.13
 - Dependencies installed with `python -m pip install -e .[dev]`

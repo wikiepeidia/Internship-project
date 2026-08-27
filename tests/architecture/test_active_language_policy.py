@@ -1463,7 +1463,7 @@ def test_complete_active_text_inventory_is_clean() -> None:
         for row in policy["static_policy"]["tools"]
         if row["lifecycle"] not in {"active", "compatibility"}
     }
-    assert len(excluded_tool_paths) == 8
+    assert len(excluded_tool_paths) == 2
     assert excluded_tool_paths.isdisjoint(scan_paths)
     assert "walkthrough/README.md" not in scan_paths
 

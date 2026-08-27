@@ -29,19 +29,6 @@
       "routes": []
     },
     {
-      "path": "scripts/measure_cold_latency.py",
-      "lifecycle": "historical",
-      "language": "python",
-      "kind": "latency_probe",
-      "phase_language": "phase_30",
-      "imports": ["__future__", "argparse", "datetime", "json", "pathlib", "playwright.sync_api", "subprocess", "sys", "time", "traceback", "typing"],
-      "routes": [
-        ["powercfg", "/GETACTIVESCHEME"],
-        ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToString('o')"],
-        ["python", "-m", "src.runtime.cli", "demo", "--no-browser", "--port", "{port}"]
-      ]
-    },
-    {
       "path": "scripts/phase40_comparison_launcher.ps1",
       "lifecycle": "historical",
       "language": "powershell",
@@ -61,60 +48,6 @@
         ["python", "-I", "-S", "-s", "-B", "-c", "{bootstrap}", "{clean_root}", "{resolved_output}"],
         ["runpy", "src.model_adaptation.cli", "phase41-run-once", "--output-root", "{resolved_output}"]
       ]
-    },
-    {
-      "path": "scripts/vastai_gguf_export.sh",
-      "lifecycle": "historical",
-      "language": "bash",
-      "kind": "model_export_workflow",
-      "phase_language": "phase_neutral",
-      "imports": ["json", "os", "pathlib", "peft", "torch", "transformers", "transformers.generation"],
-      "routes": []
-    },
-    {
-      "path": "scripts/vastai_qlora_full.sh",
-      "lifecycle": "historical",
-      "language": "bash",
-      "kind": "training_workflow",
-      "phase_language": "phase_neutral",
-      "imports": ["collections", "huggingface_hub", "json", "pathlib", "peft", "re", "torch", "transformers"],
-      "routes": [
-        ["python3", "-m", "src.model_adaptation.cli", "train", "--candidate", "baseline-winner", "--version-tag", "{version}", "--train-split", "/workspace/train.jsonl", "--val-split", "/workspace/val.jsonl", "--output-root", "{model_root}", "--registry-path", "{registry}", "--device", "cuda"],
-        ["bash", "{repo}/scripts/vastai_gguf_export.sh"]
-      ]
-    },
-    {
-      "path": "scripts/verify_golden_prompts.py",
-      "lifecycle": "historical",
-      "language": "python",
-      "kind": "verification_runner",
-      "phase_language": "phase_28",
-      "imports": ["__future__", "argparse", "datetime", "json", "pathlib", "playwright.sync_api", "subprocess", "sys", "time", "traceback", "typing"],
-      "routes": [["vnphish", "demo", "--no-browser", "--port", "{port}"]]
-    },
-    {
-      "path": "scripts/verify_phase32_fresh_process.py",
-      "lifecycle": "historical",
-      "language": "python",
-      "kind": "verification_runner",
-      "phase_language": "phase_32",
-      "imports": ["__future__", "argparse", "datetime", "importlib.util", "json", "os", "pathlib", "playwright.sync_api", "re", "subprocess", "sys", "time", "traceback", "typing"],
-      "routes": [
-        ["netstat", "-ano", "-p", "tcp"],
-        ["taskkill", "/PID", "{pid}", "/T", "/F"],
-        ["cmd.exe", "/c", "{repo}/scripts/START_DEMO_UI.bat"],
-        ["{repo}/scripts/START_DEMO_UI.bat"],
-        ["taskkill", "/PID", "{process.pid}", "/T", "/F"]
-      ]
-    },
-    {
-      "path": "scripts/verify_ui_quirks.py",
-      "lifecycle": "historical",
-      "language": "python",
-      "kind": "verification_runner",
-      "phase_language": "phase_31",
-      "imports": ["__future__", "argparse", "datetime", "json", "pathlib", "playwright.sync_api", "subprocess", "sys", "time", "traceback", "typing"],
-      "routes": [["python", "-m", "src.runtime.cli", "demo", "--no-browser", "--port", "{port}"]]
     }
   ]
 }

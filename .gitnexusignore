@@ -1,0 +1,7 @@
+# Never index sealed datasets or immutable historical source captures.
+data/
+historical/phase41-source-closure/
+historical/tooling/
+
+# Planning evidence is documentation, not part of the executable dependency graph.
+.planning/

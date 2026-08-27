@@ -898,11 +898,13 @@ def _bash_routes(path: Path, source: str) -> list[list[str]]:
         logical,
     )
     delegation = re.search(
-        r"(?m)^\s*bash\s+\"\$REPO/scripts/vastai_gguf_export\.sh\"\s*$",
+        r"(?m)^\s*bash\s+\"\$REPO/historical/tooling/training/vastai_gguf_export\.sh\"\s*$",
         source,
     )
     assert training is not None and delegation is not None
-    assert shell_delegations == ['"$REPO/scripts/vastai_gguf_export.sh"']
+    assert shell_delegations == [
+        '"$REPO/historical/tooling/training/vastai_gguf_export.sh"'
+    ]
     tokens = shlex.split(
         "python3 -m src.model_adaptation.cli train " + training.group(1),
         posix=True,
@@ -912,7 +914,10 @@ def _bash_routes(path: Path, source: str) -> list[list[str]]:
         "$MODEL_ROOT": "{model_root}",
         "$REGISTRY": "{registry}",
     }
-    return [[replacements.get(token, token) for token in tokens], ["bash", "{repo}/scripts/vastai_gguf_export.sh"]]
+    return [
+        [replacements.get(token, token) for token in tokens],
+        ["bash", "{repo}/historical/tooling/training/vastai_gguf_export.sh"],
+    ]
 
 
 def _derive_tool_record_from_source(
@@ -946,7 +951,7 @@ def _validate_tool_contract(candidate: object, expected: Mapping[str, Any]) -> N
     assert candidate["contract_state"] == "post_extraction_v1"
     assert candidate == expected
     tools = candidate["tools"]
-    assert isinstance(tools, list) and len(tools) == 11
+    assert isinstance(tools, list) and len(tools) == 5
     fields = {
         "path",
         "lifecycle",
@@ -960,28 +965,20 @@ def _validate_tool_contract(candidate: object, expected: Mapping[str, Any]) -> N
         assert isinstance(row, dict) and set(row) == fields
         assert row["imports"] == sorted(set(row["imports"]))
         assert len(row["routes"]) == len({tuple(route) for route in row["routes"]})
-    assert len({row["path"] for row in tools}) == 11
+    assert len({row["path"] for row in tools}) == 5
     assert Counter(row["lifecycle"] for row in tools) == Counter(
-        active=2, compatibility=1, historical=8
+        active=2, compatibility=1, historical=2
     )
     assert Counter(row["language"] for row in tools) == Counter(
-        python=5, powershell=2, batch=2, bash=2
+        python=1, powershell=2, batch=2
     )
     assert Counter(row["kind"] for row in tools) == Counter(
         runtime_launcher=2,
         provenance_cli=1,
-        latency_probe=1,
         evidence_launcher=2,
-        model_export_workflow=1,
-        training_workflow=1,
-        verification_runner=3,
     )
     assert Counter(row["phase_language"] for row in tools) == Counter(
-        phase_neutral=4,
-        phase_28=1,
-        phase_30=1,
-        phase_31=1,
-        phase_32=1,
+        phase_neutral=2,
         phase_40=1,
         phase_41=2,
     )
@@ -997,7 +994,7 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
     discovered = {
         path.relative_to(REPO_ROOT).as_posix()
         for path in SCRIPT_ROOT.iterdir()
-        if path.is_file()
+        if path.is_file() and path.name != "README.md"
     }
     assert discovered == {row["path"] for row in fixture["tools"]}
 
@@ -1347,7 +1344,7 @@ def test_source_archiving_replaces_only_the_compatibility_import_edge() -> None:
         "src.core_binding" if value == "src.source_archiving" else value
         for value in pre_archive["imports"]
     ]
-    assert len(pre["tools"]) == len(fixture["tools"]) == 11
+    assert len(pre["tools"]) == len(fixture["tools"]) == 5
     assert all(
         before == after
         for before, after in zip(pre["tools"], fixture["tools"])

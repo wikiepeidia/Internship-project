@@ -218,7 +218,7 @@ EVAL_EOF
 
 echo "=== [8/8] GGUF Q8_0 export ==="
 MERGED="$MODEL_ROOT/$VERSION/qwen3-4b-instruct-2507/merged" \
-  bash "$REPO/scripts/vastai_gguf_export.sh"
+  bash "$REPO/historical/tooling/training/vastai_gguf_export.sh"
 
 echo ""
 echo "============================================"

@@ -284,7 +284,7 @@ def _validate_overview(document: str, policy: Mapping[str, Any]) -> None:
     assert all(edge[0] in policy["compatibility_adapters"] for edge in allowed)
     assert all(edge[1] in policy["historical_modules"] for edge in allowed)
     tools = policy["static_policy"]["tools"]
-    assert len(tools) == 11 and len({tool["path"] for tool in tools}) == 11
+    assert len(tools) == 5 and len({tool["path"] for tool in tools}) == 5
     tool_paths = {tool["path"] for tool in tools}
     assert all(
         source in tool_paths and target in active
