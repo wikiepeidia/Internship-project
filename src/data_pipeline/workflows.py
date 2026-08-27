@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 import math
-import os
 from pathlib import Path
 import sys
 from typing import Any, Callable
@@ -66,25 +64,17 @@ def _save_validated_records(
     quality_stats: Any,
     data_dir: Path,
 ) -> tuple[Path, Path]:
-    processed_dir = data_dir / "processed"
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    validated_path = processed_dir / "validated.jsonl"
-    tmp_validated = validated_path.with_suffix(".tmp")
-    with tmp_validated.open("w", encoding="utf-8") as handle:
-        for record in records:
-            validated = DatasetRecord.model_validate(record)
-            handle.write(validated.model_dump_json() + "\n")
-    os.replace(tmp_validated, validated_path)
+    from src.data_pipeline.publication import publish_reviewed_dataset
+    from src.data_pipeline.versioning.build import DatasetBuilder
 
-    stats_path = processed_dir / "quality-stats.json"
-    tmp_stats = stats_path.with_suffix(".tmp")
-    if hasattr(quality_stats, "model_dump_json"):
-        rendered = quality_stats.model_dump_json(indent=2)
-    else:
-        rendered = json.dumps(quality_stats, ensure_ascii=False, indent=2)
-    tmp_stats.write_text(rendered, encoding="utf-8")
-    os.replace(tmp_stats, stats_path)
-    return validated_path, stats_path
+    publication = publish_reviewed_dataset(
+        records,
+        quality_stats,
+        data_dir,
+        "dataset-v1",
+        DatasetBuilder,
+    )
+    return publication.validated_path, publication.quality_stats_path
 def _load_dataset_records(candidate: Any) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for line in candidate.raw.splitlines():

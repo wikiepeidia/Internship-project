@@ -479,6 +479,53 @@ def test_reviewed_dataset_failure_leaves_previous_pointer_unchanged(
     assert pointer.read_bytes() == previous
 
 
+def test_compatibility_save_publishes_one_complete_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.data_pipeline import publication, workflows
+    from src.data_pipeline.versioning.build import DatasetBuilder
+
+    generation_root = tmp_path / "dataset-generations" / "versions" / "synthetic"
+    expected = SimpleNamespace(
+        validated_path=generation_root / "validated.jsonl",
+        quality_stats_path=generation_root / "quality-stats.json",
+    )
+    captured: dict[str, object] = {}
+
+    def publish(
+        records: list[dict[str, object]],
+        quality_stats: object,
+        data_dir: Path,
+        version_tag: str,
+        builder_factory: object,
+    ) -> object:
+        captured.update(
+            records=records,
+            quality_stats=quality_stats,
+            data_dir=data_dir,
+            version_tag=version_tag,
+            builder_factory=builder_factory,
+        )
+        return expected
+
+    monkeypatch.setattr(publication, "publish_reviewed_dataset", publish)
+    records = [{"synthetic": "record"}]
+    stats = {"accepted": 1}
+
+    result = workflows._save_validated_records(records, stats, tmp_path)
+
+    assert result == (expected.validated_path, expected.quality_stats_path)
+    assert captured == {
+        "records": records,
+        "quality_stats": stats,
+        "data_dir": tmp_path,
+        "version_tag": "dataset-v1",
+        "builder_factory": DatasetBuilder,
+    }
+    assert not (tmp_path / "processed").exists()
+
+
 def test_zero_gap_generation_returns_summary_without_constructing_runtime(
     tmp_path: Path,
 ) -> None:
