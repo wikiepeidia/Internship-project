@@ -8,11 +8,11 @@ import math
 import os
 from pathlib import Path
 import subprocess
-import tempfile
 from typing import Any, Literal
 
 from src.core.integrity import (
     IntegrityError,
+    atomic_replace_artifact,
     atomic_replace_new_artifact,
     reject_redirecting_ancestry,
 )
@@ -307,18 +307,7 @@ def save_manifest(
     payload = (manifest.model_dump_json(indent=2) + "\n").encode("utf-8")
     if not replace:
         return atomic_replace_new_artifact(target, payload, where="dataset manifest")
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{target.name}.", suffix=".tmp", dir=parent
-    )
-    temporary = Path(temporary_name)
-    with os.fdopen(descriptor, "wb") as handle:
-        handle.write(payload)
-        handle.flush()
-        os.fsync(handle.fileno())
-    if temporary.read_bytes() != payload:
-        raise IntegrityError("dataset manifest staging bytes changed")
-    os.replace(temporary, target)
-    return target
+    return atomic_replace_artifact(target, payload, where="dataset manifest")
 
 
 __all__ = (

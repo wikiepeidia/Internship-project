@@ -396,3 +396,42 @@ def atomic_replace_new_artifact(
     finally:
         _unlink_if_owned(temporary, temporary_identity)
     return target
+
+
+def atomic_replace_artifact(
+    path: Path,
+    value: bytes,
+    *,
+    where: str = "artifact",
+) -> Path:
+    """Replace one artifact from a verified, identity-owned staging file."""
+
+    target = _output_path(path, where=where)
+    parent_identity = _directory_identity(target.parent, where=f"{where} parent")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent
+    )
+    temporary = Path(temporary_name)
+    temporary_identity = _identity(os.fstat(descriptor))
+    published = False
+    try:
+        with os.fdopen(descriptor, "w+b") as handle:
+            handle.write(value)
+            handle.flush()
+            os.fsync(handle.fileno())
+            temporary_identity = _identity(os.fstat(handle.fileno()))
+            handle.seek(0)
+            if handle.read() != value:
+                raise IntegrityError(f"{where} staging bytes changed")
+        _require_identity(temporary, temporary_identity, where=f"{where} staging file")
+        _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
+        os.replace(temporary, target)
+        published = True
+        _require_identity(target, temporary_identity, where=where)
+        _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
+        if read_file_bytes(target, where=where) != value:
+            raise IntegrityError(f"{where} bytes changed during replacement")
+    finally:
+        if not published:
+            _unlink_if_owned(temporary, temporary_identity)
+    return target

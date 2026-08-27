@@ -11,6 +11,7 @@ import unicodedata
 import pytest
 from pydantic import ValidationError
 
+from src.core import integrity
 from src.data_pipeline import schemas as legacy_records
 from src.data_pipeline.core import records as core_records
 from src.data_pipeline.core import splits as core_splits
@@ -700,7 +701,7 @@ def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
         build_timestamp="2026-08-27T00:00:00Z",
     )
     monkeypatch.setattr(
-        core_splits.os,
+        integrity.os,
         "replace",
         lambda _source, _target: (_ for _ in ()).throw(OSError("synthetic failure")),
     )
@@ -709,6 +710,7 @@ def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
         core_splits.save_manifest(manifest, target, replace=True)
 
     assert target.read_bytes() == previous
+    assert not any(path.suffix == ".tmp" for path in tmp_path.iterdir())
 
 
 def test_active_data_modules_are_neutral_and_within_static_budgets() -> None:
