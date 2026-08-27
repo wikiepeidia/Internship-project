@@ -50,17 +50,6 @@ def _seed_bucket(seed_id: str, salt: str) -> float:
     return _stable_bucket(seed_id, salt)
 
 
-def _record_bucket(record: dict[str, Any], salt: str) -> float:
-    record_key = "|".join(
-        (
-            str(record.get("label", "")),
-            str(record.get("seed_id", "")),
-            str(record.get("text", "")),
-        )
-    )
-    return _stable_bucket(record_key, salt)
-
-
 def _allocate_split_counts(
     total_seeds: int,
     split_ratios: tuple[float, float, float],
@@ -148,37 +137,12 @@ def assign_seed_split(
     return "test"
 
 
-def _partition_record_groups(
-    records: list[dict[str, Any]],
-    active_split_count: int,
-) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]]:
-    label_groups: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    for record in records:
-        validated = DatasetRecord.model_validate(record).model_dump()
-        label_groups.setdefault(validated["label"], {}).setdefault(
-            validated["seed_id"], []
-        ).append(validated)
-    underdiverse = {
-        label for label, groups in label_groups.items() if len(groups) < active_split_count
-    }
-    retained: dict[str, list[dict[str, Any]]] = {}
-    record_level: dict[str, list[dict[str, Any]]] = {}
-    for seed_groups in label_groups.values():
-        for seed_id, group_records in seed_groups.items():
-            for record in group_records:
-                if record["label"] in underdiverse:
-                    record_level.setdefault(record["label"], []).append(record)
-                else:
-                    retained.setdefault(seed_id, []).append(record)
-    return retained, record_level
-
-
 def split_dataset(
     records: list[dict[str, Any]],
     split_ratios: tuple[float, float, float] = DEFAULT_SPLIT_RATIOS,
     salt: str = "v1.0",
 ) -> dict[SplitName, list[dict[str, Any]]]:
-    """Split records deterministically, preserving sufficiently diverse seed groups."""
+    """Split complete seed groups, failing when a label lacks group diversity."""
 
     split_ratios = validate_split_ratios(split_ratios)
     splits: dict[SplitName, list[dict[str, Any]]] = {
@@ -186,28 +150,37 @@ def split_dataset(
         "val": [],
         "test": [],
     }
-    active_count = sum(1 for ratio in split_ratios if ratio > 0)
-    retained, record_level = _partition_record_groups(records, active_count)
-    if retained:
-        assignments = _assign_seed_group_splits(list(retained), split_ratios, salt)
-        for seed_id, group_records in retained.items():
+    active_names = tuple(
+        name
+        for name, ratio in zip(("train", "val", "test"), split_ratios, strict=True)
+        if ratio > 0
+    )
+    groups: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    seed_labels: dict[str, str] = {}
+    for record in records:
+        validated = DatasetRecord.model_validate(record).model_dump()
+        seed_id, label = validated["seed_id"], validated["label"]
+        previous = seed_labels.setdefault(seed_id, label)
+        if previous != label:
+            raise ValueError(f"seed {seed_id!r} spans multiple labels")
+        groups.setdefault(label, {}).setdefault(seed_id, []).append(validated)
+
+    for label, seed_groups in groups.items():
+        if len(seed_groups) < len(active_names):
+            raise ValueError(
+                f"label {label!r} has {len(seed_groups)} seed groups; "
+                f"{len(active_names)} are required for group-safe splitting"
+            )
+        assignments = _assign_seed_group_splits(
+            list(seed_groups), split_ratios, f"{salt}:{label}"
+        )
+        if set(assignments) != set(seed_groups):
+            raise ValueError("group-safe split did not assign every seed")
+        for seed_id, group_records in seed_groups.items():
             splits[assignments[seed_id]].extend(group_records)
 
-    for label, label_records in record_level.items():
-        ordered = sorted(
-            label_records,
-            key=lambda record: (
-                _record_bucket(record, f"{salt}:{label}"),
-                record["seed_id"],
-                record["text"],
-            ),
-        )
-        counts = _allocate_split_counts(len(ordered), split_ratios)
-        cursor = 0
-        for split_name in ("train", "val", "test"):
-            next_cursor = cursor + counts[split_name]
-            splits[split_name].extend(ordered[cursor:next_cursor])
-            cursor = next_cursor
+    if sum(map(len, splits.values())) != len(records):
+        raise ValueError("group-safe split did not assign every record exactly once")
     return splits
 
 

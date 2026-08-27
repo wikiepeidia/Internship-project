@@ -242,22 +242,54 @@ def test_group_split_core_is_deterministic_and_old_path_compatible() -> None:
         ).model_dump()
         for index in range(6)
     ]
-    new_result = core_splits.split_dataset(
+    with pytest.raises(ValueError, match="seed groups.*group-safe"):
+        core_splits.split_dataset(
+            records,
+            split_ratios=(0.8, 0.1, 0.1),
+            salt="synthetic-group",
+        )
+    with pytest.raises(ValueError, match="seed groups.*group-safe"):
+        legacy_split(
+            records,
+            split_ratios=(0.8, 0.1, 0.1),
+            salt="synthetic-group",
+        )
+
+
+def test_group_split_keeps_every_seed_in_exactly_one_partition() -> None:
+    records = []
+    for label, risk_tier in (
+        ("bank_impersonation", "high-risk"),
+        ("zalo_social_engineering", "suspicious"),
+        ("task_scam", "high-risk"),
+        ("benign", "benign"),
+    ):
+        for index in range(3):
+            records.append(
+                core_records.DatasetRecord(
+                    text=f"Tin nhắn tổng hợp {label} số {index} đủ dài.",
+                    label=label,
+                    risk_tier=risk_tier,
+                    xai_explanation="Giải thích tổng hợp đủ dài cho kiểm thử nhóm.",
+                    source="synthetic_claude",
+                    seed_id=f"{label}-seed-{index}",
+                ).model_dump()
+            )
+
+    result = core_splits.split_dataset(
         records,
-        split_ratios=(0.8, 0.1, 0.1),
-        salt="synthetic-group",
+        split_ratios=(0.6, 0.2, 0.2),
+        salt="synthetic-groups",
     )
-    old_result = legacy_split(
-        records,
-        split_ratios=(0.8, 0.1, 0.1),
-        salt="synthetic-group",
-    )
-    assert old_result == new_result
-    assert {name: len(rows) for name, rows in new_result.items()} == {
-        "train": 4,
-        "val": 1,
-        "test": 1,
-    }
+    locations: dict[str, set[str]] = {}
+    for split_name, rows in result.items():
+        for row in rows:
+            locations.setdefault(row["seed_id"], set()).add(split_name)
+    assert len(locations) == len(records)
+    assert all(len(split_names) == 1 for split_names in locations.values())
+    assert sum(map(len, result.values())) == len(records)
+    for label in {row["label"] for row in records}:
+        assert all(any(row["label"] == label for row in result[name]) for name in result)
 
 
 @pytest.mark.parametrize(
