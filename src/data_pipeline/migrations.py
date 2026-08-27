@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import importlib
+import inspect
 from types import MappingProxyType
 from typing import Literal, cast
 
@@ -95,9 +96,20 @@ def load_migration_entrypoint(migration_id: str) -> MigrationEntrypoint:
     spec = get_migration(migration_id)
     module = importlib.import_module(spec.module)
     entrypoint = getattr(module, spec.entry_symbol, None)
-    if not callable(entrypoint):
+    valid_shape = (
+        inspect.isfunction(entrypoint)
+        and not inspect.iscoroutinefunction(entrypoint)
+        and getattr(entrypoint, "__module__", None) == spec.module
+    )
+    if valid_shape:
+        try:
+            inspect.signature(entrypoint).bind()
+        except (TypeError, ValueError):
+            valid_shape = False
+    if not valid_shape:
         raise InvalidMigrationEntrypointError(
-            f"Migration {migration_id!r} does not expose callable "
+            f"Migration {migration_id!r} does not expose a synchronous, "
+            "module-owned zero-argument function at "
             f"{spec.module}:{spec.entry_symbol}"
         )
     return cast(MigrationEntrypoint, entrypoint)

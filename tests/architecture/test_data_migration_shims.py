@@ -103,6 +103,7 @@ def test_selected_entrypoint_imports_only_its_literal_module(monkeypatch: pytest
     selected_id = "zalo-direct-reconstruction"
     selected_module = EXPECTED_MIGRATIONS[selected_id][0]
     selected_entrypoint = lambda: None
+    selected_entrypoint.__module__ = selected_module
     imports: list[str] = []
 
     def fake_import(module: str):
@@ -147,6 +148,48 @@ def test_selected_symbol_must_exist_and_be_callable(monkeypatch: pytest.MonkeyPa
         catalog.load_migration_entrypoint(migration_id)
 
 
+@pytest.mark.parametrize("invalid_kind", ("async", "class", "instance", "reexport", "argument"))
+def test_selected_entrypoint_requires_exact_synchronous_function_shape(
+    invalid_kind: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = _catalog()
+    migration_id = "task-scam-risk-tier"
+    selected_module = EXPECTED_MIGRATIONS[migration_id][0]
+
+    async def async_entrypoint() -> None:
+        return None
+
+    class CallableEntrypoint:
+        def __call__(self) -> None:
+            return None
+
+    def reexported_entrypoint() -> None:
+        return None
+
+    def argument_entrypoint(required: str) -> None:
+        del required
+
+    candidates = {
+        "async": async_entrypoint,
+        "class": CallableEntrypoint,
+        "instance": CallableEntrypoint(),
+        "reexport": reexported_entrypoint,
+        "argument": argument_entrypoint,
+    }
+    candidate = candidates[invalid_kind]
+    if invalid_kind in {"async", "argument"}:
+        candidate.__module__ = selected_module
+    monkeypatch.setattr(
+        catalog.importlib,
+        "import_module",
+        lambda _module: SimpleNamespace(main=candidate),
+    )
+
+    with pytest.raises(catalog.InvalidMigrationEntrypointError, match=migration_id):
+        catalog.load_migration_entrypoint(migration_id)
+
+
 @pytest.mark.parametrize("relative_path, expected_blob", FROZEN_MODULE_BLOBS.items())
 def test_preserved_repair_module_and_main_are_byte_identical(
     relative_path: str,
@@ -159,10 +202,14 @@ def test_preserved_repair_module_and_main_are_byte_identical(
     entrypoints = [
         node
         for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if isinstance(node, ast.FunctionDef)
         and node.name == "main"
     ]
     assert len(entrypoints) == 1
+    assert not any(
+        isinstance(node, ast.AsyncFunctionDef) and node.name == "main"
+        for node in tree.body
+    )
     arguments = entrypoints[0].args
     assert not (
         arguments.posonlyargs
