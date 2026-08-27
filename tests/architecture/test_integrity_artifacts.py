@@ -220,6 +220,42 @@ def test_exclusive_and_atomic_writes_never_overwrite_or_lose_races(
     assert not any(path.suffix == ".tmp" for path in tmp_path.iterdir())
 
 
+def test_file_hash_rejects_final_redirect_when_supported(tmp_path: Path) -> None:
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"trusted")
+    redirect = tmp_path / "redirect.bin"
+    try:
+        redirect.symlink_to(source)
+    except OSError as exc:
+        pytest.skip(f"file symlinks unavailable: {exc}")
+
+    with pytest.raises(integrity.IntegrityError, match="symlink or reparse"):
+        integrity.sha256_file(redirect)
+
+
+def test_atomic_failure_never_unlinks_post_publication_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "published.json"
+    original_hash = integrity.sha256_file
+
+    def replace_before_verification(path: Path) -> str:
+        candidate = Path(path)
+        if candidate == target:
+            candidate.unlink()
+            candidate.write_bytes(b"racer")
+            raise integrity.IntegrityError("synthetic verification failure")
+        return original_hash(candidate)
+
+    monkeypatch.setattr(integrity, "sha256_file", replace_before_verification)
+
+    with pytest.raises(integrity.IntegrityError, match="verification failure"):
+        integrity.atomic_replace_new_artifact(target, b"ours")
+
+    assert target.read_bytes() == b"racer"
+
+
 def test_download_manifest_matches_independent_historical_reader_on_shared_contracts(
     tmp_path: Path,
 ) -> None:
