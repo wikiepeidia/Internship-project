@@ -64,10 +64,14 @@ def strict_json_object(path: Path, *, where: str) -> dict[str, Any]:
             result[key] = value
         return result
 
+    def reject_non_finite(token: str) -> Any:
+        raise IntegrityError(f"{where} contains non-standard JSON token {token!r}")
+
     try:
         value = json.loads(
             raw.decode("utf-8", errors="strict"),
             object_pairs_hook=reject_duplicates,
+            parse_constant=reject_non_finite,
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise IntegrityError(f"{where} must be strict UTF-8 JSON") from exc

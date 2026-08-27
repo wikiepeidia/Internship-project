@@ -276,6 +276,13 @@ def test_production_entry_points_are_fixed_and_accept_no_paths() -> None:
     ).parameters
 
 
+@pytest.mark.parametrize("token", ("NaN", "Infinity", "-Infinity"))
+def test_archive_json_reader_rejects_non_finite_tokens(token: str) -> None:
+    raw = ('{"value":' + token + "}").encode("utf-8")
+    with pytest.raises(archive.ArchiveError, match="non-standard JSON token"):
+        archive._strict_json(raw, where="synthetic archive document")
+
+
 def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: Path) -> None:
     import builtins
     import sitecustomize

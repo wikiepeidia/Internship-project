@@ -199,9 +199,14 @@ def _strict_json(raw: bytes, *, where: str) -> dict[str, Any]:
             result[key] = value
         return result
 
+    def reject_non_finite(token: str) -> Any:
+        raise ArchiveError(f"{where} contains non-standard JSON token {token!r}")
+
     try:
         value = json.loads(
-            raw.decode("utf-8", errors="strict"), object_pairs_hook=reject_duplicates
+            raw.decode("utf-8", errors="strict"),
+            object_pairs_hook=reject_duplicates,
+            parse_constant=reject_non_finite,
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ArchiveError(f"{where} must be strict UTF-8 JSON") from exc

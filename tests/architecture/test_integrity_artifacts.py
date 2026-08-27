@@ -86,6 +86,14 @@ def _registry_payload() -> dict[str, Any]:
     }
 
 
+@pytest.mark.parametrize("token", ("NaN", "Infinity", "-Infinity"))
+def test_strict_json_rejects_non_finite_tokens(tmp_path: Path, token: str) -> None:
+    path = tmp_path / "non-finite.json"
+    path.write_text('{"value":' + token + "}", encoding="utf-8")
+    with pytest.raises(integrity.IntegrityError, match="non-standard JSON token"):
+        integrity.strict_json_object(path, where="synthetic document")
+
+
 def _import_targets(source: str) -> set[str]:
     targets: set[str] = set()
     for node in ast.walk(ast.parse(source)):
@@ -321,4 +329,3 @@ def test_historical_sources_keep_archived_hashes_and_no_active_reverse_edges() -
     active_source = (REPO_ROOT / "src/artifacts.py").read_text(encoding="utf-8")
     assert "src.model_adaptation" not in active_source
     assert "src.modeling" not in active_source
-
