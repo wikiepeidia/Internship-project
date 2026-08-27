@@ -7,8 +7,10 @@ import json
 import os
 from pathlib import Path
 import stat
-import tempfile
 from typing import Any
+import uuid
+
+from src.core_binding import BoundParent, bind_parent
 
 
 _WINDOWS_REPARSE_POINT = 0x400
@@ -74,12 +76,15 @@ def _require_directory_identity(
 
 
 def _unlink_if_owned(path: Path, expected: tuple[int, int, int, int, int]) -> bool:
-    """Best-effort cleanup that never unlinks an already-different object."""
+    """Best-effort cleanup through a protected parent and exact file handle."""
 
+    target = Path(os.path.abspath(path))
     try:
-        if _identity(os.lstat(path)) != expected:
-            return False
-        path.unlink()
+        parent_identity = _directory_identity(target.parent, where="cleanup parent")
+        with bind_parent(target.parent) as parent:
+            if not parent.unlink_if_identity(target.name, expected):
+                return False
+        _require_directory_identity(target.parent, parent_identity, where="cleanup parent")
         return True
     except FileNotFoundError:
         return False
@@ -322,15 +327,68 @@ def _output_path(path: Path, *, where: str) -> Path:
     return target
 
 
-def write_bytes_exclusive(path: Path, value: bytes, *, where: str = "artifact") -> Path:
-    """Create one artifact exclusively and verify its owned identity and bytes."""
+def _bound_output(
+    path: Path,
+    *,
+    where: str,
+) -> tuple[Path, BoundParent, tuple[int, int, int, int, int], Any]:
+    """Enter a protected parent binding for one validated output pathname."""
 
     target = _output_path(path, where=where)
     parent_identity = _directory_identity(target.parent, where=f"{where} parent")
+    manager = bind_parent(target.parent)
+    try:
+        parent = manager.__enter__()
+    except OSError as exc:
+        raise IntegrityError(f"cannot bind {where} parent safely") from exc
+    try:
+        _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
+    except Exception:
+        manager.__exit__(*__import__("sys").exc_info())
+        raise
+    return target, parent, parent_identity, manager
+
+
+def _bound_bytes(
+    parent: BoundParent,
+    name: str,
+    expected: tuple[int, int, int, int, int],
+    *,
+    where: str,
+) -> bytes:
+    flags = os.O_RDONLY | int(getattr(os, "O_BINARY", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    descriptor = parent.open(name, flags)
+    with os.fdopen(descriptor, "rb") as handle:
+        if _identity(os.fstat(handle.fileno())) != expected:
+            raise IntegrityError(f"{where} descriptor identity changed")
+        value = handle.read()
+        if _identity(os.fstat(handle.fileno())) != expected:
+            raise IntegrityError(f"{where} changed while reading")
+    if _identity(parent.lstat(name)) != expected:
+        raise IntegrityError(f"{where} pathname identity changed")
+    return value
+
+
+def _bound_temporary(parent: BoundParent, target_name: str) -> tuple[int, str]:
+    flags = os.O_CREAT | os.O_EXCL | os.O_RDWR | int(getattr(os, "O_BINARY", 0))
+    for _attempt in range(128):
+        name = f".{target_name}.{uuid.uuid4().hex}.tmp"
+        try:
+            return parent.open(name, flags), name
+        except FileExistsError:
+            continue
+    raise IntegrityError("could not allocate a collision-free staging name")
+
+
+def write_bytes_exclusive(path: Path, value: bytes, *, where: str = "artifact") -> Path:
+    """Create one artifact exclusively and verify its owned identity and bytes."""
+
+    target, parent, parent_identity, binding = _bound_output(path, where=where)
     created_identity: tuple[int, int, int, int, int] | None = None
     try:
         flags = os.O_CREAT | os.O_EXCL | os.O_RDWR | int(getattr(os, "O_BINARY", 0))
-        descriptor = os.open(target, flags, 0o600)
+        descriptor = parent.open(target.name, flags, 0o600)
         with os.fdopen(descriptor, "w+b") as handle:
             handle.write(value)
             handle.flush()
@@ -339,16 +397,19 @@ def write_bytes_exclusive(path: Path, value: bytes, *, where: str = "artifact") 
             handle.seek(0)
             if handle.read() != value:
                 raise IntegrityError(f"{where} bytes changed during exclusive write")
-        _require_identity(target, created_identity, where=where)
+        if _identity(parent.lstat(target.name)) != created_identity:
+            raise IntegrityError(f"{where} pathname identity changed")
         _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
-        if sha256_file(target) != sha256_bytes(value):
+        if sha256_bytes(_bound_bytes(parent, target.name, created_identity, where=where)) != sha256_bytes(value):
             raise IntegrityError(f"{where} bytes changed during exclusive write")
     except FileExistsError as exc:
         raise IntegrityError(f"{where} already exists: {target}") from exc
     except Exception:
         if created_identity is not None:
-            _unlink_if_owned(target, created_identity)
+            parent.unlink_if_identity(target.name, created_identity)
         raise
+    finally:
+        binding.__exit__(None, None, None)
     return target
 
 
@@ -360,14 +421,12 @@ def atomic_replace_new_artifact(
 ) -> Path:
     """Publish complete bytes atomically while refusing target replacement."""
 
-    target = _output_path(path, where=where)
-    parent_identity = _directory_identity(target.parent, where=f"{where} parent")
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{target.name}.",
-        suffix=".tmp",
-        dir=target.parent,
-    )
-    temporary = Path(temporary_name)
+    target, parent, parent_identity, binding = _bound_output(path, where=where)
+    try:
+        descriptor, temporary_name = _bound_temporary(parent, target.name)
+    except Exception:
+        binding.__exit__(*__import__("sys").exc_info())
+        raise
     temporary_identity = _identity(os.fstat(descriptor))
     published = False
     try:
@@ -376,25 +435,28 @@ def atomic_replace_new_artifact(
             handle.flush()
             os.fsync(handle.fileno())
             temporary_identity = _identity(os.fstat(handle.fileno()))
-        reject_redirecting_ancestry(temporary, where=f"{where} temporary file")
+        if _identity(parent.lstat(temporary_name)) != temporary_identity:
+            raise IntegrityError(f"{where} temporary identity changed")
         _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
         try:
-            os.link(temporary, target, follow_symlinks=False)
+            parent.link(temporary_name, target.name)
             published = True
         except FileExistsError as exc:
             raise IntegrityError(f"{where} already exists: {target}") from exc
         except OSError as exc:
             raise IntegrityError(f"{where} could not be published atomically") from exc
-        _require_identity(target, temporary_identity, where=where)
+        if _identity(parent.lstat(target.name)) != temporary_identity:
+            raise IntegrityError(f"{where} pathname identity changed")
         _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
-        if sha256_file(target) != sha256_bytes(value):
+        if sha256_bytes(_bound_bytes(parent, target.name, temporary_identity, where=where)) != sha256_bytes(value):
             raise IntegrityError(f"{where} bytes changed during atomic publication")
     except Exception:
         if published:
-            _unlink_if_owned(target, temporary_identity)
+            parent.unlink_if_identity(target.name, temporary_identity)
         raise
     finally:
-        _unlink_if_owned(temporary, temporary_identity)
+        parent.unlink_if_identity(temporary_name, temporary_identity)
+        binding.__exit__(None, None, None)
     return target
 
 
@@ -406,12 +468,12 @@ def atomic_replace_artifact(
 ) -> Path:
     """Replace one artifact from a verified, identity-owned staging file."""
 
-    target = _output_path(path, where=where)
-    parent_identity = _directory_identity(target.parent, where=f"{where} parent")
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent
-    )
-    temporary = Path(temporary_name)
+    target, parent, parent_identity, binding = _bound_output(path, where=where)
+    try:
+        descriptor, temporary_name = _bound_temporary(parent, target.name)
+    except Exception:
+        binding.__exit__(*__import__("sys").exc_info())
+        raise
     temporary_identity = _identity(os.fstat(descriptor))
     published = False
     try:
@@ -423,15 +485,18 @@ def atomic_replace_artifact(
             handle.seek(0)
             if handle.read() != value:
                 raise IntegrityError(f"{where} staging bytes changed")
-        _require_identity(temporary, temporary_identity, where=f"{where} staging file")
+        if _identity(parent.lstat(temporary_name)) != temporary_identity:
+            raise IntegrityError(f"{where} staging identity changed")
         _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
-        os.replace(temporary, target)
+        parent.replace(temporary_name, target.name)
         published = True
-        _require_identity(target, temporary_identity, where=where)
+        if _identity(parent.lstat(target.name)) != temporary_identity:
+            raise IntegrityError(f"{where} pathname identity changed")
         _require_directory_identity(target.parent, parent_identity, where=f"{where} parent")
-        if read_file_bytes(target, where=where) != value:
+        if _bound_bytes(parent, target.name, temporary_identity, where=where) != value:
             raise IntegrityError(f"{where} bytes changed during replacement")
     finally:
         if not published:
-            _unlink_if_owned(temporary, temporary_identity)
+            parent.unlink_if_identity(temporary_name, temporary_identity)
+        binding.__exit__(None, None, None)
     return target

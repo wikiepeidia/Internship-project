@@ -236,13 +236,15 @@ def test_exclusive_and_atomic_writes_never_overwrite_or_lose_races(
     assert atomic.read_bytes() == b"complete"
 
     raced = tmp_path / "raced.json"
-    original_link = os.link
+    from src.core_binding import BoundParent
 
-    def collide(source: str | bytes, destination: str | bytes, *args: Any, **kwargs: Any) -> None:
-        Path(destination).write_bytes(b"racer")
-        original_link(source, destination, *args, **kwargs)
+    original_link = BoundParent.link
 
-    monkeypatch.setattr(integrity.os, "link", collide)
+    def collide(parent: BoundParent, source: str, destination: str) -> None:
+        parent.child(destination).write_bytes(b"racer")
+        original_link(parent, source, destination)
+
+    monkeypatch.setattr(BoundParent, "link", collide)
     with pytest.raises(integrity.IntegrityError, match="already exists"):
         integrity.atomic_replace_new_artifact(raced, b"ours")
     assert raced.read_bytes() == b"racer"
@@ -283,22 +285,97 @@ def test_atomic_failure_never_unlinks_post_publication_replacement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     target = tmp_path / "published.json"
-    original_hash = integrity.sha256_file
+    original_capture = integrity._bound_bytes
 
-    def replace_before_verification(path: Path) -> str:
-        candidate = Path(path)
+    def replace_before_verification(
+        parent: Any,
+        name: str,
+        expected: tuple[int, int, int, int, int],
+        *,
+        where: str,
+    ) -> bytes:
+        candidate = parent.child(name)
         if candidate == target:
             candidate.unlink()
             candidate.write_bytes(b"racer")
             raise integrity.IntegrityError("synthetic verification failure")
-        return original_hash(candidate)
+        return original_capture(parent, name, expected, where=where)
 
-    monkeypatch.setattr(integrity, "sha256_file", replace_before_verification)
+    monkeypatch.setattr(integrity, "_bound_bytes", replace_before_verification)
 
     with pytest.raises(integrity.IntegrityError, match="verification failure"):
         integrity.atomic_replace_new_artifact(target, b"ours")
 
     assert target.read_bytes() == b"racer"
+
+
+def test_exclusive_write_binds_parent_across_ancestor_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core_binding import BoundParent
+
+    parent_path = tmp_path / "stable-parent"
+    displaced = tmp_path / "displaced-parent"
+    parent_path.mkdir()
+    target = parent_path / "artifact.json"
+    original_open = BoundParent.open
+    outcome: dict[str, bool] = {}
+
+    def swap_before_create(
+        parent: BoundParent,
+        name: str,
+        flags: int,
+        mode: int = 0o600,
+    ) -> int:
+        if name == target.name and flags & os.O_CREAT and not outcome:
+            try:
+                parent_path.rename(displaced)
+                parent_path.mkdir()
+                outcome["swapped"] = True
+            except OSError:
+                outcome["blocked"] = True
+        return original_open(parent, name, flags, mode)
+
+    monkeypatch.setattr(BoundParent, "open", swap_before_create)
+    try:
+        published = integrity.write_bytes_exclusive(target, b"owned")
+    except integrity.IntegrityError as error:
+        assert "parent" in str(error) and "identity" in str(error)
+        assert outcome == {"swapped": True}
+        assert not target.exists()
+        assert not (displaced / target.name).exists()
+    else:
+        assert published == target
+        assert outcome == {"blocked": True}
+        assert target.read_bytes() == b"owned"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Win32 delete-by-handle contract")
+def test_owned_cleanup_handle_blocks_post_check_name_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src import core_binding
+
+    target = tmp_path / "owned.tmp"
+    target.write_bytes(b"owned")
+    expected = integrity._identity(os.lstat(target))
+    replacement_blocked = False
+
+    def replace_owned_name(path: Path) -> None:
+        nonlocal replacement_blocked
+        try:
+            path.unlink()
+            path.write_bytes(b"racer")
+        except OSError:
+            replacement_blocked = True
+
+    monkeypatch.setattr(core_binding, "_before_owned_handle_delete", replace_owned_name)
+
+    assert integrity._unlink_if_owned(target, expected)
+    assert replacement_blocked
+    assert not target.exists()
 
 
 def test_download_manifest_requires_strict_hashed_v2_contract(

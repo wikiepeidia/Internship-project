@@ -41,6 +41,7 @@ EXPECTED_BUDGETED_MODULES = {
     "src.artifacts",
     "src.core",
     "src.core.integrity",
+    "src.core_binding",
     "src.data_pipeline.core",
     "src.data_pipeline.core.records",
     "src.data_pipeline.core.splits",
