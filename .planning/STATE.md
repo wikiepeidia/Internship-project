@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-13-PLAN.md
-last_updated: "2026-08-27T13:40:23.942Z"
+stopped_at: Completed 41.1-09-PLAN.md
+last_updated: "2026-08-27T14:05:03.188Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: c008fb3c9d2341bd70babf66c0842539c405a1a6
+state_head: 21da2166170ce423e4ec639ff4869ac52e2cb334
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 67
+  completed_plans: 68
   percent: 13
 ---
 
@@ -38,7 +38,7 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 13 of 15
+Plan: 14 of 15
 Status: Ready to execute
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T13:40:23.170Z
-**Stopped at:** Completed 41.1-13-PLAN.md
+**Last session:** 2026-08-27T14:05:02.434Z
+**Stopped at:** Completed 41.1-09-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -364,6 +364,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Keep QLORA.md visibly inventoried and explicitly uncertified until later documentation work.
 - [Phase 41.1]: Keep explanatory architecture prose outside markers while preserving exact compatibility and evidence identities inside one owner-scoped region.
 - [Phase 41.1]: Validate report and storage identities from existing independent fixtures without opening any named authority path.
+- [Phase 41.1]: Keep source-archiving compatibility lookup late and inject current facade seams into the domain service.
+- [Phase 41.1]: Consolidate repeated archive identities behind one named contracts-module owner.
 
 ## Performance Metrics
 
@@ -386,6 +388,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P15 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P12 | 15min | 2 tasks | 4 files |
 | Phase 41.1 P13 | 9min | 2 tasks | 5 files |
+| Phase 41.1 P09 | 21 min | 3 tasks | 10 files |
 
 ### Blockers
 
