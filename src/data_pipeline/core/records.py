@@ -1,11 +1,15 @@
 """Typed records shared by data ingestion, transformation, and versioning."""
 
+from datetime import datetime, timedelta
 import hashlib
 import re
 from typing import Literal
 import unicodedata
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, HttpUrl, TypeAdapter, field_validator, model_validator
+
+
+_HTTP_URL = TypeAdapter(HttpUrl)
 
 
 class SeedRecord(BaseModel):
@@ -59,6 +63,27 @@ class ProvenancedSeedRecord(SeedRecord):
     duplicate_count: int = Field(ge=0)
     provenance_confidence: Literal["high", "medium", "low"]
 
+    @field_validator("source_url", "canonical_url", "rights_url")
+    @classmethod
+    def require_canonical_http_url(cls, value: str) -> str:
+        return str(_HTTP_URL.validate_python(value))
+
+    @field_validator("contributing_urls")
+    @classmethod
+    def require_canonical_contributing_urls(cls, values: list[str]) -> list[str]:
+        return [str(_HTTP_URL.validate_python(value)) for value in values]
+
+    @field_validator("scrape_timestamp", "retrieved_at")
+    @classmethod
+    def require_canonical_utc_timestamp(cls, value: str) -> str:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError("provenance timestamp must be valid ISO 8601") from error
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("provenance timestamp must use an explicit UTC offset")
+        return parsed.isoformat().replace("+00:00", "Z")
+
     @model_validator(mode="after")
     def validate_real_public_contract(self) -> "ProvenancedSeedRecord":
         if self.raw_label_hint is not None:
@@ -70,8 +95,6 @@ class ProvenancedSeedRecord(SeedRecord):
         if self.content_sha256 != expected_hash:
             raise ValueError("content_sha256 does not match normalized text")
 
-        if not self.retrieved_at.endswith(("Z", "+00:00")):
-            raise ValueError("retrieved_at must be an explicit UTC timestamp")
         return self
 
 

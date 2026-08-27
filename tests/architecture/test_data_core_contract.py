@@ -151,6 +151,82 @@ def test_provenanced_seed_normalization_remains_unicode_exact() -> None:
     ) == record
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("source_url", "not-a-url"),
+        ("canonical_url", "ftp://example.test/advisory"),
+        ("rights_url", "example.test/rights"),
+        ("contributing_urls", ["javascript:alert(1)"]),
+        ("scrape_timestamp", "not-a-dateZ"),
+        ("retrieved_at", "2026-08-27T07:00:00+07:00"),
+    ),
+)
+def test_public_provenance_rejects_fake_urls_and_timestamps(
+    field: str,
+    value: object,
+) -> None:
+    text = "Cảnh báo tài khoản cần kiểm tra nguồn công khai."
+    payload: dict[str, object] = {
+        "text": text,
+        "source_url": "https://example.test/source",
+        "scrape_timestamp": "2026-08-27T00:00:00Z",
+        "raw_label_hint": None,
+        "data_origin": "real_public",
+        "record_unit": "editorial_advisory",
+        "canonical_url": "https://example.test/advisory",
+        "publisher": "Synthetic Publisher",
+        "native_id": None,
+        "access_method": "download",
+        "collection_status": "allowed",
+        "redistribution_status": "unknown",
+        "rights_url": "https://example.test/rights",
+        "retrieved_at": "2026-08-27T00:00:00Z",
+        "content_sha256": hashlib.sha256(
+            "cảnh báo tài khoản cần kiểm tra nguồn công khai.".encode("utf-8")
+        ).hexdigest(),
+        "redaction_state": "not_needed",
+        "contributing_urls": ["https://example.test/advisory"],
+        "duplicate_count": 0,
+        "provenance_confidence": "high",
+    }
+    payload[field] = value
+
+    with pytest.raises(ValidationError):
+        core_records.ProvenancedSeedRecord.model_validate(payload)
+
+
+def test_public_provenance_serializes_timestamps_in_canonical_utc_form() -> None:
+    text = "Cảnh báo tài khoản cần kiểm tra nguồn công khai."
+    content_hash = hashlib.sha256(
+        "cảnh báo tài khoản cần kiểm tra nguồn công khai.".encode("utf-8")
+    ).hexdigest()
+    record = core_records.ProvenancedSeedRecord(
+        text=text,
+        source_url="https://example.test/source",
+        scrape_timestamp="2026-08-27T00:00:00+00:00",
+        raw_label_hint=None,
+        data_origin="real_public",
+        record_unit="editorial_advisory",
+        canonical_url="https://example.test/advisory",
+        publisher="Synthetic Publisher",
+        native_id=None,
+        access_method="download",
+        collection_status="allowed",
+        redistribution_status="unknown",
+        rights_url="https://example.test/rights",
+        retrieved_at="2026-08-27T00:00:00+00:00",
+        content_sha256=content_hash,
+        redaction_state="not_needed",
+        contributing_urls=["https://example.test/advisory"],
+        duplicate_count=0,
+        provenance_confidence="high",
+    )
+
+    assert record.scrape_timestamp == "2026-08-27T00:00:00Z"
+    assert record.retrieved_at == "2026-08-27T00:00:00Z"
+
+
 def test_manifest_contract_keeps_field_order_and_nested_types() -> None:
     manifest = core_records.ManifestEntry(
         version="v-synthetic",
