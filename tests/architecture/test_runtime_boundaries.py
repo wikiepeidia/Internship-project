@@ -454,6 +454,26 @@ def test_runtime_minimum_python_matches_package_metadata() -> None:
     assert check.passed is (sys.version_info >= settings_module.MINIMUM_PYTHON_VERSION)
 
 
+def test_runtime_doctor_fails_closed_on_unsafe_release_member(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doctor_module = importlib.import_module("src.runtime.doctor")
+    artifact = tmp_path / "release-evaluation-synthetic.json"
+    artifact.write_text("{}", encoding="utf-8")
+    original = doctor_module.reject_redirecting_ancestry
+
+    def reject_member(path: Path, *, where: str) -> Path:
+        if where == "release manifest member":
+            raise integrity.IntegrityError("synthetic member race")
+        return original(path, where=where)
+
+    monkeypatch.setattr(doctor_module, "reject_redirecting_ancestry", reject_member)
+    check = doctor_module.RuntimeDoctor()._check_latest_release_gate_summary(tmp_path)
+
+    assert check.passed is False
+    assert "unsafe or unstable" in check.detail
+
+
 @pytest.mark.parametrize(
     "text",
     (

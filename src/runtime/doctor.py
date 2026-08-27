@@ -1,7 +1,10 @@
 """Local readiness checks and guidance for the promoted Phase 4 runtime."""
 
+import fnmatch
 import importlib
+import os
 from pathlib import Path
+import stat
 import sys
 
 from src.artifacts import load_release_evaluation_artifact
@@ -225,16 +228,37 @@ class RuntimeDoctor:
                 detail=f"Release evidence root is missing: {root}",
                 remediation_command=DOCTOR_COMMAND,
             )
-        artifact_set = {
+        captured: list[tuple[int, Path]] = []
+        try:
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    if not any(
+                        fnmatch.fnmatch(entry.name, pattern)
+                        for pattern in RELEASE_MANIFEST_PATTERNS
+                    ):
+                        continue
+                    candidate = reject_redirecting_ancestry(
+                        root / entry.name, where="release manifest member"
+                    )
+                    metadata = os.lstat(candidate)
+                    if not stat.S_ISREG(metadata.st_mode):
+                        raise IntegrityError(
+                            "release manifest member must be a non-redirecting regular file"
+                        )
+                    captured.append((metadata.st_mtime_ns, candidate))
+        except (IntegrityError, OSError) as exc:
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=False,
+                detail=f"Release evidence set is unsafe or unstable: {exc}",
+                remediation_command=DOCTOR_COMMAND,
+            )
+        artifacts = [
             path
-            for pattern in RELEASE_MANIFEST_PATTERNS
-            for path in root.glob(pattern)
-        }
-        artifacts = sorted(
-            artifact_set,
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
+            for _mtime, path in sorted(
+                captured, key=lambda item: (item[0], item[1].name), reverse=True
+            )
+        ]
         if not artifacts:
             return DoctorCheck(
                 name="release-gate-summary",
