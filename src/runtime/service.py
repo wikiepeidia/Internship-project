@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from src.config.settings import RuntimeSettings, get_runtime_settings as get_settings
 from src.data_pipeline.processing.normalizer import normalize_text
+from src.modeling.inference import InferenceError
+from src.modeling.inference import InferenceService
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.base import AnalyzerBackend
 from src.runtime.analyzers.gguf import GGUFAnalyzer
@@ -80,6 +82,10 @@ class RuntimeService:
 
     backend: AnalyzerBackend
     settings: RuntimeSettings = field(default_factory=get_settings)
+    _inference: InferenceService = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._inference = InferenceService(backend=self.backend)
 
     def analyze_text(self, text: str, channel: ChannelName = "unknown") -> AnalysisResult:
         if self.settings.runtime_store_raw_text:
@@ -113,9 +119,16 @@ class RuntimeService:
         request = AnalysisRequest(text=normalized_text, channel=channel)
 
         try:
-            result = self.backend.analyze(request)
+            result = self._inference.infer(request)
         except RuntimeBoundaryError:
             raise
+        except InferenceError as exc:
+            if isinstance(exc.__cause__, RuntimeBoundaryError):
+                raise exc.__cause__
+            raise RuntimeUnavailableError(
+                "Local runtime is unavailable. Run the doctor command for setup guidance.",
+                steps=_default_setup_steps(),
+            ) from exc
         except Exception as exc:
             raise RuntimeUnavailableError(
                 "Local runtime is unavailable. Run the doctor command for setup guidance.",
