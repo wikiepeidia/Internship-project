@@ -4,17 +4,17 @@ milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
-status: executing
-stopped_at: Completed 41.1-14-PLAN.md
-last_updated: "2026-08-27T14:10:17.295Z"
+status: verifying
+stopped_at: Completed 41.1-10-PLAN.md
+last_updated: "2026-08-27T14:40:46.365Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: 4c659a84f39289249c87006e84e263735ce4fa3a
+state_head: 0c644dce9dc602a9810acc57a3eee21249ba199e
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 69
+  completed_plans: 70
   percent: 13
 ---
 
@@ -39,7 +39,7 @@ progress:
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
 Plan: 15 of 15
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
 
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T14:10:16.409Z
-**Stopped at:** Completed 41.1-14-PLAN.md
+**Last session:** 2026-08-27T14:40:45.576Z
+**Stopped at:** Completed 41.1-10-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -368,6 +368,9 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Consolidate repeated archive identities behind one named contracts-module owner.
 - [Phase 41.1]: Phase 41.1 Plan 14 describes analyzers by phishing-risk responsibility while preserving selected-artifact behavior and executable structure.
 - [Phase 41.1]: Phase 41.1 Plan 14 keeps setup command literals byte-exact and limits changes to fixture-approved prose slots.
+- [Phase 41.1]: Phase 41.1 Plan 10 keeps source_archiving public exports lazy and path-inert so the truthful active graph stays acyclic without breaking compatibility.
+- [Phase 41.1]: Phase 41.1 Plan 10 renders all generated overview blocks through one ordered policy renderer and compares complete bodies byte-for-byte.
+- [Phase 41.1]: Phase 41.1 Plan 10 binds frozen Python literals to AST owners and scans exactly 44 policy-derived active text paths; QLORA editorial quality remains uncertified.
 
 ## Performance Metrics
 
@@ -392,6 +395,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P13 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P09 | 21 min | 3 tasks | 10 files |
 | Phase 41.1 P14 | 6min | 2 tasks | 6 files |
+| Phase 41.1 P10 | 26m | 2 tasks | 6 files |
 
 ### Blockers
 
