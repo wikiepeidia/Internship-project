@@ -536,3 +536,19 @@ def test_active_runtime_entrypoint_language_is_domain_named() -> None:
         )
     ]
     assert violations == []
+
+
+def test_active_runtime_render_and_demo_language_is_domain_named() -> None:
+    paths = (
+        "src/runtime/render.py",
+        "src/runtime/demo.py",
+    )
+    violations = [
+        violation
+        for logical_path in paths
+        for violation in _scan_text(
+            logical_path,
+            (REPO_ROOT / logical_path).read_text(encoding="utf-8"),
+        )
+    ]
+    assert violations == []

@@ -1,4 +1,4 @@
-"""Terminal-friendly rendering for Phase 2 runtime results."""
+"""Terminal rendering for phishing-risk analysis results and runtime errors."""
 
 from src.runtime.contracts import AnalysisResult
 

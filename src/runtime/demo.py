@@ -1,4 +1,4 @@
-"""Local demo UI server for the Phase 6 non-technical verification flow."""
+"""Local browser service for interactive Vietnamese phishing-risk analysis."""
 
 from __future__ import annotations
 
