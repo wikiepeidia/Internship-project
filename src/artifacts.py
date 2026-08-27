@@ -65,9 +65,7 @@ class ArtifactError(RuntimeError):
 
 class PilotScorecard(BaseModel):
     """Deterministic pilot metrics for one candidate on one split."""
-
     model_config = ConfigDict(extra="forbid")
-
     candidate_id: LockedCandidateId
     hf_source: str = Field(min_length=1)
     evaluated_split: EvaluatedSplit = "val"
@@ -78,14 +76,12 @@ class PilotScorecard(BaseModel):
     hardware_penalty: float = Field(default=0.0, ge=0.0)
     profile_notes: str = Field(min_length=1)
     local_output_path: Path | None = None
-
     @field_validator("hf_source", "profile_notes")
     @classmethod
     def reject_blank_text(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("value must not be blank")
         return value
-
     @field_validator("local_output_path", mode="before")
     @classmethod
     def reject_blank_path_input(cls, value: object) -> object:
@@ -96,20 +92,16 @@ class PilotScorecard(BaseModel):
 
 class PilotSelection(BaseModel):
     """Selected laptop baseline winner plus runner-up."""
-
     model_config = ConfigDict(extra="forbid")
-
     baseline_winner_id: LockedCandidateId
     runner_up_id: LockedCandidateId
     selection_notes: str | None = None
-
     @field_validator("selection_notes")
     @classmethod
     def reject_blank_notes(cls, value: str | None) -> str | None:
         if value is not None and not value.strip():
             raise ValueError("selection_notes must not be blank")
         return value
-
     @model_validator(mode="after")
     def validate_selection(self) -> "PilotSelection":
         if self.baseline_winner_id not in LAPTOP_BASELINE_CANDIDATE_IDS:
@@ -121,9 +113,7 @@ class PilotSelection(BaseModel):
 
 class ModelArtifactRecord(BaseModel):
     """Metadata for a local model artifact tracked outside git."""
-
     model_config = ConfigDict(extra="forbid")
-
     candidate_id: LockedCandidateId
     artifact_type: ArtifactType
     version_tag: str = Field(min_length=1)
@@ -132,14 +122,12 @@ class ModelArtifactRecord(BaseModel):
     tracked_in_git: bool = False
     local_only: bool = True
     profile_name: str | None = None
-
     @field_validator("version_tag", "sha256", "profile_name")
     @classmethod
     def reject_blank_text(cls, value: str | None) -> str | None:
         if value is not None and not value.strip():
             raise ValueError("value must not be blank")
         return value
-
     @field_validator("local_path", mode="before")
     @classmethod
     def reject_blank_path_input(cls, value: object) -> object:
@@ -163,21 +151,17 @@ class ModelArtifactRecord(BaseModel):
 
 class ModelRegistry(BaseModel):
     """Persisted selection and artifact metadata for active model work."""
-
     model_config = ConfigDict(extra="forbid")
-
     version_tag: str = Field(min_length=1)
     selection: PilotSelection | None = None
     scorecards: list[PilotScorecard] = Field(default_factory=list)
     artifacts: list[ModelArtifactRecord] = Field(default_factory=list)
-
     @field_validator("version_tag")
     @classmethod
     def reject_blank_version_tag(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("version_tag must not be blank")
         return value
-
     @model_validator(mode="after")
     def align_artifact_versions(self) -> "ModelRegistry":
         if any(artifact.version_tag != self.version_tag for artifact in self.artifacts):
@@ -234,9 +218,7 @@ class VerifiedArtifact:
 
 class HeldOutSupportAudit(BaseModel):
     """Typed fail-closed support audit for a held-out release slice."""
-
     model_config = ConfigDict(extra="forbid")
-
     evaluated_split_path: Path
     evaluated_split_root: Path | None = None
     locked_label_order: tuple[ThreatLabel, ...] = LOCKED_RELEASE_LABELS
@@ -246,7 +228,6 @@ class HeldOutSupportAudit(BaseModel):
     blocker_reasons: list[str] = Field(default_factory=list)
     ready: bool = False
     verdict: ReleaseVerdict = "BLOCK"
-
     @field_validator("support_by_label", mode="before")
     @classmethod
     def normalize_support_by_label(cls, value: object) -> dict[ThreatLabel, int]:
@@ -262,14 +243,12 @@ class HeldOutSupportAudit(BaseModel):
                 raise ValueError("support counts must be non-negative integers")
             normalized[label] = count
         return normalized
-
     @field_validator("blocker_reasons")
     @classmethod
     def reject_blank_blocker_reasons(cls, value: list[str]) -> list[str]:
         if any(not reason.strip() for reason in value):
             raise ValueError("blocker reasons must not be blank")
         return value
-
     @model_validator(mode="after")
     def align_status_with_blockers(self) -> "HeldOutSupportAudit":
         if self.locked_label_order != LOCKED_RELEASE_LABELS:
@@ -317,16 +296,13 @@ class HeldOutSupportAudit(BaseModel):
 
 class PerLabelMetricRow(BaseModel):
     """Per-label precision, recall, and F1 for release reporting."""
-
     model_config = ConfigDict(extra="forbid")
-
     label: ThreatLabel
     precision: float = Field(ge=0.0, le=1.0)
     recall: float = Field(ge=0.0, le=1.0)
     f1: float = Field(ge=0.0, le=1.0)
     support: int = Field(ge=0)
     recall_floor_applies: bool = False
-
     @model_validator(mode="after")
     def align_risky_label_flag(self) -> "PerLabelMetricRow":
         denominator = self.precision + self.recall
@@ -341,9 +317,7 @@ class PerLabelMetricRow(BaseModel):
 
 class OverallMetricSummary(BaseModel):
     """Overall held-out metric summary used by the release gate."""
-
     model_config = ConfigDict(extra="forbid")
-
     macro_f1: float = Field(ge=0.0, le=1.0)
     weighted_f1: float = Field(ge=0.0, le=1.0)
     evaluated_rows: int = Field(gt=0)
@@ -351,21 +325,17 @@ class OverallMetricSummary(BaseModel):
 
 class ExplanationRubricSummary(BaseModel):
     """Merged deterministic and manual explanation-review findings."""
-
     model_config = ConfigDict(extra="forbid")
-
     evaluated_risky_predictions: int = Field(ge=0)
     manual_reviewed_predictions: int = Field(ge=0)
     blocker_reasons: list[str] = Field(default_factory=list)
     flag_reasons: list[str] = Field(default_factory=list)
-
     @field_validator("blocker_reasons", "flag_reasons")
     @classmethod
     def reject_blank_reasons(cls, value: list[str]) -> list[str]:
         if any(not reason.strip() for reason in value):
             raise ValueError("reasons must not be blank")
         return value
-
     @model_validator(mode="after")
     def validate_review_counts(self) -> "ExplanationRubricSummary":
         if self.manual_reviewed_predictions > self.evaluated_risky_predictions:
@@ -375,9 +345,7 @@ class ExplanationRubricSummary(BaseModel):
 
 class ReleaseEvaluationArtifact(BaseModel):
     """Canonical release-evaluation contract for active read-only consumers."""
-
     model_config = ConfigDict(extra="forbid")
-
     run_id: str = Field(min_length=1)
     verdict: ReleaseVerdict
     risky_recall_floor: float = Field(default=UNIFORM_RISKY_RECALL_FLOOR, ge=0.0, le=1.0)
@@ -387,21 +355,18 @@ class ReleaseEvaluationArtifact(BaseModel):
     flag_reasons: list[str] = Field(default_factory=list)
     explanation_rubric_summary: ExplanationRubricSummary
     readiness_audit: HeldOutSupportAudit | None = None
-
     @field_validator("run_id")
     @classmethod
     def reject_blank_run_id(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("run_id must not be blank")
         return value
-
     @field_validator("blocker_reasons", "flag_reasons")
     @classmethod
     def reject_blank_release_reasons(cls, value: list[str]) -> list[str]:
         if any(not reason.strip() for reason in value):
             raise ValueError("reasons must not be blank")
         return value
-
     @model_validator(mode="after")
     def require_full_label_metrics(self) -> "ReleaseEvaluationArtifact":
         metric_labels = [row.label for row in self.per_label_metrics]

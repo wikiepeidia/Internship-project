@@ -202,15 +202,7 @@
   },
   "schema_version": "module-boundaries-v2",
   "static_policy": {
-    "budget_exceptions": [
-      {
-        "path": "src/artifacts.py",
-        "symbol": "<module>",
-        "measured_lines": 633,
-        "reason": "Strict release metric reconciliation preserves the frozen public artifact models in their established owner.",
-        "compatibility_evidence": "Serialization and active-versus-historical contract tests remain byte-identical for valid artifacts."
-      }
-    ],
+    "budget_exceptions": [],
     "budgeted_modules": [
       "src.artifacts",
       "src.core",
