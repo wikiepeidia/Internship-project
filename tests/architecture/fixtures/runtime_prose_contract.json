@@ -1,0 +1,105 @@
+{
+  "schema_version": "runtime-prose-contract-v1",
+  "source_state": "pre_domain_prose_rewrite",
+  "python_sources": [
+    {
+      "path": "src/runtime/cli.py",
+      "pre_edit_source_sha256": "76d728a4cdbf5f8518d8860b8061bac4b6ad932ba0545eefecb6859a5ea0143f",
+      "masked_ast_sha256": "9e7672dfa61ef057c3e02b038f714bcc6b938efa76eadefdf0c83e6d3be414cc",
+      "prose_slots": [{"id": "cli-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/contracts.py",
+      "pre_edit_source_sha256": "1e08550c3493f0ee72af0c12b55f2425f73b8f937f0434b76d71a19caf2cf141",
+      "masked_ast_sha256": "b16341b349f5899f95e8c14f698b390cc3f95a6cd393859ac22e0f94b9705d73",
+      "prose_slots": [{"id": "contracts-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/service.py",
+      "pre_edit_source_sha256": "6bcdc61c0eb00626da0c2a5d7ecfc9ac0ab6a1040cfe3374eac1d2b85c1cdd0f",
+      "masked_ast_sha256": "09191ac8bc0bc6365a10865f4ff6657c3e9306950068e6cc9a25f660adb485d3",
+      "prose_slots": [{"id": "service-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/render.py",
+      "pre_edit_source_sha256": "b88c4c94fdab876ce0653744570e576ebd857b42fcadb1bcb8639b5b8b2be581",
+      "masked_ast_sha256": "0c8e796dce01c772cba150788c8bb7bbd7f004e837efc64de49b59b7f9a16491",
+      "prose_slots": [{"id": "render-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/demo.py",
+      "pre_edit_source_sha256": "2e927af1a09e54cea70734c49091a57f17cb7a4680ccbd41c6b396b21583e9ea",
+      "masked_ast_sha256": "4dedfafbc3d97f977981ea0a67bf49d5d55b05fc1f709a7e746723f695fad27e",
+      "prose_slots": [{"id": "demo-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/doctor.py",
+      "pre_edit_source_sha256": "c0b5389dfb7a24dd72284193430fe67df5c1286f31601be39fa9994eaf1b9024",
+      "masked_ast_sha256": "61f9d130e0c2d02dc59b14432a4d1caaf76b571f1ea31edd87cb5e5753de2909",
+      "prose_slots": [
+        {"id": "doctor-module-description", "kind": "module_docstring"},
+        {"id": "doctor-run-description", "kind": "function_docstring", "name": "run_runtime_doctor"}
+      ]
+    },
+    {
+      "path": "src/runtime/analyzers/accelerated.py",
+      "pre_edit_source_sha256": "314aed41f3abd31ac04a16a08a1a3d94dd4a660919c1144bd503faff7936d1bc",
+      "masked_ast_sha256": "80abb5ffb085ecd67977b386e97e80e04f4ed3fd11643f37ae9de9daa20315ae",
+      "prose_slots": [
+        {"id": "accelerated-module-description", "kind": "module_docstring"},
+        {"id": "accelerated-setup-guidance", "kind": "assignment_string", "name": "ACCELERATED_SETUP_GUIDE"}
+      ]
+    },
+    {
+      "path": "src/runtime/analyzers/gguf.py",
+      "pre_edit_source_sha256": "c867efc0bf013111a54e3ec1dd6499a200d5dd3b72d87e349fd46c8194960e95",
+      "masked_ast_sha256": "47617d9495a9fe03651c56c80e4a84dbc587e511f6ccf2cbafc83ce062fbae7a",
+      "prose_slots": [
+        {"id": "gguf-module-description", "kind": "module_docstring"},
+        {"id": "gguf-setup-guidance", "kind": "assignment_string", "name": "GGUF_SETUP_GUIDE"}
+      ]
+    },
+    {
+      "path": "src/runtime/analyzers/heuristic.py",
+      "pre_edit_source_sha256": "716394f4c7d9f244683c1db4a0b8e61e84a037e61d044f7b4952f5a7f2f54561",
+      "masked_ast_sha256": "112e29c17c0f37df607296370c934874d604de4699a5bd722fb54a23c0eeda61",
+      "prose_slots": [{"id": "heuristic-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/analyzers/rules.py",
+      "pre_edit_source_sha256": "e7559a82d71fe767d451512b0f9ce3c1f9c3e8a7a2dd2eba5acf79ea1d590663",
+      "masked_ast_sha256": "fd2fe6a7395a77156ed0c36b16eca2f474b4440e4043960c53dab21aff8795bb",
+      "prose_slots": [{"id": "rules-module-description", "kind": "module_docstring"}]
+    },
+    {
+      "path": "src/runtime/analyzers/local_model.py",
+      "pre_edit_source_sha256": "a5b929e128cde64c8aea1116eb5006522864409be19cb2b72d88747e038c4f22",
+      "masked_ast_sha256": "d032188050eecd2d5a5fc8cf944501c8732e00b6b9cd4d66f6bb2e68d44a5921",
+      "prose_slots": [
+        {"id": "local-model-module-description", "kind": "module_docstring"},
+        {"id": "recommendation-safety-description", "kind": "function_docstring", "name": "is_recommendation_safe"}
+      ]
+    }
+  ],
+  "javascript_sources": [
+    {
+      "path": "src/runtime/demo_assets/demo.js",
+      "pre_edit_source_sha256": "1cb9a1a447e5badfa2275bacaee36c93b4f3498328f042424d05c600ff4998be",
+      "comment_stripped_sha256": "b1219cd832f12e40db6ee1756fb19a6adaff22ced13937b7657f1181f448fd07"
+    }
+  ],
+  "protected_command_literals": [
+    {
+      "path": "src/runtime/analyzers/accelerated.py",
+      "symbol": "ACCELERATED_SETUP_GUIDE",
+      "literal": "python -m pip install -e .[dev,train]",
+      "expected_count": 1
+    },
+    {
+      "path": "src/runtime/analyzers/gguf.py",
+      "symbol": "GGUF_SETUP_GUIDE",
+      "literal": "python -m pip install -e .[dev,runtime]",
+      "expected_count": 1
+    }
+  ]
+}
