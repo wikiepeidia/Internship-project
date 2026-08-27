@@ -230,6 +230,58 @@ def test_nondivisible_recovery_targets_never_expand(target_count: int) -> None:
     assert not any(missing.values())
 
 
+def test_recovery_balance_rejects_absent_partial_and_single_seed_classes() -> None:
+    def rows(label: str, count: int, seed_count: int | None = None):
+        groups = count if seed_count is None else seed_count
+        return [
+            _record(
+                f"Tin nhắn tổng hợp {label} số {index} đủ dài.",
+                label=label,
+                seed_id=f"{label}-seed-{index % max(groups, 1)}",
+            )
+            for index in range(count)
+        ]
+
+    complete = {label: rows(label, 3) for label in workflows.THREAT_CLASSES}
+    absent = {label: list(items) for label, items in complete.items()}
+    absent["task_scam"] = []
+    with pytest.raises(ValueError, match="task_scam.*0 recoverable rows"):
+        workflows._balance_recovered_records(absent, 12)
+
+    partial = {label: list(items) for label, items in complete.items()}
+    partial["task_scam"] = rows("task_scam", 2)
+    with pytest.raises(ValueError, match="task_scam.*2 recoverable rows"):
+        workflows._balance_recovered_records(partial, 12)
+
+    single_seed = {label: list(items) for label, items in complete.items()}
+    single_seed["task_scam"] = rows("task_scam", 3, seed_count=1)
+    with pytest.raises(ValueError, match="task_scam.*1 seed groups"):
+        workflows._balance_recovered_records(single_seed, 12)
+
+
+def test_zero_recovery_target_never_publishes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = _record("Tin nhắn tổng hợp hợp lệ đủ dài.")
+    monkeypatch.setattr(workflows, "_recoverable_record_paths", lambda _root: [tmp_path / "owned.jsonl"])
+    monkeypatch.setattr(
+        workflows,
+        "_load_recoverable_records",
+        lambda *_args: ({"one": record}, {"owned": {"loaded": 1}}, 1, 0, 0),
+    )
+    monkeypatch.setattr(
+        workflows,
+        "_write_recovered_outputs",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("writer must not run")),
+    )
+
+    result = workflows.optimize_recovered_records(tmp_path, target_count=0)
+
+    assert result["publication_status"] == "not_requested"
+    assert result["recovery_generation_id"] is None
+    assert result["split_counts"] == {}
+
+
 def test_zero_recovery_target_is_explicitly_empty() -> None:
     by_label = {
         label: [

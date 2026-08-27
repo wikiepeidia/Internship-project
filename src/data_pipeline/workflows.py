@@ -198,6 +198,8 @@ def _deduplicate_recovered_by_label(
 def _balance_recovered_records(
     by_label: dict[str, list[dict[str, Any]]],
     target_count: int,
+    *,
+    split_ratios: tuple[float, float, float] = (0.8, 0.1, 0.1),
 ) -> tuple[
     list[dict[str, Any]],
     int,
@@ -219,12 +221,23 @@ def _balance_recovered_records(
     }
     balanced: list[dict[str, Any]] = []
     selected_by_label: dict[str, int] = {}
+    required_seed_groups = sum(1 for ratio in split_ratios if ratio > 0)
     for label in THREAT_CLASSES:
+        requested = requested_by_label[label]
         selected = _select_seed_diverse_records(
-            by_label[label], requested_by_label[label]
+            by_label[label], requested
         )
-        if selected and len({record["seed_id"] for record in selected}) < 3:
-            raise ValueError(f"label {label!r} lacks three seed groups for recovery splitting")
+        if requested > 0 and len(selected) < requested:
+            raise ValueError(
+                f"label {label!r} has {len(selected)} recoverable rows; "
+                f"{requested} were requested"
+            )
+        seed_groups = len({record["seed_id"] for record in selected})
+        if requested > 0 and seed_groups < required_seed_groups:
+            raise ValueError(
+                f"label {label!r} has {seed_groups} seed groups; "
+                f"{required_seed_groups} are required for recovery splitting"
+            )
         selected_by_label[label] = len(selected)
         balanced.extend(selected)
     return (
@@ -284,10 +297,10 @@ def optimize_recovered_records(
         by_label,
         target_count,
     )
-    publication = _write_recovered_outputs(
-        data_dir,
-        exact_records,
-        balanced,
+    publication = (
+        _write_recovered_outputs(data_dir, exact_records, balanced)
+        if target_count > 0
+        else None
     )
     requested_per_class = max(target_count // len(THREAT_CLASSES), 0)
     return {
@@ -310,13 +323,14 @@ def optimize_recovered_records(
         "selected_by_label": selected_by_label,
         "balanced_total": len(balanced),
         "balanced_by_label": _count_labels(balanced),
-        "recovery_generation_id": publication["generation_id"],
-        "recovery_current_pointer": str(publication["current_pointer"]),
-        "recovery_manifest_path": str(publication["manifest_path"]),
-        "merged_output_path": str(publication["merged_path"]),
-        "balanced_output_path": str(publication["balanced_path"]),
-        "split_dir": str(publication["split_dir"]),
-        "split_counts": publication["split_counts"],
+        "publication_status": "published" if publication is not None else "not_requested",
+        "recovery_generation_id": publication["generation_id"] if publication else None,
+        "recovery_current_pointer": str(publication["current_pointer"]) if publication else None,
+        "recovery_manifest_path": str(publication["manifest_path"]) if publication else None,
+        "merged_output_path": str(publication["merged_path"]) if publication else None,
+        "balanced_output_path": str(publication["balanced_path"]) if publication else None,
+        "split_dir": str(publication["split_dir"]) if publication else None,
+        "split_counts": publication["split_counts"] if publication else {},
     }
 def _prepare_gap_fill(
     settings: Any,
