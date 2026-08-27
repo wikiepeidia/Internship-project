@@ -82,7 +82,8 @@ DESTRUCTIVE_HEAD = re.compile(
 )
 SECRET_VALUE = re.compile(
     r"(?ix)(?:\b(?:sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|hf_[A-Za-z0-9]{8,})\b|"
-    r"(?:\$env:)?\b(?:api[_-]?key|access[_-]?token|secret|password)\b\s*(?:=|:)\s*[\"']?"
+    r"(?:(?:\$env:)?\b(?:api[_-]?key|access[_-]?token|secret|password)\b\s*(?:=|:)\s*|"
+    r"--(?:api[_-]?key|access[_-]?token|secret|password)\b(?:\s*=\s*|\s+))[\"']?"
     r"(?!<redacted>|redacted\b|x{4,}\b|\*{4,}\b)[A-Za-z0-9_./+=-]{8,})"
 )
 BANNED_OVERCLAIMS = (
@@ -184,8 +185,9 @@ def _command_segments(document: str) -> Iterator[str]:
         re.compile(r"(?i)^(?:powershell|powershell\.exe|pwsh|pwsh\.exe)\b.*?\s-Command\s+"),
         re.compile(r"(?i)^(?:sh|bash)\s+-c\s+"),
     )
-    for raw_line in document.splitlines():
-        line = raw_line.strip()
+
+    def normalize_prefix(value: str) -> str:
+        line = value.strip()
         previous = None
         while line and line != previous:
             previous = line
@@ -195,9 +197,15 @@ def _command_segments(document: str) -> Iterator[str]:
             line = line.strip("`\"'").strip()
             for wrapper in wrappers:
                 line = wrapper.sub("", line).strip().strip("`\"'").strip()
+            line = re.sub(r"^(?:&|\.)\s+", "", line).strip()
+        return line
+
+    for raw_line in document.splitlines():
+        line = normalize_prefix(raw_line)
         for segment in re.split(r"\s*(?:&&|\|\||;)\s*", line):
-            if segment:
-                yield segment
+            normalized = normalize_prefix(segment)
+            if normalized:
+                yield normalized
 
 
 def _assert_safe_static_text(document: str) -> None:
@@ -366,6 +374,9 @@ def test_static_validators_reject_missing_authority_invented_facts_and_commands(
         r"PS C:\repo> rd /s /q candidate",
         "- cmd /c del /q candidate",
         "> PowerShell -Command Remove-Item -Recurse candidate",
+        'PowerShell -Command "& Remove-Item -Recurse candidate"',
+        'PowerShell -Command ". Remove-Item -Recurse candidate"',
+        'echo safe; & Remove-Item -Recurse candidate',
         "1. sh -c 'rm -rf candidate'",
     )
     secret_mutations = (
@@ -375,11 +386,16 @@ def test_static_validators_reject_missing_authority_invented_facts_and_commands(
         "token=ghp_abcdefgh1234",
         "token=github_pat_abcdefgh1234",
         "token=hf_abcdefgh1234",
+        "--api-key=actualvalue123",
+        "--api-key actualvalue123",
     )
     for mutation in (*destructive_mutations, *secret_mutations):
         with pytest.raises(AssertionError):
             _assert_safe_static_text(storage + "\n" + mutation + "\n")
-    for redacted in ("api_key=<redacted>", "access_token=********"):
+    for redacted in (
+        "api_key=<redacted>", "access_token=********",
+        "--api-key=<redacted>", "--api-key ********",
+    ):
         _assert_safe_static_text(storage + "\n" + redacted + "\n")
 
 
