@@ -8,6 +8,8 @@ import io
 import ntpath
 import os
 from pathlib import Path
+import subprocess
+import sys
 from typing import Any, Callable
 
 
@@ -15,6 +17,20 @@ PHASE411_GUARD_INSTALLED = False
 _REJECTED: list[dict[str, str]] = []
 _UNDERLYING_FORBIDDEN: list[dict[str, str]] = []
 _ORIGINALS: dict[str, Callable[..., Any]] = {}
+
+
+def _startup_descriptors() -> frozenset[int]:
+    inherited: set[int] = set()
+    for descriptor in range(256):
+        try:
+            os.fstat(descriptor)
+        except OSError:
+            continue
+        inherited.add(descriptor)
+    return frozenset(inherited)
+
+
+_INHERITED_FDS = _startup_descriptors()
 
 
 def _strip_windows_namespace(value: str) -> str:
@@ -81,6 +97,19 @@ def _wrapped(
             if position < len(args):
                 values.append(args[position])
         values.extend(kwargs[key] for key in path_keywords if key in kwargs)
+        if any(
+            key.endswith("dir_fd") and value is not None
+            for key, value in kwargs.items()
+        ):
+            raise PermissionError(
+                f"Phase 41.1 descriptor-relative filesystem call blocked: {name}"
+            )
+        if any(
+            isinstance(value, int) and value in _INHERITED_FDS for value in values
+        ):
+            raise PermissionError(
+                f"Phase 41.1 inherited file descriptor blocked: {name}"
+            )
         for value in values:
             _reject(name, value)
         for value in values:
@@ -115,6 +144,42 @@ def _preserve_child_bootstrap() -> None:
     normalized = {ntpath.normcase(ntpath.abspath(item)) for item in entries}
     if ntpath.normcase(_BOOTSTRAP_DIR) not in normalized:
         os.environ["PYTHONPATH"] = os.pathsep.join([_BOOTSTRAP_DIR, *entries])
+
+
+def _guarded_popen_init(original: Callable[..., Any]) -> Callable[..., Any]:
+    """Permit only guarded child Python and reviewed read-only git commands."""
+
+    @functools.wraps(original)
+    def guard(self: object, args: object, *popen_args: object, **kwargs: object) -> Any:
+        if kwargs.get("shell"):
+            raise PermissionError("Phase 41.1 subprocess shell execution is forbidden")
+        if kwargs.get("close_fds") is False or kwargs.get("pass_fds"):
+            raise PermissionError("Phase 41.1 subprocess descriptor inheritance is forbidden")
+        if not isinstance(args, (list, tuple)) or not args:
+            raise PermissionError("Phase 41.1 subprocess arguments must be a closed sequence")
+        argv = [os.fsdecode(os.fspath(value)) for value in args]
+        for value in argv:
+            _reject("subprocess.Popen", value)
+        executable = ntpath.normcase(ntpath.abspath(_strip_windows_namespace(argv[0])))
+        python = ntpath.normcase(ntpath.abspath(sys.executable))
+        if executable == python:
+            environment = kwargs.get("env") or os.environ
+            python_path = environment.get("PYTHONPATH", "")
+            entries = {
+                ntpath.normcase(ntpath.abspath(item))
+                for item in python_path.split(os.pathsep)
+                if item
+            }
+            if ntpath.normcase(_BOOTSTRAP_DIR) not in entries:
+                raise PermissionError("Phase 41.1 child Python must inherit the deny-open bootstrap")
+        elif ntpath.basename(executable) in {"git", "git.exe"}:
+            if len(argv) < 2 or argv[1] not in {"ls-files", "rev-parse", "cat-file"}:
+                raise PermissionError("Phase 41.1 git subprocess is not in the read-only allowlist")
+        else:
+            raise PermissionError("Phase 41.1 non-Python subprocess is forbidden")
+        return original(self, args, *popen_args, **kwargs)
+
+    return guard
 
 
 def phase411_guard_snapshot() -> dict[str, list[dict[str, str]]]:
@@ -178,6 +243,8 @@ def install_phase411_deny_open_guard() -> None:
         _patch(Path, name)
     for name in ("rename", "replace"):
         _patch(Path, name, positions=(0, 1), keywords=("target",))
+    _ORIGINALS["subprocess.Popen.__init__"] = subprocess.Popen.__init__
+    subprocess.Popen.__init__ = _guarded_popen_init(subprocess.Popen.__init__)
     PHASE411_GUARD_INSTALLED = True
 
 

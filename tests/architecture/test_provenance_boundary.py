@@ -443,6 +443,24 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
     assert payload["snapshot"]["underlying_forbidden"] == []
 
 
+def test_deny_open_guard_blocks_descriptors_and_non_python_subprocesses() -> None:
+    import sitecustomize
+
+    with pytest.raises(PermissionError, match="descriptor-relative"):
+        os.open("synthetic-relative.jsonl", os.O_RDONLY, dir_fd=12345)
+    if not sitecustomize._INHERITED_FDS:
+        pytest.skip("no inherited descriptors are open in this process")
+    with pytest.raises(PermissionError, match="inherited file descriptor"):
+        open(next(iter(sitecustomize._INHERITED_FDS)), "rb")
+    with pytest.raises(PermissionError, match="non-Python subprocess"):
+        subprocess.run(
+            [os.environ.get("COMSPEC", "cmd.exe"), "/c", "echo", "synthetic"],
+            check=False,
+        )
+
+    assert sitecustomize.phase411_guard_snapshot()["underlying_forbidden"] == []
+
+
 def test_protected_authorities_match_fixed_baseline() -> None:
     baseline = _strict_json(FIXTURE_PATH.read_bytes())
     commit = baseline["baseline_commit"]
