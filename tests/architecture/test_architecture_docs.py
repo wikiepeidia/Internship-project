@@ -23,46 +23,55 @@ MODEL_ERROR_CLAIM = (
     "handler return preserved; stdout and stderr preserved; caught "
     "RuntimeError/ValueError/FileNotFoundError -> stderr and return 1"
 )
-ORDERED_FLOW_NODES = {
-    "N1": "1. Installed application",
-    "N2": "2. Runtime orchestration",
-    "N3": "3. Integrity and artifacts",
-    "N4": "4. Data core",
-    "N5": "5. External data workflows",
-    "N6": "6. Migration catalog",
-    "N7": "7. Modeling services",
-    "N8": "8. Runtime analyzers",
-    "N9": "9. Evaluation and evidence",
-    "N10": "10. Compatibility and provenance",
-}
-ORDERED_FLOW_EDGES = {
-    (f"N{number}", f"N{number + 1}") for number in range(1, 10)
-}
-DATA_FLOW_NODES = {
-    "D1": "External workflows",
-    "D2": "Data core",
-    "D3": "Model training port",
-    "D4": "Versioned artifacts",
-    "D5": "Model inference port",
-    "D6": "Runtime service",
-    "D7": "Installed vnphish CLI",
-    "D8": "Evaluation port",
-    "D9": "Read-only evidence",
-    "D10": "Report handoff",
-    "DH": "Historical producer closure",
-}
-DATA_FLOW_EDGES = {
-    ("D1", "D2"),
-    ("D2", "D3"),
-    ("D3", "D4"),
-    ("D4", "D5"),
-    ("D5", "D6"),
-    ("D6", "D7"),
-    ("D4", "D8"),
-    ("D8", "D9"),
-    ("DH", "D9"),
-    ("D9", "D10"),
-}
+SECTION_HEADINGS = (
+    "1. Installed application",
+    "2. Runtime orchestration",
+    "3. Integrity, artifacts, and source archiving",
+    "4. Data core",
+    "5. External data workflows",
+    "6. Migration catalog",
+    "7. Modeling services",
+    "8. Runtime analyzers",
+    "9. Evaluation and evidence",
+    "10. Compatibility and provenance",
+)
+ORDERED_FLOW_NODES = tuple(
+    (f"N{number}", heading) for number, heading in enumerate(SECTION_HEADINGS, 1)
+)
+ORDERED_FLOW_EDGES = tuple(
+    (f"N{number}", "-->", f"N{number + 1}") for number in range(1, 10)
+)
+DATA_FLOW_NODES = (
+    ("D1", "External workflows"),
+    ("D2", "Data core"),
+    ("D3", "Model training port"),
+    ("D4", "Versioned artifacts"),
+    ("D5", "Model inference port"),
+    ("D6", "Runtime service"),
+    ("D7", "Installed vnphish CLI"),
+    ("D8", "Evaluation port"),
+    ("D9", "Read-only evidence"),
+    ("D10", "Report handoff"),
+    ("DH", "Historical producer closure"),
+)
+DATA_FLOW_EDGES = (
+    ("D1", "-->", "D2"),
+    ("D2", "-->", "D3"),
+    ("D3", "-->", "D4"),
+    ("D4", "-->", "D5"),
+    ("D5", "-->", "D6"),
+    ("D6", "-->", "D7"),
+    ("D4", "-->", "D8"),
+    ("D8", "-->", "D9"),
+    ("DH", "-.->", "D9"),
+    ("D9", "-->", "D10"),
+)
+DEPENDENCY_FLOW_NODES = (
+    ("A", "Active domain modules"),
+    ("C", "Compatibility adapters"),
+    ("H", "Historical implementations"),
+)
+DEPENDENCY_FLOW_EDGES = (("C", "-->", "H"),)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -115,68 +124,211 @@ def _mermaid_graph(document: str, name: str) -> tuple[dict[str, str], set[tuple[
     return nodes, edges
 
 
-def _expected_policy_groups(policy: Mapping[str, Any]) -> dict[str, set[str]]:
+def _policy_groups(policy: Mapping[str, Any]) -> list[tuple[str, list[str]]]:
     data = policy["data_modules"]
+    assert isinstance(data, dict) and data
+    groups: list[tuple[str, list[str]]] = [
+        ("active", list(policy["active_modules"])),
+        ("compatibility_adapters", list(policy["compatibility_adapters"])),
+        ("historical", list(policy["historical_modules"])),
+    ]
+    groups.extend((f"data.{name}", list(data[name])) for name in sorted(data))
+    groups.append(("ownership_indexes", list(policy["ownership_indexes"].values())))
+    return groups
+
+
+def _render_mermaid(
+    nodes: tuple[tuple[str, str], ...],
+    edges: tuple[tuple[str, str, str], ...],
+) -> str:
+    rows = ["```mermaid", "flowchart LR"]
+    rows.extend(f'  {node_id}["{label}"]' for node_id, label in nodes)
+    rows.extend(f"  {source} {arrow} {target}" for source, arrow, target in edges)
+    rows.append("```")
+    return "\n".join(rows)
+
+
+def _render_policy_groups(policy: Mapping[str, Any]) -> str:
+    static = policy["static_policy"]
+    rows = ["| Policy group | Modules |", "| --- | --- |"]
+    rows.extend(
+        f"| `{group}` | " + "<br>".join(f"`{module}`" for module in modules) + " |"
+        for group, modules in _policy_groups(policy)
+    )
+    rows.extend(
+        [
+            "",
+            "#### Tool inventory",
+            "",
+            "| Path | Lifecycle | Language | Kind | Language scope | Imports | Routes |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for tool in static["tools"]:
+        imports = "<br>".join(f"`{value}`" for value in tool["imports"]) or "—"
+        routes = "<br>".join(
+            "`" + " ".join(route) + "`" for route in tool["routes"]
+        ) or "—"
+        rows.append(
+            f"| `{tool['path']}` | `{tool['lifecycle']}` | `{tool['language']}` | "
+            f"`{tool['kind']}` | `{tool['phase_language']}` | {imports} | {routes} |"
+        )
+    rows.extend(
+        [
+            "",
+            "#### Static line budgets",
+            "",
+            "| Budget | Maximum physical or AST lines |",
+            "| --- | ---: |",
+        ]
+    )
+    rows.extend(
+        f"| `{name}` | {limit} |"
+        for name, limit in static["line_limits"].items()
+    )
+    rows.extend(
+        [
+            "",
+            "#### Budgeted code",
+            "",
+            "| Kind | Path |",
+            "| --- | --- |",
+        ]
+    )
+    rows.extend(
+        f"| `module` | `{module}` |" for module in static["budgeted_modules"]
+    )
+    rows.extend(
+        f"| `tool` | `{path}` |" for path in static["budgeted_tools"]
+    )
+    rows.extend(
+        [
+            "",
+            "#### Existing budget debt",
+            "",
+            "| Path | Symbol | Measured lines | Owner | Reason |",
+            "| --- | --- | ---: | --- | --- |",
+        ]
+    )
+    rows.extend(
+        f"| `{item['path']}` | `{item['symbol']}` | {item['measured_lines']} | "
+        f"`{item['owner']}` | {item['reason']} |"
+        for item in static["existing_budget_debt"]
+    )
+    return "\n".join(rows)
+
+
+def _render_policy_edges(policy: Mapping[str, Any]) -> str:
+    static = policy["static_policy"]
+    rows = [
+        "| Relation | Source | Target |",
+        "| --- | --- | --- |",
+    ]
+    rows.extend(
+        f"| `active import` | `{source}` | `{target}` |"
+        for source, target in static["active_edges"]
+    )
+    rows.extend(
+        f"| `active tool import` | `{source}` | `{target}` |"
+        for source, target in static["active_tool_edges"]
+    )
+    rows.extend(
+        f"| `compatibility to history` | `{source}` | `{target}` |"
+        for source, target in policy["allowed_edges"]
+    )
+    return "\n".join(rows)
+
+
+def _render_historical_sccs(policy: Mapping[str, Any]) -> str:
+    rows = ["| Historical SCC members |", "| --- |"]
+    rows.extend(
+        "| " + "<br>".join(f"`{module}`" for module in component) + " |"
+        for component in policy["historical_sccs"]
+    )
+    return "\n".join(rows)
+
+
+def render_overview_blocks(policy: Mapping[str, Any]) -> dict[str, str]:
+    """Render every generated overview block from the machine policy."""
+
     return {
-        "active": set(policy["active_modules"]),
-        "compatibility_adapters": set(policy["compatibility_adapters"]),
-        "historical": set(policy["historical_modules"]),
-        "data.core": set(data["core"]),
-        "data.compatibility": set(data["compatibility"]),
-        "data.workflows": set(data["workflows"]),
-        "data.migrations": set(data["migrations"]),
-        "ownership_indexes": set(policy["ownership_indexes"].values()),
+        "ordered-flow": _render_mermaid(ORDERED_FLOW_NODES, ORDERED_FLOW_EDGES),
+        "data-flow": _render_mermaid(DATA_FLOW_NODES, DATA_FLOW_EDGES),
+        "dependency-flow": _render_mermaid(
+            DEPENDENCY_FLOW_NODES, DEPENDENCY_FLOW_EDGES
+        ),
+        "policy-groups": _render_policy_groups(policy),
+        "policy-edges": _render_policy_edges(policy),
+        "historical-sccs": _render_historical_sccs(policy),
     }
+
+
+def _assert_exact_generated_block(document: str, name: str, expected: str) -> None:
+    assert _marked_block(document, name) == f"\n{expected}\n"
 
 
 def _validate_overview(document: str, policy: Mapping[str, Any]) -> None:
-    headings = re.findall(r"^## ([0-9]+)\. ", document, flags=re.MULTILINE)
-    assert headings == [str(number) for number in range(1, 11)]
-    group_rows = _table_rows(document, "policy-groups", 2)
-    groups = {
-        _unquote(group): {
-            _unquote(module)
-            for module in modules.split("<br>")
-            if module
-        }
-        for group, modules in group_rows
-    }
-    assert groups == _expected_policy_groups(policy)
+    headings = re.findall(r"^## (.+)$", document, flags=re.MULTILINE)
+    assert tuple(headings) == SECTION_HEADINGS
+    rendered = render_overview_blocks(policy)
+    for name, expected in rendered.items():
+        _assert_exact_generated_block(document, name, expected)
 
-    edge_rows = _table_rows(document, "policy-edges", 2)
-    edges = [(_unquote(source), _unquote(target)) for source, target in edge_rows]
-    assert edges == [tuple(edge) for edge in policy["allowed_edges"]]
-
-    scc_rows = _table_rows(document, "historical-sccs", 1)
-    sccs = {
-        tuple(sorted(_unquote(module) for module in row[0].split("<br>")))
-        for row in scc_rows
-    }
-    assert sccs == {
-        tuple(sorted(component)) for component in policy["historical_sccs"]
-    }
-
-    dependency_nodes, dependency_edges = _mermaid_graph(document, "dependency-flow")
-    assert dependency_nodes == {
-        "A": "Active domain modules",
-        "C": "Compatibility adapters",
-        "H": "Historical implementations",
-    }
+    active = set(policy["active_modules"])
+    active_edges = [tuple(edge) for edge in policy["static_policy"]["active_edges"]]
+    assert active_edges == sorted(set(active_edges))
+    assert all(set(edge) <= active for edge in active_edges)
     allowed = [tuple(edge) for edge in policy["allowed_edges"]]
+    assert allowed == sorted(set(allowed))
     assert allowed
     assert all(edge[0] in policy["compatibility_adapters"] for edge in allowed)
     assert all(edge[1] in policy["historical_modules"] for edge in allowed)
-    assert dependency_edges == {("C", "H")}
+    tools = policy["static_policy"]["tools"]
+    assert len(tools) == 11 and len({tool["path"] for tool in tools}) == 11
+    tool_paths = {tool["path"] for tool in tools}
+    assert all(
+        source in tool_paths and target in active
+        for source, target in policy["static_policy"]["active_tool_edges"]
+    )
+    assert len(policy["historical_sccs"]) == 4
+    assert {
+        "src.config",
+        "src.config.settings",
+        "src.source_archiving",
+        "src.source_archiving.contracts",
+        "src.source_archiving.filesystem",
+        "src.source_archiving.service",
+    } <= active
+    assert [
+        "scripts/archive_phase41_source_closure.py",
+        "src.source_archiving",
+    ] in policy["static_policy"]["active_tool_edges"]
+    assert [
+        "src.source_archiving.filesystem",
+        "src.core_binding",
+    ] in policy["static_policy"]["active_edges"]
+    assert [
+        "src.source_archiving.service",
+        "src.source_archiving.filesystem",
+    ] in policy["static_policy"]["active_edges"]
 
+    dependency_nodes, dependency_edges = _mermaid_graph(document, "dependency-flow")
+    assert dependency_nodes == dict(DEPENDENCY_FLOW_NODES)
+    assert dependency_edges == {("C", "H")}
     ordered_nodes, ordered_edges = _mermaid_graph(document, "ordered-flow")
-    assert ordered_nodes == ORDERED_FLOW_NODES
-    assert ordered_edges == ORDERED_FLOW_EDGES
+    assert ordered_nodes == dict(ORDERED_FLOW_NODES)
+    assert ordered_edges == {
+        (source, target) for source, _arrow, target in ORDERED_FLOW_EDGES
+    }
     data_nodes, data_edges = _mermaid_graph(document, "data-flow")
-    assert data_nodes == DATA_FLOW_NODES
-    assert data_edges == DATA_FLOW_EDGES
+    assert data_nodes == dict(DATA_FLOW_NODES)
+    assert data_edges == {
+        (source, target) for source, _arrow, target in DATA_FLOW_EDGES
+    }
 
     assert "Historical phase-numbered names are compatibility/provenance labels only" in document
     assert "does not claim that the refactored code produced frozen metrics" in document
+    assert "archive compatibility facade -> `src.source_archiving` -> `src.source_archiving.service`" in document
 
 
 def _runtime_rows(fixture: Mapping[str, Any]) -> list[tuple[str, str, str, str, str]]:
@@ -295,6 +447,87 @@ def test_overview_validator_rejects_policy_or_document_drift() -> None:
     )
     with pytest.raises(AssertionError):
         _validate_overview(extra_node, policy)
+
+    policy_mutations: list[dict[str, Any]] = []
+
+    new_data_group = deepcopy(policy)
+    new_data_group["data_modules"]["unreviewed"] = ["src.unreviewed.module"]
+    policy_mutations.append(new_data_group)
+
+    reordered_module = deepcopy(policy)
+    reordered_module["active_modules"][0:2] = reversed(
+        reordered_module["active_modules"][0:2]
+    )
+    policy_mutations.append(reordered_module)
+
+    reordered_edge = deepcopy(policy)
+    reordered_edge["allowed_edges"][0:2] = reversed(
+        reordered_edge["allowed_edges"][0:2]
+    )
+    policy_mutations.append(reordered_edge)
+
+    reordered_scc = deepcopy(policy)
+    reordered_scc["historical_sccs"][0][0:2] = reversed(
+        reordered_scc["historical_sccs"][0][0:2]
+    )
+    policy_mutations.append(reordered_scc)
+
+    duplicate_active_edge = deepcopy(policy)
+    duplicate_active_edge["static_policy"]["active_edges"].append(
+        deepcopy(duplicate_active_edge["static_policy"]["active_edges"][0])
+    )
+    policy_mutations.append(duplicate_active_edge)
+
+    endpoint_misclassified = deepcopy(policy)
+    endpoint_misclassified["allowed_edges"][0][1] = endpoint_misclassified[
+        "active_modules"
+    ][0]
+    policy_mutations.append(endpoint_misclassified)
+
+    for mutation in policy_mutations:
+        with pytest.raises(AssertionError):
+            _validate_overview(document, mutation)
+
+    duplicate_mermaid_edge = document.replace(
+        "  D1 --> D2\n",
+        "  D1 --> D2\n  D1 --> D2\n",
+        1,
+    )
+    with pytest.raises(AssertionError):
+        _validate_overview(duplicate_mermaid_edge, policy)
+
+    missing_mermaid_edge = document.replace("  D1 --> D2\n", "", 1)
+    with pytest.raises(AssertionError):
+        _validate_overview(missing_mermaid_edge, policy)
+
+    reversed_mermaid_edge = document.replace("  D1 --> D2", "  D2 --> D1", 1)
+    with pytest.raises(AssertionError):
+        _validate_overview(reversed_mermaid_edge, policy)
+
+    nested_marker = document.replace(
+        "<!-- policy-groups:start -->",
+        "<!-- policy-groups:start -->\n<!-- policy-groups:start -->",
+        1,
+    )
+    with pytest.raises(AssertionError):
+        _validate_overview(nested_marker, policy)
+
+    renamed_heading = document.replace(
+        "## 1. Installed application",
+        "## 1. Renamed application",
+        1,
+    )
+    with pytest.raises(AssertionError):
+        _validate_overview(renamed_heading, policy)
+
+    for marker_name in render_overview_blocks(policy):
+        injected_prose = document.replace(
+            f"<!-- {marker_name}:start -->",
+            f"<!-- {marker_name}:start -->\nPhase 91 narrative bypass",
+            1,
+        )
+        with pytest.raises(AssertionError):
+            _validate_overview(injected_prose, policy)
 
 
 def test_cli_validator_rejects_fixture_command_or_behavior_drift() -> None:

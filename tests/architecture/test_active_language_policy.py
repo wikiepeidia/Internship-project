@@ -32,10 +32,25 @@ RUNTIME_CLI_FIXTURE_PATH = (
     REPO_ROOT / "tests" / "architecture" / "fixtures" / "runtime_cli_contract.json"
 )
 
-_PHASE_PATTERN = re.compile(r"phase[ _-]*[0-9]+", re.IGNORECASE)
+_PHASE_PATTERN = re.compile(
+    r"phase[\s_\-\u00a0\u2010-\u2015\u2212]*[0-9]+",
+    re.IGNORECASE,
+)
 _LITERAL_BOUNDARY_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./\\:-"
 )
+_FROZEN_OWNER_REFERENCE_CONTEXTS = {
+    "src/source_archiving/contracts.py": {
+        "SOURCE_PHASE41_EVALUATION": (
+            "SOURCE_PHASE41_EVALUATION",
+            "_SOURCE_PATHS",
+            "_WORKTREE_MISMATCHES",
+        ),
+    },
+    "scripts/archive_phase41_source_closure.py": {
+        "SOURCE_PHASE41_EVALUATION": ("SOURCE_PHASE41_EVALUATION",),
+    },
+}
 _BLOCKED_IMPORT_PREFIXES = (
     "anthropic",
     "bitsandbytes",
@@ -259,38 +274,21 @@ def _assert_table_only_marker(text: str, row: dict[str, str], width: int) -> Non
 
 
 def _expected_policy_groups_body(policy: dict[str, Any]) -> str:
-    data = policy["data_modules"]
-    groups = (
-        ("active", policy["active_modules"]),
-        ("compatibility_adapters", policy["compatibility_adapters"]),
-        ("historical", policy["historical_modules"]),
-        ("data.core", data["core"]),
-        ("data.compatibility", data["compatibility"]),
-        ("data.workflows", data["workflows"]),
-        ("data.migrations", data["migrations"]),
-        ("ownership_indexes", list(policy["ownership_indexes"].values())),
-    )
-    rows = ["| Policy group | Modules |", "| --- | --- |"]
-    rows.extend(
-        f"| `{group}` | " + "<br>".join(f"`{module}`" for module in modules) + " |"
-        for group, modules in groups
-    )
-    return "\n".join(rows)
+    from tests.architecture.test_architecture_docs import render_overview_blocks
+
+    return render_overview_blocks(policy)["policy-groups"]
 
 
 def _expected_policy_edges_body(policy: dict[str, Any]) -> str:
-    rows = ["| Adapter source | Historical target |", "| --- | --- |"]
-    rows.extend(f"| `{source}` | `{target}` |" for source, target in policy["allowed_edges"])
-    return "\n".join(rows)
+    from tests.architecture.test_architecture_docs import render_overview_blocks
+
+    return render_overview_blocks(policy)["policy-edges"]
 
 
 def _expected_historical_scc_body(policy: dict[str, Any]) -> str:
-    rows = ["| Historical SCC members |", "| --- |"]
-    rows.extend(
-        "| " + "<br>".join(f"`{module}`" for module in component) + " |"
-        for component in policy["historical_sccs"]
-    )
-    return "\n".join(rows)
+    from tests.architecture.test_architecture_docs import render_overview_blocks
+
+    return render_overview_blocks(policy)["historical-sccs"]
 
 
 def _expected_cli_contract_body() -> str:
@@ -351,6 +349,105 @@ def _expected_cli_contract_body() -> str:
     return "\n".join(rows)
 
 
+def _assignment_owns_name(node: ast.AST, name: str) -> bool:
+    targets: list[ast.expr] = []
+    if isinstance(node, ast.Assign):
+        targets = list(node.targets)
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    return any(isinstance(target, ast.Name) and target.id == name for target in targets)
+
+
+def _owner_ast_node(tree: ast.Module, owner_symbol: str) -> ast.AST | None:
+    if owner_symbol == "<module>.__doc__":
+        return _docstring_expression(tree.body, "module")
+
+    parts = owner_symbol.split(".")
+    if len(parts) == 2:
+        class_name, member_name = parts
+        classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == class_name
+        ]
+        if len(classes) != 1:
+            return None
+        members = [
+            node
+            for node in classes[0].body
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == member_name
+            )
+            or _assignment_owns_name(node, member_name)
+        ]
+        return members[0] if len(members) == 1 else None
+
+    if len(parts) != 1:
+        return None
+    name = parts[0]
+    owners = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+            and node.name == name
+        )
+        or _assignment_owns_name(node, name)
+    ]
+    return owners[0] if len(owners) == 1 else None
+
+
+def _source_offset(lines: list[str], line_number: int, byte_column: int) -> int:
+    prefix = lines[line_number - 1].encode("utf-8")[:byte_column].decode("utf-8")
+    return sum(len(line) for line in lines[: line_number - 1]) + len(prefix)
+
+
+def _ast_node_span(text: str, node: ast.AST) -> tuple[int, int]:
+    assert hasattr(node, "lineno") and hasattr(node, "end_lineno")
+    lines = text.splitlines(keepends=True)
+    return (
+        _source_offset(lines, node.lineno, node.col_offset),
+        _source_offset(lines, node.end_lineno, node.end_col_offset),
+    )
+
+
+def _python_owner_reference_spans(
+    logical_path: str,
+    text: str,
+    contract: dict[str, Any],
+) -> list[tuple[int, int]]:
+    references = _FROZEN_OWNER_REFERENCE_CONTEXTS.get(logical_path, {})
+    if not references:
+        return []
+    declared_symbols = {
+        row["owner_symbol"] for row in contract["frozen_literal_owners"]
+    }
+    assert set(references) <= declared_symbols
+    try:
+        tree = ast.parse(text, filename=logical_path)
+    except SyntaxError:
+        return []
+
+    spans: list[tuple[int, int]] = []
+    for identifier, owner_symbols in references.items():
+        identifier_pattern = re.compile(
+            rf"(?<![A-Za-z0-9_]){re.escape(identifier)}(?![A-Za-z0-9_])"
+        )
+        occurrences = [match.span() for match in identifier_pattern.finditer(text)]
+        for owner_symbol in owner_symbols:
+            owner = _owner_ast_node(tree, owner_symbol)
+            if owner is None:
+                continue
+            owner_start, owner_end = _ast_node_span(text, owner)
+            spans.extend(
+                (start, end)
+                for start, end in occurrences
+                if owner_start <= start and end <= owner_end
+            )
+    return spans
+
+
 def _literal_exception_spans(
     logical_path: str,
     text: str,
@@ -358,8 +455,25 @@ def _literal_exception_spans(
 ) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
     for row in contract["frozen_literal_owners"]:
-        if row["path"] == logical_path:
-            spans.extend(_exact_literal_spans(text, row["literal"]))
+        if row["path"] != logical_path:
+            continue
+        literal_spans = _exact_literal_spans(text, row["literal"])
+        if not logical_path.endswith(".py"):
+            spans.extend(literal_spans)
+            continue
+        try:
+            tree = ast.parse(text, filename=logical_path)
+        except SyntaxError:
+            continue
+        owner = _owner_ast_node(tree, row["owner_symbol"])
+        if owner is None:
+            continue
+        owner_start, owner_end = _ast_node_span(text, owner)
+        spans.extend(
+            (start, end)
+            for start, end in literal_spans
+            if owner_start <= start and end <= owner_end
+        )
     return spans
 
 
@@ -371,6 +485,7 @@ def _scan_text(
     active_contract = contract or _active_text_fixture()
     allowed = _marker_spans(logical_path, text, active_contract)
     allowed.extend(_literal_exception_spans(logical_path, text, active_contract))
+    allowed.extend(_python_owner_reference_spans(logical_path, text, active_contract))
     violations: list[str] = []
     for match in _PHASE_PATTERN.finditer(text):
         if any(start <= match.start() and match.end() <= end for start, end in allowed):
@@ -432,7 +547,13 @@ def _validate_exception_ownership(contract: dict[str, Any]) -> None:
         _marker_spans(logical_path, source, partial)
     for row in contract["frozen_literal_owners"]:
         source = (REPO_ROOT / row["path"]).read_text(encoding="utf-8")
-        assert _exact_literal_spans(source, row["literal"]), (
+        literal_spans = _exact_literal_spans(source, row["literal"])
+        single_owner_contract = dict(contract)
+        single_owner_contract["frozen_literal_owners"] = [row]
+        owned_spans = _literal_exception_spans(
+            row["path"], source, single_owner_contract
+        )
+        assert literal_spans and owned_spans == literal_spans, (
             f"stale or near-match frozen literal: {row['id']}"
         )
 
@@ -579,6 +700,10 @@ def test_static_language_suite_blocks_execution_imports() -> None:
         (".css", "/* Phase_91 CSS text */\nbody { color: black; }"),
         (".js", "// Phase 91 JavaScript text\nconst safe = true;"),
         (".md", "## Phase-91 Markdown text\n"),
+        (".md", "## Phase\t91 tab-separated text\n"),
+        (".md", "## Phase\u00a091 non-breaking-space text\n"),
+        (".md", "## Phase\u201391 Unicode-dash text\n"),
+        (".md", "## Phase\u221291 Unicode-minus text\n"),
     ],
 )
 def test_active_text_scanner_rejects_every_supported_source_language(
@@ -608,7 +733,12 @@ def test_active_text_allowlist_is_exact_and_marker_scoped() -> None:
     assert all((REPO_ROOT / path).is_file() for path in fixture["binary_assets"])
 
     literal = fixture["frozen_literal_owners"][0]
-    assert _scan_text(literal["path"], literal["literal"], fixture) == []
+    literal_source = (REPO_ROOT / literal["path"]).read_text(encoding="utf-8")
+    assert _scan_text(literal["path"], literal_source, fixture) == []
+    moved_literal = literal_source.replace(literal["literal"], "terminal-results-v1", 1)
+    moved_literal += f"\nMOVED_LITERAL = {literal['literal']!r}\n"
+    assert _scan_text(literal["path"], moved_literal, fixture)
+    assert _literal_exception_spans(literal["path"], moved_literal, fixture) == []
     assert _scan_text("synthetic/moved.py", literal["literal"], fixture)
     assert _scan_text(literal["path"], literal["literal"] + "-near-match", fixture)
 
@@ -633,6 +763,10 @@ def test_active_text_allowlist_is_exact_and_marker_scoped() -> None:
     stale["frozen_literal_owners"][0]["literal"] = "phase999-stale-literal"
     with pytest.raises(AssertionError, match="stale or near-match frozen literal"):
         _validate_exception_ownership(stale)
+    moved_owner = copy.deepcopy(fixture)
+    moved_owner["frozen_literal_owners"][0]["owner_symbol"] = "MOVED_LITERAL"
+    with pytest.raises(AssertionError, match="stale or near-match frozen literal"):
+        _validate_exception_ownership(moved_owner)
     duplicate = copy.deepcopy(fixture)
     duplicate["frozen_literal_owners"].append(copy.deepcopy(duplicate["frozen_literal_owners"][0]))
     with pytest.raises(AssertionError, match="duplicate frozen-literal"):
@@ -1241,7 +1375,7 @@ def test_provenance_and_storage_use_domain_narrative_or_exact_authority_markers(
         _assert_table_only_marker(prose_in_marker, expected_storage_markers[0], 4)
 
 
-def test_all_eight_active_documents_are_classified_exactly() -> None:
+def test_complete_active_text_inventory_is_clean() -> None:
     fixture = _active_text_fixture()
     policy = _policy()
     expected_active = [
@@ -1256,16 +1390,50 @@ def test_all_eight_active_documents_are_classified_exactly() -> None:
     ]
     assert fixture["active_documents"] == expected_active
     assert fixture["historical_documents"] == ["walkthrough/README.md"]
+
     scan_paths = _active_scan_paths(policy)
-    assert all(scan_paths.count(path) == 1 for path in expected_active)
-    assert "walkthrough/README.md" not in scan_paths
-    violations = [
-        violation
-        for logical_path in expected_active
-        for violation in _scan_text(
-            logical_path,
-            (REPO_ROOT / logical_path).read_text(encoding="utf-8"),
-            fixture,
-        )
+    expected_scan_paths = [
+        _module_source_path(module) for module in policy["active_modules"]
     ]
+    expected_scan_paths.extend(
+        row["path"]
+        for row in policy["static_policy"]["tools"]
+        if row["lifecycle"] in {"active", "compatibility"}
+    )
+    expected_scan_paths.extend(fixture["text_assets"])
+    expected_scan_paths.extend(expected_active)
+    assert scan_paths == expected_scan_paths
+    assert len(scan_paths) == 44
+    assert len(scan_paths) == len(set(scan_paths))
+
+    excluded_tool_paths = {
+        row["path"]
+        for row in policy["static_policy"]["tools"]
+        if row["lifecycle"] not in {"active", "compatibility"}
+    }
+    assert len(excluded_tool_paths) == 8
+    assert excluded_tool_paths.isdisjoint(scan_paths)
+    assert "walkthrough/README.md" not in scan_paths
+
+    violations: list[str] = []
+    for logical_path in scan_paths:
+        source = (REPO_ROOT / logical_path).read_text(encoding="utf-8")
+        violations.extend(_scan_text(logical_path, source, fixture))
+        mutated = source + "\n# Phase\u00a091 active-inventory mutation\n"
+        mutated_violations = _scan_text(logical_path, mutated, fixture)
+        assert any(
+            violation.rsplit(":", 1)[-1] == "Phase\u00a091"
+            for violation in mutated_violations
+        ), f"active scan mutation escaped: {logical_path}"
     assert violations == []
+
+    _validate_exception_ownership(fixture)
+    handoff = (
+        REPO_ROOT
+        / ".planning/phases/41.1-codebase-architecture-overhaul/"
+        "41.1-REPORT-HANDOFF.md"
+    ).read_text(encoding="utf-8")
+    assert "current typo-heavy explanatory wording is not defense-ready" in handoff
+    assert "later report/user-document work" in handoff
+    assert "does not rewrite it or" in handoff
+    assert "claim that its prose quality has been reviewed" in handoff
