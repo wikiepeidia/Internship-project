@@ -461,6 +461,10 @@ def test_runtime_minimum_python_matches_package_metadata() -> None:
         "Khong lo, click vao link de xac minh.",
         "Xác minh qua tổng đài; trả lời tin nhắn này để nhận mã.",
         "Tranh hoang mang, chuyen tien ngay de bao toan tai khoan.",
+        "Không lo bấm vào liên kết mà chuyển tiền để xác minh",
+        "Khong bam vao lien ket ma chuyen tien de xac minh",
+        "Không bấm vào liên kết mà chuyển tiền để xác minh",
+        "Khong click link roi transfer money de xac minh",
     ),
 )
 def test_recommendation_filter_rejects_mixed_clause_actions(text: str) -> None:
@@ -473,6 +477,7 @@ def test_recommendation_filter_rejects_mixed_clause_actions(text: str) -> None:
     (
         "Không bấm vào liên kết hoặc cài ứng dụng từ tin nhắn.",
         "Khong chia se OTP hoac cung cap CVV.",
+        "Không bấm vào liên kết hoặc cài ứng dụng từ tin nhắn.",
         "Xác minh qua ứng dụng chính thức.",
     ),
 )

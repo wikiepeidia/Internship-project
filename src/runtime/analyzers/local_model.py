@@ -544,17 +544,39 @@ def _build_helper_evidence(helper_cues: list[HelperCue], *, labels: list[ThreatL
 def _is_unsafe_recommendation(text: str) -> bool:
     lowered = text.casefold().strip()
     for clause in re.split(r"[,.!?;:\n]+", lowered):
-        clause = clause.strip()
-        if not clause or not any(
-            marker in clause for marker in UNSAFE_RECOMMENDATION_MARKERS
+        clause = " ".join(clause.split())
+        occurrences = sorted(
+            (clause.find(marker), marker)
+            for marker in UNSAFE_RECOMMENDATION_MARKERS
+            if marker in clause
+        )
+        if not clause or not occurrences:
+            continue
+        negations = ("khong", "không", "dung", "đừng", "tranh", "tránh")
+        first_start, first_marker = occurrences[0]
+        if not any(
+            clause.startswith(f"{negation} {first_marker}")
+            for negation in negations
         ):
-            continue
-        # Negation applies only to unsafe actions in the same bounded clause.
-        # A harmless prefix in an earlier clause must never whitelist a later
-        # instruction such as "Không lo, bấm vào liên kết".
-        if re.match(r"^(?:khong|không|dung|đừng|tranh|tránh)\b", clause):
-            continue
-        return True
+            return True
+        previous_end = first_start + len(first_marker)
+        for start, marker in occurrences[1:]:
+            if start < previous_end:
+                continue
+            prefix = clause[:start]
+            if any(prefix.endswith(f"{negation} ") for negation in negations):
+                previous_end = start + len(marker)
+                continue
+            bridge = clause[previous_end:start]
+            if any(
+                pivot in bridge
+                for pivot in (" mà ", " ma ", " nhưng ", " nhung ", " rồi ", " roi ")
+            ) or not any(
+                coordinator in bridge
+                for coordinator in (" hoặc ", " hoac ", " hay ", " và ", " va ")
+            ):
+                return True
+            previous_end = start + len(marker)
     return False
 
 
