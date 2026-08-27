@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 0
 waived_count: 0
-fixed_count: 4
-total_count: 4
-last_updated: 2026-08-27T01:48:05.313Z
+fixed_count: 6
+total_count: 6
+last_updated: 2026-08-27T02:25:20.429Z
 ---
 
 # Broken Windows Ledger
@@ -19,6 +19,8 @@ last_updated: 2026-08-27T01:48:05.313Z
 | 2 | 41.1 | deviation | .gitattributes |  | Historical producer closure requires text conversion disabled and Git index-blob hash verification | fixed |  | 2026-08-27T00:45:23.237Z | 2026-08-27T00:45:52.949Z |
 | 3 | 41.1 | deviation | src/artifacts.py |  | Preserved historical Windows registry newline parity in the neutral writer | fixed |  | 2026-08-27T01:47:31.167Z | 2026-08-27T01:48:04.860Z |
 | 4 | 41.1 | deviation | src/runtime/service.py |  | Closed remaining runtime settings and historical registry ownership leaks | fixed |  | 2026-08-27T01:47:31.573Z | 2026-08-27T01:48:05.313Z |
+| 5 | 41.1 | deviation | src/modeling/evidence.py |  | Closed result, export-directory, unopened-member, and materialization provenance links after the Task 2 independent audit. | fixed |  | 2026-08-27T02:24:50.246Z | 2026-08-27T02:25:19.969Z |
+| 6 | 41.1 | deviation | tests/architecture/test_modeling_evidence.py |  | Construct hash-named synthetic authorities directly to avoid OneDrive directory-rename races. | fixed |  | 2026-08-27T02:24:50.725Z | 2026-08-27T02:25:20.429Z |
 
 ````json
 [
@@ -69,6 +71,30 @@ last_updated: 2026-08-27T01:48:05.313Z
     "reason": "",
     "recorded_at": "2026-08-27T01:47:31.573Z",
     "resolved_at": "2026-08-27T01:48:05.313Z"
+  },
+  {
+    "id": 5,
+    "kind": "deviation",
+    "phase": "41.1",
+    "file": "src/modeling/evidence.py",
+    "line": null,
+    "description": "Closed result, export-directory, unopened-member, and materialization provenance links after the Task 2 independent audit.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-27T02:24:50.246Z",
+    "resolved_at": "2026-08-27T02:25:19.969Z"
+  },
+  {
+    "id": 6,
+    "kind": "deviation",
+    "phase": "41.1",
+    "file": "tests/architecture/test_modeling_evidence.py",
+    "line": null,
+    "description": "Construct hash-named synthetic authorities directly to avoid OneDrive directory-rename races.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-27T02:24:50.725Z",
+    "resolved_at": "2026-08-27T02:25:20.429Z"
   }
 ]
 ````

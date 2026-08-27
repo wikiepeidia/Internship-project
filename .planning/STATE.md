@@ -5,17 +5,17 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-03-PLAN.md
-last_updated: "2026-08-27T01:48:26.659Z"
+stopped_at: Completed 41.1-04-PLAN.md
+last_updated: "2026-08-27T02:25:42.250Z"
 last_activity: 2026-08-27
-last_activity_desc: Completed 41.1-03-PLAN.md
-state_head: 65b3341be0efa7f4274b5169f57c441f76a37e36
+last_activity_desc: Completed 41.1-04-PLAN.md
+state_head: a98cb9c759a38d5f7ed820eccc0eb680a65e7718
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 87
-  completed_plans: 58
-  percent: 13
+  completed_plans: 59
+  percent: 68
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -38,10 +38,10 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
-Last activity: 2026-08-27 — Completed 41.1-03-PLAN.md
-Progress: [█████████████░░░░░░░] 58/87 plans (67%)
+Last activity: 2026-08-27 — Completed 41.1-04-PLAN.md
+Progress: [██████████████░░░░░░] 59/87 plans ([███████░░░] 68%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -233,8 +233,8 @@ Progress: [█████████████░░░░░░░] 58/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T01:48:25.889Z
-**Stopped at:** Completed 41.1-03-PLAN.md
+**Last session:** 2026-08-27T02:25:41.587Z
+**Stopped at:** Completed 41.1-04-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -341,6 +341,9 @@ Progress: [█████████████░░░░░░░] 58/87 p
 - [Phase 41.1]: Keep active integrity and artifact names domain-oriented while historical phase-number modules remain compatibility authorities only.
 - [Phase 41.1]: RuntimeSettings carries runtime and local-modeling locations but never provider or data fields; legacy Settings remains the uncached full composition.
 - [Phase 41.1]: Installed runtime analyzers and doctor consume neutral artifacts and retain test seams through explicit runtime-getter aliases.
+- [Phase 41.1]: Keep active modeling APIs phase-neutral while retaining phase-numbered strings only as frozen historical identities.
+- [Phase 41.1]: Bind reporting facts to exact raw export, result, source, materialization, and erratum bytes without opening prediction artifacts.
+- [Phase 41.1]: Permit only named compatibility adapters to cross into the exact historical closure; three legacy-only SCCs remain explicit and no reverse-edge allowlist exists.
 
 ## Performance Metrics
 
@@ -354,6 +357,7 @@ Progress: [█████████████░░░░░░░] 58/87 p
 | Phase 41.1 P01 | 24min | 3 tasks | 50 files |
 | Phase 41.1 P02 | 24min | 3 tasks | 8 files |
 | Phase 41.1 P03 | 23min | 3 tasks | 13 files |
+| Phase 41.1 P04 | 34min | 3 tasks | 14 files |
 
 ### Blockers
 
