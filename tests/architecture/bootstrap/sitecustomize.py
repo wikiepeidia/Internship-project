@@ -72,6 +72,7 @@ def _wrapped(
     name: str,
     original: Callable[..., Any],
     path_positions: tuple[int, ...] = (0,),
+    path_keywords: tuple[str, ...] = (),
 ) -> Callable[..., Any]:
     @functools.wraps(original)
     def guard(*args: Any, **kwargs: Any) -> Any:
@@ -79,6 +80,7 @@ def _wrapped(
         for position in path_positions:
             if position < len(args):
                 values.append(args[position])
+        values.extend(kwargs[key] for key in path_keywords if key in kwargs)
         for value in values:
             _reject(name, value)
         for value in values:
@@ -92,13 +94,19 @@ def _wrapped(
     return guard
 
 
-def _patch(target: object, attribute: str, *, positions: tuple[int, ...] = (0,)) -> None:
+def _patch(
+    target: object,
+    attribute: str,
+    *,
+    positions: tuple[int, ...] = (0,),
+    keywords: tuple[str, ...] = (),
+) -> None:
     key = f"{getattr(target, '__name__', type(target).__name__)}.{attribute}"
     original = getattr(target, attribute, None)
     if original is None or key in _ORIGINALS:
         return
     _ORIGINALS[key] = original
-    setattr(target, attribute, _wrapped(key, original, positions))
+    setattr(target, attribute, _wrapped(key, original, positions, keywords))
 
 
 def _preserve_child_bootstrap() -> None:
@@ -125,25 +133,26 @@ def install_phase411_deny_open_guard() -> None:
     if PHASE411_GUARD_INSTALLED:
         return
     _preserve_child_bootstrap()
-    _patch(builtins, "open")
-    _patch(io, "open")
-    for name in (
-        "open",
-        "stat",
-        "lstat",
-        "listdir",
-        "scandir",
-        "walk",
-        "chdir",
-        "mkdir",
-        "makedirs",
-        "remove",
-        "unlink",
-        "rmdir",
-    ):
-        _patch(os, name)
+    _patch(builtins, "open", keywords=("file",))
+    _patch(io, "open", keywords=("file",))
+    os_path_keywords = {
+        "open": ("path",),
+        "stat": ("path",),
+        "lstat": ("path",),
+        "listdir": ("path",),
+        "scandir": ("path",),
+        "walk": ("top",),
+        "chdir": ("path",),
+        "mkdir": ("path",),
+        "makedirs": ("name",),
+        "remove": ("path",),
+        "unlink": ("path",),
+        "rmdir": ("path",),
+    }
+    for name, keywords in os_path_keywords.items():
+        _patch(os, name, keywords=keywords)
     for name in ("rename", "replace"):
-        _patch(os, name, positions=(0, 1))
+        _patch(os, name, positions=(0, 1), keywords=("src", "dst"))
     for name in (
         "open",
         "read_bytes",
@@ -168,10 +177,9 @@ def install_phase411_deny_open_guard() -> None:
     ):
         _patch(Path, name)
     for name in ("rename", "replace"):
-        _patch(Path, name, positions=(0, 1))
+        _patch(Path, name, positions=(0, 1), keywords=("target",))
     PHASE411_GUARD_INSTALLED = True
 
 
 if os.environ.get("PHASE411_DENY_OPEN_SENTINEL") == "1":
     install_phase411_deny_open_guard()
-

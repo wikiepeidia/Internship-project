@@ -277,6 +277,7 @@ def test_production_entry_points_are_fixed_and_accept_no_paths() -> None:
 
 
 def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: Path) -> None:
+    import builtins
     import sitecustomize
 
     protected = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / "test.jsonl"
@@ -286,6 +287,19 @@ def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: 
     after = sitecustomize.phase411_guard_snapshot()
     assert len(after["rejected"]) == len(before["rejected"]) + 1
     assert after["underlying_forbidden"] == []
+
+    keyword_attempts = (
+        lambda: builtins.open(file=protected),
+        lambda: os.stat(path=protected),
+        lambda: os.rename(src=protected, dst=tmp_path / "never-created.jsonl"),
+    )
+    before_keywords = sitecustomize.phase411_guard_snapshot()
+    for attempt in keyword_attempts:
+        with pytest.raises(PermissionError, match="Phase 41.1 forbidden path"):
+            attempt()
+    after_keywords = sitecustomize.phase411_guard_snapshot()
+    assert len(after_keywords["rejected"]) == len(before_keywords["rejected"]) + 3
+    assert after_keywords["underlying_forbidden"] == []
 
     nearby = tmp_path / "data" / "splits-lookalike" / "safe.txt"
     nearby.parent.mkdir(parents=True)
@@ -302,7 +316,7 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
         "import sitecustomize\n"
         "ATTACK = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / 'test.jsonl'\n"
         "try:\n"
-        "    ATTACK.read_text(encoding='utf-8')\n"
+        "    open(file=ATTACK, encoding='utf-8')\n"
         "except PermissionError:\n"
         "    COLLECTION_BLOCKED = True\n"
         "else:\n"
@@ -323,10 +337,10 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
     assert collected.returncode == 0, collected.stdout + collected.stderr
 
     child_code = (
-        "from pathlib import Path; import json, sitecustomize; "
+        "from pathlib import Path; import json, os, sitecustomize; "
         "p=Path(sitecustomize.PHASE411_PROTECTED_PREFIX)/'test.jsonl'; "
         "blocked=False; "
-        "\ntry: p.stat()\nexcept PermissionError: blocked=True\n"
+        "\ntry: os.stat(path=p)\nexcept PermissionError: blocked=True\n"
         "print(json.dumps({'blocked': blocked, "
         "'snapshot': sitecustomize.phase411_guard_snapshot()}))"
     )
