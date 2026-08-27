@@ -260,6 +260,27 @@ def test_group_split_core_is_deterministic_and_old_path_compatible() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "ratios",
+    (
+        (0.8, 0.2),
+        (-0.1, 0.5, 0.6),
+        (0.5, 0.2, 0.2),
+        (float("nan"), 0.5, 0.5),
+        (float("inf"), 0.0, 0.0),
+    ),
+)
+def test_split_ratio_contract_fails_closed(ratios: tuple[float, ...]) -> None:
+    from src.config.settings import DataSettings
+
+    with pytest.raises(ValueError, match="split ratios"):
+        core_splits.assign_seed_split("synthetic-seed", split_ratios=ratios)
+    with pytest.raises(ValueError, match="split ratios"):
+        core_splits.split_dataset([], split_ratios=ratios)
+    with pytest.raises(ValueError, match="split_ratios"):
+        DataSettings(split_ratios=ratios, _env_file=None)
+
+
 def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path) -> None:
     from src.data_pipeline.versioning.manifest import (
         build_manifest as legacy_build,

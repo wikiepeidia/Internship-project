@@ -6,6 +6,7 @@ order, defaults, and OS-environment precedence.
 """
 
 from functools import lru_cache
+import math
 import os
 from pathlib import Path
 
@@ -54,6 +55,19 @@ class DataSettings(_OwnedSettings):
     scrape_delay_min: float = 2.0
     scrape_delay_max: float = 5.0
     ncsc_base_url: str = "https://canhbao.khonggianmang.vn"
+
+    @field_validator("split_ratios")
+    @classmethod
+    def require_valid_split_ratios(
+        cls, value: tuple[float, float, float]
+    ) -> tuple[float, float, float]:
+        if len(value) != 3 or any(
+            not math.isfinite(ratio) or ratio < 0.0 for ratio in value
+        ):
+            raise ValueError("split_ratios must contain three finite non-negative values")
+        if not math.isclose(sum(value), 1.0, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError("split_ratios must sum to one")
+        return value
 
 
 class ModelingSettings(_OwnedSettings):

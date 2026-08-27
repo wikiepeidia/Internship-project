@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import math
 from pathlib import Path
 import subprocess
 from typing import Any, Literal
@@ -13,6 +14,31 @@ from src.data_pipeline.core.records import DatasetRecord, ManifestEntry, Manifes
 
 SplitName = Literal["train", "val", "test"]
 DEFAULT_SPLIT_RATIOS = (0.8, 0.1, 0.1)
+
+
+def validate_split_ratios(
+    split_ratios: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    """Return three finite non-negative ratios whose sum is exactly one."""
+
+    try:
+        values = tuple(split_ratios)
+    except TypeError as exc:
+        raise ValueError("split ratios must contain exactly three numbers") from exc
+    if len(values) != 3:
+        raise ValueError("split ratios must contain exactly three numbers")
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) < 0.0
+        for value in values
+    ):
+        raise ValueError("split ratios must be finite and non-negative")
+    normalized = tuple(float(value) for value in values)
+    if not math.isclose(sum(normalized), 1.0, rel_tol=0.0, abs_tol=1e-9):
+        raise ValueError("split ratios must sum to one")
+    return normalized[0], normalized[1], normalized[2]
 
 
 def _stable_bucket(value: str, salt: str) -> float:
@@ -39,6 +65,7 @@ def _allocate_split_counts(
     total_seeds: int,
     split_ratios: tuple[float, float, float],
 ) -> dict[SplitName, int]:
+    split_ratios = validate_split_ratios(split_ratios)
     split_names: tuple[SplitName, SplitName, SplitName] = ("train", "val", "test")
     raw_counts = {
         name: total_seeds * ratio
@@ -82,6 +109,8 @@ def _allocate_split_counts(
                 break
             counts[donor] -= 1
             counts[name] += 1
+    if sum(counts.values()) != total_seeds:
+        raise ValueError("split allocation did not assign every seed")
     return counts
 
 
@@ -110,6 +139,7 @@ def assign_seed_split(
 ) -> SplitName:
     """Return a stable split name derived from one seed identifier."""
 
+    split_ratios = validate_split_ratios(split_ratios)
     bucket = _seed_bucket(seed_id, salt)
     if bucket < split_ratios[0]:
         return "train"
@@ -150,6 +180,7 @@ def split_dataset(
 ) -> dict[SplitName, list[dict[str, Any]]]:
     """Split records deterministically, preserving sufficiently diverse seed groups."""
 
+    split_ratios = validate_split_ratios(split_ratios)
     splits: dict[SplitName, list[dict[str, Any]]] = {
         "train": [],
         "val": [],
@@ -248,5 +279,6 @@ __all__ = (
     "build_manifest",
     "save_manifest",
     "split_dataset",
+    "validate_split_ratios",
     "verify_manifest",
 )
