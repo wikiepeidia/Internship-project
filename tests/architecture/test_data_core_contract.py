@@ -627,6 +627,7 @@ def test_active_data_modules_are_neutral_and_within_static_budgets() -> None:
         "src/data_pipeline/core/records.py",
         "src/data_pipeline/core/text.py",
         "src/data_pipeline/core/splits.py",
+        "src/data_pipeline/generation_runs.py",
         "src/data_pipeline/recovery.py",
         "src/data_pipeline/workflows.py",
         "src/data_pipeline/cli.py",

@@ -45,6 +45,7 @@ EXPECTED_BUDGETED_MODULES = {
     "src.data_pipeline.core.records",
     "src.data_pipeline.core.splits",
     "src.data_pipeline.core.text",
+    "src.data_pipeline.generation_runs",
     "src.data_pipeline.migrations",
     "src.data_pipeline.recovery",
     "src.data_pipeline.workflows",

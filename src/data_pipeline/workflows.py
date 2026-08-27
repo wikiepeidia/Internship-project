@@ -135,11 +135,6 @@ def judge_existing_records(
         "manifest_path": build_result["manifest_path"],
         "judge_existing": True,
     }
-def _count_nonempty_jsonl_lines(path: Path) -> int:
-    if not path.exists():
-        return 0
-    with path.open("r", encoding="utf-8") as handle:
-        return sum(1 for line in handle if line.strip())
 def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
     """Validate and atomically salvage generated and partial artifacts."""
 
@@ -326,22 +321,17 @@ def optimize_recovered_records(
 def _prepare_gap_fill(
     settings: Any,
     target_count: int,
-    checkpoint_dir: Path | None,
     gap_fill_recovered: bool,
     dependencies: WorkflowDependencies,
-) -> tuple[dict[str, Any] | None, dict[str, int] | None, int, Path]:
-    checkpoint_base = checkpoint_dir or (settings.data_dir / "synthetic")
+) -> tuple[dict[str, Any] | None, dict[str, int] | None, int]:
     if not gap_fill_recovered:
-        return None, None, target_count, checkpoint_base
+        return None, None, target_count
     recovered = dependencies.optimize_records(
         settings.data_dir,
         target_count=target_count,
     )
     targets = recovered["missing_by_label_for_target"]
-    checkpoint_base = checkpoint_dir or (
-        settings.data_dir / "backup" / "recovered-gap-fill" / "checkpoints"
-    )
-    return recovered, targets, recovered["generation_gap_total"], checkpoint_base
+    return recovered, targets, recovered["generation_gap_total"]
 def _load_or_scrape_seeds(
     seed_input: Path | None,
     max_pages: int,
@@ -420,6 +410,32 @@ def _judge_generated_records(
         "quality_stats_path": str(stats_path),
         "manifest_path": build["manifest_path"],
     }
+
+
+def _generate_owned_candidate(
+    generator: Any,
+    seeds: list[SeedRecord],
+    run: Any,
+    generation_kwargs: dict[str, Any],
+) -> tuple[list[dict[str, Any]], Path, tuple[Any, ...]]:
+    from src.data_pipeline.generation_runs import (
+        newly_owned_files,
+        snapshot_run_files,
+        stage_generated_records,
+        write_run_ledger,
+    )
+
+    before = snapshot_run_files(run)
+    try:
+        records = generator.generate_dataset(seeds, **generation_kwargs)
+        candidate = stage_generated_records(run, records)
+    except BaseException:
+        created = newly_owned_files(before, snapshot_run_files(run))
+        write_run_ledger(run, created)
+        raise
+    created = newly_owned_files(before, snapshot_run_files(run))
+    write_run_ledger(run, created)
+    return records, candidate, created
 def build_training_corpus(
     seed_input: Path | None = None,
     target_count: int = 2500,
@@ -438,33 +454,38 @@ def build_training_corpus(
 ) -> dict[str, Any]:
     """Run the retained scrape, generation, review, and build workflow."""
 
+    from src.data_pipeline.generation_runs import (
+        cleanup_owned_files,
+        prepare_generation_run,
+        publish_generated_candidate,
+    )
+
     dependencies = _dependencies or _default_dependencies()
     settings = dependencies.get_settings()
     if gap_fill_recovered and not generate_only:
         raise ValueError("--gap-fill-recovered currently requires --generate-only")
-    recovered, targets, target_count, checkpoint_base = _prepare_gap_fill(
+    recovered, targets, target_count = _prepare_gap_fill(
         settings,
         target_count,
-        checkpoint_dir,
         gap_fill_recovered,
         dependencies,
     )
-    generated_path = settings.data_dir / "synthetic" / (
+    stable_name = (
         "generated-gap-fill-recovered.jsonl"
         if gap_fill_recovered
         else "generated.jsonl"
-    )
-    incremental_path = generated_path if generate_only else (
-        checkpoint_base / "generated-partial.jsonl"
     )
     if gap_fill_recovered and target_count <= 0:
         return _generate_only_summary(
             [], 0, Path(recovered["merged_output_path"]), bulk_provider,
             max_parallel_batches, recovered, targets,
         )
-    if generate_only and resume and not gap_fill_recovered:
-        if any(checkpoint_base.glob("checkpoint-*.jsonl")) and generated_path.exists():
-            generated_path.unlink()
+    run = prepare_generation_run(
+        settings.data_dir,
+        version_tag=version_tag,
+        checkpoint_dir=checkpoint_dir,
+        resume=resume,
+    )
     seeds = _load_or_scrape_seeds(
         seed_input, max_pages, max_links_per_page, max_seeds, dependencies
     )
@@ -479,38 +500,35 @@ def build_training_corpus(
     generation_kwargs: dict[str, Any] = {
         "target_count": target_count,
         "max_parallel_batches": max_parallel_batches,
-        "checkpoint_path": checkpoint_base,
-        "partial_output_path": incremental_path,
+        "checkpoint_path": run.checkpoints,
+        "partial_output_path": run.checkpoints / "generated-partial.jsonl",
         "resume": resume,
         "progress_callback": _stderr_progress,
     }
     if targets is not None:
         generation_kwargs["class_targets"] = targets
-    generated_records = generator.generate_dataset(seeds, **generation_kwargs)
+    generated_records, candidate, created = _generate_owned_candidate(
+        generator, seeds, run, generation_kwargs
+    )
     generated_count = len(generated_records)
     if not gap_fill_recovered and 2000 <= target_count <= 3000:
         if not 2000 <= generated_count <= 3000:
             raise ValueError(
                 f"Generated record count {generated_count} is outside the required 2000-3000 band"
             )
-    if gap_fill_recovered and generate_only and generated_path.exists():
-        generated_count = _count_nonempty_jsonl_lines(generated_path)
-    else:
-        generated_path = generator.save_generated(generated_records, output_path=generated_path)
     if generate_only:
-        for checkpoint in checkpoint_base.glob("checkpoint-*.jsonl"):
-            checkpoint.unlink(missing_ok=True)
+        generated_path = publish_generated_candidate(run, candidate, stable_name)
+        cleanup_owned_files(created)
         return _generate_only_summary(
             seeds, generated_count, generated_path, bulk_provider,
             max_parallel_batches, recovered, targets,
         )
     result = _judge_generated_records(
-        generated_records, generated_path, settings, version_tag, dependencies
+        generated_records, candidate, settings, version_tag, dependencies
     )
-    for checkpoint in checkpoint_base.glob("checkpoint-*.jsonl"):
-        checkpoint.unlink(missing_ok=True)
-    if incremental_path.exists() and incremental_path != generated_path:
-        incremental_path.unlink()
+    generated_path = publish_generated_candidate(run, candidate, stable_name)
+    cleanup_owned_files(created)
+    result["generated_path"] = str(generated_path)
     return {
         "seed_count": len(seeds),
         "generated_count": generated_count,
