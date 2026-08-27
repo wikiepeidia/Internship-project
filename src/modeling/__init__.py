@@ -1,22 +1,6 @@
-"""Phase-neutral model training and inference boundaries."""
+"""Modeling package boundary.
 
-from src.modeling.inference import InferenceBackend, InferenceError, InferenceService
-from src.modeling.training import (
-    TrainingBackend,
-    TrainingError,
-    TrainingService,
-    phobert_training_service,
-    qwen_training_service,
-)
-
-
-__all__ = [
-    "InferenceBackend",
-    "InferenceError",
-    "InferenceService",
-    "TrainingBackend",
-    "TrainingError",
-    "TrainingService",
-    "phobert_training_service",
-    "qwen_training_service",
-]
+Import concrete services from ``src.modeling.inference`` or
+``src.modeling.training``.  Keeping package initialization side-effect free is
+what prevents a runtime import from loading the training dependency graph.
+"""

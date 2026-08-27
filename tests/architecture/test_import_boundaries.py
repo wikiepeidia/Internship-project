@@ -6,6 +6,8 @@ import ast
 from collections import deque
 import json
 from pathlib import Path
+import subprocess
+import sys
 from typing import Any, Mapping
 
 
@@ -59,18 +61,27 @@ def _import_edges(modules: Mapping[str, Path]) -> dict[str, set[str]]:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                edges[source].update(
-                    alias.name for alias in node.names if alias.name in modules
-                )
+                targets = {alias.name for alias in node.names}
+                edges[source].update(target for target in targets if target in modules)
             elif isinstance(node, ast.ImportFrom):
                 base = _resolve_from(source, path, node)
+                targets = {base}
                 if base in modules:
                     edges[source].add(base)
-                edges[source].update(
-                    candidate
-                    for alias in node.names
-                    if (candidate := f"{base}.{alias.name}") in modules
-                )
+                for alias in node.names:
+                    candidate = f"{base}.{alias.name}"
+                    targets.add(candidate)
+                    if candidate in modules:
+                        edges[source].add(candidate)
+                # Importing a submodule executes every parent package
+                # initializer first; model those implicit live edges.
+                for target in targets:
+                    parts = target.split(".")
+                    edges[source].update(
+                        parent
+                        for index in range(1, len(parts))
+                        if (parent := ".".join(parts[:index])) in modules
+                    )
     return edges
 
 
@@ -295,6 +306,21 @@ def test_historical_closure_cannot_reach_active_modeling() -> None:
     for source in sorted(historical):
         path = _path_to_target(source, edges, targets)
         assert path is None, " -> ".join(path or ())
+
+
+def test_runtime_import_does_not_initialize_training_package() -> None:
+    script = (
+        "import sys; import src.runtime.service; "
+        "assert 'src.modeling.training' not in sys.modules"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_training_command_uses_the_neutral_service_bridge() -> None:
