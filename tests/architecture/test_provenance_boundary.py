@@ -500,6 +500,79 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
     assert payload["blocked"] is True
     assert payload["snapshot"]["underlying_forbidden"] == []
 
+    attestation = tmp_path / "guard_attestation.py"
+    attestation.write_text(
+        "import json, sitecustomize\n"
+        "print(json.dumps({'installed': sitecustomize.PHASE411_GUARD_INSTALLED}))\n",
+        encoding="utf-8",
+    )
+    script_child = subprocess.run(
+        [sys.executable, os.fspath(attestation)],
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert script_child.returncode == 0, script_child.stderr
+    assert json.loads(script_child.stdout) == {"installed": True}
+
+
+def test_deny_open_guard_rejects_child_bootstrap_bypasses(
+    tmp_path: Path,
+) -> None:
+    guarded_env = os.environ.copy()
+    for flag in ("-S", "-I", "-E"):
+        with pytest.raises(PermissionError, match="disable site or environment"):
+            subprocess.run([sys.executable, flag, "-c", "pass"], check=False)
+
+    without_sentinel = dict(guarded_env)
+    without_sentinel.pop("PHASE411_DENY_OPEN_SENTINEL", None)
+    with pytest.raises(PermissionError, match="deny-open sentinel"):
+        subprocess.run(
+            [sys.executable, "-c", "pass"],
+            env=without_sentinel,
+            check=False,
+        )
+    with pytest.raises(PermissionError, match="deny-open sentinel"):
+        subprocess.run([sys.executable, "-c", "pass"], env={}, check=False)
+    with pytest.raises(PermissionError, match="executable override"):
+        subprocess.run(
+            [sys.executable, "-c", "pass"],
+            executable=sys.executable,
+            env=guarded_env,
+            check=False,
+        )
+
+    without_bootstrap = dict(guarded_env)
+    without_bootstrap["PYTHONPATH"] = os.fspath(tmp_path)
+    with pytest.raises(PermissionError, match="deny-open bootstrap"):
+        subprocess.run(
+            [sys.executable, "-c", "pass"],
+            env=without_bootstrap,
+            check=False,
+        )
+
+
+def test_deny_open_guard_covers_metadata_and_link_path_apis() -> None:
+    import sitecustomize
+
+    protected = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / "synthetic.jsonl"
+    attempts = (
+        lambda: os.access(protected, os.F_OK),
+        lambda: os.chmod(protected, 0o600),
+        lambda: os.link(protected, protected.with_suffix(".link")),
+        lambda: os.symlink(protected, protected.with_suffix(".symlink")),
+        lambda: protected.chmod(0o600),
+    )
+    for attempt in attempts:
+        with pytest.raises(PermissionError, match="forbidden path"):
+            attempt()
+
+    with pytest.raises(PermissionError, match="read-only allowlist"):
+        subprocess.run(["git", "status"], check=False)
+    assert sitecustomize.phase411_guard_snapshot()["underlying_forbidden"] == []
+
 
 def test_deny_open_guard_blocks_descriptors_and_non_python_subprocesses() -> None:
     import sitecustomize
