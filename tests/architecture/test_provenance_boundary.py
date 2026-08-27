@@ -313,9 +313,19 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
         loader = getattr(ctypes, loader_name, None)
         if loader is None:
             continue
-        assert not [name for name in vars(loader) if not name.startswith("_")]
+        public = {name for name in vars(loader) if not name.startswith("_")}
+        assert public == ({"kernel32", "ntdll"} if loader_name == "windll" else set())
         with pytest.raises(PermissionError, match="process execution denied"):
             getattr(loader, "phase411_synthetic_never_loaded")
+    if os.name == "nt":
+        assert set(vars(ctypes.windll.kernel32)) == {
+            "CreateFileW", "GetFileInformationByHandle", "CloseHandle"
+        }
+        assert set(vars(ctypes.windll.ntdll)) == {
+            "NtCreateFile", "RtlNtStatusToDosError", "NtSetInformationFile"
+        }
+        for capability_set in (ctypes.windll.kernel32, ctypes.windll.ntdll):
+            assert not hasattr(capability_set, "CreateProcessW")
     before_audit = sitecustomize.phase411_guard_snapshot()
     with pytest.raises(PermissionError, match="audited process execution denied"):
         sys.audit("ctypes.dlopen", "synthetic-never-loaded")

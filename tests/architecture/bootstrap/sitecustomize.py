@@ -16,13 +16,32 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 from typing import Any, Callable
 
 try:  # pytest imports colorama after startup; preload its fixed console functions.
     import colorama as _phase411_colorama  # noqa: F401
 except ImportError:  # pragma: no cover - optional pytest dependency
     _phase411_colorama = None
+
+
+def _load_windows_file_capabilities() -> MappingProxyType:
+    if os.name != "nt":
+        return MappingProxyType({})
+    names = {
+        "kernel32": ("CreateFileW", "GetFileInformationByHandle", "CloseHandle"),
+        "ntdll": ("NtCreateFile", "RtlNtStatusToDosError", "NtSetInformationFile"),
+    }
+    capabilities = {
+        library: MappingProxyType(
+            {name: getattr(getattr(ctypes.windll, library), name) for name in members}
+        )
+        for library, members in names.items()
+    }
+    return MappingProxyType(capabilities)
+
+
+_WINDOWS_FILE_CAPABILITIES = _load_windows_file_capabilities()
 
 
 PHASE411_GUARD_POLICY_VERSION = "phase411-guard-v3"
@@ -378,8 +397,8 @@ def _install_native_process_denial() -> dict[str, str]:
     return dispositions
 
 
-def _clear_ctypes_loader_cache() -> None:
-    """Drop DLL objects cached while trusted pytest console support imported."""
+def _restrict_ctypes_loader_cache() -> None:
+    """Expose only preloaded file-binding calls needed by synthetic archive tests."""
 
     for loader_name in ("cdll", "pydll", "windll", "oledll"):
         loader = getattr(ctypes, loader_name, None)
@@ -388,6 +407,10 @@ def _clear_ctypes_loader_cache() -> None:
         for attribute in tuple(vars(loader)):
             if not attribute.startswith("_"):
                 delattr(loader, attribute)
+    windll = getattr(ctypes, "windll", None)
+    if windll is not None:
+        for library, members in _WINDOWS_FILE_CAPABILITIES.items():
+            setattr(windll, library, SimpleNamespace(**members))
 
 
 def _attest_standard_handles_after_guards() -> None:
@@ -546,7 +569,7 @@ def install_phase411_deny_open_guard() -> None:
     PHASE411_AUDIT_GUARD_INSTALLED = True
     PHASE411_INSTALLED_PATH_OPERATIONS = _install_path_guards()
     native_dispositions = _install_native_process_denial()
-    _clear_ctypes_loader_cache()
+    _restrict_ctypes_loader_cache()
     dispositions = _install_low_level_process_denial()
     _attest_standard_handles_after_guards()
     PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS = _install_descriptor_guards()
