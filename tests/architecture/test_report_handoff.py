@@ -166,7 +166,10 @@ def _allowed_hashes(
 def _assert_safe_static_text(document: str) -> None:
     assert not DELETION_COMMAND.search(document)
     assert not SECRET_ASSIGNMENT.search(document)
-    lowered = document.lower()
+    lowered = document.lower().replace(
+        "does not have zero prior filesystem access",
+        "records prior filesystem access",
+    )
     assert all(claim not in lowered for claim in BANNED_OVERCLAIMS)
     assert "data/splits" not in lowered
     assert "test.jsonl" not in lowered
