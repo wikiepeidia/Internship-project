@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--host",
         default="127.0.0.1",
         type=_loopback_host,
-        help="Loopback host for the local demo server (localhost or loopback IP only)",
+        help="Loopback host for the local demo server (localhost or IPv4 loopback only)",
     )
     demo_parser.add_argument("--port", type=int, default=8765, help="Port for the local demo server")
     demo_parser.add_argument(

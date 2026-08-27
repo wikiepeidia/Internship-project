@@ -59,14 +59,15 @@ def test_demo_returns_one_json_400_contract_for_malformed_request_envelopes(
     }
 
 
-@pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.20", "example.invalid"])
+@pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.20", "example.invalid", "::1"])
 def test_demo_cli_rejects_non_loopback_hosts(host: str) -> None:
     with pytest.raises(SystemExit) as exc:
         build_parser().parse_args(["demo", "--host", host])
     assert exc.value.code == 2
 
 
-def test_server_rejects_non_loopback_before_runtime_construction(monkeypatch) -> None:
+@pytest.mark.parametrize("host", ["0.0.0.0", "::1"])
+def test_server_rejects_non_loopback_before_runtime_construction(monkeypatch, host: str) -> None:
     calls = {"build": 0}
 
     def forbidden_build() -> None:
@@ -75,11 +76,11 @@ def test_server_rejects_non_loopback_before_runtime_construction(monkeypatch) ->
 
     monkeypatch.setattr("src.runtime.demo.build_demo_app", forbidden_build)
     with pytest.raises(ValueError, match="loopback"):
-        run_demo_server(host="0.0.0.0", open_browser=False)
+        run_demo_server(host=host, open_browser=False)
     assert calls == {"build": 0}
 
 
-@pytest.mark.parametrize("host", ["localhost", "LOCALHOST.", "127.0.0.2", "::1"])
+@pytest.mark.parametrize("host", ["localhost", "LOCALHOST.", "127.0.0.2"])
 def test_demo_cli_accepts_loopback_hosts(host: str) -> None:
     args = build_parser().parse_args(["demo", "--host", host])
     assert args.host == host

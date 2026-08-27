@@ -67,8 +67,8 @@ Optional local server controls:
 python -m src.runtime.cli demo --host 127.0.0.1 --port 8765 --no-browser
 ```
 
-The demo remains text-only and local-only: `--host` accepts `localhost` or a
-loopback IP address and rejects LAN or public interfaces. Paste one suspicious
+The demo remains text-only and local-only: `--host` accepts `localhost` or an
+IPv4 loopback address and rejects IPv6, LAN, or public interfaces. Paste one suspicious
 message or short conversation, choose an optional channel hint, and the browser UI
 will render risk tier, threat labels, grounded cues, and safe next steps from the
 existing runtime output contract.

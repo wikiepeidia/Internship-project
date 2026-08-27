@@ -156,7 +156,7 @@ def build_demo_app(service=None) -> DemoApp:
 
 
 def require_loopback_host(host: str) -> str:
-    """Return a normalized local host or reject network-visible binding."""
+    """Return a normalized IPv4 local host or reject unsupported binding."""
 
     candidate = host.strip()
     if candidate.lower().rstrip(".") == "localhost":
@@ -164,9 +164,9 @@ def require_loopback_host(host: str) -> str:
     try:
         address = ipaddress.ip_address(candidate)
     except ValueError as exc:
-        raise ValueError("demo host must be localhost or a loopback IP address") from exc
-    if not address.is_loopback:
-        raise ValueError("demo host must be localhost or a loopback IP address")
+        raise ValueError("demo host must be localhost or an IPv4 loopback address") from exc
+    if address.version != 4 or not address.is_loopback:
+        raise ValueError("demo host must be localhost or an IPv4 loopback address")
     return candidate
 
 
