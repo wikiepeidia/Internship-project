@@ -15,6 +15,48 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).parents[2]
+RUNTIME_CLI_FIXTURE = REPO_ROOT / "tests/architecture/fixtures/runtime_cli_contract.json"
+PROVIDER_DEFAULTS = {
+    "anthropic_api_key": "",
+    "gemini_api_key": "",
+    "google_oauth_access_token": "",
+    "openrouter_api_key": "",
+    "deepseek_api_key": "",
+    "openai_compatible_base_url": "",
+    "openai_compatible_api_key": "",
+    "openai_compatible_model": "",
+    "google_application_credentials": "",
+    "google_cloud_project": "",
+    "gemini_use_adc": False,
+}
+DATA_DEFAULTS = {
+    "data_dir": Path("data"),
+    "split_ratios": (0.8, 0.1, 0.1),
+    "similarity_threshold": 0.85,
+    "scrape_delay_min": 2.0,
+    "scrape_delay_max": 5.0,
+    "ncsc_base_url": "https://canhbao.khonggianmang.vn",
+}
+MODELING_DEFAULTS = {
+    "model_artifact_root": Path("data/models"),
+    "model_registry_path": Path("data/manifests/model-registry.json"),
+}
+RUNTIME_DEFAULTS = {
+    "runtime_backend": "gguf",
+    "runtime_profile": "gguf-laptop",
+    "runtime_profile_gguf": "gguf-laptop",
+    "runtime_profile_gguf_runner_up": "gguf-runner-up",
+    "runtime_profile_accelerated": "accelerated-local",
+    "runtime_max_cues": 3,
+    "runtime_min_text_chars": 8,
+    "runtime_store_raw_text": False,
+    "runtime_fail_closed": True,
+    "runtime_allow_text_flag": True,
+    "runtime_text_only_message": (
+        "Paste extracted text manually. OCR, screenshots, and voice messages "
+        "are not supported in this demo."
+    ),
+}
 BLOCKED_IMPORT_PREFIXES = (
     "src.model_adaptation.training",
     "src.model_adaptation.phase40",
@@ -172,3 +214,145 @@ def test_neutral_boundary_is_closed_and_within_static_budgets() -> None:
     )
     assert "from src.artifacts import load_download_manifest" in local_source
     assert "src.model_adaptation.training" not in local_source
+
+
+def _clear_owner_caches(settings_module: object) -> None:
+    for name in (
+        "get_runtime_settings",
+        "get_provider_settings",
+        "get_data_settings",
+        "get_modeling_settings",
+    ):
+        getter = getattr(settings_module, name)
+        getter.cache_clear()
+
+
+def test_settings_owners_preserve_defaults_and_legacy_composition(monkeypatch, tmp_path: Path) -> None:
+    settings_module = importlib.import_module("src.config.settings")
+    all_defaults = PROVIDER_DEFAULTS | DATA_DEFAULTS | MODELING_DEFAULTS | RUNTIME_DEFAULTS
+    for field_name in all_defaults:
+        monkeypatch.delenv(field_name.upper(), raising=False)
+    monkeypatch.chdir(tmp_path)
+    _clear_owner_caches(settings_module)
+
+    assert settings_module.ENV_FILE_CANDIDATES == (".env/APIKEY.json", ".env/.env")
+    assert set(settings_module.ProviderSettings.model_fields) == set(PROVIDER_DEFAULTS)
+    assert set(settings_module.DataSettings.model_fields) == set(DATA_DEFAULTS)
+    assert set(settings_module.ModelingSettings.model_fields) == set(MODELING_DEFAULTS)
+    assert set(settings_module.RuntimeSettings.model_fields) == (
+        set(RUNTIME_DEFAULTS) | set(MODELING_DEFAULTS)
+    )
+
+    legacy = settings_module.Settings(_env_file=None)
+    assert legacy.model_dump() == all_defaults
+    assert settings_module.get_settings() is not settings_module.get_settings()
+    for getter_name in (
+        "get_runtime_settings",
+        "get_provider_settings",
+        "get_data_settings",
+        "get_modeling_settings",
+    ):
+        getter = getattr(settings_module, getter_name)
+        assert getter() is getter()
+
+    _clear_owner_caches(settings_module)
+
+
+def test_runtime_settings_keep_precedence_without_loading_or_emitting_secrets(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings_module = importlib.import_module("src.config.settings")
+    env_dir = tmp_path / ".env"
+    env_dir.mkdir()
+    (env_dir / "APIKEY.json").write_text(
+        "ANTHROPIC_API_KEY=synthetic-file-secret-a\n"
+        "GEMINI_API_KEY=synthetic-file-secret-b\n"
+        "RUNTIME_BACKEND=heuristic\n",
+        encoding="utf-8",
+    )
+    (env_dir / ".env").write_text(
+        "ANTHROPIC_API_KEY=synthetic-later-file-secret\n"
+        "RUNTIME_PROFILE=heuristic\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "synthetic-os-secret")
+    monkeypatch.setenv("RUNTIME_MAX_CUES", "7")
+    _clear_owner_caches(settings_module)
+
+    runtime = settings_module.get_runtime_settings()
+    legacy = settings_module.Settings()
+    rendered_runtime = repr(runtime) + runtime.model_dump_json()
+
+    assert runtime.runtime_backend == "heuristic"
+    assert runtime.runtime_profile == "heuristic"
+    assert runtime.runtime_max_cues == 7
+    assert legacy.anthropic_api_key == "synthetic-os-secret"
+    assert not set(PROVIDER_DEFAULTS).intersection(type(runtime).model_fields)
+    for secret in (
+        "synthetic-file-secret-a",
+        "synthetic-file-secret-b",
+        "synthetic-later-file-secret",
+        "synthetic-os-secret",
+    ):
+        assert secret not in rendered_runtime
+
+    _clear_owner_caches(settings_module)
+    monkeypatch.setenv("RUNTIME_MAX_CUES", "not-an-integer")
+    with pytest.raises(Exception) as error:
+        settings_module.get_runtime_settings()
+    assert "synthetic-os-secret" not in str(error.value)
+    _clear_owner_caches(settings_module)
+
+
+def test_runtime_construction_uses_secret_free_owner_getter() -> None:
+    for relative in (
+        "src/runtime/service.py",
+        "src/runtime/doctor.py",
+        "src/runtime/analyzers/gguf.py",
+        "src/runtime/analyzers/accelerated.py",
+    ):
+        source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        assert "get_runtime_settings as get_settings" in source
+        assert not any(field_name in source for field_name in PROVIDER_DEFAULTS)
+
+
+def test_runtime_doctor_uses_neutral_release_reader(monkeypatch, tmp_path: Path) -> None:
+    doctor_module = importlib.import_module("src.runtime.doctor")
+    artifact_path = tmp_path / "phase5-release-eval-synthetic.json"
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "run_id": "synthetic-doctor",
+                "verdict": "PASS",
+                "overall_metrics": {
+                    "macro_f1": 0.9,
+                    "weighted_f1": 0.9,
+                    "evaluated_rows": 1,
+                },
+                "explanation_rubric_summary": {
+                    "evaluated_risky_predictions": 0,
+                    "manual_reviewed_predictions": 0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(doctor_module, "RELEASE_MANIFEST_DIR", tmp_path)
+
+    check = doctor_module.RuntimeDoctor()._check_latest_release_gate_summary()
+    source = (REPO_ROOT / "src/runtime/doctor.py").read_text(encoding="utf-8")
+
+    assert check.passed is True
+    assert "latest_verdict=PASS run_id=synthetic-doctor" in check.detail
+    assert "from src.artifacts import" in source
+    assert "load_release_evaluation_artifact" in source
+    assert "src.model_adaptation" not in source
+
+
+def test_runtime_cli_contract_fixture_remains_byte_exact(tmp_path: Path) -> None:
+    from tests.architecture.test_contract_baselines import _run_fresh_capture
+
+    captured = _run_fresh_capture("runtime", tmp_path / "runtime-contract")
+
+    assert captured == RUNTIME_CLI_FIXTURE.read_bytes()
