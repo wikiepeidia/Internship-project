@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
@@ -14,6 +15,8 @@ import secrets
 import stat
 import sys
 from typing import Any, Mapping, Sequence
+
+from src.core_binding import BoundParent, bind_parent
 
 
 EXPECTED_SCHEMA_VERSION = "phase41-execution-source-manifest-v1"
@@ -344,6 +347,151 @@ def _validate_output_destination(path: Path) -> Path:
     return destination
 
 
+def _publication_test_hook(event: str, path: Path) -> None:
+    """Deterministic race-test seam; production publication leaves it inert."""
+
+
+class _PublicationBinding:
+    """Bind one archive publication to protected destination directory handles."""
+
+    def __init__(self, destination: Path, staging: Path) -> None:
+        self.destination = _validate_output_destination(destination)
+        self.staging = _validate_output_destination(staging)
+        if self.destination.parent != self.staging.parent:
+            raise ArchiveError("archive staging must share the destination parent")
+        self.parent = self.destination.parent
+        self._stack = ExitStack()
+        self._tree_stack = ExitStack()
+        self._parent_binding: BoundParent | None = None
+        self._directories: dict[tuple[str, ...], BoundParent] = {}
+
+    def __enter__(self) -> _PublicationBinding:
+        try:
+            self._parent_binding = self._stack.enter_context(bind_parent(self.parent))
+        except OSError as exc:
+            raise ArchiveError("cannot bind archive destination parent") from exc
+        self._assert_parent_binding()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._tree_stack.close()
+        self._stack.close()
+        self._directories.clear()
+        self._parent_binding = None
+
+    def _assert_parent_binding(self) -> None:
+        if self._parent_binding is None:
+            raise ArchiveError("archive destination parent is not protected")
+        try:
+            self._parent_binding.assert_still_named()
+        except OSError as exc:
+            raise ArchiveError("archive destination parent binding changed") from exc
+
+    def create_staging(self) -> None:
+        _publication_test_hook("stage_creation", self.staging)
+        self._assert_parent_binding()
+        if self._parent_binding is None:
+            raise ArchiveError("archive destination parent is not protected")
+        try:
+            stage = self._tree_stack.enter_context(
+                self._parent_binding.bind_child_directory(
+                    self.staging.name, create=True
+                )
+            )
+        except OSError as exc:
+            raise ArchiveError("archive staging collision during publication") from exc
+        self._directories[()] = stage
+        self._assert_parent_binding()
+
+    def _directory_handle(self, parts: tuple[str, ...]) -> BoundParent:
+        if () not in self._directories:
+            raise ArchiveError("archive staging handle is unavailable")
+        current_parts: tuple[str, ...] = ()
+        binding = self._directories[()]
+        for name in parts:
+            current_parts += (name,)
+            cached = self._directories.get(current_parts)
+            if cached is not None:
+                binding = cached
+                continue
+            try:
+                binding = self._tree_stack.enter_context(
+                    binding.bind_child_directory(name, create=True)
+                )
+            except OSError as exc:
+                raise ArchiveError("cannot create archive member directory") from exc
+            self._directories[current_parts] = binding
+        return binding
+
+    def write_exclusive(self, relative: Path, raw: bytes) -> None:
+        bounded = _bounded_relative(relative.as_posix(), where="archive member")
+        parts = tuple(PurePosixPath(bounded).parts)
+        if not parts:
+            raise ArchiveError("archive member path is empty")
+        parent_binding = self._directory_handle(parts[:-1])
+        target = self.staging.joinpath(*parts)
+        _publication_test_hook("member_write", target)
+        self._assert_parent_binding()
+        flags = (
+            os.O_RDWR
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_BINARY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        try:
+            descriptor = parent_binding.open(parts[-1], flags, 0o600)
+        except OSError as exc:
+            raise ArchiveError(f"exclusive archive write failed: {parts[-1]}") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ArchiveError("exclusive archive target is not a regular file")
+            view = memoryview(raw)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise ArchiveError("exclusive archive write made no progress")
+                view = view[written:]
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        after = parent_binding.lstat(parts[-1])
+        if _redirecting(after) or (after.st_dev, after.st_ino) != (
+            metadata.st_dev,
+            metadata.st_ino,
+        ):
+            raise ArchiveError("exclusive archive target changed identity")
+        self._assert_parent_binding()
+
+    def publish(self) -> None:
+        _publication_test_hook("final_rename", self.destination)
+        self._assert_parent_binding()
+        if self._parent_binding is None or () not in self._directories:
+            raise ArchiveError("archive publication handles are unavailable")
+        stage_identity = self._directories[()].directory_identity()
+        self._tree_stack.close()
+        self._directories.clear()
+        try:
+            self._parent_binding.rename_noreplace(
+                self.staging.name,
+                self.destination.name,
+                expected_identity=stage_identity,
+            )
+            with self._parent_binding.bind_child_directory(
+                self.destination.name
+            ) as published:
+                published_identity = published.directory_identity()
+        except OSError as exc:
+            raise ArchiveError("protected archive rename failed") from exc
+        if published_identity != stage_identity:
+            raise ArchiveError("published archive handle does not bind the destination")
+        self._assert_parent_binding()
+
+
 def _paths_overlap(first: Path, second: Path) -> bool:
     first_abs, second_abs = _absolute(first), _absolute(second)
     try:
@@ -431,54 +579,12 @@ def _capture_closure(layout: _ArchiveLayout) -> _CapturedClosure:
     )
 
 
-def _ensure_archive_parent(root: Path, parent: Path) -> None:
-    root_abs, parent_abs = _absolute(root), _absolute(parent)
-    try:
-        relative = parent_abs.relative_to(root_abs)
-    except ValueError as exc:
-        raise ArchiveError("archive member escaped its staging root") from exc
-    current = root_abs
-    for part in relative.parts:
-        current /= part
-        try:
-            os.mkdir(current)
-        except FileExistsError:
-            pass
-        metadata = os.lstat(current)
-        if _redirecting(metadata) or not stat.S_ISDIR(metadata.st_mode):
-            raise ArchiveError("archive member ancestry is not a regular directory")
+def _write_exclusive(
+    binding: _PublicationBinding, relative: Path, raw: bytes
+) -> None:
+    """Write through the publication's already-held staging-tree handles."""
 
-
-def _write_exclusive(root: Path, relative: Path, raw: bytes) -> None:
-    path = _absolute(root / relative)
-    _ensure_archive_parent(root, path.parent)
-    flags = (
-        os.O_WRONLY
-        | os.O_CREAT
-        | os.O_EXCL
-        | getattr(os, "O_BINARY", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-    )
-    try:
-        descriptor = os.open(path, flags, 0o600)
-    except OSError as exc:
-        raise ArchiveError(f"exclusive archive write failed: {path.name}") from exc
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode):
-            raise ArchiveError("exclusive archive target is not a regular file")
-        view = memoryview(raw)
-        while view:
-            written = os.write(descriptor, view)
-            if written <= 0:
-                raise ArchiveError("exclusive archive write made no progress")
-            view = view[written:]
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-    after = os.lstat(path)
-    if _redirecting(after) or (after.st_dev, after.st_ino) != (metadata.st_dev, metadata.st_ino):
-        raise ArchiveError("exclusive archive target changed identity")
+    binding.write_exclusive(relative, raw)
 
 
 def _receipt_without_hash(receipt: ArchiveReceipt) -> dict[str, Any]:
@@ -492,61 +598,52 @@ def _publish(layout: _ArchiveLayout, captured: _CapturedClosure) -> ArchiveRecei
     staging = destination.with_name(
         f".{destination.name}.staging-{secrets.token_hex(8)}"
     )
-    _validate_output_destination(staging)
-    try:
-        os.mkdir(staging)
-    except OSError as exc:
-        raise ArchiveError("archive staging collision during publication") from exc
     stage_layout = replace(layout, destination=staging)
-    _write_exclusive(
-        staging,
-        Path("execution-source-manifest.json"),
-        captured.manifest_raw,
-    )
-    for relative, raw in captured.payloads:
-        _write_exclusive(staging, Path("tree") / PurePosixPath(relative), raw)
-    _verify_payloads(
-        stage_layout,
-        captured.records,
-        captured.launcher_record,
-        captured.manifest_raw,
-    )
-    provisional = ArchiveReceipt(
-        schema_version=RECEIPT_SCHEMA_VERSION,
-        manifest_sha256=_sha256(captured.manifest_raw),
-        source_tree_sha256=layout.expected_tree_sha256,
-        launcher_sha256=layout.expected_launcher_sha256,
-        source_manifest_origin=os.fspath(_absolute(layout.manifest_path)),
-        clean_runtime_origin=os.fspath(_absolute(layout.source_root)),
-        launcher_origin=os.fspath(_absolute(layout.launcher_path)),
-        archived_at_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        archive_destination=os.fspath(_absolute(layout.destination)),
-        file_count=len(captured.records),
-        payload_file_count=len(captured.records) + 1,
-        current_worktree_mismatches=captured.mismatches,
-        provenance_label=PROVENANCE_LABEL,
-        receipt_sha256="",
-    )
-    receipt_payload = _receipt_without_hash(provisional)
-    receipt_payload["current_worktree_mismatches"] = provisional.current_worktree_mismatches
-    receipt_payload["receipt_sha256"] = _sha256(
-        _canonical_json(_receipt_without_hash(provisional))
-    )
-    receipt = ArchiveReceipt(**receipt_payload)
-    _write_exclusive(
-        staging,
-        Path("archival-receipt.json"),
-        _canonical_json(receipt.as_dict()),
-    )
-    _receipt_from_raw((staging / "archival-receipt.json").read_bytes())
-    _validate_output_destination(destination)
-    try:
-        os.rename(staging, destination)
-    except OSError as exc:
-        raise ArchiveError(
-            f"archive staging retained after failed publication: {staging}"
-        ) from exc
-    return _verify_archived_source_closure_for_test(layout)
+    with _PublicationBinding(destination, staging) as binding:
+        binding.create_staging()
+        _write_exclusive(
+            binding,
+            Path("execution-source-manifest.json"),
+            captured.manifest_raw,
+        )
+        for relative, raw in captured.payloads:
+            _write_exclusive(binding, Path("tree") / PurePosixPath(relative), raw)
+        _verify_payloads(
+            stage_layout,
+            captured.records,
+            captured.launcher_record,
+            captured.manifest_raw,
+        )
+        provisional = ArchiveReceipt(
+            schema_version=RECEIPT_SCHEMA_VERSION,
+            manifest_sha256=_sha256(captured.manifest_raw),
+            source_tree_sha256=layout.expected_tree_sha256,
+            launcher_sha256=layout.expected_launcher_sha256,
+            source_manifest_origin=os.fspath(_absolute(layout.manifest_path)),
+            clean_runtime_origin=os.fspath(_absolute(layout.source_root)),
+            launcher_origin=os.fspath(_absolute(layout.launcher_path)),
+            archived_at_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            archive_destination=os.fspath(_absolute(layout.destination)),
+            file_count=len(captured.records),
+            payload_file_count=len(captured.records) + 1,
+            current_worktree_mismatches=captured.mismatches,
+            provenance_label=PROVENANCE_LABEL,
+            receipt_sha256="",
+        )
+        receipt_payload = _receipt_without_hash(provisional)
+        receipt_payload["current_worktree_mismatches"] = provisional.current_worktree_mismatches
+        receipt_payload["receipt_sha256"] = _sha256(
+            _canonical_json(_receipt_without_hash(provisional))
+        )
+        receipt = ArchiveReceipt(**receipt_payload)
+        _write_exclusive(
+            binding,
+            Path("archival-receipt.json"),
+            _canonical_json(receipt.as_dict()),
+        )
+        _receipt_from_raw((staging / "archival-receipt.json").read_bytes())
+        binding.publish()
+        return _verify_archived_source_closure_for_test(layout)
 
 
 def _verify_payloads(

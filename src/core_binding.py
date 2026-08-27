@@ -8,9 +8,7 @@ from pathlib import Path
 import stat
 from typing import Iterator
 
-
 _WINDOWS_REPARSE_POINT = 0x400
-
 
 def _before_owned_handle_delete(_path: Path) -> None:
     """Deterministic race-test seam immediately before handle-bound deletion."""
@@ -44,7 +42,41 @@ class BoundParent:
         if not name or name in {".", ".."} or Path(name).name != name:
             raise ValueError("bound child name must be one plain path component")
         return self.parent / name
+    def directory_identity(self) -> tuple[int, int]:
+        """Return a stable identity for the held directory itself."""
+        if self.directory_fd is not None:
+            metadata = os.fstat(self.directory_fd)
+            identity = (metadata.st_dev, metadata.st_ino)
+        elif self.windows_handles:
+            _attributes, volume, index = _windows_handle_identity(
+                self.windows_handles[-1]
+            )
+            identity = (volume, index)
+        else:
+            metadata = os.lstat(self.parent)
+            identity = (metadata.st_dev, metadata.st_ino)
+        return identity
 
+    def assert_still_named(self) -> None:
+        """Fail if the held directory is no longer at its original pathname."""
+        metadata = os.lstat(self.parent)
+        redirecting = stat.S_ISLNK(metadata.st_mode) or int(
+            getattr(metadata, "st_file_attributes", 0)
+        ) & _WINDOWS_REPARSE_POINT
+        if redirecting:
+            raise OSError("bound directory pathname became redirecting")
+        if self.directory_fd is not None:
+            held = os.fstat(self.directory_fd)
+            identity = (held.st_dev, held.st_ino)
+        elif self.windows_handles and metadata.st_ino:
+            _attributes, _volume, inode = _windows_handle_identity(
+                self.windows_handles[-1]
+            )
+            identity = (metadata.st_dev, inode)
+        else:
+            identity = (metadata.st_dev, metadata.st_ino)
+        if (metadata.st_dev, metadata.st_ino) != identity:
+            raise OSError("bound directory pathname changed identity")
     def open(self, name: str, flags: int, mode: int = 0o600) -> int:
         if self.directory_fd is not None:
             return os.open(name, flags, mode, dir_fd=self.directory_fd)
@@ -81,6 +113,89 @@ class BoundParent:
             )
             return
         os.link(self.child(source), self.child(destination), follow_symlinks=False)
+
+    @contextmanager
+    def bind_child_directory(
+        self,
+        name: str,
+        *,
+        create: bool = False,
+        mode: int = 0o700,
+    ) -> Iterator[BoundParent]:
+        """Open one child directory relative to this held parent."""
+        child = self.child(name)
+        if self.directory_fd is not None:
+            if create:
+                os.mkdir(name, mode, dir_fd=self.directory_fd)
+            flags = os.O_RDONLY | int(getattr(os, "O_DIRECTORY", 0)) | int(
+                getattr(os, "O_NOFOLLOW", 0)
+            )
+            descriptor = os.open(name, flags, dir_fd=self.directory_fd)
+            try:
+                metadata = os.fstat(descriptor)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    raise NotADirectoryError(child)
+                yield BoundParent(child, directory_fd=descriptor)
+            finally:
+                os.close(descriptor)
+            return
+        if self.windows_handles:
+            handle = _windows_nt_open(
+                self.windows_handles[-1],
+                name,
+                desired_access=0x00000001 | 0x80,
+                disposition=2 if create else 1,
+                directory=True,
+            )
+            try:
+                attributes, _volume, _index = _windows_handle_identity(handle)
+                if attributes & _WINDOWS_REPARSE_POINT or not attributes & 0x10:
+                    raise OSError("bound child is redirecting or not a directory")
+                yield BoundParent(child, windows_handles=(handle,))
+            finally:
+                _windows_close_handle(handle)
+            return
+        if create:
+            os.mkdir(child, mode)
+        with bind_parent(child) as bound:
+            yield bound
+    def rename_noreplace(
+        self,
+        source: str,
+        destination: str,
+        *,
+        expected_identity: tuple[int, int] | None = None,
+    ) -> None:
+        """Rename one held child directory without replacing another name."""
+        self.child(source)
+        self.child(destination)
+        def require(actual: tuple[int, int]) -> None:
+            if expected_identity is not None and actual != expected_identity:
+                raise OSError("rename source identity changed")
+
+        if self.directory_fd is not None:
+            metadata = self.lstat(source)
+            require((metadata.st_dev, metadata.st_ino))
+            _posix_rename_noreplace(self.directory_fd, source, destination)
+            return
+        if self.windows_handles:
+            for attempt in range(3):
+                try:
+                    _windows_rebind_name(
+                        self.windows_handles[-1], source, destination,
+                        replace=False, link=False, directory=True,
+                        expected_identity=expected_identity,
+                    )
+                    return
+                except PermissionError:
+                    if attempt == 2:
+                        raise
+            return
+        if os.path.lexists(self.child(destination)):
+            raise FileExistsError(destination)
+        metadata = os.lstat(self.child(source))
+        require((metadata.st_dev, metadata.st_ino))
+        os.rename(self.child(source), self.child(destination))
 
     def replace(self, source: str, destination: str) -> None:
         if self.directory_fd is not None:
@@ -157,7 +272,6 @@ def _windows_open_directory(path: Path) -> int:
 def _windows_handle_identity(handle: int) -> tuple[int, int, int]:
     import ctypes
     from ctypes import wintypes
-
     class FileInformation(ctypes.Structure):
         _fields_ = [
             ("attributes", wintypes.DWORD),
@@ -171,7 +285,6 @@ def _windows_handle_identity(handle: int) -> tuple[int, int, int]:
             ("index_high", wintypes.DWORD),
             ("index_low", wintypes.DWORD),
         ]
-
     information = FileInformation()
     function = ctypes.windll.kernel32.GetFileInformationByHandle
     function.argtypes = (wintypes.HANDLE, ctypes.POINTER(FileInformation))
@@ -189,17 +302,16 @@ def _windows_nt_open(
     desired_access: int,
     disposition: int,
     share_access: int = 0x1 | 0x2 | 0x4,
+    directory: bool = False,
 ) -> int:
     import ctypes
     from ctypes import wintypes
-
     class UnicodeString(ctypes.Structure):
         _fields_ = [
             ("length", wintypes.USHORT),
             ("maximum_length", wintypes.USHORT),
             ("buffer", wintypes.LPWSTR),
         ]
-
     class ObjectAttributes(ctypes.Structure):
         _fields_ = [
             ("length", wintypes.ULONG),
@@ -209,10 +321,8 @@ def _windows_nt_open(
             ("security_descriptor", wintypes.LPVOID),
             ("security_qos", wintypes.LPVOID),
         ]
-
     class IoStatusBlock(ctypes.Structure):
         _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
-
     encoded = name.encode("utf-16-le")
     buffer = ctypes.create_unicode_buffer(name)
     unicode_name = UnicodeString(
@@ -252,7 +362,7 @@ def _windows_nt_open(
         0x80,
         share_access,
         disposition,
-        0x20 | 0x40 | 0x00200000,
+        0x20 | (0x1 if directory else 0x40) | 0x00200000,
         None,
         0,
     )
@@ -273,7 +383,6 @@ def _windows_open_relative(parent_handle: int, name: str, flags: int) -> int:
     import ctypes
     import msvcrt
     from ctypes import wintypes
-
     access = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
     desired = 0xC0000000 if access == os.O_RDWR else 0x40000000
     if access == os.O_RDONLY:
@@ -298,17 +407,23 @@ def _windows_rebind_name(
     *,
     replace: bool,
     link: bool,
+    directory: bool = False,
+    expected_identity: tuple[int, int] | None = None,
 ) -> None:
     import ctypes
     from ctypes import wintypes
-
     handle = _windows_nt_open(
         parent_handle,
         source,
         desired_access=0x00010000 | 0x80,
         disposition=1,
+        directory=directory,
     )
-
+    if expected_identity is not None:
+        _attributes, volume, index = _windows_handle_identity(handle)
+        if (volume, index) != expected_identity:
+            _windows_close_handle(handle)
+            raise OSError("rename source identity changed")
     class NameInformation(ctypes.Structure):
         _fields_ = [
             ("replace", wintypes.BOOLEAN),
@@ -316,7 +431,6 @@ def _windows_rebind_name(
             ("name_length", wintypes.DWORD),
             ("name", wintypes.WCHAR * 1),
         ]
-
     encoded = destination.encode("utf-16-le")
     offset = NameInformation.name.offset
     storage = ctypes.create_string_buffer(ctypes.sizeof(NameInformation) + len(encoded))
@@ -327,7 +441,6 @@ def _windows_rebind_name(
     ctypes.memmove(ctypes.addressof(storage) + offset, encoded, len(encoded))
     class IoStatusBlock(ctypes.Structure):
         _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
-
     io_status = IoStatusBlock()
     function = ctypes.windll.ntdll.NtSetInformationFile
     function.argtypes = (
@@ -360,6 +473,31 @@ def _windows_rebind_name(
         close_handle(handle)
 
 
+def _windows_close_handle(handle: int) -> None:
+    import ctypes
+    from ctypes import wintypes
+    close_handle = ctypes.windll.kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    close_handle(handle)
+
+
+def _posix_rename_noreplace(directory_fd: int, source: str, destination: str) -> None:
+    import ctypes
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise OSError("safe no-replace directory rename is unavailable")
+    renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p) * 2 + (ctypes.c_uint,)
+    renameat2.restype = ctypes.c_int
+    result = renameat2(directory_fd, os.fsencode(source), directory_fd, os.fsencode(destination), 1)
+    if result != 0:
+        code = ctypes.get_errno()
+        if code == 17:
+            raise FileExistsError(destination)
+        raise OSError(code, os.strerror(code))
+
+
 def _windows_unlink_opened(
     parent_handle: int,
     name: str,
@@ -369,7 +507,6 @@ def _windows_unlink_opened(
     import ctypes
     import msvcrt
     from ctypes import wintypes
-
     try:
         handle = _windows_nt_open(
             parent_handle,
@@ -385,15 +522,11 @@ def _windows_unlink_opened(
         if _identity(os.fstat(descriptor)) != expected:
             return False
         _before_owned_handle_delete(display_path)
-
         class FileDisposition(ctypes.Structure):
             _fields_ = [("delete_file", wintypes.BOOLEAN)]
-
         disposition = FileDisposition(True)
-
         class IoStatusBlock(ctypes.Structure):
             _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
-
         io_status = IoStatusBlock()
         function = ctypes.windll.ntdll.NtSetInformationFile
         function.argtypes = (
@@ -424,7 +557,6 @@ def _windows_unlink_opened(
 @contextmanager
 def bind_parent(parent: Path) -> Iterator[BoundParent]:
     """Hold a stable no-follow binding for an existing absolute directory."""
-
     candidate = Path(os.path.abspath(parent))
     expected = os.lstat(candidate)
     if not stat.S_ISDIR(expected.st_mode):

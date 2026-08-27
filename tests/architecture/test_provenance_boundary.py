@@ -261,6 +261,62 @@ def test_archive_rejects_redirecting_destination_parent(tmp_path: Path) -> None:
         archive._archive_bound_source_closure_for_test(layout)
 
 
+def _assert_archive_ancestor_swap_is_contained(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    event: str,
+) -> None:
+    layout = _synthetic_layout(tmp_path)
+    parent = layout.destination.parent
+    moved_parent = parent.with_name(f"{parent.name}-{event}-moved")
+    outside = tmp_path / f"outside-{event}"
+    outside.mkdir()
+    outcome = {"attempted": False, "blocked": False, "swapped": False}
+
+    def swap_ancestor(current_event: str, _target: Path) -> None:
+        if current_event != event or outcome["attempted"]:
+            return
+        outcome["attempted"] = True
+        try:
+            parent.rename(moved_parent)
+        except OSError:
+            outcome["blocked"] = True
+            return
+        parent.symlink_to(outside, target_is_directory=True)
+        outcome["swapped"] = True
+
+    monkeypatch.setattr(archive, "_publication_test_hook", swap_ancestor)
+    try:
+        receipt = archive._archive_bound_source_closure_for_test(layout)
+    except archive.ArchiveError as exc:
+        assert "parent binding changed" in str(exc)
+        assert outcome == {"attempted": True, "blocked": False, "swapped": True}
+        assert not layout.destination.exists()
+    else:
+        assert receipt.source_tree_sha256 == "a" * 64
+        assert outcome == {"attempted": True, "blocked": True, "swapped": False}
+        assert layout.destination.is_dir()
+    assert tuple(outside.iterdir()) == ()
+
+
+def test_archive_stage_creation_is_bound_against_ancestor_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "stage_creation")
+
+
+def test_archive_member_write_is_bound_against_ancestor_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "member_write")
+
+
+def test_archive_final_rename_is_bound_against_ancestor_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "final_rename")
+
+
 def test_failed_archive_publication_keeps_final_destination_retryable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -268,12 +324,14 @@ def test_failed_archive_publication_keeps_final_destination_retryable(
     implementation = archive._write_exclusive
     calls = 0
 
-    def fail_after_first_member(root: Path, relative: Path, raw: bytes) -> None:
+    def fail_after_first_member(
+        binding: archive._PublicationBinding, relative: Path, raw: bytes
+    ) -> None:
         nonlocal calls
         calls += 1
         if calls == 2:
             raise archive.ArchiveError("synthetic staging failure")
-        implementation(root, relative, raw)
+        implementation(binding, relative, raw)
 
     monkeypatch.setattr(archive, "_write_exclusive", fail_after_first_member)
     with pytest.raises(archive.ArchiveError, match="synthetic staging failure"):
