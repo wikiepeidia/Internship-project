@@ -485,6 +485,9 @@ def test_runtime_doctor_fails_closed_on_unsafe_release_member(
         "Khong bam vao lien ket ma chuyen tien de xac minh",
         "Không bấm vào liên kết mà chuyển tiền để xác minh",
         "Khong click link roi transfer money de xac minh",
+        "Không bấm vào liên kết và nhớ chia sẻ OTP cho họ",
+        "Không bấm vào liên kết hoặc hãy chuyển tiền để xác minh",
+        "Không bấm vào liên kết và sau đó cài ứng dụng này",
     ),
 )
 def test_recommendation_filter_rejects_mixed_clause_actions(text: str) -> None:
@@ -495,9 +498,9 @@ def test_recommendation_filter_rejects_mixed_clause_actions(text: str) -> None:
 @pytest.mark.parametrize(
     "text",
     (
-        "Không bấm vào liên kết hoặc cài ứng dụng từ tin nhắn.",
-        "Khong chia se OTP hoac cung cap CVV.",
-        "Không bấm vào liên kết hoặc cài ứng dụng từ tin nhắn.",
+        "Không bấm vào liên kết và không cài ứng dụng từ tin nhắn.",
+        "Khong chia se OTP va khong cung cap CVV.",
+        "Không bấm vào liên kết hoặc đừng cài ứng dụng từ tin nhắn.",
         "Xác minh qua ứng dụng chính thức.",
     ),
 )

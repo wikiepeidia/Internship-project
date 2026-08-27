@@ -31,7 +31,7 @@ Priority = Literal["low", "medium", "high"]
 SUPPORTED_THREAT_LABELS = get_args(ThreatLabel)
 SUPPORTED_CUE_TYPES = set(get_args(CueType))
 DEFAULT_RISKY_RECOMMENDATIONS = (
-    "Khong bam vao lien ket hoac cai ung dung tu tin nhan nay.",
+    "Khong bam vao lien ket va khong cai ung dung tu tin nhan nay.",
     "Khong chia se OTP, mat khau, CCCD, hoac CVV.",
     "Xac minh qua ung dung, website, hoac tong dai chinh thuc.",
 )
@@ -552,29 +552,12 @@ def _is_unsafe_recommendation(text: str) -> bool:
         )
         if not clause or not occurrences:
             continue
-        negations = ("khong", "không", "dung", "đừng", "tranh", "tránh")
-        first_start, first_marker = occurrences[0]
-        if not any(
-            clause.startswith(f"{negation} {first_marker}")
-            for negation in negations
-        ):
-            return True
-        previous_end = first_start + len(first_marker)
-        for start, marker in occurrences[1:]:
+        negation = re.compile(r"(?:^|\s)(?:khong|không|dung|đừng|tranh|tránh)\s+$")
+        previous_end = -1
+        for start, marker in occurrences:
             if start < previous_end:
                 continue
-            prefix = clause[:start]
-            if any(prefix.endswith(f"{negation} ") for negation in negations):
-                previous_end = start + len(marker)
-                continue
-            bridge = clause[previous_end:start]
-            if any(
-                pivot in bridge
-                for pivot in (" mà ", " ma ", " nhưng ", " nhung ", " rồi ", " roi ")
-            ) or not any(
-                coordinator in bridge
-                for coordinator in (" hoặc ", " hoac ", " hay ", " và ", " va ")
-            ):
+            if negation.search(clause[:start]) is None:
                 return True
             previous_end = start + len(marker)
     return False
