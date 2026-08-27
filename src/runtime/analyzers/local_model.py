@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 from typing import Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -542,9 +543,19 @@ def _build_helper_evidence(helper_cues: list[HelperCue], *, labels: list[ThreatL
 
 def _is_unsafe_recommendation(text: str) -> bool:
     lowered = text.casefold().strip()
-    if lowered.startswith(("khong ", "không ", "tranh ", "tránh ", "xac minh ", "xác minh ")):
-        return False
-    return any(marker in lowered for marker in UNSAFE_RECOMMENDATION_MARKERS)
+    for clause in re.split(r"[,.!?;:\n]+", lowered):
+        clause = clause.strip()
+        if not clause or not any(
+            marker in clause for marker in UNSAFE_RECOMMENDATION_MARKERS
+        ):
+            continue
+        # Negation applies only to unsafe actions in the same bounded clause.
+        # A harmless prefix in an earlier clause must never whitelist a later
+        # instruction such as "Không lo, bấm vào liên kết".
+        if re.match(r"^(?:khong|không|dung|đừng|tranh|tránh)\b", clause):
+            continue
+        return True
+    return False
 
 
 def cue_span_is_grounded(normalized_text: str, span: str) -> bool:

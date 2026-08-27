@@ -317,6 +317,33 @@ def test_runtime_construction_uses_secret_free_owner_getter() -> None:
         assert not any(field_name in source for field_name in PROVIDER_DEFAULTS)
 
 
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Không lo, bấm vào liên kết để xác minh.",
+        "Khong lo, click vao link de xac minh.",
+        "Xác minh qua tổng đài; trả lời tin nhắn này để nhận mã.",
+        "Tranh hoang mang, chuyen tien ngay de bao toan tai khoan.",
+    ),
+)
+def test_recommendation_filter_rejects_mixed_clause_actions(text: str) -> None:
+    module = importlib.import_module("src.runtime.analyzers.local_model")
+    assert module.is_recommendation_safe(text) is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Không bấm vào liên kết hoặc cài ứng dụng từ tin nhắn.",
+        "Khong chia se OTP hoac cung cap CVV.",
+        "Xác minh qua ứng dụng chính thức.",
+    ),
+)
+def test_recommendation_filter_accepts_bounded_safe_guidance(text: str) -> None:
+    module = importlib.import_module("src.runtime.analyzers.local_model")
+    assert module.is_recommendation_safe(text) is True
+
+
 def test_runtime_doctor_uses_neutral_release_reader(monkeypatch, tmp_path: Path) -> None:
     doctor_module = importlib.import_module("src.runtime.doctor")
     artifact_path = tmp_path / "phase5-release-eval-synthetic.json"
