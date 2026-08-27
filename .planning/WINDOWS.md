@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 0
 waived_count: 0
-fixed_count: 7
-total_count: 7
-last_updated: 2026-08-27T02:56:51.625Z
+fixed_count: 8
+total_count: 8
+last_updated: 2026-08-27T03:23:27.869Z
 ---
 
 # Broken Windows Ledger
@@ -22,6 +22,7 @@ last_updated: 2026-08-27T02:56:51.625Z
 | 5 | 41.1 | deviation | src/modeling/evidence.py |  | Closed result, export-directory, unopened-member, and materialization provenance links after the Task 2 independent audit. | fixed |  | 2026-08-27T02:24:50.246Z | 2026-08-27T02:25:19.969Z |
 | 6 | 41.1 | deviation | tests/architecture/test_modeling_evidence.py |  | Construct hash-named synthetic authorities directly to avoid OneDrive directory-rename races. | fixed |  | 2026-08-27T02:24:50.725Z | 2026-08-27T02:25:20.429Z |
 | 7 | 41.1 | deviation | src/data_pipeline/workflows.py | 487 | Resolved active workflow naming contract by exposing build_training_corpus and retaining run_phase1 only at the legacy CLI seam | fixed |  | 2026-08-27T02:56:31.000Z | 2026-08-27T02:56:51.625Z |
+| 8 | 41.1 | deviation | tests/architecture/test_import_boundaries.py |  | Plan 06 v2 static_policy required the prior exact-field import-boundary gate to accept the additive policy field and schema version. | fixed |  | 2026-08-27T03:22:56.445Z | 2026-08-27T03:23:27.869Z |
 
 ````json
 [
@@ -108,6 +109,18 @@ last_updated: 2026-08-27T02:56:51.625Z
     "reason": "",
     "recorded_at": "2026-08-27T02:56:31.000Z",
     "resolved_at": "2026-08-27T02:56:51.625Z"
+  },
+  {
+    "id": 8,
+    "kind": "deviation",
+    "phase": "41.1",
+    "file": "tests/architecture/test_import_boundaries.py",
+    "line": null,
+    "description": "Plan 06 v2 static_policy required the prior exact-field import-boundary gate to accept the additive policy field and schema version.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-27T03:22:56.445Z",
+    "resolved_at": "2026-08-27T03:23:27.869Z"
   }
 ]
 ````

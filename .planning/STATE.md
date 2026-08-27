@@ -4,17 +4,17 @@ milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
-status: executing
-stopped_at: Completed 41.1-05-PLAN.md
-last_updated: "2026-08-27T02:57:46.384Z"
+status: verifying
+stopped_at: Completed 41.1-06-PLAN.md
+last_updated: "2026-08-27T03:26:46.244Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-05-PLAN.md
-state_head: 879d8705f7b9cf472d2781b55fdfbcef1b3bf386
+state_head: 91fc08b24d5c07d093f022a9f227f66b4df404c0
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 87
-  completed_plans: 60
+  completed_plans: 61
   percent: 13
 ---
 
@@ -39,7 +39,7 @@ progress:
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-27 — Completed 41.1-05-PLAN.md
 Progress: [██████████████░░░░░░] 60/87 plans ([█░░░░░░░░░] 13%)
 
@@ -233,8 +233,8 @@ Progress: [██████████████░░░░░░] 60/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T02:57:45.732Z
-**Stopped at:** Completed 41.1-05-PLAN.md
+**Last session:** 2026-08-27T03:26:45.398Z
+**Stopped at:** Completed 41.1-06-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -348,6 +348,10 @@ Progress: [██████████████░░░░░░] 60/87 p
 - [Phase 41.1]: Keep deterministic data-core owners free of provider, scraper, judge, CLI, migration, model, and live-path dependencies; retain old paths as explicit named shims.
 - [Phase 41.1]: Represent each preserved repair as a literal immutable migration route and reject unknown identifiers before any repair module import.
 - [Phase 41.1]: Classify every data-pipeline module exactly once as core, compatibility, workflow, or migration ownership.
+- [Phase 41.1]: Treat module-boundaries-v2/static_policy as the sole machine-readable policy for active naming, line budgets, CLI ownership, and forbidden runtime reachability.
+- [Phase 41.1]: Present the repository in a numbered 1-10 domain reading path while retaining phase-numbered names only as compatibility or provenance labels.
+- [Phase 41.1]: Require the sealed Phase 41 export and provenance erratum beside every metric claim; the refactored source is not represented as the producer.
+- [Phase 41.1]: Publish D-root retention facts only from the approved inventory, with cleanup candidates explicitly informational and non-authorized.
 
 ## Performance Metrics
 
@@ -363,6 +367,7 @@ Progress: [██████████████░░░░░░] 60/87 p
 | Phase 41.1 P03 | 23min | 3 tasks | 13 files |
 | Phase 41.1 P04 | 34min | 3 tasks | 14 files |
 | Phase 41.1 P05 | 25min | 3 tasks | 17 files |
+| Phase 41.1 P06 | 24min | 3 tasks | 10 files |
 
 ### Blockers
 

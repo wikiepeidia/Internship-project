@@ -675,7 +675,7 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 - [x] **REFACTOR-03**: Establish phase-neutral active boundaries for shared integrity primitives, Qwen/PhoBERT training, inference, evaluation, and evidence reading; eliminate active import cycles without modifying or reserializing frozen historical artifacts.
 - [x] **REFACTOR-04**: Separate reusable data-pipeline core logic from generation/review workflows and one-off corpus migrations; retain original module/command paths as tested shims or hash-recorded archive entries until all callers are proven migrated.
 - [x] **REFACTOR-05**: Add synthetic-only characterization, CLI-contract, import-boundary, dependency-cycle, and artifact-byte tests that prove compatibility without accessing or rerunning the reserved held-out evaluation.
-- [ ] **REFACTOR-06**: Produce a report-ready architecture/provenance map plus an exact D-drive storage inventory identifying required models, optional deployment exports, historical evidence, and explicitly reviewed cleanup candidates; no automated deletion is authorized by this requirement.
+- [x] **REFACTOR-06**: Produce a report-ready architecture/provenance map plus an exact D-drive storage inventory identifying required models, optional deployment exports, historical evidence, and explicitly reviewed cleanup candidates; no automated deletion is authorized by this requirement.
 
 ### Report Overhaul
 
@@ -725,7 +725,7 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | REFACTOR-03 | Phase 41.1 | Complete |
 | REFACTOR-04 | Phase 41.1 | Complete |
 | REFACTOR-05 | Phase 41.1 | Complete |
-| REFACTOR-06 | Phase 41.1 | Pending |
+| REFACTOR-06 | Phase 41.1 | Complete |
 | REPORT-03 | Phase 42 | Pending |
 | REPORT-04 | Phase 42 | Pending |
 | REPORT-05 | Phase 42 | Pending |
