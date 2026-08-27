@@ -67,8 +67,15 @@ and versioning paths remain explicit forwards so existing callers continue to wo
 `src.data_pipeline.recovery` owns the closed, fail-closed recovery input boundary,
 and `src.data_pipeline.generation_runs` owns resumable checkpoint lifecycles.
 Those optional/provider-heavy imports stay inside selected handlers.
-The canonical domain operation is `build_training_corpus`; the chronological
-`run_phase1` name survives only in the legacy CLI seam.
+The canonical domain operation is `build_training_corpus`. The legacy CLI retains
+one frozen compatibility identifier:
+
+<!-- legacy-data-cli-identifier:start -->
+`run_phase1`
+<!-- legacy-data-cli-identifier:end -->
+
+New code uses the domain operation; the retained identifier exists only for callers
+that still depend on the compatibility seam.
 
 ## 6. Migration catalog
 
@@ -151,7 +158,7 @@ scan cannot silently admit it.
 <!-- policy-groups:start -->
 | Policy group | Modules |
 | --- | --- |
-| `active` | `src.artifacts`<br>`src.core`<br>`src.core.integrity`<br>`src.core_binding`<br>`src.modeling`<br>`src.modeling.evaluation`<br>`src.modeling.evidence`<br>`src.modeling.inference`<br>`src.modeling.training`<br>`src.runtime`<br>`src.runtime.analyzers`<br>`src.runtime.analyzers.accelerated`<br>`src.runtime.analyzers.base`<br>`src.runtime.analyzers.gguf`<br>`src.runtime.analyzers.heuristic`<br>`src.runtime.analyzers.local_model`<br>`src.runtime.analyzers.rules`<br>`src.runtime.cli`<br>`src.runtime.contracts`<br>`src.runtime.demo`<br>`src.runtime.doctor`<br>`src.runtime.render`<br>`src.runtime.service` |
+| `active` | `src.artifacts`<br>`src.config`<br>`src.config.settings`<br>`src.core`<br>`src.core_binding`<br>`src.core.integrity`<br>`src.modeling`<br>`src.modeling.evaluation`<br>`src.modeling.evidence`<br>`src.modeling.inference`<br>`src.modeling.training`<br>`src.runtime`<br>`src.runtime.analyzers`<br>`src.runtime.analyzers.accelerated`<br>`src.runtime.analyzers.base`<br>`src.runtime.analyzers.gguf`<br>`src.runtime.analyzers.heuristic`<br>`src.runtime.analyzers.local_model`<br>`src.runtime.analyzers.rules`<br>`src.runtime.cli`<br>`src.runtime.contracts`<br>`src.runtime.demo`<br>`src.runtime.doctor`<br>`src.runtime.render`<br>`src.runtime.service` |
 | `compatibility_adapters` | `src.model_adaptation.cli`<br>`src.model_adaptation.commands`<br>`src.model_adaptation.commands.adaptation`<br>`src.model_adaptation.commands.legacy_phase40`<br>`src.model_adaptation.commands.legacy_phase41`<br>`src.model_adaptation.commands.router`<br>`src.model_adaptation.convert`<br>`src.model_adaptation.doctor`<br>`src.model_adaptation.explanation_review`<br>`src.model_adaptation.release_evaluation`<br>`src.model_adaptation.release_gates`<br>`src.model_adaptation.release_readiness`<br>`src.modeling.legacy_adapters` |
 | `historical` | `src.model_adaptation`<br>`src.model_adaptation.catalog`<br>`src.model_adaptation.data`<br>`src.model_adaptation.phase40_callbacks`<br>`src.model_adaptation.phase40_colab_prepare`<br>`src.model_adaptation.phase40_comparison_launch`<br>`src.model_adaptation.phase40_contract`<br>`src.model_adaptation.phase40_evidence`<br>`src.model_adaptation.phase40_final_authority`<br>`src.model_adaptation.phase40_finalize`<br>`src.model_adaptation.phase40_gguf`<br>`src.model_adaptation.phase40_graphs`<br>`src.model_adaptation.phase40_handoff`<br>`src.model_adaptation.phase40_local_experiment`<br>`src.model_adaptation.phase40_lora_recovery`<br>`src.model_adaptation.phase40_metrics`<br>`src.model_adaptation.phase40_modes`<br>`src.model_adaptation.phase40_notebooks`<br>`src.model_adaptation.phase40_operator`<br>`src.model_adaptation.phase40_phobert_release`<br>`src.model_adaptation.phase40_production_authorities`<br>`src.model_adaptation.phase40_qlora_session`<br>`src.model_adaptation.phase40_release_authorities`<br>`src.model_adaptation.phase40_review`<br>`src.model_adaptation.phase40_runtime_materialize`<br>`src.model_adaptation.phase41_evaluation`<br>`src.model_adaptation.phase41_protocols`<br>`src.model_adaptation.phobert_training`<br>`src.model_adaptation.pilot`<br>`src.model_adaptation.prompts`<br>`src.model_adaptation.registry`<br>`src.model_adaptation.schemas`<br>`src.model_adaptation.training` |
 | `data.core` | `src.data_pipeline`<br>`src.data_pipeline.core`<br>`src.data_pipeline.core.records`<br>`src.data_pipeline.core.splits`<br>`src.data_pipeline.core.text` |

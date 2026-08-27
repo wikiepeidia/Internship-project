@@ -25,6 +25,12 @@ ACTIVE_TEXT_FIXTURE_PATH = (
 RUNTIME_PROSE_FIXTURE_PATH = (
     REPO_ROOT / "tests" / "architecture" / "fixtures" / "runtime_prose_contract.json"
 )
+MODEL_CLI_FIXTURE_PATH = (
+    REPO_ROOT / "tests" / "architecture" / "fixtures" / "model_cli_contract.json"
+)
+RUNTIME_CLI_FIXTURE_PATH = (
+    REPO_ROOT / "tests" / "architecture" / "fixtures" / "runtime_cli_contract.json"
+)
 
 _PHASE_PATTERN = re.compile(r"phase[ _-]*[0-9]+", re.IGNORECASE)
 _LITERAL_BOUNDARY_CHARS = frozenset(
@@ -211,6 +217,123 @@ def _assert_exact_marker_block(
     assert text[start:end] == expected, (
         f"{row['marker_id']} must contain only its exact compatibility command block"
     )
+
+
+def _marker_row(
+    contract: dict[str, Any],
+    logical_path: str,
+    marker_id: str,
+) -> dict[str, str]:
+    rows = [
+        row
+        for row in contract["literal_markers"]
+        if row["path"] == logical_path and row["marker_id"] == marker_id
+    ]
+    assert len(rows) == 1, f"marker must have exactly one owner: {logical_path}:{marker_id}"
+    return rows[0]
+
+
+def _markdown_table_rows(body: str, width: int) -> list[tuple[str, ...]]:
+    lines = [line.strip() for line in body.splitlines()]
+    raw_rows = [line for line in lines if line.startswith("|") and line.endswith("|")]
+    parsed = [tuple(cell.strip() for cell in row.strip("|").split("|")) for row in raw_rows]
+    assert len(parsed) >= 2
+    assert all(len(row) == width for row in parsed)
+    assert all(set(cell) <= {"-", ":", " "} for cell in parsed[1])
+    return parsed[2:]
+
+
+def _expected_policy_groups_body(policy: dict[str, Any]) -> str:
+    data = policy["data_modules"]
+    groups = (
+        ("active", policy["active_modules"]),
+        ("compatibility_adapters", policy["compatibility_adapters"]),
+        ("historical", policy["historical_modules"]),
+        ("data.core", data["core"]),
+        ("data.compatibility", data["compatibility"]),
+        ("data.workflows", data["workflows"]),
+        ("data.migrations", data["migrations"]),
+        ("ownership_indexes", list(policy["ownership_indexes"].values())),
+    )
+    rows = ["| Policy group | Modules |", "| --- | --- |"]
+    rows.extend(
+        f"| `{group}` | " + "<br>".join(f"`{module}`" for module in modules) + " |"
+        for group, modules in groups
+    )
+    return "\n".join(rows)
+
+
+def _expected_policy_edges_body(policy: dict[str, Any]) -> str:
+    rows = ["| Adapter source | Historical target |", "| --- | --- |"]
+    rows.extend(f"| `{source}` | `{target}` |" for source, target in policy["allowed_edges"])
+    return "\n".join(rows)
+
+
+def _expected_historical_scc_body(policy: dict[str, Any]) -> str:
+    rows = ["| Historical SCC members |", "| --- |"]
+    rows.extend(
+        "| " + "<br>".join(f"`{module}`" for module in component) + " |"
+        for component in policy["historical_sccs"]
+    )
+    return "\n".join(rows)
+
+
+def _expected_cli_contract_body() -> str:
+    runtime_fixture = _load_json(RUNTIME_CLI_FIXTURE_PATH)
+    model_fixture = _load_json(MODEL_CLI_FIXTURE_PATH)
+    runtime_results = {
+        row["command"]: row
+        for row in runtime_fixture["main_contract"]["installed_command_handler_doubles"]
+    }
+    rows = [
+        "| Command | Group | Parser fact | Direct or lazy route | Exit/output contract |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for command_row in runtime_fixture["parser"]["subcommands"]:
+        command = command_row["command"]
+        parser = command_row["parser"]
+        options = [
+            action["option_strings"][0]
+            for action in parser["actions"]
+            if action["option_strings"] and action["dest"] != "help"
+        ]
+        parser_fact = "flags: " + (", ".join(options) if options else "none")
+        result = runtime_results[command]
+        exit_contract = (
+            f"fixture return {result['return_value']}; stdout and stderr preserved"
+        )
+        rows.append(
+            f"| `{command}` | `installed` | `{parser_fact}` | "
+            f"`{parser['defaults']['handler']}` | `{exit_contract}` |"
+        )
+
+    model_exit_contract = (
+        "handler return preserved; stdout and stderr preserved; caught "
+        "RuntimeError/ValueError/FileNotFoundError -> stderr and return 1"
+    )
+    for command_row in model_fixture["parser"]["subcommands"]:
+        command = command_row["command"]
+        if command in {"pilot", "train", "convert", "doctor"}:
+            group = "adaptation"
+            route_module = "src.model_adaptation.commands.adaptation"
+        elif command.startswith("phase40-"):
+            group = "phase40 compatibility"
+            route_module = "src.model_adaptation.commands.legacy_phase40"
+        else:
+            assert command.startswith("phase41-")
+            group = "phase41 compatibility"
+            route_module = "src.model_adaptation.commands.legacy_phase41"
+        parser_fact = (
+            "required --adaptation-mode (preserved compatibility quirk)"
+            if command == "doctor"
+            else "frozen argparse fixture"
+        )
+        route = f"{route_module}:handle_{command.replace('-', '_')}"
+        rows.append(
+            f"| `{command}` | `{group}` | `{parser_fact}` | `{route}` | "
+            f"`{model_exit_contract}` |"
+        )
+    return "\n".join(rows)
 
 
 def _literal_exception_spans(
@@ -743,3 +866,163 @@ def test_local_model_guide_scopes_cli_literals_and_declares_qlora_debt() -> None
     moved_token = guide.replace("phase3-main", "release-main", 1)
     moved_token += "\nCompatibility token: phase3-main\n"
     assert _scan_text(guide_path, moved_token, fixture)
+
+
+def test_overview_and_cli_contracts_use_domain_narrative_or_exact_markers() -> None:
+    fixture = _active_text_fixture()
+    policy = _policy()
+    assert policy["static_policy"]["active_text_scan"] == fixture
+
+    overview_path = "docs/architecture/overview.md"
+    cli_path = "docs/architecture/cli-contracts.md"
+    overview = (REPO_ROOT / overview_path).read_text(encoding="utf-8")
+    cli_document = (REPO_ROOT / cli_path).read_text(encoding="utf-8")
+    assert _scan_text(overview_path, overview, fixture) == []
+    assert _scan_text(cli_path, cli_document, fixture) == []
+
+    expected_overview_markers = [
+        {
+            "path": overview_path,
+            "marker_id": "legacy-data-cli-identifier",
+            "start_marker": "<!-- legacy-data-cli-identifier:start -->",
+            "end_marker": "<!-- legacy-data-cli-identifier:end -->",
+            "reason": "preserve the run_phase1 compatibility identifier",
+            "owner": "data-cli-compatibility",
+        },
+        {
+            "path": overview_path,
+            "marker_id": "policy-groups",
+            "start_marker": "<!-- policy-groups:start -->",
+            "end_marker": "<!-- policy-groups:end -->",
+            "reason": "preserve policy-generated module identifiers",
+            "owner": "module-boundaries-policy",
+        },
+        {
+            "path": overview_path,
+            "marker_id": "policy-edges",
+            "start_marker": "<!-- policy-edges:start -->",
+            "end_marker": "<!-- policy-edges:end -->",
+            "reason": "preserve policy-generated compatibility edges",
+            "owner": "module-boundaries-policy",
+        },
+        {
+            "path": overview_path,
+            "marker_id": "historical-sccs",
+            "start_marker": "<!-- historical-sccs:start -->",
+            "end_marker": "<!-- historical-sccs:end -->",
+            "reason": "preserve policy-generated historical cycle identifiers",
+            "owner": "module-boundaries-policy",
+        },
+    ]
+    assert [
+        row for row in fixture["literal_markers"] if row["path"] == overview_path
+    ] == expected_overview_markers
+    cli_marker = _marker_row(fixture, cli_path, "cli-contracts")
+    assert cli_marker == {
+        "path": cli_path,
+        "marker_id": "cli-contracts",
+        "start_marker": "<!-- cli-contracts:start -->",
+        "end_marker": "<!-- cli-contracts:end -->",
+        "reason": "preserve frozen command rows",
+        "owner": "command-contract-policy",
+    }
+
+    _marker_spans(overview_path, overview, fixture)
+    _marker_spans(cli_path, cli_document, fixture)
+    _assert_exact_marker_block(
+        overview_path,
+        overview,
+        expected_overview_markers[0],
+        "`run_phase1`",
+    )
+    _assert_exact_marker_block(
+        overview_path,
+        overview,
+        expected_overview_markers[1],
+        _expected_policy_groups_body(policy),
+    )
+    _assert_exact_marker_block(
+        overview_path,
+        overview,
+        expected_overview_markers[2],
+        _expected_policy_edges_body(policy),
+    )
+    _assert_exact_marker_block(
+        overview_path,
+        overview,
+        expected_overview_markers[3],
+        _expected_historical_scc_body(policy),
+    )
+    expected_cli_body = _expected_cli_contract_body()
+    _assert_exact_marker_block(cli_path, cli_document, cli_marker, expected_cli_body)
+
+    command_rows = _markdown_table_rows(expected_cli_body, 5)
+    command_names = tuple(row[0].strip("`") for row in command_rows)
+    assert command_names == (
+        "analyze",
+        "doctor",
+        "demo",
+        "pilot",
+        "train",
+        "convert",
+        "doctor",
+        "phase40-preflight",
+        "phase40-build-source-bundle",
+        "phase40-build-input-bundle",
+        "phase40-verify-input-bundle",
+        "phase40-verify-run-request",
+        "phase40-verify-run-evidence",
+        "phase40-render-graphs",
+        "phase40-validate-notebooks",
+        "phase40-finalize-comparison",
+        "phase40-freeze-scope-amendment",
+        "phase40-verify-review-queue",
+        "phase40-finalize-human-review",
+        "phase41-prepare-evaluation",
+        "phase41-verify-preauthorization",
+        "phase41-authorize-evaluation",
+        "phase41-run-once",
+        "phase41-freeze-deployment-fit-disposition",
+        "phase41-export-evidence",
+        "phase41-verify-evidence",
+    )
+    groups = [row[1].strip("`") for row in command_rows]
+    assert groups.count("installed") == 3
+    assert groups.count("adaptation") == 4
+    assert groups.count("phase40 compatibility") == 12
+    assert groups.count("phase41 compatibility") == 7
+
+    retired_prose = (
+        "The chronological `run_phase1` name survives",
+        "12 Phase 40",
+        "7 Phase 41",
+    )
+    assert all(fragment not in f"{overview}\n{cli_document}" for fragment in retired_prose)
+    assert "four adaptation commands" in cli_document
+    assert "twelve\n  training/evidence compatibility commands" in cli_document
+    assert "seven held-out-evaluation\n  compatibility commands" in cli_document
+
+    moved_identifier = overview.replace("`run_phase1`", "`build_training_corpus`", 1)
+    moved_identifier += "\nLegacy identifier: `run_phase1`\n"
+    assert _scan_text(overview_path, moved_identifier, fixture)
+    nested_marker = overview.replace(
+        expected_overview_markers[0]["start_marker"],
+        expected_overview_markers[0]["start_marker"]
+        + "\n"
+        + expected_overview_markers[0]["start_marker"],
+        1,
+    )
+    with pytest.raises(AssertionError, match="missing or duplicate start marker"):
+        _marker_spans(overview_path, nested_marker, fixture)
+    prose_in_cli_marker = cli_document.replace(
+        cli_marker["start_marker"],
+        f"{cli_marker['start_marker']}\nPhase 91 narrative bypass",
+        1,
+    )
+    with pytest.raises(AssertionError, match="exact compatibility command block"):
+        _assert_exact_marker_block(
+            cli_path,
+            prose_in_cli_marker,
+            cli_marker,
+            expected_cli_body,
+        )

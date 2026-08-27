@@ -55,8 +55,9 @@ the contract fixture, not a real model, server, training, or evaluation run.
 
 ## Compatibility shell behavior
 
-- The model-adaptation parser retains exactly 4 adaptation, 12 Phase 40, and 7
-  Phase 41 commands.
+- The model-adaptation parser retains exactly four adaptation commands, twelve
+  training/evidence compatibility commands, and seven held-out-evaluation
+  compatibility commands.
 - Parser construction imports the thin command families; the literal router imports
   only the selected implementation route after parsing.
 - Raw argv is retained for historical commands that need it.
@@ -66,4 +67,3 @@ the contract fixture, not a real model, server, training, or evaluation run.
   through the console-safe boundary and return 1. Other exception types propagate.
 - No command in this document was launched to write the document; the frozen
   fixtures and static literal route are the authorities.
-
