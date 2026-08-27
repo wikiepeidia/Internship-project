@@ -708,6 +708,23 @@ def test_active_backend_analyzer_language_is_domain_named() -> None:
     assert violations == []
 
 
+def test_active_rule_analyzer_language_is_domain_named() -> None:
+    paths = (
+        "src/runtime/analyzers/heuristic.py",
+        "src/runtime/analyzers/rules.py",
+        "src/runtime/analyzers/local_model.py",
+    )
+    violations = [
+        violation
+        for logical_path in paths
+        for violation in _scan_text(
+            logical_path,
+            (REPO_ROOT / logical_path).read_text(encoding="utf-8"),
+        )
+    ]
+    assert violations == []
+
+
 def test_active_runtime_render_and_demo_language_is_domain_named() -> None:
     paths = (
         "src/runtime/render.py",

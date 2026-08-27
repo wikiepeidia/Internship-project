@@ -1,4 +1,4 @@
-"""Weighted heuristic cues for the Phase 2 local analyzer."""
+"""Weighted scam and credential-theft cues for local phishing-risk analysis."""
 
 from dataclasses import dataclass
 import re

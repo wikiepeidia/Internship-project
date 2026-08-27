@@ -1,4 +1,4 @@
-"""Local heuristic analyzer for the Phase 2 runtime."""
+"""Deterministic phishing-risk analysis using weighted suspicious-message cues."""
 
 from dataclasses import dataclass, field
 

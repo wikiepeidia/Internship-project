@@ -1,4 +1,4 @@
-"""Shared helpers for Phase 4 local model-backed runtime analyzers."""
+"""Shared parsing, evidence, and safety helpers for selected local models."""
 
 from __future__ import annotations
 
@@ -602,7 +602,7 @@ def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
 
 
 def is_recommendation_safe(text: str) -> bool:
-    """Expose the Phase 4 recommendation-safety rule for reuse in release evaluation."""
+    """Apply reusable recommendation-safety rules to one proposed user action."""
 
     return not _is_unsafe_recommendation(text)
 
