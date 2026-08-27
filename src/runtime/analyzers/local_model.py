@@ -9,7 +9,7 @@ from typing import Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.model_adaptation.training import _load_download_manifest
+from src.artifacts import load_download_manifest
 from src.runtime.analyzers.rules import CueRule, build_default_rules
 from src.runtime.contracts import AnalysisRequest, AnalysisResult, SuspiciousCue, ThreatLabel
 
@@ -712,7 +712,7 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
 
 
 def resolve_base_model_path(candidate_id: str, artifact_root: Path) -> Path:
-    manifest_model_paths = _load_download_manifest(artifact_root)
+    manifest_model_paths = load_download_manifest(artifact_root)
     manifest_path = manifest_model_paths.get(candidate_id)
     if manifest_path is not None and manifest_path.exists():
         return manifest_path

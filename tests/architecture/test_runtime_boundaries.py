@@ -54,7 +54,7 @@ def _run_isolated_lookup(root: Path, candidate_id: str) -> subprocess.CompletedP
         sys.meta_path.insert(0, Blocker())
         module = __import__("src.runtime.analyzers.local_model", fromlist=["resolve_base_model_path"])
         resolved = module.resolve_base_model_path(sys.argv[2], pathlib.Path(sys.argv[1]))
-        print(resolved)
+        print(str(resolved).encode("unicode_escape").decode("ascii"))
         forbidden = sorted(
             name for name in sys.modules
             if any(name == item or name.startswith(item + ".") for item in blocked)
@@ -85,7 +85,9 @@ def test_runtime_manifest_lookup_succeeds_with_optional_graph_blocked(tmp_path: 
     completed = _run_isolated_lookup(tmp_path, "synthetic-qwen")
 
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == os.fspath(candidate)
+    assert completed.stdout.strip() == os.fspath(candidate).encode(
+        "unicode_escape"
+    ).decode("ascii")
 
 
 def test_runtime_missing_candidate_preserves_frozen_error_contract(tmp_path: Path) -> None:
@@ -95,8 +97,8 @@ def test_runtime_missing_candidate_preserves_frozen_error_contract(tmp_path: Pat
 
     assert completed.returncode != 0
     assert "Missing base model for candidate_id=missing-candidate" in completed.stderr
-    assert os.fspath(tmp_path / "manifests" / "download-manifest.json") in completed.stderr
-    assert os.fspath(tmp_path / "base" / "missing-candidate") in completed.stderr
+    assert "manifests\\download-manifest.json" in completed.stderr
+    assert "base\\missing-candidate" in completed.stderr
 
 
 @pytest.mark.parametrize(
@@ -170,4 +172,3 @@ def test_neutral_boundary_is_closed_and_within_static_budgets() -> None:
     )
     assert "from src.artifacts import load_download_manifest" in local_source
     assert "src.model_adaptation.training" not in local_source
-
