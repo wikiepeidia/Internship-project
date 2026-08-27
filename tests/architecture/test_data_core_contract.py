@@ -547,6 +547,18 @@ def test_similarity_threshold_contract_fails_closed(threshold: float) -> None:
         split_and_dedup([], similarity_threshold=threshold)
 
 
+@pytest.mark.parametrize(
+    "threshold", (-0.1, 1.1, float("nan"), float("inf"), float("-inf"), True)
+)
+def test_public_dedup_helpers_reject_invalid_thresholds(threshold: object) -> None:
+    from src.data_pipeline.processing.dedup import cross_split_dedup
+
+    with pytest.raises(ValueError, match="finite value"):
+        core_text.lexical_dedup([], threshold=threshold)
+    with pytest.raises(ValueError, match="finite value"):
+        cross_split_dedup([], [], [], threshold=threshold)
+
+
 def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path) -> None:
     from src.data_pipeline.versioning.manifest import (
         build_manifest as legacy_build,

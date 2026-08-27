@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -22,6 +23,14 @@ def cross_split_dedup(
     encoder: Any | None = None,
 ) -> dict[str, list[str]]:
     """Find semantically similar records across train, val, and test splits."""
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(float(threshold))
+        or not 0.0 <= float(threshold) <= 1.0
+    ):
+        raise ValueError("cross-split threshold must be a finite value in [0, 1]")
+    threshold = float(threshold)
     removals: dict[str, list[str]] = {"val": [], "test": []}
     if not train_records or (not val_records and not test_records):
         return removals

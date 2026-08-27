@@ -340,6 +340,25 @@ def test_invalid_recovery_target_fails_before_discovery(
         workflows.optimize_recovered_records(tmp_path, target_count=target_count)
 
 
+@pytest.mark.parametrize(
+    "threshold", (-0.1, 1.1, float("nan"), float("inf"), float("-inf"), True)
+)
+def test_recovery_rejects_invalid_lexical_threshold_before_discovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    threshold: object,
+) -> None:
+    monkeypatch.setattr(
+        workflows,
+        "_recoverable_record_paths",
+        lambda _root: (_ for _ in ()).throw(AssertionError("discovery ran")),
+    )
+    with pytest.raises(ValueError, match="lexical_threshold"):
+        workflows.optimize_recovered_records(
+            tmp_path, target_count=12, lexical_threshold=threshold
+        )
+
+
 def _group_safe_recovery_records() -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for label in workflows.THREAT_CLASSES:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -274,6 +275,14 @@ def optimize_recovered_records(
     """Merge, deduplicate, balance, and split recoverable local artifacts."""
 
     target_count = _validate_recovery_target_count(target_count)
+    if (
+        isinstance(lexical_threshold, bool)
+        or not isinstance(lexical_threshold, (int, float))
+        or not math.isfinite(float(lexical_threshold))
+        or not 0.0 <= float(lexical_threshold) <= 1.0
+    ):
+        raise ValueError("recovery lexical_threshold must be a finite value in [0, 1]")
+    lexical_threshold = float(lexical_threshold)
     source_paths = _recoverable_record_paths(data_dir)
     if not source_paths:
         raise ValueError("No recoverable JSONL artifacts found under data/.")

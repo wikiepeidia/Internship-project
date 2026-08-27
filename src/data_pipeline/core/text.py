@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from difflib import SequenceMatcher
+import math
 import re
 from typing import Any, Protocol
 import unicodedata
@@ -41,6 +42,15 @@ def lexical_dedup(
     threshold: float = 0.95,
 ) -> list[dict[str, Any]]:
     """Keep the first record from every exact or near-exact text cluster."""
+
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(float(threshold))
+        or not 0.0 <= float(threshold) <= 1.0
+    ):
+        raise ValueError("lexical threshold must be a finite value in [0, 1]")
+    threshold = float(threshold)
 
     seen_texts: list[str] = []
     unique_records: list[dict[str, Any]] = []
