@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-12-PLAN.md
-last_updated: "2026-08-27T13:31:21.199Z"
+stopped_at: Completed 41.1-13-PLAN.md
+last_updated: "2026-08-27T13:40:23.942Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: 7eb3866a91da18bf119380b63a7bc2449fb4ba08
+state_head: c008fb3c9d2341bd70babf66c0842539c405a1a6
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 66
+  completed_plans: 67
   percent: 13
 ---
 
@@ -38,7 +38,7 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 12 of 15
+Plan: 13 of 15
 Status: Ready to execute
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T13:31:20.214Z
-**Stopped at:** Completed 41.1-12-PLAN.md
+**Last session:** 2026-08-27T13:40:23.170Z
+**Stopped at:** Completed 41.1-13-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -362,6 +362,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Retain phase5-release-eval-*.json only as the exact policy-owned compatibility literal in RELEASE_MANIFEST_PATTERNS.
 - [Phase 41.1]: Keep legacy version tags byte-exact inside one command-only marker region per document.
 - [Phase 41.1]: Keep QLORA.md visibly inventoried and explicitly uncertified until later documentation work.
+- [Phase 41.1]: Keep explanatory architecture prose outside markers while preserving exact compatibility and evidence identities inside one owner-scoped region.
+- [Phase 41.1]: Validate report and storage identities from existing independent fixtures without opening any named authority path.
 
 ## Performance Metrics
 
@@ -383,6 +385,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P08 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P15 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P12 | 15min | 2 tasks | 4 files |
+| Phase 41.1 P13 | 9min | 2 tasks | 5 files |
 
 ### Blockers
 
