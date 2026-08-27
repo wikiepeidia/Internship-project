@@ -41,6 +41,7 @@ COMPARISON_PREFIXES: tuple[str, ...] = (
     "Qwen higher on:",
     "Ties:",
 )
+_METRIC_TOLERANCE = 1e-12
 
 
 class _StrictContract(BaseModel):
@@ -130,6 +131,39 @@ class ModelMetrics(_StrictContract):
         risky_to_invalid = sum(row[4] for row in self.confusion_matrix[:3])
         if self.risky_to_invalid_count != risky_to_invalid:
             raise ValueError("risky-to-invalid count must match the confusion matrix")
+
+        expected_f1: list[float] = []
+        for index, item in enumerate(self.per_class):
+            true_positive = self.confusion_matrix[index][index]
+            predicted = sum(row[index] for row in self.confusion_matrix)
+            precision = true_positive / predicted if predicted else 0.0
+            recall = true_positive / item.support if item.support else 0.0
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if precision + recall
+                else 0.0
+            )
+            for name, supplied, expected in (
+                ("precision", item.precision, precision),
+                ("recall", item.recall, recall),
+                ("f1", item.f1, f1),
+            ):
+                if not math.isclose(supplied, expected, abs_tol=_METRIC_TOLERANCE):
+                    raise ValueError(
+                        f"{item.label} {name} must match the confusion matrix"
+                    )
+            expected_f1.append(f1)
+        macro_f1 = sum(expected_f1) / len(expected_f1)
+        weighted_f1 = sum(
+            score * item.support
+            for score, item in zip(expected_f1, self.per_class, strict=True)
+        ) / self.evaluated_rows
+        if not math.isclose(self.macro_f1, macro_f1, abs_tol=_METRIC_TOLERANCE):
+            raise ValueError("macro F1 must match the confusion matrix")
+        if not math.isclose(
+            self.weighted_f1, weighted_f1, abs_tol=_METRIC_TOLERANCE
+        ):
+            raise ValueError("weighted F1 must match the confusion matrix")
         return self
 
 
@@ -216,7 +250,51 @@ class TwoModelEvaluationResult(_StrictContract):
     def require_model_role_order(self) -> "TwoModelEvaluationResult":
         if tuple(item.role for item in self.models) != MODEL_ROLE_ORDER:
             raise ValueError("models must use the fixed order: qwen, phobert")
+        qwen, phobert = (item.metrics for item in self.models)
+        for category, (statement, prefix) in enumerate(
+            zip(self.comparison_statements, COMPARISON_PREFIXES, strict=True)
+        ):
+            body = statement.removeprefix(prefix).strip().removesuffix(".")
+            if body == "none":
+                continue
+            claims = [claim.strip() for claim in body.split(",") if claim.strip()]
+            if not claims:
+                raise ValueError("comparison statement must name metrics or 'none'")
+            for claim in claims:
+                lower_is_better = claim.endswith("(lower_is_better)")
+                metric_name = claim.removesuffix("(lower_is_better)")
+                qwen_value = _metric_value(qwen, metric_name)
+                phobert_value = _metric_value(phobert, metric_name)
+                if math.isclose(qwen_value, phobert_value, abs_tol=_METRIC_TOLERANCE):
+                    expected_category = 2
+                elif (qwen_value < phobert_value) is lower_is_better:
+                    expected_category = 1
+                else:
+                    expected_category = 0
+                if category != expected_category:
+                    raise ValueError(
+                        f"comparison statement reverses metric fact {metric_name!r}"
+                    )
         return self
+
+
+def _metric_value(metrics: ModelMetrics, name: str) -> float:
+    summary_names = {
+        "accuracy",
+        "macro_f1",
+        "weighted_f1",
+        "invalid_output_count",
+        "invalid_output_rate",
+        "risky_to_benign_count",
+        "risky_to_invalid_count",
+    }
+    if name in summary_names:
+        return float(getattr(metrics, name))
+    label, separator, field = name.partition(".")
+    if separator and label in LABEL_ORDER and field in {"precision", "recall", "f1"}:
+        item = metrics.per_class[LABEL_ORDER.index(label)]
+        return float(getattr(item, field))
+    raise ValueError(f"unknown comparison metric {name!r}")
 
 
 __all__ = [

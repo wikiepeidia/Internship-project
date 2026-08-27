@@ -33,35 +33,34 @@ def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _metric_payload(*, offset: float = 0.0) -> dict[str, object]:
+def _metric_payload(*, perfect: bool = False) -> dict[str, object]:
+    if perfect:
+        matrix = [[2, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 2, 0]]
+        values = ((1.0, 1.0, 1.0),) * 4
+        accuracy = macro_f1 = weighted_f1 = 1.0
+    else:
+        matrix = [[2, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [1, 0, 0, 1, 0]]
+        values = ((2 / 3, 1.0, 0.8), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.0, 0.5, 2 / 3))
+        accuracy, macro_f1, weighted_f1 = 5 / 6, 13 / 15, 37 / 45
     per_class = [
-        {
-            "label": label,
-            "precision": 0.90 + offset,
-            "recall": 0.80 + offset,
-            "f1": 0.85 + offset,
-            "support": support,
-        }
-        for label, support in zip(LABELS, (2, 1, 1, 2), strict=True)
+        {"label": label, "precision": precision, "recall": recall, "f1": f1, "support": support}
+        for label, support, (precision, recall, f1) in zip(
+            LABELS, (2, 1, 1, 2), values, strict=True
+        )
     ]
     return {
-        "accuracy": 5 / 6,
-        "confusion_matrix": [
-            [2, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 0, 1, 0, 0],
-            [1, 0, 0, 1, 0],
-        ],
+        "accuracy": accuracy,
+        "confusion_matrix": matrix,
         "evaluated_rows": 6,
         "invalid_output_count": 0,
         "invalid_output_rate": 0.0,
         "label_order": list(LABELS),
-        "macro_f1": 0.85 + offset,
+        "macro_f1": macro_f1,
         "per_class": per_class,
         "prediction_columns": list(PREDICTION_COLUMNS),
         "risky_to_benign_count": 0,
         "risky_to_invalid_count": 0,
-        "weighted_f1": 0.85 + offset,
+        "weighted_f1": weighted_f1,
     }
 
 
@@ -71,7 +70,7 @@ def _result_payload() -> dict[str, object]:
         "claim_sha256": "b" * 64,
         "comparison_statements": [
             "PhoBERT higher on: macro_f1.",
-            "Qwen higher on: benign.precision.",
+            "Qwen higher on: none.",
             "Ties: invalid_output_count(lower_is_better).",
         ],
         "held_out": {"bytes": 321, "records": 6, "sha256": "c" * 64},
@@ -86,7 +85,7 @@ def _result_payload() -> dict[str, object]:
             },
             {
                 "artifact_sha256": "1" * 64,
-                "metrics": _metric_payload(offset=0.01),
+                "metrics": _metric_payload(perfect=True),
                 "predictions_sha256": "2" * 64,
                 "role": "phobert",
                 "run_id": "phobert-frozen-run",
@@ -306,6 +305,39 @@ def test_two_model_contract_rejects_drift(mutate, match: str):
     payload = _result_payload()
     mutate(payload)
     with pytest.raises(ValidationError, match=match):
+        TwoModelEvaluationResult.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "match"),
+    (
+        ("precision", "precision must match"),
+        ("recall", "recall must match"),
+        ("f1", "f1 must match"),
+    ),
+)
+def test_metric_contract_recomputes_each_class_metric(field: str, match: str) -> None:
+    payload = _result_payload()
+    payload["models"][0]["metrics"]["per_class"][0][field] = 0.123
+    with pytest.raises(ValidationError, match=match):
+        TwoModelEvaluationResult.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "match"),
+    (("macro_f1", "macro F1"), ("weighted_f1", "weighted F1")),
+)
+def test_metric_contract_recomputes_aggregate_f1(field: str, match: str) -> None:
+    payload = _result_payload()
+    payload["models"][0]["metrics"][field] = 0.123
+    with pytest.raises(ValidationError, match=match):
+        TwoModelEvaluationResult.model_validate(payload)
+
+
+def test_comparison_contract_rejects_reversed_claim() -> None:
+    payload = _result_payload()
+    payload["comparison_statements"][1] = "Qwen higher on: macro_f1."
+    with pytest.raises(ValidationError, match="reverses metric fact"):
         TwoModelEvaluationResult.model_validate(payload)
 
 
