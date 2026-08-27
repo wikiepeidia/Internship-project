@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 0
 waived_count: 0
-fixed_count: 2
-total_count: 2
-last_updated: 2026-08-27T00:45:52.949Z
+fixed_count: 4
+total_count: 4
+last_updated: 2026-08-27T01:48:05.313Z
 ---
 
 # Broken Windows Ledger
@@ -17,6 +17,8 @@ last_updated: 2026-08-27T00:45:52.949Z
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 41.1 | deviation | scripts/archive_phase41_source_closure.py |  | Archive success output needed encoding-safe console presentation on legacy Windows code pages | fixed |  | 2026-08-27T00:45:22.877Z | 2026-08-27T00:45:52.494Z |
 | 2 | 41.1 | deviation | .gitattributes |  | Historical producer closure requires text conversion disabled and Git index-blob hash verification | fixed |  | 2026-08-27T00:45:23.237Z | 2026-08-27T00:45:52.949Z |
+| 3 | 41.1 | deviation | src/artifacts.py |  | Preserved historical Windows registry newline parity in the neutral writer | fixed |  | 2026-08-27T01:47:31.167Z | 2026-08-27T01:48:04.860Z |
+| 4 | 41.1 | deviation | src/runtime/service.py |  | Closed remaining runtime settings and historical registry ownership leaks | fixed |  | 2026-08-27T01:47:31.573Z | 2026-08-27T01:48:05.313Z |
 
 ````json
 [
@@ -43,6 +45,30 @@ last_updated: 2026-08-27T00:45:52.949Z
     "reason": "",
     "recorded_at": "2026-08-27T00:45:23.237Z",
     "resolved_at": "2026-08-27T00:45:52.949Z"
+  },
+  {
+    "id": 3,
+    "kind": "deviation",
+    "phase": "41.1",
+    "file": "src/artifacts.py",
+    "line": null,
+    "description": "Preserved historical Windows registry newline parity in the neutral writer",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-27T01:47:31.167Z",
+    "resolved_at": "2026-08-27T01:48:04.860Z"
+  },
+  {
+    "id": 4,
+    "kind": "deviation",
+    "phase": "41.1",
+    "file": "src/runtime/service.py",
+    "line": null,
+    "description": "Closed remaining runtime settings and historical registry ownership leaks",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-27T01:47:31.573Z",
+    "resolved_at": "2026-08-27T01:48:05.313Z"
   }
 ]
 ````
