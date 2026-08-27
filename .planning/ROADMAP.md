@@ -969,7 +969,7 @@ Plans:
 5. Oversized active modules and dependency cycles are reduced through bounded extraction slices, with explicit size/import budgets and no private-symbol mass rewrite in one step.
 6. A report-ready architecture/provenance document and reviewed D-drive storage inventory explain what is active, what is historical, which files are safe cleanup candidates, and why the retained artifacts prove the actual training/evaluation story.
 
-**Plans:** 1/6 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 **Wave 1**
@@ -978,7 +978,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 41.1-02-PLAN.md -- Replace the model-adaptation CLI hub with a thin static lazy compatibility router
+- [x] 41.1-02-PLAN.md -- Replace the model-adaptation CLI hub with a thin static lazy compatibility router
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -1121,7 +1121,7 @@ Plans:
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
 | 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
 | 41. Held-Out Evaluation Discipline | 2/2 | Complete | 2026-08-26 |
-| 41.1 Codebase Architecture Overhaul | 1/6 | In Progress|  |
+| 41.1 Codebase Architecture Overhaul | 2/6 | In Progress|  |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |

@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-01-PLAN.md
-last_updated: "2026-08-27T00:46:38.159Z"
+stopped_at: Completed 41.1-02-PLAN.md
+last_updated: "2026-08-27T01:20:27.793Z"
 last_activity: 2026-08-27
-last_activity_desc: Phase 41.1 execution started
-state_head: b0d24820720f53100d9a94174790d70b5354fa27
+last_activity_desc: Completed 41.1-02-PLAN.md
+state_head: 955baa07f411255f7951760b0660ad1430090439
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 87
-  completed_plans: 56
+  completed_plans: 57
   percent: 13
 ---
 
@@ -38,10 +38,10 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
-Last activity: 2026-08-27 — Phase 41.1 execution started
-Progress: [█████████████░░░░░░░] 56/87 plans (64%)
+Last activity: 2026-08-27 — Completed 41.1-02-PLAN.md
+Progress: [█████████████░░░░░░░] 57/87 plans (66%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -233,8 +233,8 @@ Progress: [█████████████░░░░░░░] 56/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T00:46:37.406Z
-**Stopped at:** Completed 41.1-01-PLAN.md
+**Last session:** 2026-08-27T01:20:27.056Z
+**Stopped at:** Completed 41.1-02-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -335,6 +335,9 @@ Progress: [█████████████░░░░░░░] 56/87 p
 - [Phase 41.1]: Capture real CLI parser construction only after installing a closed synthetic dependency set in a fresh guarded process.
 - [Phase 41.1]: Store the historical mirror with Git text conversion disabled and compare index blobs to the receipt hashes.
 - [Phase 41.1]: Escape unencodable console characters only at the terminal boundary; never rewrite archival or receipt bytes.
+- [Phase 41.1]: Keep parser handler identities on src.model_adaptation.cli while routing invoked commands through an immutable literal table.
+- [Phase 41.1]: Preserve the required doctor --adaptation-mode quirk and the source-observable Phase 41 run-once marker exactly.
+- [Phase 41.1]: Move private test monkeypatch ownership to family modules through explicit lazy wrappers rather than restoring eager imports.
 
 ## Performance Metrics
 
@@ -346,6 +349,7 @@ Progress: [█████████████░░░░░░░] 56/87 p
 | Phase 41 P01 | 3h 36m active | 3 tasks | 8 files |
 | Phase 41 P02 | 8h | 3 tasks | 17 files |
 | Phase 41.1 P01 | 24min | 3 tasks | 50 files |
+| Phase 41.1 P02 | 24min | 3 tasks | 8 files |
 
 ### Blockers
 
