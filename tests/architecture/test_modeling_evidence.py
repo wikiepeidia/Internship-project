@@ -1,0 +1,334 @@
+from __future__ import annotations
+
+import copy
+import hashlib
+import inspect
+import json
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from src.modeling.evaluation import TwoModelEvaluationResult
+from src.modeling.evidence import ReportingAuthorityError, load_reporting_authority
+
+
+LABELS = (
+    "bank_impersonation",
+    "zalo_social_engineering",
+    "task_scam",
+    "benign",
+)
+PREDICTION_COLUMNS = (*LABELS, "invalid_output")
+
+
+def _json_bytes(value: object) -> bytes:
+    return (
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        + "\n"
+    ).encode("utf-8")
+
+
+def _sha256(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _metric_payload(*, offset: float = 0.0) -> dict[str, object]:
+    per_class = [
+        {
+            "label": label,
+            "precision": 0.90 + offset,
+            "recall": 0.80 + offset,
+            "f1": 0.85 + offset,
+            "support": support,
+        }
+        for label, support in zip(LABELS, (2, 1, 1, 2), strict=True)
+    ]
+    return {
+        "accuracy": 5 / 6,
+        "confusion_matrix": [
+            [2, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [1, 0, 0, 1, 0],
+        ],
+        "evaluated_rows": 6,
+        "invalid_output_count": 0,
+        "invalid_output_rate": 0.0,
+        "label_order": list(LABELS),
+        "macro_f1": 0.85 + offset,
+        "per_class": per_class,
+        "prediction_columns": list(PREDICTION_COLUMNS),
+        "risky_to_benign_count": 0,
+        "risky_to_invalid_count": 0,
+        "weighted_f1": 0.85 + offset,
+    }
+
+
+def _result_payload() -> dict[str, object]:
+    return {
+        "authorization_sha256": "a" * 64,
+        "claim_sha256": "b" * 64,
+        "comparison_statements": [
+            "PhoBERT higher on: macro_f1.",
+            "Qwen higher on: benign.precision.",
+            "Ties: invalid_output_count(lower_is_better).",
+        ],
+        "held_out": {"bytes": 321, "records": 6, "sha256": "c" * 64},
+        "models": [
+            {
+                "artifact_sha256": "d" * 64,
+                "metrics": _metric_payload(),
+                "predictions_sha256": "e" * 64,
+                "role": "qwen",
+                "run_id": "qwen-frozen-run",
+                "selected_checkpoint_identity": "adapter-state-sha256:" + "f" * 64,
+            },
+            {
+                "artifact_sha256": "1" * 64,
+                "metrics": _metric_payload(offset=0.01),
+                "predictions_sha256": "2" * 64,
+                "role": "phobert",
+                "run_id": "phobert-frozen-run",
+                "selected_checkpoint_identity": "model-state-sha256:" + "3" * 64,
+            },
+        ],
+        "prepared_sha256": "4" * 64,
+        "prior_exposure": {
+            "claim": "one_post_freeze_model_evaluation_pass",
+            "human_content_exposure_disclosed": True,
+        },
+        "schema_version": "phase41-one-shot-results-v1",
+        "status": "completed",
+        "terminal_policy": {
+            "rerun_permitted": False,
+            "test_driven_checkpoint_selection_permitted": False,
+            "test_driven_contingency_activation_permitted": False,
+            "test_driven_dataset_repair_permitted": False,
+            "test_driven_training_action_permitted": False,
+        },
+    }
+
+
+def _source_manifest_payload() -> dict[str, object]:
+    return {
+        "alternate_evaluators_permitted": False,
+        "closed_import_roots": ["src.model_adaptation.phase41_evaluation"],
+        "files": [{"bytes": 10, "path": "src/frozen.py", "sha256": "5" * 64}],
+        "launcher": {
+            "bytes": 20,
+            "path": "scripts/frozen-launcher.ps1",
+            "sha256": "6" * 64,
+        },
+        "preparation_scope": "production_canonical",
+        "schema_version": "phase41-execution-source-manifest-v1",
+        "source_tree_sha256": "7" * 64,
+        "upstream_declared_source_tree_sha256": "8" * 64,
+    }
+
+
+def _materialization_payload(source_manifest_sha256: str) -> dict[str, object]:
+    return {
+        "launcher_sha256": "6" * 64,
+        "mode": "locked-clean-runtime",
+        "preparation_scope": "production_canonical",
+        "schema_version": "phase41-execution-materialization-v1",
+        "source_file_count": 1,
+        "source_handles_locked_at_launch": True,
+        "source_manifest_sha256": source_manifest_sha256,
+        "source_tree_sha256": "7" * 64,
+    }
+
+
+def _erratum_payload(evidence_manifest_sha256: str) -> dict[str, object]:
+    return {
+        "corrected_claim": "Exactly one terminal shared-cohort model-evaluation pass.",
+        "downstream_requirement": "Consume this disclosure with the frozen export.",
+        "schema_version": "phase41-provenance-erratum-v1",
+        "sealed_export": {
+            "erratum_location": "external_non_sealed_companion",
+            "evidence_manifest_sha256": evidence_manifest_sha256,
+            "modified_or_resealed": False,
+            "prediction_or_metric_artifacts_modified": False,
+        },
+        "status": "corrective_disclosure",
+    }
+
+
+def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
+    export_root = tmp_path / "verified-export"
+    export_root.mkdir()
+
+    result_bytes = _json_bytes(_result_payload())
+    source_bytes = _json_bytes(_source_manifest_payload())
+    receipt_bytes = _json_bytes(_materialization_payload(_sha256(source_bytes)))
+    payloads = {
+        "results.json": result_bytes,
+        "execution-source-manifest.json": source_bytes,
+        "execution-materialization-receipt.json": receipt_bytes,
+    }
+    for name, value in payloads.items():
+        (export_root / name).write_bytes(value)
+
+    evidence_manifest = {
+        "artifacts": [
+            {"name": name, "sha256": _sha256(value)}
+            for name, value in payloads.items()
+        ]
+        + [
+            {"name": "qwen-predictions.jsonl", "sha256": "9" * 64},
+            {"name": "phobert-predictions.jsonl", "sha256": "0" * 64},
+        ],
+        "schema_version": "phase41-evidence-manifest-v1",
+        "status": "completed",
+        "terminal_policy": {
+            "rerun_permitted": False,
+            "test_outcome_used_for_tuning": False,
+            "unbiased_test_score_claim_after_deployment_fit": False,
+        },
+    }
+    manifest_bytes = _json_bytes(evidence_manifest)
+    (export_root / "evidence-manifest.json").write_bytes(manifest_bytes)
+
+    erratum_path = tmp_path / "provenance-erratum.json"
+    erratum_bytes = _json_bytes(_erratum_payload(_sha256(manifest_bytes)))
+    erratum_path.write_bytes(erratum_bytes)
+    payloads["evidence-manifest.json"] = manifest_bytes
+    payloads["provenance-erratum.json"] = erratum_bytes
+    return export_root, erratum_path, payloads
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda value: value["models"].reverse(), "fixed order"),
+        (
+            lambda value: value["models"][0]["metrics"].update(
+                label_order=list(reversed(LABELS))
+            ),
+            "label order",
+        ),
+        (
+            lambda value: value["models"][0]["metrics"].update(
+                confusion_matrix=[[1, 0], [0, 1]]
+            ),
+            "confusion matrix",
+        ),
+        (
+            lambda value: value["terminal_policy"].update(rerun_permitted=True),
+            "rerun",
+        ),
+        (
+            lambda value: value.update(comparison_statements=["Models compared."]),
+            "comparison statements",
+        ),
+    ],
+)
+def test_two_model_contract_rejects_drift(mutate, match: str):
+    payload = _result_payload()
+    mutate(payload)
+    with pytest.raises(ValidationError, match=match):
+        TwoModelEvaluationResult.model_validate(payload)
+
+
+def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: Path):
+    export_root, erratum_path, payloads = _write_authority(tmp_path)
+
+    authority = load_reporting_authority(export_root, erratum_path)
+
+    assert [model.role for model in authority.result.models] == ["qwen", "phobert"]
+    assert authority.source_tree_sha256 == "7" * 64
+    assert authority.refactored_source_is_metric_producer is False
+    assert authority.export_manifest_sha256 == _sha256(payloads["evidence-manifest.json"])
+    assert authority.results_sha256 == _sha256(payloads["results.json"])
+    assert authority.source_manifest_sha256 == _sha256(
+        payloads["execution-source-manifest.json"]
+    )
+    assert authority.materialization_receipt_sha256 == _sha256(
+        payloads["execution-materialization-receipt.json"]
+    )
+    assert authority.erratum_sha256 == _sha256(payloads["provenance-erratum.json"])
+    assert authority.results_raw == payloads["results.json"]
+    assert authority.erratum_raw == payloads["provenance-erratum.json"]
+
+
+def test_reporting_reader_is_read_only_and_never_opens_predictions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    before = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    original_open = Path.open
+
+    def guarded_open(path: Path, *args, **kwargs):
+        if path.name.endswith("predictions.jsonl"):
+            raise AssertionError("reporting reader opened prediction rows")
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if any(flag in mode for flag in "wax+"):
+            raise AssertionError("reporting reader attempted a write")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    load_reporting_authority(export_root, erratum_path)
+    after = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+
+    assert after == before
+    assert tuple(inspect.signature(load_reporting_authority).parameters) == (
+        "export_root",
+        "erratum_path",
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "tampered-result",
+        "duplicate-key",
+        "absent-erratum",
+        "wrong-manifest-link",
+        "wrong-source-link",
+        "reserialized-result",
+    ],
+)
+def test_reporting_authority_fails_closed(tmp_path: Path, case: str):
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+
+    if case == "tampered-result":
+        (export_root / "results.json").write_bytes(b"{}\n")
+    elif case == "duplicate-key":
+        duplicate = b'{"schema_version":"a","schema_version":"b"}\n'
+        (export_root / "results.json").write_bytes(duplicate)
+        manifest = json.loads((export_root / "evidence-manifest.json").read_bytes())
+        next(item for item in manifest["artifacts"] if item["name"] == "results.json")[
+            "sha256"
+        ] = _sha256(duplicate)
+        manifest_bytes = _json_bytes(manifest)
+        (export_root / "evidence-manifest.json").write_bytes(manifest_bytes)
+        erratum_path.write_bytes(_json_bytes(_erratum_payload(_sha256(manifest_bytes))))
+    elif case == "absent-erratum":
+        erratum_path.unlink()
+    elif case == "wrong-manifest-link":
+        erratum_path.write_bytes(_json_bytes(_erratum_payload("f" * 64)))
+    elif case == "wrong-source-link":
+        receipt_path = export_root / "execution-materialization-receipt.json"
+        receipt = json.loads(receipt_path.read_bytes())
+        receipt["source_manifest_sha256"] = "f" * 64
+        receipt_bytes = _json_bytes(receipt)
+        receipt_path.write_bytes(receipt_bytes)
+        manifest = json.loads((export_root / "evidence-manifest.json").read_bytes())
+        next(
+            item
+            for item in manifest["artifacts"]
+            if item["name"] == "execution-materialization-receipt.json"
+        )["sha256"] = _sha256(receipt_bytes)
+        manifest_bytes = _json_bytes(manifest)
+        (export_root / "evidence-manifest.json").write_bytes(manifest_bytes)
+        erratum_path.write_bytes(_json_bytes(_erratum_payload(_sha256(manifest_bytes))))
+    else:
+        result_path = export_root / "results.json"
+        result_path.write_text(
+            json.dumps(json.loads(result_path.read_bytes()), indent=2),
+            encoding="utf-8",
+        )
+
+    with pytest.raises(ReportingAuthorityError):
+        load_reporting_authority(export_root, erratum_path)
