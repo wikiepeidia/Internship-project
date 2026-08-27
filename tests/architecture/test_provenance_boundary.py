@@ -79,6 +79,7 @@ def test_guard_origin_and_contract_are_exact_before_collection() -> None:
     assert sitecustomize.PHASE411_PROCESS_POLICY == "python-defense-in-depth"
     assert sitecustomize.PHASE411_GUARD_BOUNDARY == contract["boundary"]
     assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
+    assert sitecustomize.PHASE411_AUDIT_GUARD_INSTALLED is True
     assert sitecustomize.PHASE411_PROTECTED_ROOTS == expected_roots
     assert tuple(sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS) == tuple(
         contract["process_symbols"]
@@ -114,6 +115,41 @@ def test_guard_origin_and_contract_are_exact_before_collection() -> None:
             callable(value)
             for value in (getattr(wrapper, "__kwdefaults__", None) or {}).values()
         ), name
+
+
+def test_recovered_open_original_remains_blocked_by_append_only_audit_guard() -> None:
+    import builtins
+    import sitecustomize
+
+    pending = [builtins.open]
+    reviewed: set[int] = set()
+    reachable: list[object] = []
+    while pending:
+        candidate = pending.pop()
+        if id(candidate) in reviewed:
+            continue
+        reviewed.add(id(candidate))
+        for cell in getattr(candidate, "__closure__", None) or ():
+            value = cell.cell_contents
+            if callable(value):
+                reachable.append(value)
+                pending.append(value)
+
+    original_open = next(
+        value
+        for value in reachable
+        if getattr(value, "__module__", None) == "_io"
+        and getattr(value, "__name__", None) == "open"
+        and getattr(value, "__closure__", None) is None
+    )
+    protected = sitecustomize.PHASE411_PROTECTED_ROOTS[0] + "\\never-opened.jsonl"
+    before = sitecustomize.phase411_guard_snapshot()
+    with pytest.raises(PermissionError, match="audited authority path"):
+        original_open(protected, "rb")
+    after = sitecustomize.phase411_guard_snapshot()
+    assert len(after["audit_rejected"]) == len(before["audit_rejected"]) + 1
+    assert after["audit_rejected"][-1]["operation"] == "open"
+    assert after["underlying_forbidden"] == before["underlying_forbidden"] == []
 
 
 def test_guard_blocks_all_exact_authority_roots_and_alias_spellings() -> None:

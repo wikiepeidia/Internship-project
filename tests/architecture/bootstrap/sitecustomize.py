@@ -23,8 +23,10 @@ PHASE411_PROCESS_POLICY = "python-defense-in-depth"
 PHASE411_GUARD_BOUNDARY = "requires-external-os-process-isolation"
 PHASE411_PREINSTALL_DESCRIPTOR_PROBES = 0
 PHASE411_GUARD_INSTALLED = False
+PHASE411_AUDIT_GUARD_INSTALLED = False
 
 _REJECTED: list[dict[str, str]] = []
+_AUDIT_REJECTED: list[dict[str, str]] = []
 _UNDERLYING_FORBIDDEN: list[dict[str, str]] = []
 _DESCRIPTOR_REMOVALS: list[int] = []
 _DESCRIPTOR_CAPABILITIES: set[int] = set()
@@ -147,6 +149,44 @@ def _reject_path(operation: str, value: object) -> None:
     raise PermissionError(
         f"Phase 41.1 forbidden authority path blocked before filesystem call: {operation}"
     )
+
+
+_AUDITED_PATH_ARGUMENTS = MappingProxyType(
+    {
+        "open": (0,),
+        "os.chdir": (0,),
+        "os.chmod": (0,),
+        "os.chown": (0,),
+        "os.listdir": (0,),
+        "os.scandir": (0,),
+        "os.mkdir": (0,),
+        "os.remove": (0,),
+        "os.rmdir": (0,),
+        "os.truncate": (0,),
+        "os.utime": (0,),
+        "os.rename": (0, 1),
+        "os.link": (0, 1),
+        "os.symlink": (0, 1),
+        "glob.glob": (0,),
+        "glob.glob/2": (0,),
+    }
+)
+
+
+def _phase411_audit_hook(event: str, args: tuple[object, ...]) -> None:
+    """Deny protected paths below wrappers through CPython's append-only hook."""
+
+    for position in _AUDITED_PATH_ARGUMENTS.get(event, ()):
+        if position >= len(args):
+            continue
+        forbidden, normalized = _is_forbidden(args[position])
+        if not forbidden:
+            continue
+        _AUDIT_REJECTED.append({"operation": event, "path": normalized or ""})
+        _REJECTED.append({"operation": f"audit:{event}", "path": normalized or ""})
+        raise PermissionError(
+            f"Phase 41.1 audited authority path blocked before filesystem call: {event}"
+        )
 
 
 def _make_path_guard(
@@ -472,6 +512,7 @@ def _install_descriptor_guards() -> tuple[str, ...]:
 def phase411_guard_snapshot() -> dict[str, object]:
     return {
         "rejected": [dict(item) for item in _REJECTED],
+        "audit_rejected": [dict(item) for item in _AUDIT_REJECTED],
         "underlying_forbidden": [dict(item) for item in _UNDERLYING_FORBIDDEN],
         "descriptor_removals": tuple(_DESCRIPTOR_REMOVALS),
     }
@@ -482,6 +523,7 @@ def phase411_descriptor_capabilities() -> tuple[int, ...]:
 
 
 def install_phase411_deny_open_guard() -> None:
+    global PHASE411_AUDIT_GUARD_INSTALLED
     global PHASE411_GUARD_INSTALLED
     global PHASE411_INSTALLED_PATH_OPERATIONS
     global PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS
@@ -490,6 +532,8 @@ def install_phase411_deny_open_guard() -> None:
     global PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS
     if PHASE411_GUARD_INSTALLED:
         return
+    sys.addaudithook(_phase411_audit_hook)
+    PHASE411_AUDIT_GUARD_INSTALLED = True
     PHASE411_INSTALLED_PATH_OPERATIONS = _install_path_guards()
     native_dispositions = _install_native_process_denial()
     dispositions = _install_low_level_process_denial()
