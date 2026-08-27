@@ -1,66 +1,24 @@
 """Deterministic, path-inert source-closure archiving API."""
 
-from .contracts import (
-    ArchiveError,
-    ArchiveReceipt,
-    EXPECTED_LAUNCHER_SHA256,
-    EXPECTED_MANIFEST_SHA256,
-    EXPECTED_SCHEMA_VERSION,
-    EXPECTED_TREE_SHA256,
-    LAUNCHER_RELATIVE_PATH,
-    MANIFEST_ARCHIVE_NAME,
-    PROVENANCE_LABEL,
-    RECEIPT_ARCHIVE_NAME,
-    RECEIPT_SCHEMA_VERSION,
-    SOURCE_MODEL_CLI,
-    SOURCE_PHASE41_EVALUATION,
-    TREE_ARCHIVE_NAME,
-    _ArchiveLayout,
-    _CapturedClosure,
-    _MANIFEST_KEYS,
-    _SHA256_RE,
-    _SOURCE_PATHS,
-    _WORKTREE_MISMATCHES,
-    _bounded_relative,
-    _canonical_json,
-    _manifest_records,
-    _require_sha256,
-    _sha256,
-    _strict_json,
-)
-from .filesystem import (
-    _PublicationBinding,
-    _WINDOWS_REPARSE_POINT,
-    _absolute,
-    _capture_file,
-    _paths_overlap,
-    _publication_test_hook,
-    _redirecting,
-    _scan_exact_tree,
-    _validate_ancestry,
-    _validate_output_destination,
-    _verify_archive_root_members,
-    _write_exclusive,
-)
-from .service import (
-    PRODUCTION_DESTINATION,
-    PRODUCTION_EVIDENCE_ROOT,
-    PRODUCTION_LAUNCHER_PATH,
-    PRODUCTION_MANIFEST_PATH,
-    PRODUCTION_SOURCE_ROOT,
-    _REPO_ROOT,
-    _archive_bound_source_closure_for_test,
-    _capture_closure,
-    _production_layout,
-    _publish,
-    _receipt_from_raw,
-    _receipt_without_hash,
-    _verify_archived_source_closure_for_test,
-    _verify_payloads,
-    _worktree_mismatches,
-    archive_bound_source_closure,
-    verify_archived_source_closure,
-)
+from importlib import import_module
+from typing import Any
+
+
+_PUBLIC_MODULES = ("contracts", "filesystem", "service")
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve compatibility names lazily without eager package import cycles."""
+
+    for relative in _PUBLIC_MODULES:
+        module = import_module(f"{__name__}.{relative}")
+        try:
+            value = getattr(module, name)
+        except AttributeError:
+            continue
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [

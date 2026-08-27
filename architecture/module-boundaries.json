@@ -24,7 +24,11 @@
     "src.runtime.demo",
     "src.runtime.doctor",
     "src.runtime.render",
-    "src.runtime.service"
+    "src.runtime.service",
+    "src.source_archiving",
+    "src.source_archiving.contracts",
+    "src.source_archiving.filesystem",
+    "src.source_archiving.service"
   ],
   "allowed_edges": [
     [
@@ -319,6 +323,39 @@
   "schema_version": "module-boundaries-v2",
   "static_policy": {
     "budget_exceptions": [],
+    "budgeted_tools": [
+      "scripts/archive_phase41_source_closure.py"
+    ],
+    "existing_budget_debt": [
+      {
+        "path": "src/runtime/analyzers/accelerated.py",
+        "symbol": "AcceleratedAnalyzer.doctor",
+        "measured_lines": 112,
+        "owner": "runtime-accelerated-backend-maintenance",
+        "reason": "pre-existing active function exceeds the new-function budget outside the bounded extraction scope"
+      },
+      {
+        "path": "src/runtime/analyzers/gguf.py",
+        "symbol": "GGUFAnalyzer.doctor",
+        "measured_lines": 115,
+        "owner": "runtime-gguf-backend-maintenance",
+        "reason": "pre-existing active function exceeds the new-function budget outside the bounded extraction scope"
+      },
+      {
+        "path": "src/runtime/analyzers/local_model.py",
+        "symbol": "<module>",
+        "measured_lines": 801,
+        "owner": "runtime-analyzer-maintenance",
+        "reason": "pre-existing active module exceeds the new-module budget outside the bounded extraction scope"
+      },
+      {
+        "path": "src/runtime/doctor.py",
+        "symbol": "RuntimeDoctor.run",
+        "measured_lines": 126,
+        "owner": "runtime-doctor-maintenance",
+        "reason": "pre-existing active function exceeds the new-function budget outside the bounded extraction scope"
+      }
+    ],
     "budgeted_modules": [
       "src.artifacts",
       "src.config",
@@ -347,7 +384,11 @@
       "src.modeling.evidence",
       "src.modeling.inference",
       "src.modeling.legacy_adapters",
-      "src.modeling.training"
+      "src.modeling.training",
+      "src.source_archiving",
+      "src.source_archiving.contracts",
+      "src.source_archiving.filesystem",
+      "src.source_archiving.service"
     ],
     "cli_owners": {
       "src.data_pipeline.cli": "data_modules.workflows",
@@ -674,6 +715,30 @@
       [
         "src.runtime.service",
         "src.runtime.contracts"
+      ],
+      [
+        "src.source_archiving.filesystem",
+        "src.core_binding"
+      ],
+      [
+        "src.source_archiving.filesystem",
+        "src.source_archiving"
+      ],
+      [
+        "src.source_archiving.filesystem",
+        "src.source_archiving.contracts"
+      ],
+      [
+        "src.source_archiving.service",
+        "src.source_archiving"
+      ],
+      [
+        "src.source_archiving.service",
+        "src.source_archiving.contracts"
+      ],
+      [
+        "src.source_archiving.service",
+        "src.source_archiving.filesystem"
       ]
     ],
     "tool_contract_state": "post_extraction_v1",
@@ -993,6 +1058,44 @@
         "scripts/archive_phase41_source_closure.py",
         "src.source_archiving"
       ]
+    ],
+    "semantic_archive_owners": [
+      {"id": "expected-schema-version", "literal": "phase41-execution-source-manifest-v1", "path": "src/source_archiving/contracts.py", "owner_symbol": "EXPECTED_SCHEMA_VERSION", "reason": "preserve immutable source-manifest schema identity", "expected_occurrences": 1},
+      {"id": "receipt-schema-version", "literal": "phase411-source-closure-archival-receipt-v1", "path": "src/source_archiving/contracts.py", "owner_symbol": "RECEIPT_SCHEMA_VERSION", "reason": "preserve immutable archival-receipt schema identity", "expected_occurrences": 1},
+      {"id": "expected-tree-sha256", "literal": "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434", "path": "src/source_archiving/contracts.py", "owner_symbol": "EXPECTED_TREE_SHA256", "reason": "preserve immutable source-tree digest identity", "expected_occurrences": 1},
+      {"id": "expected-launcher-sha256", "literal": "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9", "path": "src/source_archiving/contracts.py", "owner_symbol": "EXPECTED_LAUNCHER_SHA256", "reason": "preserve immutable launcher digest identity", "expected_occurrences": 1},
+      {"id": "expected-manifest-sha256", "literal": "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61", "path": "src/source_archiving/contracts.py", "owner_symbol": "EXPECTED_MANIFEST_SHA256", "reason": "preserve immutable manifest digest identity", "expected_occurrences": 1},
+      {"id": "provenance-label", "literal": "post_evaluation_archival_mirror_not_refactored_metric_producer", "path": "src/source_archiving/contracts.py", "owner_symbol": "PROVENANCE_LABEL", "reason": "preserve immutable archive provenance identity", "expected_occurrences": 1},
+      {"id": "source-phase40-callbacks", "literal": "src/model_adaptation/phase40_callbacks.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-comparison-launch", "literal": "src/model_adaptation/phase40_comparison_launch.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-contract", "literal": "src/model_adaptation/phase40_contract.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-evidence", "literal": "src/model_adaptation/phase40_evidence.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-final-authority", "literal": "src/model_adaptation/phase40_final_authority.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-gguf", "literal": "src/model_adaptation/phase40_gguf.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-graphs", "literal": "src/model_adaptation/phase40_graphs.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-handoff", "literal": "src/model_adaptation/phase40_handoff.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-metrics", "literal": "src/model_adaptation/phase40_metrics.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-modes", "literal": "src/model_adaptation/phase40_modes.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-notebooks", "literal": "src/model_adaptation/phase40_notebooks.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-phobert-release", "literal": "src/model_adaptation/phase40_phobert_release.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-production-authorities", "literal": "src/model_adaptation/phase40_production_authorities.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-release-authorities", "literal": "src/model_adaptation/phase40_release_authorities.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-review", "literal": "src/model_adaptation/phase40_review.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase40-runtime-materialize", "literal": "src/model_adaptation/phase40_runtime_materialize.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-model-cli", "literal": "src/model_adaptation/cli.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "SOURCE_MODEL_CLI", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase41-evaluation", "literal": "src/model_adaptation/phase41_evaluation.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "SOURCE_PHASE41_EVALUATION", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "source-phase41-protocols", "literal": "src/model_adaptation/phase41_protocols.py", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SOURCE_PATHS", "reason": "preserve immutable source-closure member identity", "expected_occurrences": 1},
+      {"id": "production-evidence-root", "literal": "C:\\ProgramData\\VNPhish\\phase41-evaluation-evidence", "path": "src/source_archiving/service.py", "owner_symbol": "PRODUCTION_EVIDENCE_ROOT", "reason": "preserve immutable production evidence authority identity", "expected_occurrences": 1},
+      {"id": "launcher-relative-path", "literal": "scripts/phase41_one_shot_launcher.ps1", "path": "src/source_archiving/contracts.py", "owner_symbol": "LAUNCHER_RELATIVE_PATH", "reason": "preserve immutable launcher manifest identity", "expected_occurrences": 1},
+      {"id": "production-manifest-relative", "literal": "data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/execution-source-manifest.json", "path": "src/source_archiving/service.py", "owner_symbol": "PRODUCTION_MANIFEST_PATH", "reason": "preserve composed repository manifest authority identity", "expected_occurrences": 1},
+      {"id": "production-destination-relative", "literal": "historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434", "path": "src/source_archiving/service.py", "owner_symbol": "PRODUCTION_DESTINATION", "reason": "preserve composed archive destination identity", "expected_occurrences": 1},
+      {"id": "manifest-archive-name", "literal": "execution-source-manifest.json", "path": "src/source_archiving/contracts.py", "owner_symbol": "MANIFEST_ARCHIVE_NAME", "reason": "preserve archive manifest member name", "expected_occurrences": 1},
+      {"id": "receipt-archive-name", "literal": "archival-receipt.json", "path": "src/source_archiving/contracts.py", "owner_symbol": "RECEIPT_ARCHIVE_NAME", "reason": "preserve archive receipt member name", "expected_occurrences": 1},
+      {"id": "tree-archive-name", "literal": "tree", "path": "src/source_archiving/contracts.py", "owner_symbol": "TREE_ARCHIVE_NAME", "reason": "preserve archive tree member name", "expected_occurrences": 1},
+      {"id": "archive-command", "literal": "archive", "path": "scripts/archive_phase41_source_closure.py", "owner_symbol": "main", "reason": "preserve compatibility archive command token", "expected_occurrences": 2},
+      {"id": "verify-command", "literal": "verify", "path": "scripts/archive_phase41_source_closure.py", "owner_symbol": "main", "reason": "preserve compatibility verify command token", "expected_occurrences": 1},
+      {"id": "windows-reparse-point", "literal": "0x00000400", "path": "src/source_archiving/filesystem.py", "owner_symbol": "_WINDOWS_REPARSE_POINT", "reason": "preserve Windows reparse-point flag", "expected_occurrences": 1},
+      {"id": "sha256-pattern", "literal": "^[0-9a-f]{64}$", "path": "src/source_archiving/contracts.py", "owner_symbol": "_SHA256_RE", "reason": "preserve lowercase SHA-256 validation pattern", "expected_occurrences": 1}
     ],
     "active_text_scan": {
       "contract_state": "post_extraction_v1",

@@ -44,6 +44,7 @@ EXCEPTION_FIELDS = {
     "reason",
     "compatibility_evidence",
 }
+DEBT_FIELDS = {"path", "symbol", "measured_lines", "owner", "reason"}
 EXPECTED_BUDGETED_MODULES = {
     "src.artifacts",
     "src.config",
@@ -73,7 +74,107 @@ EXPECTED_BUDGETED_MODULES = {
     "src.modeling.inference",
     "src.modeling.legacy_adapters",
     "src.modeling.training",
+    "src.source_archiving",
+    "src.source_archiving.contracts",
+    "src.source_archiving.filesystem",
+    "src.source_archiving.service",
 }
+EXPECTED_BUDGETED_TOOLS = {"scripts/archive_phase41_source_closure.py"}
+EXPECTED_EXISTING_BUDGET_DEBT = [
+    {
+        "path": "src/runtime/analyzers/accelerated.py",
+        "symbol": "AcceleratedAnalyzer.doctor",
+        "measured_lines": 112,
+        "owner": "runtime-accelerated-backend-maintenance",
+        "reason": (
+            "pre-existing active function exceeds the new-function budget outside "
+            "the bounded extraction scope"
+        ),
+    },
+    {
+        "path": "src/runtime/analyzers/gguf.py",
+        "symbol": "GGUFAnalyzer.doctor",
+        "measured_lines": 115,
+        "owner": "runtime-gguf-backend-maintenance",
+        "reason": (
+            "pre-existing active function exceeds the new-function budget outside "
+            "the bounded extraction scope"
+        ),
+    },
+    {
+        "path": "src/runtime/analyzers/local_model.py",
+        "symbol": "<module>",
+        "measured_lines": 801,
+        "owner": "runtime-analyzer-maintenance",
+        "reason": (
+            "pre-existing active module exceeds the new-module budget outside "
+            "the bounded extraction scope"
+        ),
+    },
+    {
+        "path": "src/runtime/doctor.py",
+        "symbol": "RuntimeDoctor.run",
+        "measured_lines": 126,
+        "owner": "runtime-doctor-maintenance",
+        "reason": (
+            "pre-existing active function exceeds the new-function budget outside "
+            "the bounded extraction scope"
+        ),
+    },
+]
+EXPECTED_ACTIVE_IDENTIFIER_ALLOWLIST = {
+    ("src.source_archiving.contracts", "SOURCE_PHASE41_EVALUATION"),
+}
+SEMANTIC_ARCHIVE_FIELDS = {
+    "id",
+    "literal",
+    "path",
+    "owner_symbol",
+    "reason",
+    "expected_occurrences",
+}
+_SEMANTIC_ARCHIVE_ROWS = [
+    ("expected-schema-version", "phase41-execution-source-manifest-v1", "src/source_archiving/contracts.py", "EXPECTED_SCHEMA_VERSION", "preserve immutable source-manifest schema identity", 1),
+    ("receipt-schema-version", "phase411-source-closure-archival-receipt-v1", "src/source_archiving/contracts.py", "RECEIPT_SCHEMA_VERSION", "preserve immutable archival-receipt schema identity", 1),
+    ("expected-tree-sha256", "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434", "src/source_archiving/contracts.py", "EXPECTED_TREE_SHA256", "preserve immutable source-tree digest identity", 1),
+    ("expected-launcher-sha256", "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9", "src/source_archiving/contracts.py", "EXPECTED_LAUNCHER_SHA256", "preserve immutable launcher digest identity", 1),
+    ("expected-manifest-sha256", "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61", "src/source_archiving/contracts.py", "EXPECTED_MANIFEST_SHA256", "preserve immutable manifest digest identity", 1),
+    ("provenance-label", "post_evaluation_archival_mirror_not_refactored_metric_producer", "src/source_archiving/contracts.py", "PROVENANCE_LABEL", "preserve immutable archive provenance identity", 1),
+    ("source-phase40-callbacks", "src/model_adaptation/phase40_callbacks.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-comparison-launch", "src/model_adaptation/phase40_comparison_launch.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-contract", "src/model_adaptation/phase40_contract.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-evidence", "src/model_adaptation/phase40_evidence.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-final-authority", "src/model_adaptation/phase40_final_authority.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-gguf", "src/model_adaptation/phase40_gguf.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-graphs", "src/model_adaptation/phase40_graphs.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-handoff", "src/model_adaptation/phase40_handoff.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-metrics", "src/model_adaptation/phase40_metrics.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-modes", "src/model_adaptation/phase40_modes.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-notebooks", "src/model_adaptation/phase40_notebooks.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-phobert-release", "src/model_adaptation/phase40_phobert_release.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-production-authorities", "src/model_adaptation/phase40_production_authorities.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-release-authorities", "src/model_adaptation/phase40_release_authorities.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-review", "src/model_adaptation/phase40_review.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-phase40-runtime-materialize", "src/model_adaptation/phase40_runtime_materialize.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("source-model-cli", "src/model_adaptation/cli.py", "src/source_archiving/contracts.py", "SOURCE_MODEL_CLI", "preserve immutable source-closure member identity", 1),
+    ("source-phase41-evaluation", "src/model_adaptation/phase41_evaluation.py", "src/source_archiving/contracts.py", "SOURCE_PHASE41_EVALUATION", "preserve immutable source-closure member identity", 1),
+    ("source-phase41-protocols", "src/model_adaptation/phase41_protocols.py", "src/source_archiving/contracts.py", "_SOURCE_PATHS", "preserve immutable source-closure member identity", 1),
+    ("production-evidence-root", r"C:\ProgramData\VNPhish\phase41-evaluation-evidence", "src/source_archiving/service.py", "PRODUCTION_EVIDENCE_ROOT", "preserve immutable production evidence authority identity", 1),
+    ("launcher-relative-path", "scripts/phase41_one_shot_launcher.ps1", "src/source_archiving/contracts.py", "LAUNCHER_RELATIVE_PATH", "preserve immutable launcher manifest identity", 1),
+    ("production-manifest-relative", "data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/execution-source-manifest.json", "src/source_archiving/service.py", "PRODUCTION_MANIFEST_PATH", "preserve composed repository manifest authority identity", 1),
+    ("production-destination-relative", "historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434", "src/source_archiving/service.py", "PRODUCTION_DESTINATION", "preserve composed archive destination identity", 1),
+    ("manifest-archive-name", "execution-source-manifest.json", "src/source_archiving/contracts.py", "MANIFEST_ARCHIVE_NAME", "preserve archive manifest member name", 1),
+    ("receipt-archive-name", "archival-receipt.json", "src/source_archiving/contracts.py", "RECEIPT_ARCHIVE_NAME", "preserve archive receipt member name", 1),
+    ("tree-archive-name", "tree", "src/source_archiving/contracts.py", "TREE_ARCHIVE_NAME", "preserve archive tree member name", 1),
+    ("archive-command", "archive", "scripts/archive_phase41_source_closure.py", "main", "preserve compatibility archive command token", 2),
+    ("verify-command", "verify", "scripts/archive_phase41_source_closure.py", "main", "preserve compatibility verify command token", 1),
+    ("windows-reparse-point", "0x00000400", "src/source_archiving/filesystem.py", "_WINDOWS_REPARSE_POINT", "preserve Windows reparse-point flag", 1),
+    ("sha256-pattern", "^[0-9a-f]{64}$", "src/source_archiving/contracts.py", "_SHA256_RE", "preserve lowercase SHA-256 validation pattern", 1),
+]
+EXPECTED_SEMANTIC_ARCHIVE_OWNERS = [
+    dict(zip(("id", "literal", "path", "owner_symbol", "reason", "expected_occurrences"), row))
+    for row in _SEMANTIC_ARCHIVE_ROWS
+]
 EXPECTED_CLI_OWNERS = {
     "src.data_pipeline.cli": "data_modules.workflows",
     "src.model_adaptation.cli": "compatibility_adapters",
@@ -159,6 +260,55 @@ def _fixture_commands(path: Path) -> tuple[str, ...]:
     return tuple(row["command"] for row in payload["parser"]["subcommands"])
 
 
+def _qualified_function_nodes(tree: ast.AST) -> list[tuple[str, ast.AST]]:
+    functions: list[tuple[str, ast.AST]] = []
+
+    class Visitor(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.scope: list[str] = []
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+            self.scope.append(node.name)
+            self.generic_visit(node)
+            self.scope.pop()
+
+        def _visit_function(
+            self, node: ast.FunctionDef | ast.AsyncFunctionDef
+        ) -> None:
+            symbol = ".".join([*self.scope, node.name])
+            functions.append((symbol, node))
+            self.scope.append(node.name)
+            self.generic_visit(node)
+            self.scope.pop()
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+            self._visit_function(node)
+
+        def visit_AsyncFunctionDef(  # noqa: N802
+            self, node: ast.AsyncFunctionDef
+        ) -> None:
+            self._visit_function(node)
+
+    Visitor().visit(tree)
+    return functions
+
+
+def _over_budget_measurements(
+    *, path: Path, source: str, module_limit: int, function_limit: int
+) -> set[tuple[str, str, int]]:
+    relative = path.relative_to(REPO_ROOT).as_posix()
+    measured: set[tuple[str, str, int]] = set()
+    module_lines = len(source.splitlines())
+    if module_lines > module_limit:
+        measured.add((relative, "<module>", module_lines))
+    for symbol, node in _qualified_function_nodes(ast.parse(source)):
+        assert getattr(node, "end_lineno", None) is not None
+        function_lines = int(node.end_lineno) - int(node.lineno) + 1
+        if function_lines > function_limit:
+            measured.add((relative, symbol, function_lines))
+    return measured
+
+
 def test_closed_classification_and_cli_owners_have_no_auto_admission() -> None:
     policy = _policy()
     modules = _module_paths()
@@ -187,6 +337,7 @@ def test_closed_classification_and_cli_owners_have_no_auto_admission() -> None:
                 "src.model_adaptation",
                 "src.modeling",
                 "src.runtime",
+                "src.source_archiving",
             )
         )
     }
@@ -244,49 +395,58 @@ def test_new_modules_and_functions_fit_exact_static_budgets() -> None:
     }
     budgeted = set(static_policy["budgeted_modules"])
     assert budgeted == EXPECTED_BUDGETED_MODULES
-    exceptions = _exception_map(static_policy["budget_exceptions"])
+    assert set(static_policy["budgeted_tools"]) == EXPECTED_BUDGETED_TOOLS
+    assert static_policy["budget_exceptions"] == []
 
     facade = _source_path("src.model_adaptation.cli", modules)
     facade_lines = len(facade.read_text(encoding="utf-8").splitlines())
-    _assert_with_exception(
-        path=facade,
-        symbol="<module>",
-        measured=facade_lines,
-        limit=limits["model_cli"],
-        exceptions=exceptions,
-    )
+    assert facade_lines <= limits["model_cli"]
 
-    measured_keys: set[tuple[str, str, int]] = set()
     for module in sorted(budgeted):
         path = _source_path(module, modules)
         source = path.read_text(encoding="utf-8")
-        module_lines = len(source.splitlines())
-        _assert_with_exception(
+        assert not _over_budget_measurements(
             path=path,
-            symbol="<module>",
-            measured=module_lines,
-            limit=limits["new_module"],
-            exceptions=exceptions,
+            source=source,
+            module_limit=limits["new_module"],
+            function_limit=limits["new_function"],
         )
-        if module_lines > limits["new_module"]:
-            measured_keys.add((path.relative_to(REPO_ROOT).as_posix(), "<module>", module_lines))
-        tree = ast.parse(source)
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                assert node.end_lineno is not None
-                function_lines = node.end_lineno - node.lineno + 1
-                _assert_with_exception(
-                    path=path,
-                    symbol=node.name,
-                    measured=function_lines,
-                    limit=limits["new_function"],
-                    exceptions=exceptions,
-                )
-                if function_lines > limits["new_function"]:
-                    measured_keys.add(
-                        (path.relative_to(REPO_ROOT).as_posix(), node.name, function_lines)
-                    )
-    assert set(exceptions) == measured_keys
+
+    for relative in sorted(EXPECTED_BUDGETED_TOOLS):
+        path = REPO_ROOT / relative
+        source = path.read_text(encoding="utf-8")
+        assert not _over_budget_measurements(
+            path=path,
+            source=source,
+            module_limit=limits["new_module"],
+            function_limit=limits["new_function"],
+        )
+
+    debt = static_policy["existing_budget_debt"]
+    assert debt == EXPECTED_EXISTING_BUDGET_DEBT
+    assert all(set(row) == DEBT_FIELDS for row in debt)
+    expected_debt_keys = {
+        (row["path"], row["symbol"], row["measured_lines"]) for row in debt
+    }
+    derived_debt_keys: set[tuple[str, str, int]] = set()
+    active = _string_set(policy, "active_modules")
+    for module in sorted(active - budgeted):
+        path = _source_path(module, modules)
+        derived_debt_keys.update(
+            _over_budget_measurements(
+                path=path,
+                source=path.read_text(encoding="utf-8"),
+                module_limit=limits["new_module"],
+                function_limit=limits["new_function"],
+            )
+        )
+    assert derived_debt_keys == expected_debt_keys
+    assert not {
+        row["path"] for row in debt
+    } & {
+        _source_path(module, modules).relative_to(REPO_ROOT).as_posix()
+        for module in budgeted
+    }
 
 
 def test_active_identifiers_use_domain_names_outside_compatibility_allowlist() -> None:
@@ -317,7 +477,22 @@ def test_active_identifiers_use_domain_names_outside_compatibility_allowlist() -
         identifiers.update(
             node.arg for node in ast.walk(tree) if isinstance(node, ast.arg)
         )
-        assert not {name for name in identifiers if pattern.search(name)}, module
+        violations = {
+            (module, name) for name in identifiers if pattern.search(name)
+        }
+        assert violations <= EXPECTED_ACTIVE_IDENTIFIER_ALLOWLIST, module
+
+    active_text = _json_fixture(ACTIVE_TEXT_FIXTURE)
+    owner = next(
+        row
+        for row in active_text["frozen_literal_owners"]
+        if row["id"] == "archive-source-phase41-evaluation"
+    )
+    assert owner["path"] == "src/source_archiving/contracts.py"
+    assert owner["owner_symbol"] == "SOURCE_PHASE41_EVALUATION"
+    assert EXPECTED_ACTIVE_IDENTIFIER_ALLOWLIST == {
+        ("src.source_archiving.contracts", owner["owner_symbol"])
+    }
 
 
 def test_public_and_compatibility_contracts_are_bound_to_frozen_fixtures() -> None:
@@ -749,13 +924,11 @@ def _validate_active_text_contract(candidate: object, expected: Mapping[str, Any
     assert {row["lifecycle"] for row in owners} == {"active"}
 
 
-def _owner_source_segment(source: str, owner_symbol: str) -> str:
+def _owner_ast_node(source: str, owner_symbol: str) -> ast.AST:
     tree = ast.parse(source)
     if owner_symbol == "<module>.__doc__":
         assert tree.body and isinstance(tree.body[0], ast.Expr)
-        segment = ast.get_source_segment(source, tree.body[0])
-        assert segment is not None
-        return segment
+        return tree.body[0]
 
     class_name, separator, member_name = owner_symbol.partition(".")
     candidates: list[ast.AST] = []
@@ -784,7 +957,11 @@ def _owner_source_segment(source: str, owner_symbol: str) -> str:
             if any(isinstance(target, ast.Name) and target.id == owner_symbol for target in targets):
                 candidates.append(node)
     assert len(candidates) == 1, owner_symbol
-    segment = ast.get_source_segment(source, candidates[0])
+    return candidates[0]
+
+
+def _owner_source_segment(source: str, owner_symbol: str) -> str:
+    segment = ast.get_source_segment(source, _owner_ast_node(source, owner_symbol))
     assert segment is not None
     return segment
 
@@ -912,3 +1089,286 @@ def test_archive_contract_fixtures_transition_atomically() -> None:
         "LAUNCHER_RELATIVE_PATH"
     )
     assert all(row["lifecycle"] == "active" for row in owners)
+
+
+def _validate_final_tool_policy(candidate: Mapping[str, Any]) -> None:
+    fixture = _json_fixture(TOOL_INVENTORY_FIXTURE)
+    static = candidate["static_policy"]
+    _validate_tool_contract(
+        {"contract_state": static["tool_contract_state"], "tools": static["tools"]},
+        fixture,
+    )
+    assert static["active_tool_edges"] == [
+        ["scripts/archive_phase41_source_closure.py", "src.source_archiving"]
+    ]
+    assert not any(str(edge[0]).startswith("scripts/") for edge in candidate["allowed_edges"])
+
+
+def test_source_archiving_replaces_only_the_compatibility_import_edge() -> None:
+    policy = _policy()
+    fixture = _json_fixture(TOOL_INVENTORY_FIXTURE)
+    _validate_final_tool_policy(policy)
+    assert fixture["contract_state"] == "post_extraction_v1"
+
+    facade_path = REPO_ROOT / "scripts/archive_phase41_source_closure.py"
+    facade_source = facade_path.read_text(encoding="utf-8")
+    direct_imports = [
+        alias.name
+        for node in ast.walk(ast.parse(facade_source))
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name.startswith("src.")
+    ]
+    assert direct_imports == ["src.source_archiving"]
+    assert "src.core_binding" not in direct_imports
+    assert not any(name.startswith("src.source_archiving.") for name in direct_imports)
+
+    post_archive = next(
+        row
+        for row in fixture["tools"]
+        if row["path"] == "scripts/archive_phase41_source_closure.py"
+    )
+    pre = copy.deepcopy(fixture)
+    pre["contract_state"] = "pre_extraction_v1"
+    pre_archive = next(
+        row
+        for row in pre["tools"]
+        if row["path"] == "scripts/archive_phase41_source_closure.py"
+    )
+    pre_archive["imports"] = [
+        "src.core_binding" if value == "src.source_archiving" else value
+        for value in pre_archive["imports"]
+    ]
+    assert len(pre["tools"]) == len(fixture["tools"]) == 11
+    assert all(
+        before == after
+        for before, after in zip(pre["tools"], fixture["tools"])
+        if before["path"] != "scripts/archive_phase41_source_closure.py"
+    )
+    assert {
+        key
+        for key in post_archive
+        if post_archive[key] != pre_archive[key]
+    } == {"imports"}
+    assert set(post_archive["imports"]) ^ set(pre_archive["imports"]) == {
+        "src.core_binding",
+        "src.source_archiving",
+    }
+
+    mutants: list[dict[str, Any]] = []
+    for imports in (
+        [value for value in post_archive["imports"] if value != "src.source_archiving"],
+        sorted([*post_archive["imports"], "src.core_binding"]),
+        [
+            "src.source_archiving.service"
+            if value == "src.source_archiving"
+            else value
+            for value in post_archive["imports"]
+        ],
+    ):
+        mutant = copy.deepcopy(policy)
+        row = next(
+            item
+            for item in mutant["static_policy"]["tools"]
+            if item["path"] == "scripts/archive_phase41_source_closure.py"
+        )
+        row["imports"] = imports
+        mutants.append(mutant)
+    route_drift = copy.deepcopy(policy)
+    route_drift["static_policy"]["tools"][0]["routes"] = [["python", "wrong"]]
+    mutants.append(route_drift)
+    lifecycle_drift = copy.deepcopy(policy)
+    lifecycle_drift["static_policy"]["tools"][3]["lifecycle"] = "active"
+    mutants.append(lifecycle_drift)
+    old_edge = copy.deepcopy(policy)
+    old_edge["static_policy"]["active_tool_edges"] = [
+        ["scripts/archive_phase41_source_closure.py", "src.core_binding"]
+    ]
+    mutants.append(old_edge)
+    both_edges = copy.deepcopy(policy)
+    both_edges["static_policy"]["active_tool_edges"].append(
+        ["scripts/archive_phase41_source_closure.py", "src.core_binding"]
+    )
+    mutants.append(both_edges)
+    relation_in_allowlist = copy.deepcopy(policy)
+    relation_in_allowlist["allowed_edges"].append(
+        ["scripts/archive_phase41_source_closure.py", "src.source_archiving"]
+    )
+    mutants.append(relation_in_allowlist)
+    for mutant in mutants:
+        _must_reject(lambda mutant=mutant: _validate_final_tool_policy(mutant))
+
+
+def _pre_extraction_active_text(post: Mapping[str, Any]) -> dict[str, Any]:
+    pre = copy.deepcopy(post)
+    pre["contract_state"] = "pre_extraction_v1"
+    final_owners = pre["frozen_literal_owners"]
+    base = [row for row in final_owners if not row["id"].startswith("archive-")]
+    moved: list[dict[str, Any]] = []
+    for final in final_owners:
+        if not final["id"].startswith("archive-"):
+            continue
+        row = copy.deepcopy(final)
+        row["path"] = "scripts/archive_phase41_source_closure.py"
+        row["lifecycle"] = "compatibility"
+        if row["id"] == "archive-source-phase41-evaluation":
+            row["owner_symbol"] = "_SOURCE_PATHS"
+        elif row["id"] == "archive-launcher-relative-path":
+            row["owner_symbol"] = "_manifest_records"
+        moved.append(row)
+
+    moved.insert(
+        0,
+        {
+            "id": "archive-facade-description",
+            "path": "scripts/archive_phase41_source_closure.py",
+            "literal": "Archive and verify the exact source closure that produced Phase 41 evidence.",
+            "owner_symbol": "<module>.__doc__",
+            "reason": "characterize pre-extraction facade description until authorized domain rewrite",
+            "lifecycle": "compatibility",
+        },
+    )
+    evaluation_index = next(
+        index
+        for index, row in enumerate(moved)
+        if row["id"] == "archive-source-phase41-evaluation"
+    )
+    moved.insert(
+        evaluation_index + 1,
+        {
+            "id": "archive-worktree-phase41-evaluation",
+            "path": "scripts/archive_phase41_source_closure.py",
+            "literal": "src/model_adaptation/phase41_evaluation.py",
+            "owner_symbol": "_WORKTREE_MISMATCHES",
+            "reason": "preserve immutable worktree-mismatch member identity",
+            "lifecycle": "compatibility",
+        },
+    )
+    evidence_index = next(
+        index
+        for index, row in enumerate(moved)
+        if row["id"] == "archive-production-evidence-root"
+    )
+    moved.insert(
+        evidence_index + 1,
+        {
+            "id": "archive-production-launcher-filename",
+            "path": "scripts/archive_phase41_source_closure.py",
+            "literal": "phase41_one_shot_launcher.ps1",
+            "owner_symbol": "PRODUCTION_LAUNCHER_PATH",
+            "reason": "preserve immutable production launcher filename",
+            "lifecycle": "compatibility",
+        },
+    )
+    pre["frozen_literal_owners"] = [*base, *moved]
+    assert len(pre["frozen_literal_owners"]) == 34
+    return pre
+
+
+def _validate_semantic_archive_contract(candidate: object) -> None:
+    assert isinstance(candidate, list)
+    assert candidate == EXPECTED_SEMANTIC_ARCHIVE_OWNERS
+    assert len(candidate) == 36
+    assert all(set(row) == SEMANTIC_ARCHIVE_FIELDS for row in candidate)
+    assert len({row["id"] for row in candidate}) == 36
+    assert all(
+        isinstance(row["expected_occurrences"], int)
+        and row["expected_occurrences"] > 0
+        and isinstance(row["reason"], str)
+        and row["reason"].strip()
+        for row in candidate
+    )
+
+
+def _semantic_owner_occurrences(row: Mapping[str, Any]) -> int:
+    source = (REPO_ROOT / row["path"]).read_text(encoding="utf-8")
+    node = _owner_ast_node(source, row["owner_symbol"])
+    segment = ast.get_source_segment(source, node)
+    assert segment is not None
+    if row["id"] in {"archive-command", "verify-command"}:
+        return sum(
+            isinstance(child, ast.Constant) and child.value == row["literal"]
+            for child in ast.walk(node)
+        )
+    if row["id"] == "production-manifest-relative":
+        base = "data/models/phase41/verified-export"
+        digest = "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7"
+        assert row["literal"] == f"{base}/{digest}/execution-source-manifest.json"
+        assert segment.count(base) == segment.count(digest) == 1
+        assert segment.count("MANIFEST_ARCHIVE_NAME") == 1
+        return 1
+    if row["id"] == "production-destination-relative":
+        base = "historical/phase41-source-closure"
+        digest = "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
+        assert row["literal"] == f"{base}/{digest}"
+        assert segment.count(base) == segment.count("EXPECTED_TREE_SHA256") == 1
+        return 1
+    return segment.count(str(row["literal"]))
+
+
+def test_archive_frozen_literal_ownership_transfers_exactly_once() -> None:
+    policy = _policy()["static_policy"]
+    final = _json_fixture(ACTIVE_TEXT_FIXTURE)
+    _validate_active_text_contract(final, final)
+    assert final["contract_state"] == "post_extraction_v1"
+    assert policy["active_text_scan"] == final
+    assert len(final["frozen_literal_owners"]) == 31
+
+    pre = _pre_extraction_active_text(final)
+    _must_reject(lambda: _validate_active_text_contract(pre, final))
+    post_mislabeled_pre = copy.deepcopy(final)
+    post_mislabeled_pre["contract_state"] = "pre_extraction_v1"
+    _must_reject(
+        lambda: _validate_active_text_contract(post_mislabeled_pre, final)
+    )
+    pre_mislabeled_post = copy.deepcopy(pre)
+    pre_mislabeled_post["contract_state"] = "post_extraction_v1"
+    _must_reject(
+        lambda: _validate_active_text_contract(pre_mislabeled_post, final)
+    )
+    mixed = copy.deepcopy(final)
+    mixed["frozen_literal_owners"][6] = copy.deepcopy(
+        pre["frozen_literal_owners"][7]
+    )
+    _must_reject(lambda: _validate_active_text_contract(mixed, final))
+
+    final_ids = {row["id"] for row in final["frozen_literal_owners"]}
+    removed = {
+        "archive-facade-description",
+        "archive-worktree-phase41-evaluation",
+        "archive-production-launcher-filename",
+    }
+    assert removed.isdisjoint(final_ids)
+    assert removed <= {row["id"] for row in pre["frozen_literal_owners"]}
+    facade_source = (
+        REPO_ROOT / "scripts/archive_phase41_source_closure.py"
+    ).read_text(encoding="utf-8")
+    for row in pre["frozen_literal_owners"]:
+        if row["id"].startswith("archive-") and re.search(
+            r"phase[0-9]+|ProgramData|data/models|historical/", row["literal"], re.IGNORECASE
+        ):
+            assert row["literal"] not in facade_source, row["id"]
+
+    semantic = policy["semantic_archive_owners"]
+    _validate_semantic_archive_contract(semantic)
+    for row in semantic:
+        assert _semantic_owner_occurrences(row) == row["expected_occurrences"], row["id"]
+
+    semantic_mutants: list[object] = [
+        semantic[:-1],
+        [*semantic, copy.deepcopy(semantic[0])],
+        [*semantic, {**semantic[0], "id": "new-unregistered-chronology"}],
+    ]
+    for field in SEMANTIC_ARCHIVE_FIELDS:
+        mutant = copy.deepcopy(semantic)
+        mutant[0][field] = (
+            2 if field == "expected_occurrences" else f"{mutant[0][field]}-wrong"
+        )
+        semantic_mutants.append(mutant)
+    for mutant in semantic_mutants:
+        _must_reject(lambda mutant=mutant: _validate_semantic_archive_contract(mutant))
+
+    for field in ("path", "literal", "owner_symbol", "reason", "lifecycle"):
+        mutant = copy.deepcopy(final)
+        mutant["frozen_literal_owners"][6][field] += "-moved"
+        _must_reject(lambda mutant=mutant: _validate_active_text_contract(mutant, final))
