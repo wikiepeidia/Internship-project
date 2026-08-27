@@ -7,6 +7,7 @@ import sys
 from src.artifacts import load_release_evaluation_artifact
 from src.config.settings import MINIMUM_PYTHON_VERSION
 from src.config.settings import get_runtime_settings as get_settings
+from src.core.integrity import IntegrityError, reject_redirecting_ancestry
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.gguf import GGUFAnalyzer
 from src.runtime.analyzers.heuristic import HeuristicAnalyzer
@@ -16,7 +17,10 @@ from src.runtime.contracts import DoctorCheck, DoctorStatus
 INSTALL_COMMAND = "python -m pip install -e .[dev]"
 TEST_COMMAND = "python -m pytest tests/runtime -q"
 DOCTOR_COMMAND = "python -m src.runtime.cli doctor"
-RELEASE_MANIFEST_DIR = Path("data/manifests")
+RELEASE_MANIFEST_PATTERNS = (
+    "release-evaluation-*.json",
+    "phase5-release-eval-*.json",
+)
 
 
 class RuntimeDoctor:
@@ -132,7 +136,8 @@ class RuntimeDoctor:
                 )
             )
 
-        checks.append(self._check_latest_release_gate_summary())
+        release_root = settings.runtime_release_manifest_root if settings is not None else None
+        checks.append(self._check_latest_release_gate_summary(release_root))
 
         ready = all(check.passed for check in checks)
         setup_steps = self._build_setup_steps(checks)
@@ -192,17 +197,46 @@ class RuntimeDoctor:
             steps.append(DOCTOR_COMMAND)
         return steps
 
-    def _check_latest_release_gate_summary(self) -> DoctorCheck:
+    def _check_latest_release_gate_summary(self, release_root: Path | None) -> DoctorCheck:
+        if release_root is None:
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=False,
+                detail="Release evidence root is unavailable because settings did not load.",
+                remediation_command=DOCTOR_COMMAND,
+            )
+        try:
+            root = reject_redirecting_ancestry(release_root, where="release manifest root")
+        except IntegrityError as exc:
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=False,
+                detail=f"Release evidence root is unsafe: {exc}",
+                remediation_command=DOCTOR_COMMAND,
+            )
+        if not root.is_dir():
+            return DoctorCheck(
+                name="release-gate-summary",
+                passed=False,
+                detail=f"Release evidence root is missing: {root}",
+                remediation_command=DOCTOR_COMMAND,
+            )
+        artifact_set = {
+            path
+            for pattern in RELEASE_MANIFEST_PATTERNS
+            for path in root.glob(pattern)
+        }
         artifacts = sorted(
-            RELEASE_MANIFEST_DIR.glob("phase5-release-eval-*.json"),
+            artifact_set,
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
         if not artifacts:
             return DoctorCheck(
                 name="release-gate-summary",
-                passed=True,
-                detail="No saved release evaluation artifact found.",
+                passed=False,
+                detail=f"No release evaluation artifact found in {root}.",
+                remediation_command=DOCTOR_COMMAND,
             )
 
         latest_path = artifacts[0]
@@ -218,10 +252,13 @@ class RuntimeDoctor:
 
         return DoctorCheck(
             name="release-gate-summary",
-            passed=True,
+            passed=artifact.verdict == "PASS",
             detail=(
                 f"latest_verdict={artifact.verdict} run_id={artifact.run_id} "
                 f"manifest={latest_path}"
+            ),
+            remediation_command=(
+                None if artifact.verdict == "PASS" else DOCTOR_COMMAND
             ),
         )
 

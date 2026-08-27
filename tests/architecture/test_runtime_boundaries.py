@@ -53,6 +53,9 @@ RUNTIME_DEFAULTS = {
     "runtime_store_raw_text": False,
     "runtime_fail_closed": True,
     "runtime_allow_text_flag": True,
+    "runtime_release_manifest_root": importlib.import_module(
+        "src.config.settings"
+    ).DEFAULT_RELEASE_MANIFEST_ROOT,
     "runtime_text_only_message": (
         "Paste extracted text manually. OCR, screenshots, and voice messages "
         "are not supported in this demo."
@@ -356,37 +359,75 @@ def test_recommendation_filter_accepts_bounded_safe_guidance(text: str) -> None:
     assert module.is_recommendation_safe(text) is True
 
 
-def test_runtime_doctor_uses_neutral_release_reader(monkeypatch, tmp_path: Path) -> None:
+def _release_payload(verdict: str) -> dict[str, object]:
+    labels = (
+        "bank_impersonation",
+        "zalo_social_engineering",
+        "task_scam",
+        "benign",
+    )
+    payload: dict[str, object] = {
+        "run_id": f"synthetic-{verdict.lower()}",
+        "verdict": verdict,
+        "overall_metrics": {
+            "macro_f1": 0.95,
+            "weighted_f1": 0.95,
+            "evaluated_rows": 4,
+        },
+        "per_label_metrics": [
+            {"label": label, "precision": 0.95, "recall": 0.95, "f1": 0.95, "support": 1}
+            for label in labels
+        ],
+        "explanation_rubric_summary": {
+            "evaluated_risky_predictions": 3,
+            "manual_reviewed_predictions": 3,
+        },
+        "readiness_audit": {
+            "evaluated_split_path": "synthetic-heldout.jsonl",
+            "support_by_label": {label: 1 for label in labels},
+        },
+    }
+    if verdict == "BLOCK":
+        payload["blocker_reasons"] = ["synthetic blocker"]
+    elif verdict == "FLAG":
+        payload["flag_reasons"] = ["synthetic flag"]
+    return payload
+
+
+@pytest.mark.parametrize(
+    ("verdict", "expected"),
+    (("PASS", True), ("BLOCK", False), ("FLAG", False)),
+)
+def test_runtime_doctor_uses_neutral_release_reader(
+    monkeypatch, tmp_path: Path, verdict: str, expected: bool
+) -> None:
     doctor_module = importlib.import_module("src.runtime.doctor")
-    artifact_path = tmp_path / "phase5-release-eval-synthetic.json"
+    artifact_path = tmp_path / f"release-evaluation-{verdict.lower()}.json"
     artifact_path.write_text(
-        json.dumps(
-            {
-                "run_id": "synthetic-doctor",
-                "verdict": "PASS",
-                "overall_metrics": {
-                    "macro_f1": 0.9,
-                    "weighted_f1": 0.9,
-                    "evaluated_rows": 1,
-                },
-                "explanation_rubric_summary": {
-                    "evaluated_risky_predictions": 0,
-                    "manual_reviewed_predictions": 0,
-                },
-            }
-        ),
+        json.dumps(_release_payload(verdict)),
         encoding="utf-8",
     )
-    monkeypatch.setattr(doctor_module, "RELEASE_MANIFEST_DIR", tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
 
-    check = doctor_module.RuntimeDoctor()._check_latest_release_gate_summary()
+    check = doctor_module.RuntimeDoctor()._check_latest_release_gate_summary(tmp_path)
     source = (REPO_ROOT / "src/runtime/doctor.py").read_text(encoding="utf-8")
 
-    assert check.passed is True
-    assert "latest_verdict=PASS run_id=synthetic-doctor" in check.detail
+    assert check.passed is expected
+    assert f"latest_verdict={verdict}" in check.detail
     assert "from src.artifacts import" in source
     assert "load_release_evaluation_artifact" in source
     assert "src.model_adaptation" not in source
+
+
+def test_runtime_doctor_blocks_missing_release_root(tmp_path: Path) -> None:
+    doctor_module = importlib.import_module("src.runtime.doctor")
+    check = doctor_module.RuntimeDoctor()._check_latest_release_gate_summary(
+        tmp_path / "missing"
+    )
+    assert check.passed is False
+    assert "root is missing" in check.detail
 
 
 def test_runtime_cli_contract_fixture_remains_byte_exact(tmp_path: Path) -> None:

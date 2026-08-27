@@ -6,13 +6,16 @@ order, defaults, and OS-environment precedence.
 """
 
 from functools import lru_cache
+import os
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
 ENV_FILE_CANDIDATES = (".env/APIKEY.json", ".env/.env")
 MINIMUM_PYTHON_VERSION = (3, 13)
+DEFAULT_RELEASE_MANIFEST_ROOT = Path(__file__).parents[2] / "data" / "manifests"
 _SETTINGS_CONFIG = {
     "env_file": list(ENV_FILE_CANDIDATES),
     "env_file_encoding": "utf-8",
@@ -73,9 +76,17 @@ class RuntimeSettings(ModelingSettings):
     runtime_store_raw_text: bool = False
     runtime_fail_closed: bool = True
     runtime_allow_text_flag: bool = True
+    runtime_release_manifest_root: Path = DEFAULT_RELEASE_MANIFEST_ROOT
     runtime_text_only_message: str = (
         "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
     )
+
+    @field_validator("runtime_release_manifest_root")
+    @classmethod
+    def require_absolute_release_root(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("runtime_release_manifest_root must be absolute")
+        return Path(os.path.abspath(os.path.normpath(os.fspath(value))))
 
 
 class Settings(ProviderSettings, DataSettings, RuntimeSettings):
