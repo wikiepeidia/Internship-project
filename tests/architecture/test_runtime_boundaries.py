@@ -39,6 +39,7 @@ DATA_DEFAULTS = {
     "ncsc_base_url": "https://canhbao.khonggianmang.vn",
 }
 MODELING_DEFAULTS = {
+    "model_storage_root": Path("data"),
     "model_artifact_root": Path("data/models"),
     "model_registry_path": Path("data/manifests/model-registry.json"),
 }
@@ -249,6 +250,14 @@ def test_settings_owners_preserve_defaults_and_legacy_composition(monkeypatch, t
 
     legacy = settings_module.Settings(_env_file=None)
     assert legacy.model_dump() == all_defaults
+    modeling = settings_module.ModelingSettings(_env_file=None)
+    assert modeling.resolved_model_storage_root.is_absolute()
+    assert modeling.resolved_model_artifact_root.is_relative_to(
+        modeling.resolved_model_storage_root
+    )
+    assert modeling.resolved_model_registry_path.is_relative_to(
+        modeling.resolved_model_storage_root
+    )
     assert settings_module.get_settings() is not settings_module.get_settings()
     for getter_name in (
         "get_runtime_settings",
@@ -307,6 +316,23 @@ def test_runtime_settings_keep_precedence_without_loading_or_emitting_secrets(
         settings_module.get_runtime_settings()
     assert "synthetic-os-secret" not in str(error.value)
     _clear_owner_caches(settings_module)
+
+
+def test_modeling_settings_infer_one_bounded_root_for_explicit_runtime_paths(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    settings_module = importlib.import_module("src.config.settings")
+    monkeypatch.delenv("MODEL_STORAGE_ROOT", raising=False)
+    monkeypatch.setenv("MODEL_ARTIFACT_ROOT", os.fspath(tmp_path / "models"))
+    monkeypatch.setenv(
+        "MODEL_REGISTRY_PATH",
+        os.fspath(tmp_path / "manifests" / "model-registry.json"),
+    )
+
+    settings = settings_module.ModelingSettings(_env_file=None)
+
+    assert settings.resolved_model_storage_root == tmp_path
 
 
 def test_runtime_construction_uses_secret_free_owner_getter() -> None:

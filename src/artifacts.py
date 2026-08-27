@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from src.core.integrity import (
     IntegrityError,
     atomic_replace_new_artifact,
+    prepare_bounded_output,
     strict_json_object,
 )
 
@@ -433,19 +434,39 @@ def load_model_registry(input_path: Path) -> ModelRegistry:
         raise ArtifactError(str(exc)) from exc
 
 
-def save_model_registry(registry: ModelRegistry, output_path: Path) -> Path:
-    """Publish a new registry without replacing an existing artifact."""
+def save_model_registry(
+    registry: ModelRegistry,
+    output_path: Path,
+    *,
+    storage_root: Path,
+) -> Path:
+    """Publish a new registry below one explicit trusted storage root."""
 
     target = Path(output_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
     try:
+        root = Path(storage_root)
+        if not root.is_absolute() or not target.is_absolute():
+            raise IntegrityError("model registry root and path must be absolute")
+        if any(".." in path.parts or "\x00" in os.fspath(path) for path in (root, target)):
+            raise IntegrityError("model registry root and path must be canonical")
+        normalized_root = Path(os.path.abspath(os.path.normpath(os.fspath(root))))
+        normalized_target = Path(os.path.abspath(os.path.normpath(os.fspath(target))))
+        try:
+            relative = normalized_target.relative_to(normalized_root)
+        except ValueError as exc:
+            raise IntegrityError("model registry must be below model storage root") from exc
+        target = prepare_bounded_output(
+            normalized_root,
+            relative,
+            where="model registry",
+        )
         serialized = registry.model_dump_json(indent=2).replace("\n", os.linesep)
         atomic_replace_new_artifact(
             target,
             serialized.encode("utf-8"),
             where="model registry",
         )
-    except IntegrityError as exc:
+    except (IntegrityError, OSError) as exc:
         raise ArtifactError(str(exc)) from exc
     return target
 

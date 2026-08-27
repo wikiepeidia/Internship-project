@@ -305,9 +305,11 @@ def test_active_registry_matches_historical_bytes_and_validation(tmp_path: Path)
     historical = historical_schemas.ModelRegistry.model_validate(payload)
     assert active.model_dump(mode="json") == historical.model_dump(mode="json")
 
-    active_path = tmp_path / "active" / "registry.json"
+    active_path = tmp_path / "active" / "manifests" / "registry.json"
     historical_path = tmp_path / "historical" / "registry.json"
-    artifacts.save_model_registry(active, active_path)
+    active_root = tmp_path / "active"
+    active_root.mkdir()
+    artifacts.save_model_registry(active, active_path, storage_root=active_root)
     historical_registry.save_model_registry(historical, historical_path)
     assert active_path.read_bytes() == historical_path.read_bytes()
     assert artifacts.load_model_registry(active_path).model_dump(mode="json") == (
@@ -315,13 +317,64 @@ def test_active_registry_matches_historical_bytes_and_validation(tmp_path: Path)
     )
 
     with pytest.raises(artifacts.ArtifactError, match="already exists"):
-        artifacts.save_model_registry(active, active_path)
+        artifacts.save_model_registry(active, active_path, storage_root=active_root)
     malformed = tmp_path / "malformed-registry.json"
     malformed.write_bytes(b'{"version_tag":""}')
     with pytest.raises(Exception):
         historical_registry.load_model_registry(malformed)
     with pytest.raises(artifacts.ArtifactError):
         artifacts.load_model_registry(malformed)
+
+
+def test_registry_writer_rejects_unbounded_paths_without_side_effects(
+    tmp_path: Path,
+) -> None:
+    registry = artifacts.ModelRegistry.model_validate(_registry_payload())
+    storage_root = tmp_path / "trusted"
+    storage_root.mkdir()
+    escaped_parent = tmp_path / "escaped"
+
+    with pytest.raises(artifacts.ArtifactError, match="below model storage root"):
+        artifacts.save_model_registry(
+            registry,
+            escaped_parent / "registry.json",
+            storage_root=storage_root,
+        )
+
+    assert not escaped_parent.exists()
+
+    traversal = storage_root / "not-created" / ".." / "registry.json"
+    with pytest.raises(artifacts.ArtifactError, match="must be canonical"):
+        artifacts.save_model_registry(
+            registry,
+            traversal,
+            storage_root=storage_root,
+        )
+    assert not (storage_root / "not-created").exists()
+
+
+def test_registry_writer_rejects_redirecting_parent_without_side_effects(
+    tmp_path: Path,
+) -> None:
+    registry = artifacts.ModelRegistry.model_validate(_registry_payload())
+    storage_root = tmp_path / "trusted"
+    external = tmp_path / "external"
+    storage_root.mkdir()
+    external.mkdir()
+    redirect = storage_root / "redirect"
+    try:
+        redirect.symlink_to(external, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    with pytest.raises(artifacts.ArtifactError, match="symlink or reparse"):
+        artifacts.save_model_registry(
+            registry,
+            redirect / "registry.json",
+            storage_root=storage_root,
+        )
+
+    assert not (external / "registry.json").exists()
 
 
 def test_active_release_models_match_independent_historical_contract_and_reader(

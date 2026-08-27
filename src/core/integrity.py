@@ -182,7 +182,7 @@ def reject_redirecting_ancestry(path: Path, *, where: str) -> Path:
     if not supplied.is_absolute() or "\x00" in raw or ".." in supplied.parts:
         raise IntegrityError(f"{where} must be a canonical absolute path")
     candidate = _absolute(supplied)
-    identities: dict[Path, tuple[int, int, int, int, int]] = {}
+    identities: dict[Path, tuple[tuple[int, int, int, int, int], bool]] = {}
     for component in reversed((candidate, *candidate.parents)):
         try:
             metadata = os.lstat(component)
@@ -193,9 +193,16 @@ def reject_redirecting_ancestry(path: Path, *, where: str) -> Path:
             raise IntegrityError(f"cannot inspect {where} safely: {component}") from exc
         if redirecting:
             raise IntegrityError(f"{where} ancestry must not contain a symlink or reparse point")
-        identities[component] = _identity(metadata)
-    for component, expected in identities.items():
-        _require_identity(component, expected, where=f"{where} ancestry component")
+        identities[component] = (_identity(metadata), stat.S_ISDIR(metadata.st_mode))
+    for component, (expected, is_directory) in identities.items():
+        if is_directory:
+            _require_directory_identity(
+                component,
+                expected,
+                where=f"{where} ancestry component",
+            )
+        else:
+            _require_identity(component, expected, where=f"{where} ancestry component")
     return candidate
 
 
@@ -213,6 +220,30 @@ def bounded_descendant(root: Path, relative: Path, *, where: str) -> Path:
     if candidate == trusted_root or trusted_root not in candidate.parents:
         raise IntegrityError(f"{where} path escaped its root")
     return reject_redirecting_ancestry(candidate, where=where)
+
+
+def prepare_bounded_output(root: Path, relative: Path, *, where: str) -> Path:
+    """Create only missing parent directories below one trusted root."""
+
+    trusted_root = reject_redirecting_ancestry(Path(root), where=f"{where} root")
+    root_identity = _directory_identity(trusted_root, where=f"{where} root")
+    target = bounded_descendant(trusted_root, relative, where=where)
+    supplied = Path(relative)
+    current = trusted_root
+    for part in supplied.parent.parts:
+        current = current / part
+        try:
+            metadata = os.lstat(current)
+        except FileNotFoundError:
+            try:
+                current.mkdir()
+            except FileExistsError:
+                pass
+            metadata = os.lstat(current)
+        if _is_redirecting(current) or not stat.S_ISDIR(metadata.st_mode):
+            raise IntegrityError(f"{where} parent must be a non-redirecting directory")
+    _require_directory_identity(trusted_root, root_identity, where=f"{where} root")
+    return bounded_descendant(trusted_root, supplied, where=where)
 
 
 def _output_path(path: Path, *, where: str) -> Path:

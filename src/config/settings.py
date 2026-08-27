@@ -10,13 +10,14 @@ import math
 import os
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
 ENV_FILE_CANDIDATES = (".env/APIKEY.json", ".env/.env")
 MINIMUM_PYTHON_VERSION = (3, 13)
 DEFAULT_RELEASE_MANIFEST_ROOT = Path(__file__).parents[2] / "data" / "manifests"
+PROJECT_ROOT = Path(__file__).parents[2]
 _SETTINGS_CONFIG = {
     "env_file": list(ENV_FILE_CANDIDATES),
     "env_file_encoding": "utf-8",
@@ -80,8 +81,68 @@ class DataSettings(_OwnedSettings):
 class ModelingSettings(_OwnedSettings):
     """Local model artifact locations shared by modeling and runtime."""
 
+    model_storage_root: Path = Path("data")
     model_artifact_root: Path = Path("data/models")
     model_registry_path: Path = Path("data/manifests/model-registry.json")
+
+    @field_validator(
+        "model_storage_root",
+        "model_artifact_root",
+        "model_registry_path",
+        mode="before",
+    )
+    @classmethod
+    def reject_noncanonical_model_paths(cls, value: object) -> object:
+        candidate = Path(value) if isinstance(value, (str, os.PathLike)) else None
+        if candidate is not None and (
+            "\x00" in os.fspath(candidate) or ".." in candidate.parts
+        ):
+            raise ValueError("model paths must not contain NUL or parent traversal")
+        return value
+
+    @staticmethod
+    def _project_absolute(path: Path) -> Path:
+        candidate = path if path.is_absolute() else PROJECT_ROOT / path
+        return Path(os.path.abspath(os.path.normpath(os.fspath(candidate))))
+
+    @property
+    def resolved_model_storage_root(self) -> Path:
+        return self._project_absolute(self.model_storage_root)
+
+    @property
+    def resolved_model_artifact_root(self) -> Path:
+        return self._project_absolute(self.model_artifact_root)
+
+    @property
+    def resolved_model_registry_path(self) -> Path:
+        return self._project_absolute(self.model_registry_path)
+
+    @model_validator(mode="after")
+    def require_bounded_model_paths(self) -> "ModelingSettings":
+        configured = self.model_fields_set
+        if (
+            "model_storage_root" not in configured
+            and {"model_artifact_root", "model_registry_path"}.issubset(configured)
+        ):
+            common = Path(
+                os.path.commonpath(
+                    (
+                        self.resolved_model_artifact_root,
+                        self.resolved_model_registry_path,
+                    )
+                )
+            )
+            if common.parent == common:
+                raise ValueError("explicit model paths require model_storage_root")
+            self.model_storage_root = common
+        root = self.resolved_model_storage_root
+        for name, candidate in (
+            ("model_artifact_root", self.resolved_model_artifact_root),
+            ("model_registry_path", self.resolved_model_registry_path),
+        ):
+            if candidate == root or root not in candidate.parents:
+                raise ValueError(f"{name} must be below model_storage_root")
+        return self
 
 
 class RuntimeSettings(ModelingSettings):
