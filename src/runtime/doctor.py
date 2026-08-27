@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 from src.artifacts import load_release_evaluation_artifact
+from src.config.settings import MINIMUM_PYTHON_VERSION
 from src.config.settings import get_runtime_settings as get_settings
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.gguf import GGUFAnalyzer
@@ -144,7 +145,7 @@ class RuntimeDoctor:
         )
 
     def _check_python_version(self) -> DoctorCheck:
-        version_ok = sys.version_info >= (3, 12)
+        version_ok = sys.version_info >= MINIMUM_PYTHON_VERSION
         detail = f"python={sys.version_info.major}.{sys.version_info.minor}"
         return DoctorCheck(
             name="python-version",

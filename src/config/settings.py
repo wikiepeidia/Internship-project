@@ -12,6 +12,7 @@ from pydantic_settings import BaseSettings
 
 
 ENV_FILE_CANDIDATES = (".env/APIKEY.json", ".env/.env")
+MINIMUM_PYTHON_VERSION = (3, 13)
 _SETTINGS_CONFIG = {
     "env_file": list(ENV_FILE_CANDIDATES),
     "env_file_encoding": "utf-8",

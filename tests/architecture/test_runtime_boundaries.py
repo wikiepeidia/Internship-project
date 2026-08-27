@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import textwrap
+import tomllib
 
 import pytest
 
@@ -315,6 +316,17 @@ def test_runtime_construction_uses_secret_free_owner_getter() -> None:
         source = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "get_runtime_settings as get_settings" in source
         assert not any(field_name in source for field_name in PROVIDER_DEFAULTS)
+
+
+def test_runtime_minimum_python_matches_package_metadata() -> None:
+    settings_module = importlib.import_module("src.config.settings")
+    metadata = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = metadata["project"]["requires-python"]
+    expected = ">=" + ".".join(map(str, settings_module.MINIMUM_PYTHON_VERSION))
+    assert declared == expected
+    doctor_module = importlib.import_module("src.runtime.doctor")
+    check = doctor_module.RuntimeDoctor()._check_python_version()
+    assert check.passed is (sys.version_info >= settings_module.MINIMUM_PYTHON_VERSION)
 
 
 @pytest.mark.parametrize(
