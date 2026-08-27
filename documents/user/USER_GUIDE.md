@@ -1,4 +1,4 @@
-# Phase 2 User Guide
+# Local Runtime User Guide
 
 ## Setup
 
@@ -10,9 +10,9 @@ python -m pip install -e .[dev]
 
 ## Local Runtime Boundary
 
-The Phase 2 runtime is local-only and does not persist raw text by default.
+The runtime is local-only and does not persist raw text by default.
 
-Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2.
+The current release accepts pasted text only. Images, OCR input, and audio are outside the runtime boundary.
 
 Do not paste screenshots, audio placeholders, or attachment-only markers. Extract the message text first, then paste that text into the runtime.
 
@@ -76,12 +76,12 @@ vnphish analyze --text "VPBank cảnh báo account Internet Banking của bạn 
 python -m src.runtime.cli analyze --text "VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP." --channel sms
 ```
 
-Supported options in Phase 2:
+Supported analysis options:
 
 - `--text`
 - `--channel`
 
-Supported demo options in Phase 6:
+Supported demo options:
 
 - `--host`
 - `--port`
@@ -93,4 +93,4 @@ There is no batch mode, file mode, OCR mode, voice mode, or cloud fallback mode 
 
 If the runtime is not ready, `analyze` fails closed and prints local remediation guidance instead of attempting any remote path.
 
-If you see a text-only rejection, paste extracted text manually and retry. The Phase 2 runtime is intentionally limited to direct text input.
+If you see a text-only rejection, paste extracted text manually and retry. The runtime is intentionally limited to direct text input.

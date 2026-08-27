@@ -197,6 +197,22 @@ def _marker_spans(
     return ordered
 
 
+def _assert_exact_marker_block(
+    logical_path: str,
+    text: str,
+    row: dict[str, str],
+    expected_body: str,
+) -> None:
+    assert row["path"] == logical_path
+    _marker_spans(logical_path, text, {"literal_markers": [row]})
+    expected = f"{row['start_marker']}\n{expected_body}\n{row['end_marker']}"
+    start = text.index(row["start_marker"])
+    end = text.index(row["end_marker"]) + len(row["end_marker"])
+    assert text[start:end] == expected, (
+        f"{row['marker_id']} must contain only its exact compatibility command block"
+    )
+
+
 def _literal_exception_spans(
     logical_path: str,
     text: str,
@@ -586,3 +602,144 @@ def test_active_runtime_doctor_and_browser_language_is_domain_named() -> None:
         }
     ]
     assert sources["src/runtime/doctor.py"].count(legacy_artifact[0]["literal"]) == 1
+
+
+def test_readme_and_user_guide_use_domain_language_and_scoped_cli_markers() -> None:
+    fixture = _active_text_fixture()
+    assert _policy()["static_policy"]["active_text_scan"] == fixture
+
+    readme_path = "README.md"
+    guide_path = "documents/user/USER_GUIDE.md"
+    readme = (REPO_ROOT / readme_path).read_text(encoding="utf-8")
+    guide = (REPO_ROOT / guide_path).read_text(encoding="utf-8")
+    assert _scan_text(readme_path, readme, fixture) == []
+    assert _scan_text(guide_path, guide, fixture) == []
+
+    retired_prose = (
+        "Phase 2 Local Runtime",
+        "Phase 2 adds a stdin-first local runtime",
+        "not accepted in Phase 2",
+        "Phase 3 Local Model Profiles",
+        "Phase 3 adds two explicit local-only model profiles",
+        "Phase 6 Local Demo UI",
+        "Phase 6 adds a local browser demo",
+        "Phase 1 Operator Flow",
+        "Phase 1 builds and retains",
+        "reproduce Phase 1 outputs",
+        "retained Phase 1 dataset target band",
+        "# Phase 2 User Guide",
+        "The Phase 2 runtime",
+        "Supported options in Phase 2",
+        "Supported demo options in Phase 6",
+    )
+    combined_active_prose = f"{readme}\n{guide}"
+    assert all(fragment not in combined_active_prose for fragment in retired_prose)
+
+    readme_markers = [
+        row for row in fixture["literal_markers"] if row["path"] == readme_path
+    ]
+    assert readme_markers == [
+        {
+            "path": "README.md",
+            "marker_id": "legacy-readme-data-cli",
+            "start_marker": "<!-- legacy-readme-data-cli:start -->",
+            "end_marker": "<!-- legacy-readme-data-cli:end -->",
+            "reason": "preserve frozen data CLI version-tag examples",
+            "owner": "user-data-cli-compatibility",
+        }
+    ]
+    marker = readme_markers[0]
+    expected_commands = "\n\n".join(
+        (
+            "```bash\npython -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 2500 --version-tag phase1-uat-gap\n```",
+            "```bash\npython -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only\n```",
+            "```bash\npython -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 50 --version-tag phase1-uat-gap\n```",
+            "```bash\npython -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --generate-only\n```",
+            "```bash\npython -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only\n```",
+            "```bash\npython -m src.data_pipeline.cli --target-count 2500 --version-tag phase1-fresh\n```",
+        )
+    )
+    _assert_exact_marker_block(readme_path, readme, marker, expected_commands)
+
+    local_models_link = "[Local Model Profiles](documents/user/LOCAL_MODELS.md)"
+    assert readme.count(local_models_link) == 1
+    assert (REPO_ROOT / "documents/user/LOCAL_MODELS.md").is_file()
+
+    moved_token = readme.replace("phase1-fresh", "release-fresh", 1)
+    moved_token += "\nCompatibility token: phase1-fresh\n"
+    assert _scan_text(readme_path, moved_token, fixture)
+    prose_in_marker = readme.replace(
+        marker["start_marker"],
+        f"{marker['start_marker']}\nPhase 91 narrative bypass",
+        1,
+    )
+    with pytest.raises(AssertionError, match="exact compatibility command block"):
+        _assert_exact_marker_block(readme_path, prose_in_marker, marker, expected_commands)
+
+
+def test_local_model_guide_scopes_cli_literals_and_declares_qlora_debt() -> None:
+    fixture = _active_text_fixture()
+    policy = _policy()
+    assert policy["static_policy"]["active_text_scan"] == fixture
+
+    guide_path = "documents/user/LOCAL_MODELS.md"
+    qlora_path = "documents/user/QLORA.md"
+    handoff_path = (
+        ".planning/phases/41.1-codebase-architecture-overhaul/"
+        "41.1-REPORT-HANDOFF.md"
+    )
+    guide = (REPO_ROOT / guide_path).read_text(encoding="utf-8")
+    qlora = (REPO_ROOT / qlora_path).read_text(encoding="utf-8")
+    handoff = (REPO_ROOT / handoff_path).read_text(encoding="utf-8")
+    assert _scan_text(guide_path, guide, fixture) == []
+
+    retired_prose = (
+        "Phase 3 keeps the runtime",
+        "Phase 3 training path",
+        "CPU baseline in Phase 3",
+        "Run the Phase 3 pilot dry-run",
+        "Run the Phase 3 training doctor",
+        "short Phase 3 smoke training job",
+        "Phase 3 training dry-run or full run",
+        "Phase 3 operator commands",
+        "for Phase 1 or Phase 7",
+    )
+    assert all(fragment not in guide for fragment in retired_prose)
+
+    local_model_markers = [
+        row for row in fixture["literal_markers"] if row["path"] == guide_path
+    ]
+    assert local_model_markers == [
+        {
+            "path": "documents/user/LOCAL_MODELS.md",
+            "marker_id": "legacy-local-model-cli",
+            "start_marker": "<!-- legacy-local-model-cli:start -->",
+            "end_marker": "<!-- legacy-local-model-cli:end -->",
+            "reason": "preserve frozen local-model training version-tag examples",
+            "owner": "local-model-cli-compatibility",
+        }
+    ]
+    marker = local_model_markers[0]
+    expected_commands = (
+        "```bash\n"
+        "python -m src.model_adaptation.cli doctor --candidate baseline-winner\n"
+        "python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-smoke --smoke-test\n"
+        "python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-main --resume-from-checkpoint latest\n"
+        "```"
+    )
+    _assert_exact_marker_block(guide_path, guide, marker, expected_commands)
+    assert guide.count("phase3-smoke") == 1
+    assert guide.count("phase3-main") == 1
+
+    assert fixture["active_documents"].count(qlora_path) == 1
+    assert _active_scan_paths(policy).count(qlora_path) == 1
+    assert qlora.strip(), "QLORA.md remains a visible active document"
+    assert _scan_text(qlora_path, qlora + "\nPhase 91", fixture)
+    assert "current typo-heavy explanatory wording is not defense-ready" in handoff
+    assert "later report/user-document work" in handoff
+    assert "does not rewrite it or" in handoff
+    assert "claim that its prose quality has been reviewed" in handoff
+
+    moved_token = guide.replace("phase3-main", "release-main", 1)
+    moved_token += "\nCompatibility token: phase3-main\n"
+    assert _scan_text(guide_path, moved_token, fixture)

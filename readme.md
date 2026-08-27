@@ -2,11 +2,11 @@
 
 Localized explainable AI pipeline for Vietnamese financial phishing detection.
 
-## Phase 2 Local Runtime
+## Local Runtime
 
-Phase 2 adds a stdin-first local runtime for one-message text analysis. The normal path is local-only and does not persist raw text by default.
+The stdin-first local runtime analyzes one message at a time. The normal path is local-only and does not persist raw text by default.
 
-Text-only v1: paste extracted text manually. Images/OCR and audio are not accepted in Phase 2.
+The current release accepts pasted text only. Images, OCR input, and audio are outside the runtime boundary.
 
 ### Quick Start
 
@@ -41,18 +41,18 @@ python -m src.runtime.cli analyze --text "VPBank cảnh báo account Internet Ba
 
 `--text` is for automation and testing. The default user path remains stdin-first.
 
-## Phase 3 Local Model Profiles
+## Local Model Profiles
 
-Phase 3 adds two explicit local-only model profiles behind the same runtime command surface:
+Two explicit local-only model profiles share the same runtime command surface:
 
 - `GGUF` laptop baseline for the selected 4B winner.
 - `accelerated` local profile for stronger hardware.
 
-Use `vnphish doctor` or `python -m src.runtime.cli doctor` after selecting the target profile in settings, and see `docs/user/LOCAL_MODELS.md` for the profile matrix, artifact expectations, and doctor guidance.
+Use `vnphish doctor` or `python -m src.runtime.cli doctor` after selecting the target profile in settings, and see [Local Model Profiles](documents/user/LOCAL_MODELS.md) for the profile matrix, artifact expectations, and doctor guidance.
 
-## Phase 6 Local Demo UI
+## Local Demo UI
 
-Phase 6 adds a local browser demo for non-technical verification on top of the existing runtime contract.
+The local browser demo provides non-technical verification on top of the same runtime contract.
 
 Start the demo UI:
 
@@ -69,10 +69,10 @@ python -m src.runtime.cli demo --host 127.0.0.1 --port 8765 --no-browser
 
 The demo remains text-only and local-first. Paste one suspicious message or short conversation, choose an optional channel hint, and the browser UI will render risk tier, threat labels, grounded cues, and safe next steps from the existing runtime output contract.
 
-## Phase 1 Operator Flow
+## Dataset Operator Flow
 
-Phase 1 builds and retains the dataset artifacts needed for downstream model work.
-The repo now exposes a single operator command path through `python -m src.data_pipeline.cli`.
+The data pipeline builds and retains the artifacts needed for downstream model work.
+The repository exposes one operator command path through `python -m src.data_pipeline.cli`.
 
 ## Prerequisites
 
@@ -85,39 +85,19 @@ The repo now exposes a single operator command path through `python -m src.data_
 
 ## Fast Path: Use the Retained Raw Seeds
 
-Use the existing retained seed artifact when you want to reproduce Phase 1 outputs without reopening scraping.
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 2500 --version-tag phase1-uat-gap
-```
+Use the existing retained seed artifact when you want to rebuild governed outputs without reopening scraping.
 
 If you want to finish generation first and postpone all LLM judging, add `--generate-only`. In that mode, completed batches append directly into `data/synthetic/generated.jsonl` and resume from the same checkpoint.
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
-```
 
 ## Smoke Check
 
 Run a smaller preflight first when you only want to validate the command path and artifact wiring.
 
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 50 --version-tag phase1-uat-gap
-```
-
 ## Safer Long Runs
 
 For expensive retained runs, keep batches small, turn on incremental checkpoints, and only raise parallelism as high as your provider limits can tolerate.
 
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --generate-only
-```
-
 If the process is interrupted after some batches finish, resume from the saved checkpoint instead of starting over.
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
-```
 
 During the run, progress is printed to `stderr`, completed generation batches are checkpointed under `data/synthetic/`, and `data/synthetic/generated.jsonl` is appended incrementally so successful batches are not lost on interruption.
 
@@ -125,9 +105,35 @@ During the run, progress is printed to `stderr`, completed generation batches ar
 
 If you need a new seed batch, omit `--seed-input` and the CLI will scrape first, then continue through generation, judging, and split building.
 
+## Compatibility Command Examples
+
+These retained examples keep their original version tags so existing artifacts and operator notes remain reproducible.
+
+<!-- legacy-readme-data-cli:start -->
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 2500 --version-tag phase1-uat-gap
+```
+
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
+```
+
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 50 --version-tag phase1-uat-gap
+```
+
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --generate-only
+```
+
+```bash
+python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
+```
+
 ```bash
 python -m src.data_pipeline.cli --target-count 2500 --version-tag phase1-fresh
 ```
+<!-- legacy-readme-data-cli:end -->
 
 ## Expected Outputs
 
@@ -147,7 +153,7 @@ The CLI prints a JSON summary to stdout with counts and output paths, including 
 
 ## Notes
 
-- The retained Phase 1 dataset target band is `2000-3000` generated records.
+- The retained dataset target band is `2000-3000` generated records.
 - If the judged output is empty, the CLI exits non-zero instead of silently writing incomplete artifacts.
 - If `--seed-input` points to a missing file, the CLI exits non-zero immediately.
 - `--bulk-provider auto` prefers Gemini for bulk generation when `GEMINI_API_KEY` is configured, then falls back to OpenRouter or Claude.
