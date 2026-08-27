@@ -19,6 +19,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = Path(__file__).with_name("fixtures") / "model_cli_contract.json"
 BOOTSTRAP_ROOT = Path(__file__).with_name("bootstrap")
 ROUTER_PATH = REPO_ROOT / "src/model_adaptation/commands/router.py"
+FACADE_PATH = REPO_ROOT / "src/model_adaptation/cli.py"
+COMMAND_MODULE_PATHS = (
+    REPO_ROOT / "src/model_adaptation/commands/adaptation.py",
+    REPO_ROOT / "src/model_adaptation/commands/legacy_phase40.py",
+    REPO_ROOT / "src/model_adaptation/commands/legacy_phase41.py",
+    ROUTER_PATH,
+)
 EXPECTED_COMMANDS = (
     "pilot",
     "train",
@@ -48,6 +55,11 @@ PHASE40_ROUTES = {
     command: ("src.model_adaptation.commands.legacy_phase40", f"handle_{command.replace('-', '_')}")
     for command in EXPECTED_COMMANDS
     if command.startswith("phase40-")
+}
+PHASE41_ROUTES = {
+    command: ("src.model_adaptation.commands.legacy_phase41", f"handle_{command.replace('-', '_')}")
+    for command in EXPECTED_COMMANDS
+    if command.startswith("phase41-")
 }
 OPTIONAL_OR_IMPLEMENTATION_PREFIXES = (
     "numpy",
@@ -383,6 +395,35 @@ def test_phase40_routes_are_closed_and_lazy() -> None:
     for command, (_, symbol) in PHASE40_ROUTES.items():
         assert f'dispatch("{command}", args)' in facade_source
         assert f"def {symbol}(" in facade_source
+
+
+def test_phase41_routes_are_closed_and_lazy() -> None:
+    rows = _literal_route_rows()
+    assert {command: rows[command] for command in PHASE41_ROUTES} == PHASE41_ROUTES
+    facade_source = FACADE_PATH.read_text(encoding="utf-8")
+    for command, (_, symbol) in PHASE41_ROUTES.items():
+        assert f'dispatch("{command}", args)' in facade_source
+        assert f"def {symbol}(" in facade_source
+    run_once = next(
+        node
+        for node in ast.parse(facade_source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "handle_phase41_run_once"
+    )
+    run_once_source = ast.get_source_segment(facade_source, run_once)
+    assert run_once_source is not None
+    assert "run_phase41_once(_phase41_output_root(args.output_root))" in run_once_source
+
+
+def test_facade_and_command_modules_fit_static_budgets() -> None:
+    assert len(FACADE_PATH.read_text(encoding="utf-8").splitlines()) <= 250
+    for path in COMMAND_MODULE_PATHS:
+        source = path.read_text(encoding="utf-8")
+        assert len(source.splitlines()) <= 600, path
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                assert node.end_lineno is not None
+                assert node.end_lineno - node.lineno + 1 <= 100, (path, node.name)
 
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--capture":
