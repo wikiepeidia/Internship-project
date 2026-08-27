@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-11-PLAN.md
-last_updated: "2026-08-27T13:06:14.193Z"
+stopped_at: Completed 41.1-08-PLAN.md
+last_updated: "2026-08-27T13:17:53.368Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: 0fdb7bf101e3fd63c502cd18f314a4833440ab38
+state_head: 3862ef48b9802b786f888241eb8acd240c47914f
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 63
+  completed_plans: 64
   percent: 13
 ---
 
@@ -38,7 +38,7 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 9 of 15
+Plan: 10 of 15
 Status: Ready to execute
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T13:06:13.431Z
-**Stopped at:** Completed 41.1-11-PLAN.md
+**Last session:** 2026-08-27T13:17:42.060Z
+**Stopped at:** Completed 41.1-08-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -356,6 +356,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Phase 41.1 Plan 07 treats pre-extraction asset, marker, and frozen-literal ownership as an independent test-owned authority exact-equal to policy.
 - [Phase 41.1]: Guarded Python has no process exception; all reviewed Git metadata verification remains in outer PowerShell.
 - [Phase 41.1]: Report authority validation is fixture-only and protected receipt, export, and erratum locations remain lexical denied strings.
+- [Phase 41.1]: Mask only explicit AST prose slots while hashing every import, call, signature, control-flow node, and non-approved string.
+- [Phase 41.1]: Treat pre_extraction_v1 marker ownership as an exact transition contract: absent future pairs are allowed, but any introduced endpoint must form one complete non-overlapping pair.
 
 ## Performance Metrics
 
@@ -374,6 +376,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P06 | 24min | 3 tasks | 10 files |
 | Phase 41.1 P07 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P11 | 10min | 3 tasks | 9 files |
+| Phase 41.1 P08 | 9min | 2 tasks | 5 files |
 
 ### Blockers
 
