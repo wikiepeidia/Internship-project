@@ -1,40 +1,52 @@
 {
-  "schema_version": "runtime-prose-contract-v1",
+  "schema_version": "runtime-prose-contract-v2",
   "source_state": "pre_domain_prose_rewrite",
   "python_sources": [
     {
       "path": "src/runtime/cli.py",
-      "pre_edit_source_sha256": "76d728a4cdbf5f8518d8860b8061bac4b6ad932ba0545eefecb6859a5ea0143f",
-      "masked_ast_sha256": "9e7672dfa61ef057c3e02b038f714bcc6b938efa76eadefdf0c83e6d3be414cc",
+      "source_commit": "5ef59ea44d3bfc203d46a343fd8850d1e068a925",
+      "git_blob_oid": "a3d0664caaf5c95e281b1b783809e5875935b23e",
+      "pre_edit_source_sha256": "ac11b3d51693c877fee805773bfab78a94c40620f342057e59adc2c990f5353e",
+      "masked_ast_sha256": "c5ccd5ef131aa097af525653d4c83065ed80b8c85aed384272d27b5ce32c86b1",
       "prose_slots": [{"id": "cli-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/contracts.py",
-      "pre_edit_source_sha256": "1e08550c3493f0ee72af0c12b55f2425f73b8f937f0434b76d71a19caf2cf141",
+      "source_commit": "5ef59ea44d3bfc203d46a343fd8850d1e068a925",
+      "git_blob_oid": "c5490de3cc1c614d3db3b6d7d73e6f09f8c1a15c",
+      "pre_edit_source_sha256": "7311c81086a9d25f5b4aef40392cc5b9e06dbb813cc8cabd1288e69cec435231",
       "masked_ast_sha256": "b16341b349f5899f95e8c14f698b390cc3f95a6cd393859ac22e0f94b9705d73",
       "prose_slots": [{"id": "contracts-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/service.py",
-      "pre_edit_source_sha256": "6bcdc61c0eb00626da0c2a5d7ecfc9ac0ab6a1040cfe3374eac1d2b85c1cdd0f",
+      "source_commit": "5ef59ea44d3bfc203d46a343fd8850d1e068a925",
+      "git_blob_oid": "c01bc3a24fc23c8d5a9e9a879353bfb7ff80ab8b",
+      "pre_edit_source_sha256": "9d679512536383fdc738ccde474dda969dd9c96ca9e7db2bbf47a03008426130",
       "masked_ast_sha256": "09191ac8bc0bc6365a10865f4ff6657c3e9306950068e6cc9a25f660adb485d3",
       "prose_slots": [{"id": "service-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/render.py",
-      "pre_edit_source_sha256": "b88c4c94fdab876ce0653744570e576ebd857b42fcadb1bcb8639b5b8b2be581",
+      "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
+      "git_blob_oid": "4866bc3c2ce9a3c94007b45ef8f255f3c1a4587b",
+      "pre_edit_source_sha256": "8d9ca46a0ded76c5ac01f90536c6da3af5d3826c51b2bec395821fe22c469a25",
       "masked_ast_sha256": "0c8e796dce01c772cba150788c8bb7bbd7f004e837efc64de49b59b7f9a16491",
       "prose_slots": [{"id": "render-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/demo.py",
-      "pre_edit_source_sha256": "2e927af1a09e54cea70734c49091a57f17cb7a4680ccbd41c6b396b21583e9ea",
-      "masked_ast_sha256": "4dedfafbc3d97f977981ea0a67bf49d5d55b05fc1f709a7e746723f695fad27e",
+      "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
+      "git_blob_oid": "a5dcc3cf4cf61e37329801cac507c2f603964ef7",
+      "pre_edit_source_sha256": "4defe80ccef4c842776ff0d05b60a6ad32dd5dd3bae7b4bbd070666864ebb93a",
+      "masked_ast_sha256": "8f49f820f356ef624aa3fe89a292c15ad57973fd4a4d4ae3c6b978a05dd750cc",
       "prose_slots": [{"id": "demo-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/doctor.py",
-      "pre_edit_source_sha256": "c0b5389dfb7a24dd72284193430fe67df5c1286f31601be39fa9994eaf1b9024",
+      "source_commit": "6d11e1f13fd6d37c8c786bcdf91df533a5b6987c",
+      "git_blob_oid": "318d9420d268f02a55cfd800c94d8439aa3ce2a9",
+      "pre_edit_source_sha256": "3834ddd16c881e73c645293768cffc4aca522ee2d524e91d89f0264bae249f4e",
       "masked_ast_sha256": "61f9d130e0c2d02dc59b14432a4d1caaf76b571f1ea31edd87cb5e5753de2909",
       "prose_slots": [
         {"id": "doctor-module-description", "kind": "module_docstring"},
@@ -43,7 +55,9 @@
     },
     {
       "path": "src/runtime/analyzers/accelerated.py",
-      "pre_edit_source_sha256": "314aed41f3abd31ac04a16a08a1a3d94dd4a660919c1144bd503faff7936d1bc",
+      "source_commit": "7856d7807f153f0342c402521026180dc0cb6dd0",
+      "git_blob_oid": "6e8623a61b5128052f7a12eee8d96b7656266e4f",
+      "pre_edit_source_sha256": "66b90eb46e599e7895fe6071cb65fd77e5cd0eb0a18fd6cb50c8f9a6bae15c32",
       "masked_ast_sha256": "80abb5ffb085ecd67977b386e97e80e04f4ed3fd11643f37ae9de9daa20315ae",
       "prose_slots": [
         {"id": "accelerated-module-description", "kind": "module_docstring"},
@@ -52,7 +66,9 @@
     },
     {
       "path": "src/runtime/analyzers/gguf.py",
-      "pre_edit_source_sha256": "c867efc0bf013111a54e3ec1dd6499a200d5dd3b72d87e349fd46c8194960e95",
+      "source_commit": "7856d7807f153f0342c402521026180dc0cb6dd0",
+      "git_blob_oid": "93e209c7c624e16b8849287366aa2344845a5c9e",
+      "pre_edit_source_sha256": "c1078fb6b2ea6a8c74f8bb9f5fb482e7b31d1c5fe97c96af5de0c106b3a8a399",
       "masked_ast_sha256": "47617d9495a9fe03651c56c80e4a84dbc587e511f6ccf2cbafc83ce062fbae7a",
       "prose_slots": [
         {"id": "gguf-module-description", "kind": "module_docstring"},
@@ -61,19 +77,25 @@
     },
     {
       "path": "src/runtime/analyzers/heuristic.py",
-      "pre_edit_source_sha256": "716394f4c7d9f244683c1db4a0b8e61e84a037e61d044f7b4952f5a7f2f54561",
+      "source_commit": "da0874a4237a4753f5a7f5301dbf5072e396399f",
+      "git_blob_oid": "108b8caf5ea2148cf95e3d9c43339c66ab12292d",
+      "pre_edit_source_sha256": "69e3e4b291fd7174418338bb53177d177a1b78ecce7946a95efb48a4bb292b9c",
       "masked_ast_sha256": "112e29c17c0f37df607296370c934874d604de4699a5bd722fb54a23c0eeda61",
       "prose_slots": [{"id": "heuristic-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/analyzers/rules.py",
-      "pre_edit_source_sha256": "e7559a82d71fe767d451512b0f9ce3c1f9c3e8a7a2dd2eba5acf79ea1d590663",
+      "source_commit": "da0874a4237a4753f5a7f5301dbf5072e396399f",
+      "git_blob_oid": "c00e144f9ba25d8032fa2c40569ed2b71b2eb6ca",
+      "pre_edit_source_sha256": "5f911a7342305fdbda0c23d5f33c0a7e9978df3ebfb7ec4a9ec1767299e8396d",
       "masked_ast_sha256": "fd2fe6a7395a77156ed0c36b16eca2f474b4440e4043960c53dab21aff8795bb",
       "prose_slots": [{"id": "rules-module-description", "kind": "module_docstring"}]
     },
     {
       "path": "src/runtime/analyzers/local_model.py",
-      "pre_edit_source_sha256": "a5b929e128cde64c8aea1116eb5006522864409be19cb2b72d88747e038c4f22",
+      "source_commit": "da0874a4237a4753f5a7f5301dbf5072e396399f",
+      "git_blob_oid": "b122677df743328aa37f9f78c40dcf86e3e8dd1d",
+      "pre_edit_source_sha256": "f94855a41478ecc48eb8549891b06caacb8a8a3f1ed755760396eec2f6ab9f72",
       "masked_ast_sha256": "d032188050eecd2d5a5fc8cf944501c8732e00b6b9cd4d66f6bb2e68d44a5921",
       "prose_slots": [
         {"id": "local-model-module-description", "kind": "module_docstring"},
@@ -84,6 +106,8 @@
   "javascript_sources": [
     {
       "path": "src/runtime/demo_assets/demo.js",
+      "source_commit": "6d11e1f13fd6d37c8c786bcdf91df533a5b6987c",
+      "git_blob_oid": "83795ca3bd91aa4dec8db867ef0c55879639a3af",
       "pre_edit_source_sha256": "1cb9a1a447e5badfa2275bacaee36c93b4f3498328f042424d05c600ff4998be",
       "comment_stripped_sha256": "b1219cd832f12e40db6ee1756fb19a6adaff22ced13937b7657f1181f448fd07"
     }

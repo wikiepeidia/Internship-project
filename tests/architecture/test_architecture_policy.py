@@ -6,12 +6,13 @@ import ast
 from collections import Counter
 import copy
 import importlib
-import json
 from pathlib import Path
 import re
 import shlex
 import tomllib
 from typing import Any, Callable, Mapping, Sequence
+
+import pytest
 
 from tests.architecture.test_data_core_contract import PUBLIC_RECORD_SYMBOLS
 from tests.architecture.test_data_migration_shims import EXPECTED_MIGRATIONS
@@ -27,12 +28,17 @@ from tests.architecture.test_model_cli_contract import (
     EXPECTED_COMMANDS,
     FIXTURE_PATH as MODEL_CLI_FIXTURE,
 )
+from tests.architecture.json_contract import load_strict_json, strict_json
 
 
 REPO_ROOT = Path(__file__).parents[2]
 POLICY_PATH = REPO_ROOT / "architecture/module-boundaries.json"
 RUNTIME_CLI_FIXTURE = REPO_ROOT / "tests/architecture/fixtures/runtime_cli_contract.json"
 ACTIVE_TEXT_FIXTURE = REPO_ROOT / "tests/architecture/fixtures/active_text_contract.json"
+PRE_ACTIVE_TEXT_FIXTURE = (
+    REPO_ROOT
+    / "tests/architecture/fixtures/active_text_contract.pre-extraction.json"
+)
 TOOL_INVENTORY_FIXTURE = REPO_ROOT / "tests/architecture/fixtures/tool_inventory_contract.json"
 SCRIPT_ROOT = REPO_ROOT / "scripts"
 DEMO_ASSET_ROOT = REPO_ROOT / "src/runtime/demo_assets"
@@ -199,7 +205,7 @@ SAFE_COMPATIBILITY_CALLABLES = {
 
 
 def _policy() -> dict[str, Any]:
-    payload = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+    payload = load_strict_json(POLICY_PATH)
     assert isinstance(payload, dict)
     assert payload["schema_version"] == "module-boundaries-v2"
     return payload
@@ -256,7 +262,7 @@ def _assert_with_exception(
 
 
 def _fixture_commands(path: Path) -> tuple[str, ...]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = load_strict_json(path)
     return tuple(row["command"] for row in payload["parser"]["subcommands"])
 
 
@@ -517,7 +523,7 @@ def test_public_and_compatibility_contracts_are_bound_to_frozen_fixtures() -> No
 
 
 def _json_fixture(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = load_strict_json(path)
     assert isinstance(payload, dict)
     return payload
 
@@ -528,6 +534,17 @@ def _must_reject(check: Callable[[], None]) -> None:
     except (AssertionError, SyntaxError, ValueError):
         return
     raise AssertionError("mutated contract was accepted")
+
+
+def test_architecture_json_authorities_reject_duplicates_and_nonfinite() -> None:
+    for raw in (
+        b'{"schema_version":"first","schema_version":"second"}',
+        b'{"value":NaN}',
+        b'{"value":Infinity}',
+        b'{"value":-Infinity}',
+    ):
+        with pytest.raises(AssertionError):
+            strict_json(raw)
 
 
 def _validate_active_edges(
@@ -628,6 +645,8 @@ def _route_token(node: ast.AST) -> str | None:
             return "{port}"
         if isinstance(value, ast.Name) and value.id == "BAT_PATH":
             return "{repo}/scripts/START_DEMO_UI.bat"
+        if isinstance(value, ast.Name):
+            return "{" + value.id.casefold() + "}"
         if (
             isinstance(value, ast.Attribute)
             and isinstance(value.value, ast.Name)
@@ -635,37 +654,88 @@ def _route_token(node: ast.AST) -> str | None:
             and value.attr == "port"
         ):
             return "{port}"
+        qualified = _qualified_call_name(value, {})
+        if qualified is not None:
+            return "{" + qualified.casefold() + "}"
     return None
+
+
+def _execution_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                aliases[alias.asname or alias.name.split(".", 1)[0]] = alias.name
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return aliases
+
+
+def _qualified_call_name(node: ast.AST, aliases: Mapping[str, str]) -> str | None:
+    if isinstance(node, ast.Name):
+        return aliases.get(node.id, node.id)
+    if isinstance(node, ast.Attribute):
+        owner = _qualified_call_name(node.value, aliases)
+        return f"{owner}.{node.attr}" if owner else None
+    return None
+
+
+def _static_route(node: ast.AST, *, where: str) -> list[str]:
+    if isinstance(node, (ast.List, ast.Tuple)):
+        tokens = [_route_token(item) for item in node.elts]
+        if any(token is None for token in tokens):
+            raise AssertionError(f"unreviewed executable statement at {where}")
+        return [str(token) for token in tokens]
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return shlex.split(node.value, posix=True)
+    raise AssertionError(f"unreviewed executable statement at {where}")
 
 
 def _python_routes(source: str) -> list[list[str]]:
     tree = ast.parse(source)
+    aliases = _execution_aliases(tree)
+    execution_apis = {
+        "subprocess.Popen", "subprocess.run", "subprocess.call",
+        "subprocess.check_call", "subprocess.check_output", "os.system",
+        "os.popen", "os.startfile",
+    }
+    delegated_wrapper = any(
+        isinstance(node, ast.FunctionDef)
+        and node.name == "command_output"
+        and node.args.args
+        and node.args.args[0].arg == "command"
+        for node in tree.body
+    )
     routes: list[tuple[int, list[str]]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not node.args:
             continue
-        function = node.func
-        if not (
-            isinstance(function, ast.Attribute)
-            and function.attr == "Popen"
-            and isinstance(function.value, ast.Name)
-            and function.value.id == "subprocess"
-        ):
+        function_name = _qualified_call_name(node.func, aliases)
+        if function_name == "command_output" and delegated_wrapper:
+            routes.append(
+                (node.lineno, _static_route(node.args[0], where=f"line {node.lineno}"))
+            )
             continue
-        sequence = node.args[0]
-        if not isinstance(sequence, (ast.List, ast.Tuple)):
+        if function_name not in execution_apis:
             continue
-        tokens = [_route_token(item) for item in sequence.elts]
-        if any(token is None for token in tokens):
-            continue
-        route = [str(token) for token in tokens]
         if any(
-            token == "vnphish"
-            or token.startswith("src.")
-            or "/scripts/" in token
-            for token in route
+            keyword.arg == "shell"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value is True
+            for keyword in node.keywords
         ):
-            routes.append((node.lineno, route))
+            raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
+        if (
+            delegated_wrapper
+            and function_name == "subprocess.run"
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == "command"
+        ):
+            continue
+        routes.append(
+            (node.lineno, _static_route(node.args[0], where=f"line {node.lineno}"))
+        )
     return [route for _line, route in sorted(routes)]
 
 
@@ -673,17 +743,28 @@ def _batch_routes(source: str) -> list[list[str]]:
     routes: list[list[str]] = []
     logical = re.sub(r"\^\s*\r?\n\s*", " ", source)
     for raw_line in logical.splitlines():
-        line = raw_line.strip()
+        line = raw_line.strip().lstrip("@").strip()
         lowered = line.casefold()
         if not line or lowered.startswith(("rem ", "::", "echo", "@echo")):
             continue
-        if re.match(r"(?i)^python\s+-m\s+src\.", line):
+        if re.match(
+            r"(?i)^(?:python(?:3)?|py|cmd(?:\.exe)?|powershell(?:\.exe)?|pwsh(?:\.exe)?|bash|sh)\b",
+            line,
+        ):
             routes.append(shlex.split(line, posix=True))
     return routes
 
 
 def _powershell_routes(path: Path, source: str) -> list[list[str]]:
+    forbidden_wrappers = re.findall(
+        r"(?im)^\s*(?:Start-Process|cmd(?:\.exe)?\s+/c|powershell(?:\.exe)?\s+-Command|pwsh(?:\.exe)?\s+-Command)\b",
+        source,
+    )
+    assert not forbidden_wrappers, "unreviewed executable statement in PowerShell tool"
+    call_operators = re.findall(r"(?m)^\s*&\s+([^\r\n]+)", source)
+    dotnet_starts = re.findall(r"\[System\.Diagnostics\.Process\]::Start\s*\(", source)
     if path.name == "phase40_comparison_launcher.ps1":
+        assert call_operators == [] and len(dotnet_starts) == 1
         match = re.search(
             r"\$FinalizerArguments\s*=\s*@\((.*?)\)\s*\r?\n",
             source,
@@ -692,6 +773,8 @@ def _powershell_routes(path: Path, source: str) -> list[list[str]]:
         assert match is not None
         return [["python", *re.findall(r"'([^']*)'", match.group(1))]]
     if path.name == "phase41_one_shot_launcher.ps1":
+        assert len(call_operators) == 1 and call_operators[0].lstrip().startswith("$PythonPath ")
+        assert len(dotnet_starts) == 1
         match = re.search(
             r"foreach\s*\(\$Argument\s+in\s+@\((.*?)\)\s*\)\s*\{",
             source,
@@ -746,11 +829,21 @@ def _powershell_routes(path: Path, source: str) -> list[list[str]]:
                 module = str(node.args[0].value)
         assert argv is not None and module is not None and argv[0] == module
         return [["python", *argument_tokens], ["runpy", module, *argv[1:]]]
+    if call_operators or dotnet_starts:
+        raise AssertionError("unreviewed executable statement in PowerShell tool")
     return []
 
 
 def _bash_routes(path: Path, source: str) -> list[list[str]]:
+    if re.search(
+        r"(?im)^\s*(?:sh\s+-c|bash\s+-c|cmd(?:\.exe)?\s+/c|powershell(?:\.exe)?\s+-Command|pwsh(?:\.exe)?\s+-Command|eval\b)",
+        source,
+    ):
+        raise AssertionError("unreviewed executable statement in shell tool")
+    shell_delegations = re.findall(r"(?m)^\s*(?:bash|sh)\s+([^\r\n]+)$", source)
     if path.name != "vastai_qlora_full.sh":
+        if shell_delegations:
+            raise AssertionError("unreviewed shell-to-shell route")
         return []
     logical = re.sub(r"\\\s*\r?\n\s*", " ", source)
     training = re.search(
@@ -762,6 +855,7 @@ def _bash_routes(path: Path, source: str) -> list[list[str]]:
         source,
     )
     assert training is not None and delegation is not None
+    assert shell_delegations == ['"$REPO/scripts/vastai_gguf_export.sh"']
     tokens = shlex.split(
         "python3 -m src.model_adaptation.cli train " + training.group(1),
         posix=True,
@@ -774,9 +868,11 @@ def _bash_routes(path: Path, source: str) -> list[list[str]]:
     return [[replacements.get(token, token) for token in tokens], ["bash", "{repo}/scripts/vastai_gguf_export.sh"]]
 
 
-def _derive_tool_record(record: Mapping[str, Any]) -> tuple[list[str], list[list[str]]]:
+def _derive_tool_record_from_source(
+    record: Mapping[str, Any],
+    source: str,
+) -> tuple[list[str], list[list[str]]]:
     path = REPO_ROOT / str(record["path"])
-    source = path.read_text(encoding="utf-8")
     language = record["language"]
     imports = _ast_imports(source) if language == "python" else _embedded_imports(source)
     if language == "python":
@@ -790,6 +886,11 @@ def _derive_tool_record(record: Mapping[str, Any]) -> tuple[list[str], list[list
     else:
         raise AssertionError(f"unreviewed tool language: {language}")
     return imports, routes
+
+
+def _derive_tool_record(record: Mapping[str, Any]) -> tuple[list[str], list[list[str]]]:
+    path = REPO_ROOT / str(record["path"])
+    return _derive_tool_record_from_source(record, path.read_text(encoding="utf-8"))
 
 
 def _validate_tool_contract(candidate: object, expected: Mapping[str, Any]) -> None:
@@ -884,6 +985,45 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
         {**fixture, "tools": [*fixture["tools"], copy.deepcopy(fixture["tools"][0])]},
     ):
         _must_reject(lambda mutant=mutant: _validate_tool_contract(mutant, fixture))
+
+    python_mutations = {
+        "import subprocess\nsubprocess.run(['python', '-m', 'src.runtime.cli', 'demo'])\n": [
+            ["python", "-m", "src.runtime.cli", "demo"]
+        ],
+        "import subprocess\nsubprocess.call(['python', '-m', 'src.runtime.cli', 'demo'])\n": [
+            ["python", "-m", "src.runtime.cli", "demo"]
+        ],
+        "import os\nos.system('python -m src.runtime.cli demo')\n": [
+            ["python", "-m", "src.runtime.cli", "demo"]
+        ],
+    }
+    for source, expected_routes in python_mutations.items():
+        assert _python_routes(source) == expected_routes
+    for source in (
+        "import subprocess\nsubprocess.run(command)\n",
+        "import subprocess\nsubprocess.run('python -m src.runtime.cli demo', shell=True)\n",
+    ):
+        with pytest.raises(AssertionError, match="unreviewed executable statement"):
+            _python_routes(source)
+
+    assert _batch_routes("cmd /c python -m src.runtime.cli demo\n") == [
+        ["cmd", "/c", "python", "-m", "src.runtime.cli", "demo"]
+    ]
+    assert _batch_routes("powershell -Command python -m src.runtime.cli demo\n")
+    for source in (
+        "Start-Process python -ArgumentList '-m src.runtime.cli demo'\n",
+        "cmd /c python -m src.runtime.cli demo\n",
+        "powershell -Command python -m src.runtime.cli demo\n",
+        "& $UnreviewedExecutable -ArgumentList 'demo'\n",
+    ):
+        with pytest.raises(AssertionError, match="unreviewed executable statement"):
+            _powershell_routes(Path("synthetic.ps1"), source)
+    for source in (
+        "sh -c 'python -m src.runtime.cli demo'\n",
+        "bash other-script.sh\n",
+    ):
+        with pytest.raises(AssertionError, match="unreviewed|shell-to-shell"):
+            _bash_routes(Path("synthetic.sh"), source)
 
 
 def _validate_active_text_contract(candidate: object, expected: Mapping[str, Any]) -> None:
@@ -1199,70 +1339,39 @@ def test_source_archiving_replaces_only_the_compatibility_import_edge() -> None:
         _must_reject(lambda mutant=mutant: _validate_final_tool_policy(mutant))
 
 
-def _pre_extraction_active_text(post: Mapping[str, Any]) -> dict[str, Any]:
-    pre = copy.deepcopy(post)
-    pre["contract_state"] = "pre_extraction_v1"
-    final_owners = pre["frozen_literal_owners"]
-    base = [row for row in final_owners if not row["id"].startswith("archive-")]
-    moved: list[dict[str, Any]] = []
-    for final in final_owners:
-        if not final["id"].startswith("archive-"):
-            continue
-        row = copy.deepcopy(final)
-        row["path"] = "scripts/archive_phase41_source_closure.py"
-        row["lifecycle"] = "compatibility"
-        if row["id"] == "archive-source-phase41-evaluation":
-            row["owner_symbol"] = "_SOURCE_PATHS"
-        elif row["id"] == "archive-launcher-relative-path":
-            row["owner_symbol"] = "_manifest_records"
-        moved.append(row)
-
-    moved.insert(
-        0,
+def _validate_pre_active_text_contract(
+    candidate: object,
+    expected: Mapping[str, Any],
+) -> None:
+    assert isinstance(candidate, dict)
+    assert set(candidate) == {
+        "schema_version",
+        "contract_state",
+        "source_commit",
+        "source_blobs",
+        "frozen_literal_owners",
+    }
+    assert candidate == expected
+    assert candidate["schema_version"] == "active-text-pre-extraction-binding-v1"
+    assert candidate["contract_state"] == "pre_extraction_v1"
+    assert candidate["source_commit"] == (
+        "de11be785f52aab40be0ff19df3009ba88b51737"
+    )
+    assert candidate["source_blobs"] == [
         {
-            "id": "archive-facade-description",
             "path": "scripts/archive_phase41_source_closure.py",
-            "literal": "Archive and verify the exact source closure that produced Phase 41 evidence.",
-            "owner_symbol": "<module>.__doc__",
-            "reason": "characterize pre-extraction facade description until authorized domain rewrite",
-            "lifecycle": "compatibility",
-        },
+            "blob_oid": "b19b22dd06192720eb77ab6c91081f699afdbe7f",
+            "sha256": "0d7ab3529936fe3bc9f0cd67cfa2fa9509e632be2330fe7a735fc091eb836f80",
+        }
+    ]
+    owners = candidate["frozen_literal_owners"]
+    assert len(owners) == 34
+    assert all(
+        set(row) == {"id", "path", "literal", "owner_symbol", "reason", "lifecycle"}
+        for row in owners
     )
-    evaluation_index = next(
-        index
-        for index, row in enumerate(moved)
-        if row["id"] == "archive-source-phase41-evaluation"
-    )
-    moved.insert(
-        evaluation_index + 1,
-        {
-            "id": "archive-worktree-phase41-evaluation",
-            "path": "scripts/archive_phase41_source_closure.py",
-            "literal": "src/model_adaptation/phase41_evaluation.py",
-            "owner_symbol": "_WORKTREE_MISMATCHES",
-            "reason": "preserve immutable worktree-mismatch member identity",
-            "lifecycle": "compatibility",
-        },
-    )
-    evidence_index = next(
-        index
-        for index, row in enumerate(moved)
-        if row["id"] == "archive-production-evidence-root"
-    )
-    moved.insert(
-        evidence_index + 1,
-        {
-            "id": "archive-production-launcher-filename",
-            "path": "scripts/archive_phase41_source_closure.py",
-            "literal": "phase41_one_shot_launcher.ps1",
-            "owner_symbol": "PRODUCTION_LAUNCHER_PATH",
-            "reason": "preserve immutable production launcher filename",
-            "lifecycle": "compatibility",
-        },
-    )
-    pre["frozen_literal_owners"] = [*base, *moved]
-    assert len(pre["frozen_literal_owners"]) == 34
-    return pre
+    assert len({row["id"] for row in owners}) == 34
+    assert {row["lifecycle"] for row in owners} == {"active", "compatibility"}
 
 
 def _validate_semantic_archive_contract(candidate: object) -> None:
@@ -1314,7 +1423,8 @@ def test_archive_frozen_literal_ownership_transfers_exactly_once() -> None:
     assert policy["active_text_scan"] == final
     assert len(final["frozen_literal_owners"]) == 31
 
-    pre = _pre_extraction_active_text(final)
+    pre = _json_fixture(PRE_ACTIVE_TEXT_FIXTURE)
+    _validate_pre_active_text_contract(pre, pre)
     _must_reject(lambda: _validate_active_text_contract(pre, final))
     post_mislabeled_pre = copy.deepcopy(final)
     post_mislabeled_pre["contract_state"] = "pre_extraction_v1"
@@ -1324,22 +1434,56 @@ def test_archive_frozen_literal_ownership_transfers_exactly_once() -> None:
     pre_mislabeled_post = copy.deepcopy(pre)
     pre_mislabeled_post["contract_state"] = "post_extraction_v1"
     _must_reject(
-        lambda: _validate_active_text_contract(pre_mislabeled_post, final)
+        lambda: _validate_pre_active_text_contract(pre_mislabeled_post, pre)
     )
-    mixed = copy.deepcopy(final)
-    mixed["frozen_literal_owners"][6] = copy.deepcopy(
-        pre["frozen_literal_owners"][7]
-    )
-    _must_reject(lambda: _validate_active_text_contract(mixed, final))
 
-    final_ids = {row["id"] for row in final["frozen_literal_owners"]}
+    final_by_id = {row["id"]: row for row in final["frozen_literal_owners"]}
+    pre_by_id = {row["id"]: row for row in pre["frozen_literal_owners"]}
+    final_ids = set(final_by_id)
     removed = {
         "archive-facade-description",
         "archive-worktree-phase41-evaluation",
         "archive-production-launcher-filename",
     }
-    assert removed.isdisjoint(final_ids)
-    assert removed <= {row["id"] for row in pre["frozen_literal_owners"]}
+    assert set(pre_by_id) - final_ids == removed
+    assert final_ids < set(pre_by_id)
+    for owner_id in sorted(final_ids):
+        before = pre_by_id[owner_id]
+        after = final_by_id[owner_id]
+        assert (before["literal"], before["reason"]) == (
+            after["literal"],
+            after["reason"],
+        )
+        if not owner_id.startswith("archive-"):
+            assert before == after
+            continue
+        assert before["path"] == "scripts/archive_phase41_source_closure.py"
+        assert before["lifecycle"] == "compatibility"
+        assert after["path"].startswith("src/source_archiving/")
+        assert after["lifecycle"] == "active"
+        expected_before_symbol = {
+            "archive-source-phase41-evaluation": "_SOURCE_PATHS",
+            "archive-launcher-relative-path": "_manifest_records",
+        }.get(owner_id, after["owner_symbol"])
+        assert before["owner_symbol"] == expected_before_symbol
+
+    for field in ("source_commit", "source_blobs", "frozen_literal_owners"):
+        mutant = copy.deepcopy(pre)
+        if field == "source_commit":
+            mutant[field] = "0" * 40
+        elif field == "source_blobs":
+            mutant[field][0]["blob_oid"] = "0" * 40
+        else:
+            mutant[field][0]["literal"] += "-drift"
+        _must_reject(
+            lambda mutant=mutant: _validate_pre_active_text_contract(mutant, pre)
+        )
+    mixed = copy.deepcopy(pre)
+    mixed["frozen_literal_owners"][7] = copy.deepcopy(
+        final_by_id["archive-receipt-schema"]
+    )
+    _must_reject(lambda: _validate_pre_active_text_contract(mixed, pre))
+
     facade_source = (
         REPO_ROOT / "scripts/archive_phase41_source_closure.py"
     ).read_text(encoding="utf-8")

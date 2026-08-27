@@ -12,9 +12,11 @@ import json
 from pathlib import Path
 import re
 import sys
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
+
+from tests.architecture.json_contract import load_strict_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +68,20 @@ _BLOCKED_IMPORT_PREFIXES = (
     "torch",
     "transformers",
 )
+_PRE_REWRITE_GIT_BINDINGS = {
+    "src/runtime/cli.py": ("5ef59ea44d3bfc203d46a343fd8850d1e068a925", "a3d0664caaf5c95e281b1b783809e5875935b23e", "ac11b3d51693c877fee805773bfab78a94c40620f342057e59adc2c990f5353e"),
+    "src/runtime/contracts.py": ("5ef59ea44d3bfc203d46a343fd8850d1e068a925", "c5490de3cc1c614d3db3b6d7d73e6f09f8c1a15c", "7311c81086a9d25f5b4aef40392cc5b9e06dbb813cc8cabd1288e69cec435231"),
+    "src/runtime/service.py": ("5ef59ea44d3bfc203d46a343fd8850d1e068a925", "c01bc3a24fc23c8d5a9e9a879353bfb7ff80ab8b", "9d679512536383fdc738ccde474dda969dd9c96ca9e7db2bbf47a03008426130"),
+    "src/runtime/render.py": ("3596d5b2f2ef7ddd0467390a101f68f513714034", "4866bc3c2ce9a3c94007b45ef8f255f3c1a4587b", "8d9ca46a0ded76c5ac01f90536c6da3af5d3826c51b2bec395821fe22c469a25"),
+    "src/runtime/demo.py": ("3596d5b2f2ef7ddd0467390a101f68f513714034", "a5dcc3cf4cf61e37329801cac507c2f603964ef7", "4defe80ccef4c842776ff0d05b60a6ad32dd5dd3bae7b4bbd070666864ebb93a"),
+    "src/runtime/doctor.py": ("6d11e1f13fd6d37c8c786bcdf91df533a5b6987c", "318d9420d268f02a55cfd800c94d8439aa3ce2a9", "3834ddd16c881e73c645293768cffc4aca522ee2d524e91d89f0264bae249f4e"),
+    "src/runtime/analyzers/accelerated.py": ("7856d7807f153f0342c402521026180dc0cb6dd0", "6e8623a61b5128052f7a12eee8d96b7656266e4f", "66b90eb46e599e7895fe6071cb65fd77e5cd0eb0a18fd6cb50c8f9a6bae15c32"),
+    "src/runtime/analyzers/gguf.py": ("7856d7807f153f0342c402521026180dc0cb6dd0", "93e209c7c624e16b8849287366aa2344845a5c9e", "c1078fb6b2ea6a8c74f8bb9f5fb482e7b31d1c5fe97c96af5de0c106b3a8a399"),
+    "src/runtime/analyzers/heuristic.py": ("da0874a4237a4753f5a7f5301dbf5072e396399f", "108b8caf5ea2148cf95e3d9c43339c66ab12292d", "69e3e4b291fd7174418338bb53177d177a1b78ecce7946a95efb48a4bb292b9c"),
+    "src/runtime/analyzers/rules.py": ("da0874a4237a4753f5a7f5301dbf5072e396399f", "c00e144f9ba25d8032fa2c40569ed2b71b2eb6ca", "5f911a7342305fdbda0c23d5f33c0a7e9978df3ebfb7ec4a9ec1767299e8396d"),
+    "src/runtime/analyzers/local_model.py": ("da0874a4237a4753f5a7f5301dbf5072e396399f", "b122677df743328aa37f9f78c40dcf86e3e8dd1d", "f94855a41478ecc48eb8549891b06caacb8a8a3f1ed755760396eec2f6ab9f72"),
+    "src/runtime/demo_assets/demo.js": ("6d11e1f13fd6d37c8c786bcdf91df533a5b6987c", "83795ca3bd91aa4dec8db867ef0c55879639a3af", "1cb9a1a447e5badfa2275bacaee36c93b4f3498328f042424d05c600ff4998be"),
+}
 
 
 class _RejectExecutionImports(importlib.abc.MetaPathFinder):
@@ -92,15 +108,20 @@ class _RejectExecutionImports(importlib.abc.MetaPathFinder):
         return None
 
 
-_IMPORT_GUARD = _RejectExecutionImports()
-if not any(
-    getattr(finder, "marker", None) == _IMPORT_GUARD.marker for finder in sys.meta_path
-):
-    sys.meta_path.insert(0, _IMPORT_GUARD)
+@pytest.fixture
+def execution_import_guard() -> Iterator[_RejectExecutionImports]:
+    guard = _RejectExecutionImports()
+    assert not any(finder is guard for finder in sys.meta_path)
+    sys.meta_path.insert(0, guard)
+    try:
+        yield guard
+    finally:
+        sys.meta_path[:] = [finder for finder in sys.meta_path if finder is not guard]
+        assert guard not in sys.meta_path
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return load_strict_json(path)
 
 
 def _policy() -> dict[str, Any]:
@@ -113,6 +134,25 @@ def _active_text_fixture() -> dict[str, Any]:
 
 def _runtime_prose_fixture() -> dict[str, Any]:
     return _load_json(RUNTIME_PROSE_FIXTURE_PATH)
+
+
+def _validate_pre_rewrite_git_bindings(candidate: dict[str, Any]) -> None:
+    assert candidate["schema_version"] == "runtime-prose-contract-v2"
+    rows = candidate["python_sources"] + candidate["javascript_sources"]
+    bindings = {
+        row["path"]: (
+            row["source_commit"],
+            row["git_blob_oid"],
+            row["pre_edit_source_sha256"],
+        )
+        for row in rows
+    }
+    assert len(bindings) == len(rows) == 12
+    assert bindings == _PRE_REWRITE_GIT_BINDINGS
+    for commit, blob_oid, source_sha256 in bindings.values():
+        assert re.fullmatch(r"[0-9a-f]{40}", commit)
+        assert re.fullmatch(r"[0-9a-f]{40}", blob_oid)
+        assert re.fullmatch(r"[0-9a-f]{64}", source_sha256)
 
 
 def _assert_unique(values: list[Any], label: str) -> None:
@@ -671,19 +711,24 @@ def _javascript_behavior_sha256(path: Path) -> str:
     return hashlib.sha256(stripped.encode("utf-8")).hexdigest()
 
 
-def test_static_language_suite_blocks_execution_imports() -> None:
-    assert sys.meta_path[0] is _IMPORT_GUARD
-    loaded = sorted(
-        name
-        for name in sys.modules
-        if any(name == prefix or name.startswith(prefix + ".") for prefix in _BLOCKED_IMPORT_PREFIXES)
+def test_static_language_suite_blocks_execution_imports(
+    execution_import_guard: _RejectExecutionImports,
+) -> None:
+    assert sys.meta_path[0] is execution_import_guard
+    probes = (
+        "src.__phase411_static_probe__",
+        "transformers.__phase411_static_probe__",
+        "openai.__phase411_static_probe__",
     )
-    assert loaded == []
-    for name in ("src.runtime.service", "transformers", "openai"):
+    assert all(name not in sys.modules for name in probes)
+    for name in probes:
+        attempt_count = len(execution_import_guard.attempts)
         with pytest.raises(ImportError, match="static language suite blocked executable import"):
             importlib.import_module(name)
-    assert _IMPORT_GUARD.attempts == ["src", "transformers", "openai"]
-    assert all(name not in sys.modules for name in _IMPORT_GUARD.attempts)
+        assert len(execution_import_guard.attempts) == attempt_count + 1
+        rejected_name = execution_import_guard.attempts[-1]
+        assert name == rejected_name or name.startswith(rejected_name + ".")
+    assert all(name not in sys.modules for name in execution_import_guard.attempts)
 
 
 @pytest.mark.parametrize(
@@ -775,7 +820,7 @@ def test_active_text_allowlist_is_exact_and_marker_scoped() -> None:
 
 def test_runtime_prose_behavior_fingerprints_match_characterization() -> None:
     fixture = _runtime_prose_fixture()
-    assert fixture["schema_version"] == "runtime-prose-contract-v1"
+    _validate_pre_rewrite_git_bindings(fixture)
     assert fixture["source_state"] == "pre_domain_prose_rewrite"
     assert len(fixture["python_sources"]) == 11
     assert len(fixture["javascript_sources"]) == 1
@@ -802,8 +847,15 @@ def test_runtime_prose_behavior_fingerprints_match_characterization() -> None:
         actual_javascript, indent=2, sort_keys=True
     )
 
-    for row in fixture["python_sources"] + fixture["javascript_sources"]:
-        assert re.fullmatch(r"[0-9a-f]{64}", row["pre_edit_source_sha256"])
+    for field in ("source_commit", "git_blob_oid", "pre_edit_source_sha256"):
+        mutant = copy.deepcopy(fixture)
+        mutant["python_sources"][0][field] = "0" * (64 if field.endswith("sha256") else 40)
+        with pytest.raises(AssertionError):
+            _validate_pre_rewrite_git_bindings(mutant)
+    duplicate = copy.deepcopy(fixture)
+    duplicate["python_sources"].append(copy.deepcopy(duplicate["python_sources"][0]))
+    with pytest.raises(AssertionError):
+        _validate_pre_rewrite_git_bindings(duplicate)
     for row in fixture["protected_command_literals"]:
         source = (REPO_ROOT / row["path"]).read_text(encoding="utf-8")
         assert source.count(row["literal"]) == row["expected_count"] == 1

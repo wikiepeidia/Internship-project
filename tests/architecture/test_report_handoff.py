@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import math
 import ntpath
 import os
@@ -12,6 +11,11 @@ import re
 from typing import Any, Iterator
 
 import pytest
+
+from tests.architecture.json_contract import (
+    load_strict_json as _load_json,
+    strict_json as _strict_json,
+)
 
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -73,37 +77,19 @@ OLDER_BASES = [
     (r"D:\PROJEct\AI MODELS\base\qwen3.5-4b", "8.701 GiB"),
 ]
 
-DELETION_COMMAND = re.compile(r"(?im)^\s*(?:rm\b|rmdir\b|rd\s+/|del\s+/|erase\b|Remove-Item\b|shutil\.rmtree\b)")
-SECRET_ASSIGNMENT = re.compile(r"(?i)(?:sk-[A-Za-z0-9]{8,}|\b(?:api[_-]?key|access[_-]?token|secret)\s*=)")
+DESTRUCTIVE_HEAD = re.compile(
+    r"(?i)^(?:rm\b|rmdir\b|rd(?:\.exe)?\s+/|del(?:\.exe)?\s+/|erase\b|Remove-Item\b|shutil\.rmtree\b)"
+)
+SECRET_VALUE = re.compile(
+    r"(?ix)(?:\b(?:sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|hf_[A-Za-z0-9]{8,})\b|"
+    r"(?:\$env:)?\b(?:api[_-]?key|access[_-]?token|secret|password)\b\s*(?:=|:)\s*[\"']?"
+    r"(?!<redacted>|redacted\b|x{4,}\b|\*{4,}\b)[A-Za-z0-9_./+=-]{8,})"
+)
 BANNED_OVERCLAIMS = (
     "zero prior filesystem access", "the only process that ever opened",
     "untouched until the launcher", "the refactored code produced the frozen metrics",
     "cleanup has been authorized", "one model is superior",
 )
-
-
-def _reject_constant(value: str) -> None:
-    raise AssertionError(f"non-finite JSON value: {value}")
-
-
-def _strict_json(raw: bytes) -> dict[str, Any]:
-    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key, value in pairs:
-            assert key not in result, f"duplicate JSON key: {key}"
-            result[key] = value
-        return result
-
-    value = json.loads(
-        raw.decode("utf-8"), object_pairs_hook=reject_duplicates,
-        parse_constant=_reject_constant,
-    )
-    assert isinstance(value, dict)
-    return value
-
-
-def _load_json(path: Path) -> dict[str, Any]:
-    return _strict_json(path.read_bytes())
 
 
 def _validate_fact_contract(facts: dict[str, Any]) -> None:
@@ -184,9 +170,39 @@ def _allowed_hashes(facts: dict[str, Any]) -> set[str]:
     }
 
 
+def _command_segments(document: str) -> Iterator[str]:
+    presentation = re.compile(
+        r"(?i)^(?:>\s*|[-*+]\s+|\d+[.)]\s+|\[[ x]\]\s+)+"
+    )
+    prompts = (
+        re.compile(r"^\$\s+"),
+        re.compile(r"(?i)^PS\s+[^>]*>\s*"),
+        re.compile(r"(?i)^[A-Z]:\\[^>]*>\s*"),
+    )
+    wrappers = (
+        re.compile(r"(?i)^cmd(?:\.exe)?\s+/[cs]\s+"),
+        re.compile(r"(?i)^(?:powershell|powershell\.exe|pwsh|pwsh\.exe)\b.*?\s-Command\s+"),
+        re.compile(r"(?i)^(?:sh|bash)\s+-c\s+"),
+    )
+    for raw_line in document.splitlines():
+        line = raw_line.strip()
+        previous = None
+        while line and line != previous:
+            previous = line
+            line = presentation.sub("", line).strip()
+            for prompt in prompts:
+                line = prompt.sub("", line).strip()
+            line = line.strip("`\"'").strip()
+            for wrapper in wrappers:
+                line = wrapper.sub("", line).strip().strip("`\"'").strip()
+        for segment in re.split(r"\s*(?:&&|\|\||;)\s*", line):
+            if segment:
+                yield segment
+
+
 def _assert_safe_static_text(document: str) -> None:
-    assert not DELETION_COMMAND.search(document)
-    assert not SECRET_ASSIGNMENT.search(document)
+    assert not any(DESTRUCTIVE_HEAD.search(segment) for segment in _command_segments(document))
+    assert not SECRET_VALUE.search(document)
     lowered = document.lower().replace(
         "does not have zero prior filesystem access", "records prior filesystem access"
     )
@@ -342,6 +358,29 @@ def test_static_validators_reject_missing_authority_invented_facts_and_commands(
         _validate_storage(storage + "\nRemove-Item -Recurse candidate\n")
     with pytest.raises(AssertionError):
         _validate_handoff(handoff + "\nThe held-out file had zero prior filesystem access.\n", facts)
+
+    destructive_mutations = (
+        "- rm -rf candidate",
+        "> Remove-Item -Recurse candidate",
+        "$ del /q candidate",
+        r"PS C:\repo> rd /s /q candidate",
+        "- cmd /c del /q candidate",
+        "> PowerShell -Command Remove-Item -Recurse candidate",
+        "1. sh -c 'rm -rf candidate'",
+    )
+    secret_mutations = (
+        "api_key: actualvalue123",
+        "$env:ACCESS_TOKEN=actualvalue123",
+        "token=sk-abcdefgh1234",
+        "token=ghp_abcdefgh1234",
+        "token=github_pat_abcdefgh1234",
+        "token=hf_abcdefgh1234",
+    )
+    for mutation in (*destructive_mutations, *secret_mutations):
+        with pytest.raises(AssertionError):
+            _assert_safe_static_text(storage + "\n" + mutation + "\n")
+    for redacted in ("api_key=<redacted>", "access_token=********"):
+        _assert_safe_static_text(storage + "\n" + redacted + "\n")
 
 
 def test_former_live_authority_paths_are_guarded_before_call() -> None:

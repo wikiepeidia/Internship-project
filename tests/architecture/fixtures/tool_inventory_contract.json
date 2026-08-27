@@ -35,7 +35,11 @@
       "kind": "latency_probe",
       "phase_language": "phase_30",
       "imports": ["__future__", "argparse", "datetime", "json", "pathlib", "playwright.sync_api", "subprocess", "sys", "time", "traceback", "typing"],
-      "routes": [["python", "-m", "src.runtime.cli", "demo", "--no-browser", "--port", "{port}"]]
+      "routes": [
+        ["powercfg", "/GETACTIVESCHEME"],
+        ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToString('o')"],
+        ["python", "-m", "src.runtime.cli", "demo", "--no-browser", "--port", "{port}"]
+      ]
     },
     {
       "path": "scripts/phase40_comparison_launcher.ps1",
@@ -96,8 +100,11 @@
       "phase_language": "phase_32",
       "imports": ["__future__", "argparse", "datetime", "importlib.util", "json", "os", "pathlib", "playwright.sync_api", "re", "subprocess", "sys", "time", "traceback", "typing"],
       "routes": [
+        ["netstat", "-ano", "-p", "tcp"],
+        ["taskkill", "/PID", "{pid}", "/T", "/F"],
         ["cmd.exe", "/c", "{repo}/scripts/START_DEMO_UI.bat"],
-        ["{repo}/scripts/START_DEMO_UI.bat"]
+        ["{repo}/scripts/START_DEMO_UI.bat"],
+        ["taskkill", "/PID", "{process.pid}", "/T", "/F"]
       ]
     },
     {

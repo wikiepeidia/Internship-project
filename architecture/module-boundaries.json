@@ -821,6 +821,16 @@
         ],
         "routes": [
           [
+            "powercfg",
+            "/GETACTIVESCHEME"
+          ],
+          [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToString('o')"
+          ],
+          [
             "python",
             "-m",
             "src.runtime.cli",
@@ -1012,12 +1022,32 @@
         ],
         "routes": [
           [
+            "netstat",
+            "-ano",
+            "-p",
+            "tcp"
+          ],
+          [
+            "taskkill",
+            "/PID",
+            "{pid}",
+            "/T",
+            "/F"
+          ],
+          [
             "cmd.exe",
             "/c",
             "{repo}/scripts/START_DEMO_UI.bat"
           ],
           [
             "{repo}/scripts/START_DEMO_UI.bat"
+          ],
+          [
+            "taskkill",
+            "/PID",
+            "{process.pid}",
+            "/T",
+            "/F"
           ]
         ]
       },
