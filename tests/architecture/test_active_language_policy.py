@@ -243,6 +243,21 @@ def _markdown_table_rows(body: str, width: int) -> list[tuple[str, ...]]:
     return parsed[2:]
 
 
+def _marker_body(text: str, row: dict[str, str]) -> str:
+    assert text.count(row["start_marker"]) == 1
+    assert text.count(row["end_marker"]) == 1
+    body = text.split(row["start_marker"], 1)[1].split(row["end_marker"], 1)[0]
+    assert body.startswith("\n") and body.endswith("\n")
+    return body[1:-1]
+
+
+def _assert_table_only_marker(text: str, row: dict[str, str], width: int) -> None:
+    body = _marker_body(text, row)
+    nonempty = [line.strip() for line in body.splitlines() if line.strip()]
+    assert nonempty and all(line.startswith("|") and line.endswith("|") for line in nonempty)
+    _markdown_table_rows(body, width)
+
+
 def _expected_policy_groups_body(policy: dict[str, Any]) -> str:
     data = policy["data_modules"]
     groups = (
@@ -1026,3 +1041,198 @@ def test_overview_and_cli_contracts_use_domain_narrative_or_exact_markers() -> N
             cli_marker,
             expected_cli_body,
         )
+
+
+def test_provenance_and_storage_use_domain_narrative_or_exact_authority_markers() -> None:
+    from tests.architecture import test_report_handoff as report_contract
+
+    fixture = _active_text_fixture()
+    policy = _policy()
+    assert policy["static_policy"]["active_text_scan"] == fixture
+
+    provenance_path = "docs/architecture/provenance.md"
+    storage_path = "docs/architecture/storage-retention.md"
+    provenance = (REPO_ROOT / provenance_path).read_text(encoding="utf-8")
+    storage = (REPO_ROOT / storage_path).read_text(encoding="utf-8")
+    assert _scan_text(provenance_path, provenance, fixture) == []
+    assert _scan_text(storage_path, storage, fixture) == []
+
+    expected_provenance_markers = [
+        {
+            "path": provenance_path,
+            "marker_id": "provenance-authority-identities",
+            "start_marker": "<!-- provenance-authority-identities:start -->",
+            "end_marker": "<!-- provenance-authority-identities:end -->",
+            "reason": "preserve exact source export and erratum authority paths",
+            "owner": "provenance-report-contract",
+        },
+        {
+            "path": provenance_path,
+            "marker_id": "provenance-schema-identities",
+            "start_marker": "<!-- provenance-schema-identities:start -->",
+            "end_marker": "<!-- provenance-schema-identities:end -->",
+            "reason": "preserve exact evidence and erratum schema identifiers",
+            "owner": "provenance-report-contract",
+        },
+        {
+            "path": provenance_path,
+            "marker_id": "provenance-correction-quote",
+            "start_marker": "<!-- provenance-correction-quote:start -->",
+            "end_marker": "<!-- provenance-correction-quote:end -->",
+            "reason": "preserve the mandatory correction quote byte-for-byte",
+            "owner": "provenance-report-contract",
+        },
+    ]
+    expected_storage_markers = [
+        {
+            "path": storage_path,
+            "marker_id": "sealed-roots",
+            "start_marker": "<!-- sealed-roots:start -->",
+            "end_marker": "<!-- sealed-roots:end -->",
+            "reason": "preserve exact sealed model-root identities",
+            "owner": "storage-retention-contract",
+        },
+        {
+            "path": storage_path,
+            "marker_id": "optional-gguf",
+            "start_marker": "<!-- optional-gguf:start -->",
+            "end_marker": "<!-- optional-gguf:end -->",
+            "reason": "preserve the exact optional GGUF identity",
+            "owner": "storage-retention-contract",
+        },
+        {
+            "path": storage_path,
+            "marker_id": "cleanup-candidates",
+            "start_marker": "<!-- cleanup-candidates:start -->",
+            "end_marker": "<!-- cleanup-candidates:end -->",
+            "reason": "preserve exact informational cleanup-candidate identities",
+            "owner": "storage-retention-contract",
+        },
+        {
+            "path": storage_path,
+            "marker_id": "nested-candidates",
+            "start_marker": "<!-- nested-candidates:start -->",
+            "end_marker": "<!-- nested-candidates:end -->",
+            "reason": "preserve exact reviewed nested-duplicate identities",
+            "owner": "storage-retention-contract",
+        },
+        {
+            "path": storage_path,
+            "marker_id": "older-bases",
+            "start_marker": "<!-- older-bases:start -->",
+            "end_marker": "<!-- older-bases:end -->",
+            "reason": "preserve exact older-base identities",
+            "owner": "storage-retention-contract",
+        },
+    ]
+    assert [
+        row for row in fixture["literal_markers"] if row["path"] == provenance_path
+    ] == expected_provenance_markers
+    assert [
+        row for row in fixture["literal_markers"] if row["path"] == storage_path
+    ] == expected_storage_markers
+    _marker_spans(provenance_path, provenance, fixture)
+    _marker_spans(storage_path, storage, fixture)
+
+    authority_body = (
+        "| Layer | Exact authority | What it establishes |\n"
+        "| --- | --- | --- |\n"
+        "| Current architecture | `architecture/module-boundaries.json` (`module-boundaries-v2`) | Active domain modules, compatibility adapters, historical modules, allowed edges, and static budgets |\n"
+        "| Historical producer source | `historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434/` | A post-evaluation, content-addressed mirror of the 37-source producer closure plus its launcher |\n"
+        "| Frozen evaluation export | `data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/` | The completed 12-member evidence package and its terminal policy |\n"
+        "| Mandatory correction | `data/models/phase41/phase41-provenance-erratum.json` | The disclosure that corrects global prior-access wording without modifying the export |"
+    )
+    schema_body = (
+        "| Record | Exact schema identifier |\n"
+        "| --- | --- |\n"
+        "| `Verified evidence manifest` | `phase41-evidence-manifest-v1` |\n"
+        "| `Mandatory provenance erratum` | `phase41-provenance-erratum-v1` |"
+    )
+    correction_quote = (
+        "> Phase 41 contains exactly one terminal shared-cohort model-evaluation pass "
+        "over the frozen Qwen QLoRA and PhoBERT models. It does not have zero prior "
+        "filesystem access to the held-out file."
+    )
+    _assert_exact_marker_block(
+        provenance_path,
+        provenance,
+        expected_provenance_markers[0],
+        authority_body,
+    )
+    _assert_exact_marker_block(
+        provenance_path,
+        provenance,
+        expected_provenance_markers[1],
+        schema_body,
+    )
+    _assert_exact_marker_block(
+        provenance_path,
+        provenance,
+        expected_provenance_markers[2],
+        correction_quote,
+    )
+    for marker, width in zip(expected_storage_markers, (4, 4, 3, 2, 2)):
+        _assert_table_only_marker(storage, marker, width)
+
+    report_facts = _load_json(
+        REPO_ROOT / "tests/architecture/fixtures/report_fact_contract.json"
+    )
+    report_contract._validate_provenance(provenance, report_facts)
+    report_contract._validate_storage(storage)
+    assert "recorded phase root" not in storage
+    assert "final Phase 40/41 system" not in storage
+    assert "recorded experiment root" in storage
+    assert "retained final system" in storage
+
+    moved_token = provenance.replace("phase41-evidence-manifest-v1", "evidence-manifest-v1", 1)
+    moved_token += "\nSchema compatibility: `phase41-evidence-manifest-v1`\n"
+    assert _scan_text(provenance_path, moved_token, fixture)
+    near_match = storage.replace(r"\phase40\full", r"\phase400\full", 1)
+    with pytest.raises(AssertionError):
+        report_contract._validate_storage(near_match)
+    nested_marker = storage.replace(
+        expected_storage_markers[0]["start_marker"],
+        expected_storage_markers[0]["start_marker"]
+        + "\n"
+        + expected_storage_markers[1]["start_marker"],
+        1,
+    )
+    with pytest.raises(AssertionError, match="missing or duplicate start marker|nested or overlapping"):
+        _marker_spans(storage_path, nested_marker, fixture)
+    prose_in_marker = storage.replace(
+        expected_storage_markers[0]["start_marker"],
+        f"{expected_storage_markers[0]['start_marker']}\nPhase 91 narrative bypass",
+        1,
+    )
+    with pytest.raises(AssertionError):
+        _assert_table_only_marker(prose_in_marker, expected_storage_markers[0], 4)
+
+
+def test_all_eight_active_documents_are_classified_exactly() -> None:
+    fixture = _active_text_fixture()
+    policy = _policy()
+    expected_active = [
+        "README.md",
+        "docs/architecture/overview.md",
+        "docs/architecture/cli-contracts.md",
+        "docs/architecture/provenance.md",
+        "docs/architecture/storage-retention.md",
+        "documents/user/LOCAL_MODELS.md",
+        "documents/user/QLORA.md",
+        "documents/user/USER_GUIDE.md",
+    ]
+    assert fixture["active_documents"] == expected_active
+    assert fixture["historical_documents"] == ["walkthrough/README.md"]
+    scan_paths = _active_scan_paths(policy)
+    assert all(scan_paths.count(path) == 1 for path in expected_active)
+    assert "walkthrough/README.md" not in scan_paths
+    violations = [
+        violation
+        for logical_path in expected_active
+        for violation in _scan_text(
+            logical_path,
+            (REPO_ROOT / logical_path).read_text(encoding="utf-8"),
+            fixture,
+        )
+    ]
+    assert violations == []

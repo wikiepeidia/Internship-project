@@ -20,7 +20,7 @@ participate in the recorded tree identity, so each root is retained as a whole.
 <!-- sealed-roots:end -->
 
 Also retain the compact `source-runtime-v3`, `source-runtime-v12`, and `controller`
-evidence directories under the recorded phase root until the report and defense are
+evidence directories under the recorded experiment root until the report and defense are
 finished.
 
 ## Optional deployment artifact
@@ -69,7 +69,7 @@ also contain a sealed root, so no parent-level inference is safe.
 
 ## Older bases needing a separate decision
 
-These are outside the final Phase 40/41 system and may belong to unrelated work.
+These are outside the retained final system and may belong to unrelated work.
 
 <!-- older-bases:start -->
 | Exact path | Recorded size |
@@ -84,4 +84,3 @@ Repeated Qwen base paths in older transfer roots are NTFS hardlinks to the same
 physical shards. Removing a non-authoritative link may recover little space while
 the retained link still exists. This document performs no deletion, move, trim,
 relink, rescan, or authorization and provides no executable cleanup instruction.
-

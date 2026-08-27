@@ -7,12 +7,14 @@ completed evaluation. Current source is not the metric-producing source.
 
 ## Authority chain
 
+<!-- provenance-authority-identities:start -->
 | Layer | Exact authority | What it establishes |
 | --- | --- | --- |
 | Current architecture | `architecture/module-boundaries.json` (`module-boundaries-v2`) | Active domain modules, compatibility adapters, historical modules, allowed edges, and static budgets |
 | Historical producer source | `historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434/` | A post-evaluation, content-addressed mirror of the 37-source producer closure plus its launcher |
 | Frozen evaluation export | `data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/` | The completed 12-member evidence package and its terminal policy |
 | Mandatory correction | `data/models/phase41/phase41-provenance-erratum.json` | The disclosure that corrects global prior-access wording without modifying the export |
+<!-- provenance-authority-identities:end -->
 
 The tracked archival receipt labels the mirror
 `post_evaluation_archival_mirror_not_refactored_metric_producer`. That phrase is
@@ -41,7 +43,16 @@ that tracked receipt only; it does not inspect, copy, refresh, or modify the ori
 
 The verified export identity is
 `9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7`.
-Its `evidence-manifest.json` uses schema `phase41-evidence-manifest-v1`, reports
+The two report-facing records retain these exact schema identifiers:
+
+<!-- provenance-schema-identities:start -->
+| Record | Exact schema identifier |
+| --- | --- |
+| `Verified evidence manifest` | `phase41-evidence-manifest-v1` |
+| `Mandatory provenance erratum` | `phase41-provenance-erratum-v1` |
+<!-- provenance-schema-identities:end -->
+
+The evidence manifest reports
 status `completed`, and names 12 hash-bound members. Those member hashes, names,
 schemas, canonical bytes, selected model identities, and filenames are one package;
 downstream code may read them but must not rewrite or reserialize them.
@@ -57,14 +68,16 @@ unbiased score claim after an optional deployment fit.
 
 ## Mandatory erratum
 
-The erratum has schema `phase41-provenance-erratum-v1` and tracked SHA-256
+The erratum uses the exact schema listed above and has tracked SHA-256
 `c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672`.
 It is an external non-sealed companion: the verified export was not modified or
 resealed, and prediction or metric artifacts were not changed.
 
 Its corrected claim is:
 
+<!-- provenance-correction-quote:start -->
 > Phase 41 contains exactly one terminal shared-cohort model-evaluation pass over the frozen Qwen QLoRA and PhoBERT models. It does not have zero prior filesystem access to the held-out file.
+<!-- provenance-correction-quote:end -->
 
 The access disclosure is narrower and more precise than a global claim. At least two
 broad default test executions before the terminal model evaluation parsed, statted,
@@ -81,4 +94,3 @@ The active architecture may be described from `overview.md`; quantitative or
 selected-model claims remain bound to the frozen export. The provenance receipt may
 explain which historical bytes produced that authority, but it supplies no new
 metric and authorizes no rerun.
-
