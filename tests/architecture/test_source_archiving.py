@@ -457,3 +457,422 @@ def test_archive_facade_help_uses_exact_domain_language(
         "options:\n"
         "  -h, --help        show this help message and exit\n"
     )
+
+
+def _layout(tmp_path: Path) -> archive._ArchiveLayout:
+    return _synthetic_layout(tmp_path)[0]
+
+
+def test_synthetic_archive_is_captured_receipted_and_verified(tmp_path: Path) -> None:
+    layout = _layout(tmp_path)
+    raw_manifest = layout.manifest_path.read_bytes()
+
+    receipt = archive._archive_bound_source_closure_for_test(layout)
+
+    assert receipt.source_tree_sha256 == "a" * 64
+    assert receipt.provenance_label == (
+        "post_evaluation_archival_mirror_not_refactored_metric_producer"
+    )
+    assert (layout.destination / "execution-source-manifest.json").read_bytes() == raw_manifest
+    assert (layout.destination / "tree/src/example.py").read_text(encoding="utf-8") == (
+        "MESSAGE = 'xin chào'\n"
+    )
+    assert (layout.destination / "archival-receipt.json").is_file()
+    assert receipt.current_worktree_mismatches[0]["path"] == "src/example.py"
+    assert archive._verify_archived_source_closure_for_test(layout) == receipt
+
+
+def test_archive_cli_is_successful_on_legacy_console(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StrictLegacyConsole:
+        encoding = "cp1252"
+
+        def __init__(self) -> None:
+            self.text = ""
+
+        def write(self, value: str) -> int:
+            value.encode(self.encoding, errors="strict")
+            self.text += value
+            return len(value)
+
+        def flush(self) -> None:
+            return None
+
+    class SyntheticReceipt:
+        @staticmethod
+        def as_dict() -> dict[str, str]:
+            return {"archive_destination": os.fspath(tmp_path / "bài tập")}
+
+    console = StrictLegacyConsole()
+    monkeypatch.setattr(archive, "verify_archived_source_closure", SyntheticReceipt)
+    monkeypatch.setattr(archive.sys, "stdout", console)
+
+    assert archive.main(["verify"]) == 0
+    assert "\\u1eadp" in console.text
+    assert console.text.endswith("\n")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        ("schema", "schema"),
+        ("tree", "tree"),
+        ("source_hash", "hash"),
+        ("missing_source", "missing"),
+        ("extra_manifest_member", "membership"),
+        ("path_escape", "path"),
+    ],
+)
+def test_archive_rejects_invalid_manifest_or_source_before_publication(
+    tmp_path: Path,
+    mutation: str,
+    match: str,
+) -> None:
+    layout = _layout(tmp_path)
+    manifest = _strict_json(layout.manifest_path.read_bytes())
+    if mutation == "schema":
+        manifest["schema_version"] = "wrong"
+    elif mutation == "tree":
+        manifest["source_tree_sha256"] = "f" * 64
+    elif mutation == "source_hash":
+        (layout.source_root / "src/example.py").write_text("tampered\n", encoding="utf-8")
+    elif mutation == "missing_source":
+        (layout.source_root / "src/example.py").unlink()
+    elif mutation == "extra_manifest_member":
+        manifest["files"].append(
+            {"bytes": 0, "path": "src/extra.py", "sha256": _sha256(b"")}
+        )
+    elif mutation == "path_escape":
+        manifest["files"][0]["path"] = "../escape.py"
+    if mutation in {"schema", "tree", "extra_manifest_member", "path_escape"}:
+        layout.manifest_path.write_bytes(_canonical_json(manifest))
+        layout = replace(
+            layout,
+            expected_manifest_sha256=_sha256(layout.manifest_path.read_bytes()),
+        )
+
+    with pytest.raises(archive.ArchiveError, match=match):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert not layout.destination.exists()
+
+
+def test_archive_rejects_duplicate_json_keys_and_destination_collision(
+    tmp_path: Path,
+) -> None:
+    layout = _layout(tmp_path)
+    raw = layout.manifest_path.read_bytes()
+    layout.manifest_path.write_bytes(b'{"schema_version":"duplicate",' + raw[1:])
+    layout = replace(
+        layout,
+        expected_manifest_sha256=_sha256(layout.manifest_path.read_bytes()),
+    )
+    with pytest.raises(archive.ArchiveError, match="duplicate JSON key"):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert not layout.destination.exists()
+
+    layout = _layout(tmp_path / "collision")
+    layout.destination.mkdir(parents=True)
+    marker = layout.destination / "do-not-overwrite.txt"
+    marker.write_text("preserve", encoding="utf-8")
+    with pytest.raises(archive.ArchiveError, match="destination"):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_archive_rejects_overlap_and_redirecting_source_ancestry(tmp_path: Path) -> None:
+    layout = _layout(tmp_path / "overlap")
+    overlapping = replace(layout, destination=layout.source_root / "archive")
+    with pytest.raises(archive.ArchiveError, match="overlap"):
+        archive._archive_bound_source_closure_for_test(overlapping)
+
+    layout = _layout(tmp_path / "redirect")
+    real = layout.evidence_root / "real-clean-runtime"
+    layout.source_root.rename(real)
+    try:
+        layout.source_root.symlink_to(real, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - host policy, not product behavior
+        pytest.fail(f"test host cannot create the required temp symlink: {exc}")
+    with pytest.raises(archive.ArchiveError, match="redirect|reparse|symlink"):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert not layout.destination.exists()
+
+
+def test_archive_rejects_redirecting_destination_parent(tmp_path: Path) -> None:
+    layout = _layout(tmp_path)
+    redirected_parent = layout.destination.parent
+    real_parent = redirected_parent.with_name("real-historical")
+    redirected_parent.rename(real_parent)
+    try:
+        redirected_parent.symlink_to(real_parent, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - host policy, not product behavior
+        pytest.fail(f"test host cannot create the required temp symlink: {exc}")
+    with pytest.raises(archive.ArchiveError, match="destination.*redirect|symlink|reparse"):
+        archive._archive_bound_source_closure_for_test(layout)
+
+
+def _assert_archive_ancestor_swap_is_contained(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    event: str,
+) -> None:
+    layout = _layout(tmp_path)
+    parent = layout.destination.parent
+    moved_parent = parent.with_name(f"{parent.name}-{event}-moved")
+    outside = tmp_path / f"outside-{event}"
+    outside.mkdir()
+    outcome = {"attempted": False, "blocked": False, "swapped": False}
+
+    def swap_ancestor(current_event: str, _target: Path) -> None:
+        if current_event != event or outcome["attempted"]:
+            return
+        outcome["attempted"] = True
+        try:
+            parent.rename(moved_parent)
+        except OSError:
+            outcome["blocked"] = True
+            return
+        parent.symlink_to(outside, target_is_directory=True)
+        outcome["swapped"] = True
+
+    monkeypatch.setattr(archive, "_publication_test_hook", swap_ancestor)
+    try:
+        receipt = archive._archive_bound_source_closure_for_test(layout)
+    except archive.ArchiveError as exc:
+        assert "parent binding changed" in str(exc)
+        assert outcome == {"attempted": True, "blocked": False, "swapped": True}
+        assert not layout.destination.exists()
+    else:
+        assert receipt.source_tree_sha256 == "a" * 64
+        assert outcome == {"attempted": True, "blocked": True, "swapped": False}
+        assert layout.destination.is_dir()
+    assert tuple(outside.iterdir()) == ()
+
+
+def test_archive_stage_creation_is_bound_against_ancestor_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "stage_creation")
+
+
+def test_archive_member_write_is_bound_against_ancestor_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "member_write")
+
+
+def test_archive_final_rename_is_bound_against_ancestor_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_archive_ancestor_swap_is_contained(tmp_path, monkeypatch, "final_rename")
+
+
+def test_failed_archive_publication_keeps_final_destination_retryable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layout = _layout(tmp_path)
+    implementation = archive._write_exclusive
+    calls = 0
+
+    def fail_after_first_member(
+        binding: archive._PublicationBinding,
+        relative: Path,
+        raw: bytes,
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise archive.ArchiveError("synthetic staging failure")
+        implementation(binding, relative, raw)
+
+    monkeypatch.setattr(archive, "_write_exclusive", fail_after_first_member)
+    with pytest.raises(archive.ArchiveError, match="synthetic staging failure"):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert not layout.destination.exists()
+    assert list(layout.destination.parent.glob(f".{layout.destination.name}.staging-*"))
+
+    monkeypatch.setattr(archive, "_write_exclusive", implementation)
+    archive._archive_bound_source_closure_for_test(layout)
+    assert layout.destination.is_dir()
+
+
+def test_archived_extra_member_and_byte_drift_fail_verification(tmp_path: Path) -> None:
+    layout = _layout(tmp_path)
+    archive._archive_bound_source_closure_for_test(layout)
+    extra = layout.destination / "tree/src/extra.py"
+    extra.write_text("extra\n", encoding="utf-8")
+    with pytest.raises(archive.ArchiveError, match="extra|membership"):
+        archive._verify_archived_source_closure_for_test(layout)
+    extra.unlink()
+    (layout.destination / "tree/src/example.py").write_text("drift\n", encoding="utf-8")
+    with pytest.raises(archive.ArchiveError, match="hash|bytes"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+
+def test_archive_verification_rejects_non_file_and_root_members(tmp_path: Path) -> None:
+    layout = _layout(tmp_path / "empty")
+    archive._archive_bound_source_closure_for_test(layout)
+    empty = layout.destination / "tree" / "unexpected-empty"
+    empty.mkdir()
+    with pytest.raises(archive.ArchiveError, match="membership"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+    layout = _layout(tmp_path / "link")
+    archive._archive_bound_source_closure_for_test(layout)
+    link = layout.destination / "tree" / "redirect.py"
+    try:
+        link.symlink_to(layout.destination / "tree/src/example.py")
+    except OSError as exc:  # pragma: no cover - host policy, not product behavior
+        pytest.fail(f"test host cannot create the required temp symlink: {exc}")
+    with pytest.raises(archive.ArchiveError, match="link|reparse"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+    layout = _layout(tmp_path / "root")
+    archive._archive_bound_source_closure_for_test(layout)
+    (layout.destination / "unexpected-root.txt").write_text("extra", encoding="utf-8")
+    with pytest.raises(archive.ArchiveError, match="root membership"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+
+def test_receipt_self_hash_cannot_rebind_false_mismatch_facts(tmp_path: Path) -> None:
+    layout = _layout(tmp_path)
+    archive._archive_bound_source_closure_for_test(layout)
+    receipt_path = layout.destination / "archival-receipt.json"
+    receipt = _strict_json(receipt_path.read_bytes())
+    receipt["current_worktree_mismatches"][0]["expected_sha256"] = "f" * 64
+    unsigned = dict(receipt)
+    unsigned.pop("receipt_sha256")
+    receipt["receipt_sha256"] = _sha256(_canonical_json(unsigned))
+    receipt_path.write_bytes(_canonical_json(receipt))
+    with pytest.raises(archive.ArchiveError, match="source manifest"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+
+def test_production_entry_points_are_fixed_and_accept_no_paths() -> None:
+    import inspect
+
+    assert os.fspath(archive.PRODUCTION_SOURCE_ROOT) == (
+        r"C:\ProgramData\VNPhish\phase41-evaluation-evidence\clean-runtime"
+    )
+    assert os.fspath(archive.PRODUCTION_LAUNCHER_PATH) == (
+        r"C:\ProgramData\VNPhish\phase41-evaluation-evidence\scripts\phase41_one_shot_launcher.ps1"
+    )
+    assert not inspect.signature(archive.archive_bound_source_closure).parameters
+    assert not inspect.signature(archive.verify_archived_source_closure).parameters
+
+
+@pytest.mark.parametrize("token", ("NaN", "Infinity", "-Infinity"))
+def test_archive_json_reader_rejects_non_finite_tokens(token: str) -> None:
+    raw = ('{"value":' + token + "}").encode("utf-8")
+    with pytest.raises(archive.ArchiveError, match="non-standard JSON token"):
+        archive._strict_json(raw, where="synthetic archive document")
+
+
+def test_archive_entrypoint_preserves_compatibility_surface_after_decomposition() -> None:
+    import ast
+
+    facade_path = REPO_ROOT / "scripts/archive_phase41_source_closure.py"
+    source = facade_path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name.startswith("src.")
+    }
+    assert imported == {"src.source_archiving"}
+    assert "src.core_binding" not in source
+    assert len(source.splitlines()) <= 250
+    assert archive.ArchiveReceipt.__module__ == "src.source_archiving.contracts"
+    assert archive._PublicationBinding.__module__ == "src.source_archiving.filesystem"
+    assert archive._capture_closure.__module__ == "src.source_archiving.service"
+    assert archive._SOURCE_PATHS == EXPECTED_SOURCE_PATHS
+
+
+def test_archive_facade_monkeypatch_controls_service_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layout = _layout(tmp_path)
+    implementation = archive._write_exclusive
+    writes: list[str] = []
+
+    def recording_write(
+        binding: archive._PublicationBinding,
+        relative: Path,
+        raw: bytes,
+    ) -> None:
+        writes.append(relative.as_posix())
+        implementation(binding, relative, raw)
+
+    monkeypatch.setattr(archive, "_write_exclusive", recording_write)
+    archive._archive_bound_source_closure_for_test(layout)
+    assert writes == [
+        "execution-source-manifest.json",
+        "tree/src/__init__.py",
+        "tree/src/example.py",
+        "tree/scripts/phase41_one_shot_launcher.ps1",
+        "archival-receipt.json",
+    ]
+
+
+def test_archive_facade_dispatch_uses_post_import_monkeypatches(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+
+    class Receipt:
+        def __init__(self, command: str) -> None:
+            self.command = command
+
+        def as_dict(self) -> dict[str, str]:
+            return {"command": self.command}
+
+    monkeypatch.setattr(
+        archive,
+        "archive_bound_source_closure",
+        lambda: calls.append("archive") or Receipt("archive"),
+    )
+    monkeypatch.setattr(
+        archive,
+        "verify_archived_source_closure",
+        lambda: calls.append("verify") or Receipt("verify"),
+    )
+    assert archive.main(["verify"]) == 0
+    assert capsys.readouterr() == ("{\"command\":\"verify\"}\n", "")
+    assert calls == ["verify"]
+
+
+def test_source_archive_import_is_path_inert() -> None:
+    import ast
+    import src.source_archiving as package
+
+    forbidden = {
+        "exists", "glob", "iterdir", "lstat", "open", "read_bytes",
+        "read_text", "rglob", "scandir", "stat", "walk", "write_bytes",
+        "write_text",
+    }
+    for relative in (
+        "src/source_archiving/__init__.py",
+        "src/source_archiving/contracts.py",
+        "src/source_archiving/filesystem.py",
+        "src/source_archiving/service.py",
+    ):
+        tree = ast.parse((REPO_ROOT / relative).read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.Expr)):
+                continue
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+                    assert child.func.attr not in forbidden, relative
+    assert package.EXPECTED_SCHEMA_VERSION == archive.EXPECTED_SCHEMA_VERSION
+    assert package.archive_bound_source_closure.__module__ == (
+        "src.source_archiving.service"
+    )
