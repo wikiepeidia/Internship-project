@@ -150,6 +150,7 @@ def test_mode_precedence_and_json_output_are_preserved(
 ) -> None:
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(cli, "get_settings", lambda: SimpleNamespace(data_dir=tmp_path))
+    monkeypatch.setattr(cli, "get_data_settings", lambda: SimpleNamespace(data_dir=tmp_path))
     monkeypatch.setattr(
         cli,
         "optimize_recovered_records",
@@ -250,6 +251,7 @@ def test_cli_translates_errors_and_interrupts_once(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(cli, "get_settings", lambda: SimpleNamespace(data_dir=tmp_path))
+    monkeypatch.setattr(cli, "get_data_settings", lambda: SimpleNamespace(data_dir=tmp_path))
     monkeypatch.setattr(
         cli,
         "salvage_partial_records",
@@ -269,6 +271,56 @@ def test_cli_translates_errors_and_interrupts_once(
     )
 
 
+@pytest.mark.parametrize("offline_flag", ("--salvage-partial", "--optimize-recovered"))
+def test_offline_modes_never_construct_provider_or_runtime_settings(
+    offline_flag: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "get_settings",
+        lambda: (_ for _ in ()).throw(AssertionError("full settings accessed")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "get_data_settings",
+        lambda: SimpleNamespace(data_dir=tmp_path),
+    )
+    monkeypatch.setattr(
+        cli,
+        "salvage_partial_records",
+        lambda data_dir: {"mode": "salvage", "root": str(data_dir)},
+    )
+    monkeypatch.setattr(
+        cli,
+        "optimize_recovered_records",
+        lambda data_dir, target_count: {
+            "mode": "optimize",
+            "root": str(data_dir),
+            "target": target_count,
+        },
+    )
+
+    assert cli.main([offline_flag]) == 0
+    assert json.loads(capsys.readouterr().out)["root"] == str(tmp_path)
+
+
+def test_offline_settings_validation_error_is_translated(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "get_data_settings",
+        lambda: (_ for _ in ()).throw(ValueError("invalid data settings")),
+    )
+
+    assert cli.main(["--salvage-partial"]) == 1
+    assert capsys.readouterr().err == "invalid data settings\n"
+
+
 def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwards() -> None:
     from src.data_pipeline import workflows
 
@@ -284,6 +336,7 @@ def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwar
     assert cli.run_phase1.__module__ == "src.data_pipeline.cli"
     for seam in (
         "get_settings",
+        "get_data_settings",
         "TieredGenerator",
         "QualityJudge",
         "DatasetBuilder",

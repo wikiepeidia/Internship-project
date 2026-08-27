@@ -155,6 +155,12 @@ def get_settings() -> Any:
     return load_settings()
 
 
+def get_data_settings() -> Any:
+    from src.config.settings import get_data_settings as load_settings
+
+    return load_settings()
+
+
 def TieredGenerator(*args: Any, **kwargs: Any) -> Any:
     from src.data_pipeline.generation.generator import TieredGenerator as implementation
 
@@ -284,9 +290,9 @@ def _print_result(result: dict[str, Any]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    settings = get_settings()
     if args.optimize_recovered:
         try:
+            settings = get_data_settings()
             return _print_result(
                 optimize_recovered_records(
                     settings.data_dir,
@@ -298,15 +304,17 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     if args.salvage_partial:
         try:
+            settings = get_data_settings()
             return _print_result(salvage_partial_records(settings.data_dir))
         except Exception as error:
             print(str(error), file=sys.stderr)
             return 1
     if args.judge_existing:
-        generated_input = args.generated_input or (
-            settings.data_dir / "synthetic" / "generated.jsonl"
-        )
         try:
+            settings = get_settings()
+            generated_input = args.generated_input or (
+                settings.data_dir / "synthetic" / "generated.jsonl"
+            )
             return _print_result(
                 judge_existing_records(
                     data_dir=settings.data_dir,
