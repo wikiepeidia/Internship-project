@@ -211,8 +211,6 @@ def register_commands(
 
 
 def _default_split_root() -> Path:
-    from src.config.settings import get_settings
-
     settings = get_settings()
     retained_root = settings.data_dir / "splits" / "recovered-balanced-claude-v2"
     if retained_root.exists():
@@ -225,8 +223,6 @@ def _default_split_path(split_name: str) -> Path:
 
 
 def _default_registry_path() -> Path:
-    from src.config.settings import get_settings
-
     return get_settings().model_registry_path
 
 
@@ -317,15 +313,12 @@ def handle_pilot(args: argparse.Namespace) -> int:
 def handle_train(args: argparse.Namespace) -> int:
     """Run the training flow for the selected candidate alias."""
 
-    from src.config.settings import get_settings
-    from src.model_adaptation.phase40_contract import preflight_phase40_inputs
     from src.model_adaptation.phase40_handoff import (
         RunRequest,
         transfer_authority_from_request,
         verify_phase40_run_request,
     )
     from src.model_adaptation.phase40_modes import AdaptationMode, RunKind
-    from src.model_adaptation.training import build_training_config, run_training
 
     data_contract = preflight_phase40_inputs(
         args.train_split, args.val_split, repo_root=Path.cwd()
@@ -403,9 +396,6 @@ def handle_train(args: argparse.Namespace) -> int:
 def handle_convert(args: argparse.Namespace) -> int:
     """Run the GGUF conversion flow for the selected candidate alias."""
 
-    from src.config.settings import get_settings
-    from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
-
     registry_path = args.registry_path or _default_registry_path()
     output_root = args.output_root or get_settings().model_artifact_root
     selection = _load_selection(registry_path)
@@ -435,11 +425,6 @@ def handle_convert(args: argparse.Namespace) -> int:
 def handle_doctor(args: argparse.Namespace) -> int:
     """Run the training doctor command and print the readiness report."""
 
-    from src.config.settings import get_settings
-    from src.model_adaptation.doctor import (
-        format_training_doctor_report,
-        run_training_doctor,
-    )
     from src.model_adaptation.phase40_modes import AdaptationMode
 
     registry_path = args.registry_path or _default_registry_path()
@@ -456,3 +441,51 @@ def handle_doctor(args: argparse.Namespace) -> int:
     )
     print(format_training_doctor_report(status))
     return 0 if status.ready else 1
+
+
+def get_settings():  # noqa: ANN202
+    from src.config.settings import get_settings as implementation
+
+    return implementation()
+
+
+def preflight_phase40_inputs(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.phase40_contract import preflight_phase40_inputs as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def build_training_config(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.training import build_training_config as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def run_training(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.training import run_training as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def build_gguf_request(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.convert import build_gguf_request as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def convert_to_gguf(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.convert import convert_to_gguf as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def run_training_doctor(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.doctor import run_training_doctor as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def format_training_doctor_report(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+    from src.model_adaptation.doctor import format_training_doctor_report as implementation
+
+    return implementation(*args, **kwargs)

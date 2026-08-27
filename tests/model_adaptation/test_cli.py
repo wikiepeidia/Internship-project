@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.model_adaptation.commands import adaptation as adaptation_commands
 from src.model_adaptation.commands import legacy_phase40 as phase40_commands
 from src.model_adaptation.registry import save_model_registry
 from src.model_adaptation.schemas import (
@@ -492,7 +493,7 @@ def test_default_split_path_prefers_retained_lineage_when_present(tmp_path, monk
     class FakeSettings:
         data_dir = tmp_path / "data"
 
-    monkeypatch.setattr(cli_module, "get_settings", lambda: FakeSettings())
+    monkeypatch.setattr(adaptation_commands, "get_settings", lambda: FakeSettings())
 
     assert cli_module._default_split_path("train") == retained_root / "train.jsonl"
 
@@ -516,11 +517,13 @@ def test_train_dry_run_uses_baseline_winner_and_runner_up_only(tmp_path, monkeyp
             "val_examples": 1,
         }
 
-    monkeypatch.setattr(cli_module, "build_training_config", fake_build_training_config)
-    monkeypatch.setattr(cli_module, "run_training", fake_run_training)
+    monkeypatch.setattr(
+        adaptation_commands, "build_training_config", fake_build_training_config
+    )
+    monkeypatch.setattr(adaptation_commands, "run_training", fake_run_training)
     sentinel_contract = object()
     monkeypatch.setattr(
-        cli_module,
+        adaptation_commands,
         "preflight_phase40_inputs",
         lambda train_path, val_path, *, repo_root: sentinel_contract,
     )
@@ -602,9 +605,9 @@ def test_train_rejects_data_paths_before_registry_or_output_resolution(tmp_path,
         calls.append("preflight")
         raise ValueError("non-canonical fixture path")
 
-    monkeypatch.setattr(cli_module, "preflight_phase40_inputs", reject_preflight)
+    monkeypatch.setattr(adaptation_commands, "preflight_phase40_inputs", reject_preflight)
     monkeypatch.setattr(
-        cli_module,
+        adaptation_commands,
         "_load_selection",
         lambda *_: (_ for _ in ()).throw(AssertionError("registry opened before preflight")),
     )
@@ -631,11 +634,15 @@ def test_doctor_command_formats_report_and_returns_success(monkeypatch, capsys):
     cli_module = _load_cli_module()
 
     monkeypatch.setattr(
-        cli_module,
+        adaptation_commands,
         "run_training_doctor",
         lambda **kwargs: SimpleNamespace(ready=True),
     )
-    monkeypatch.setattr(cli_module, "format_training_doctor_report", lambda status: "TRAIN READY")
+    monkeypatch.setattr(
+        adaptation_commands,
+        "format_training_doctor_report",
+        lambda status: "TRAIN READY",
+    )
 
     exit_code = cli_module.main(
         ["doctor", "--candidate", "baseline-winner", "--adaptation-mode", "lora"]
@@ -665,8 +672,8 @@ def test_convert_command_resolves_baseline_winner_alias(tmp_path, monkeypatch, c
         )
         return {"dry_run": True, "artifact_record": artifact_record}
 
-    monkeypatch.setattr(cli_module, "build_gguf_request", fake_build_gguf_request)
-    monkeypatch.setattr(cli_module, "convert_to_gguf", fake_convert_to_gguf)
+    monkeypatch.setattr(adaptation_commands, "build_gguf_request", fake_build_gguf_request)
+    monkeypatch.setattr(adaptation_commands, "convert_to_gguf", fake_convert_to_gguf)
 
     exit_code = cli_module.main(
         [

@@ -33,13 +33,13 @@ _ROUTE_ROWS = (
     ("phase40-freeze-scope-amendment", "src.model_adaptation.commands.legacy_phase40", "handle_phase40_freeze_scope_amendment"),
     ("phase40-verify-review-queue", "src.model_adaptation.commands.legacy_phase40", "handle_phase40_verify_review_queue"),
     ("phase40-finalize-human-review", "src.model_adaptation.commands.legacy_phase40", "handle_phase40_finalize_human_review"),
-    ("phase41-prepare-evaluation", "src.model_adaptation.cli", "handle_phase41_prepare_evaluation"),
-    ("phase41-verify-preauthorization", "src.model_adaptation.cli", "handle_phase41_verify_preauthorization"),
-    ("phase41-authorize-evaluation", "src.model_adaptation.cli", "handle_phase41_authorize_evaluation"),
-    ("phase41-run-once", "src.model_adaptation.cli", "handle_phase41_run_once"),
-    ("phase41-freeze-deployment-fit-disposition", "src.model_adaptation.cli", "handle_phase41_freeze_deployment_fit_disposition"),
-    ("phase41-export-evidence", "src.model_adaptation.cli", "handle_phase41_export_evidence"),
-    ("phase41-verify-evidence", "src.model_adaptation.cli", "handle_phase41_verify_evidence"),
+    ("phase41-prepare-evaluation", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_prepare_evaluation"),
+    ("phase41-verify-preauthorization", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_verify_preauthorization"),
+    ("phase41-authorize-evaluation", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_authorize_evaluation"),
+    ("phase41-run-once", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_run_once"),
+    ("phase41-freeze-deployment-fit-disposition", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_freeze_deployment_fit_disposition"),
+    ("phase41-export-evidence", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_export_evidence"),
+    ("phase41-verify-evidence", "src.model_adaptation.commands.legacy_phase41", "handle_phase41_verify_evidence"),
 )
 
 COMMAND_ROUTES: Mapping[str, CommandRoute] = MappingProxyType(
