@@ -395,3 +395,85 @@ def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwar
 
     assert issubclass(CompatibleBuilder, DatasetBuilder)
     assert isinstance(object.__new__(CompatibleBuilder), DatasetBuilder)
+
+
+def test_reviewed_dataset_publication_switches_one_complete_generation(
+    tmp_path: Path,
+) -> None:
+    from src.data_pipeline.publication import publish_reviewed_dataset
+
+    record = {
+        "text": "Thông báo giao dịch tổng hợp hợp lệ để kiểm thử công bố.",
+        "label": "benign",
+        "risk_tier": "benign",
+        "suspicious_spans": [],
+        "xai_explanation": "Giải thích tổng hợp đủ dài cho kiểm thử công bố dữ liệu.",
+        "source": "synthetic_openai_compatible",
+        "seed_id": "publication-seed",
+    }
+
+    class SyntheticBuilder:
+        def __init__(self, version_tag: str) -> None:
+            self.version_tag = version_tag
+
+        def build_splits(self, *, input_path: Path, output_dir: Path) -> dict[str, object]:
+            raw = input_path.read_bytes()
+            for name in ("train", "val", "test"):
+                (output_dir / f"{name}.jsonl").write_bytes(raw)
+            (output_dir.parent / "split-manifest.json").write_text(
+                json.dumps({"version": self.version_tag}), encoding="utf-8"
+            )
+            return {"splits": {"train": 1, "val": 1, "test": 1}}
+
+    published = publish_reviewed_dataset(
+        [record], {"accepted": 1}, tmp_path, "synthetic-v1", SyntheticBuilder
+    )
+    pointer = json.loads(published.current_pointer.read_text(encoding="utf-8"))
+    manifest = json.loads(published.generation_manifest_path.read_text(encoding="utf-8"))
+
+    assert pointer["generation_id"] == published.generation_id
+    assert published.root.name == published.generation_id
+    assert {member["path"] for member in manifest["members"]} == {
+        "validated.jsonl",
+        "quality-stats.json",
+        "split-manifest.json",
+        "splits/train.jsonl",
+        "splits/val.jsonl",
+        "splits/test.jsonl",
+    }
+
+
+def test_reviewed_dataset_failure_leaves_previous_pointer_unchanged(
+    tmp_path: Path,
+) -> None:
+    from src.data_pipeline.publication import publish_reviewed_dataset
+
+    publication_root = tmp_path / "dataset-generations"
+    publication_root.mkdir()
+    pointer = publication_root / "current.json"
+    previous = b'{"generation_id":"previous"}\n'
+    pointer.write_bytes(previous)
+    record = {
+        "text": "Thông báo giao dịch tổng hợp hợp lệ để kiểm thử lỗi.",
+        "label": "benign",
+        "risk_tier": "benign",
+        "suspicious_spans": [],
+        "xai_explanation": "Giải thích tổng hợp đủ dài cho kiểm thử lỗi công bố.",
+        "source": "synthetic_openai_compatible",
+        "seed_id": "publication-failure-seed",
+    }
+
+    class FailingBuilder:
+        def __init__(self, version_tag: str) -> None:
+            self.version_tag = version_tag
+
+        def build_splits(self, *, input_path: Path, output_dir: Path) -> dict[str, object]:
+            (output_dir / "train.jsonl").write_bytes(input_path.read_bytes())
+            raise RuntimeError("synthetic split failure")
+
+    with pytest.raises(RuntimeError, match="synthetic split failure"):
+        publish_reviewed_dataset(
+            [record], {"accepted": 1}, tmp_path, "synthetic-v1", FailingBuilder
+        )
+
+    assert pointer.read_bytes() == previous

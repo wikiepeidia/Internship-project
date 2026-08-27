@@ -39,7 +39,11 @@ class DatasetBuilder:
         """Run the split, dedup, write, and manifest steps for a validated dataset."""
         input_file = input_path or (self.settings.data_dir / "processed" / "validated.jsonl")
         splits_dir = output_dir or (self.settings.data_dir / "splits")
-        manifests_dir = self.settings.data_dir / "manifests"
+        manifests_dir = (
+            self.settings.data_dir / "manifests"
+            if output_dir is None
+            else splits_dir.parent
+        )
         threshold = (
             self.settings.similarity_threshold
             if similarity_threshold is None
@@ -60,9 +64,13 @@ class DatasetBuilder:
             split_stats[split_name] = len(split_records)
 
         manifest = build_manifest(splits_dir, self.version_tag)
-        manifest_path = manifests_dir / f"manifest-{self.version_tag}.json"
+        manifest_path = (
+            manifests_dir / f"manifest-{self.version_tag}.json"
+            if output_dir is None
+            else manifests_dir / "split-manifest.json"
+        )
         manifests_dir.mkdir(parents=True, exist_ok=True)
-        save_manifest(manifest, manifest_path, replace=True)
+        save_manifest(manifest, manifest_path, replace=output_dir is None)
 
         return {
             "version": self.version_tag,

@@ -116,24 +116,27 @@ def judge_existing_records(
     )
     if not validated_records:
         raise ValueError("Judge produced zero accepted records")
-    validated_path, stats_path = _save_validated_records(
+    from src.data_pipeline.publication import publish_reviewed_dataset
+
+    publication = publish_reviewed_dataset(
         validated_records,
         quality_stats,
         data_dir,
-    )
-    build_result = dependencies.builder_factory(version_tag=version_tag).build_splits(
-        input_path=validated_path
+        version_tag,
+        dependencies.builder_factory,
     )
     return {
         "generated_count": len(generated_records),
         "validated_count": len(validated_records),
-        "split_counts": build_result["splits"],
+        "split_counts": publication.split_counts,
         "generated_path": str(candidate.path),
         "generated_sha256": candidate.sha256,
         "generation_run_id": candidate.run_id,
-        "validated_path": str(validated_path),
-        "quality_stats_path": str(stats_path),
-        "manifest_path": build_result["manifest_path"],
+        "validated_path": str(publication.validated_path),
+        "quality_stats_path": str(publication.quality_stats_path),
+        "manifest_path": str(publication.generation_manifest_path),
+        "dataset_generation_id": publication.generation_id,
+        "dataset_current_pointer": str(publication.current_pointer),
         "judge_existing": True,
     }
 def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
@@ -417,21 +420,24 @@ def _judge_generated_records(
     )
     if not validated_records:
         raise ValueError("Judge produced zero accepted records")
-    validated_path, stats_path = _save_validated_records(
+    from src.data_pipeline.publication import publish_reviewed_dataset
+
+    publication = publish_reviewed_dataset(
         validated_records,
         quality_stats,
         settings.data_dir,
-    )
-    build = dependencies.builder_factory(version_tag=version_tag).build_splits(
-        input_path=validated_path
+        version_tag,
+        dependencies.builder_factory,
     )
     return {
         "validated_count": len(validated_records),
-        "split_counts": build["splits"],
+        "split_counts": publication.split_counts,
         "generated_path": str(generated_path),
-        "validated_path": str(validated_path),
-        "quality_stats_path": str(stats_path),
-        "manifest_path": build["manifest_path"],
+        "validated_path": str(publication.validated_path),
+        "quality_stats_path": str(publication.quality_stats_path),
+        "manifest_path": str(publication.generation_manifest_path),
+        "dataset_generation_id": publication.generation_id,
+        "dataset_current_pointer": str(publication.current_pointer),
     }
 
 

@@ -121,6 +121,7 @@
       "src.data_pipeline.generation_runs",
       "src.data_pipeline.judge_merge",
       "src.data_pipeline.manual_review_sheet",
+      "src.data_pipeline.publication",
       "src.data_pipeline.recovery",
       "src.data_pipeline.scraper",
       "src.data_pipeline.scraper.extractors",
@@ -200,7 +201,15 @@
   },
   "schema_version": "module-boundaries-v2",
   "static_policy": {
-    "budget_exceptions": [],
+    "budget_exceptions": [
+      {
+        "path": "src/artifacts.py",
+        "symbol": "<module>",
+        "measured_lines": 633,
+        "reason": "Strict release metric reconciliation preserves the frozen public artifact models in their established owner.",
+        "compatibility_evidence": "Serialization and active-versus-historical contract tests remain byte-identical for valid artifacts."
+      }
+    ],
     "budgeted_modules": [
       "src.artifacts",
       "src.core",
@@ -211,6 +220,7 @@
       "src.data_pipeline.core.text",
       "src.data_pipeline.generation_runs",
       "src.data_pipeline.migrations",
+      "src.data_pipeline.publication",
       "src.data_pipeline.recovery",
       "src.data_pipeline.workflows",
       "src.model_adaptation.commands",
