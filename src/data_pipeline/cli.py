@@ -258,7 +258,7 @@ def run_phase1(
     generate_only: bool = False,
     gap_fill_recovered: bool = False,
 ) -> dict[str, Any]:
-    from src.data_pipeline.workflows import run_phase1 as implementation
+    from src.data_pipeline.workflows import build_training_corpus as implementation
 
     return implementation(
         seed_input=seed_input,

@@ -484,7 +484,7 @@ def _judge_generated_records(
         "quality_stats_path": str(stats_path),
         "manifest_path": build["manifest_path"],
     }
-def run_phase1(
+def build_training_corpus(
     seed_input: Path | None = None,
     target_count: int = 2500,
     version_tag: str = "phase1",
@@ -584,4 +584,10 @@ def run_phase1(
     }
 
 
-__all__ = ("WorkflowDependencies", "judge_existing_records", "optimize_recovered_records", "run_phase1", "salvage_partial_records")
+__all__ = (
+    "WorkflowDependencies",
+    "build_training_corpus",
+    "judge_existing_records",
+    "optimize_recovered_records",
+    "salvage_partial_records",
+)

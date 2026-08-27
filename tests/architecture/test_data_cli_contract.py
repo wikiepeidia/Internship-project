@@ -276,10 +276,12 @@ def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwar
         "judge_existing_records",
         "salvage_partial_records",
         "optimize_recovered_records",
-        "run_phase1",
     ):
         assert getattr(workflows, name).__module__ == "src.data_pipeline.workflows"
         assert getattr(cli, name).__module__ == "src.data_pipeline.cli"
+    assert workflows.build_training_corpus.__module__ == "src.data_pipeline.workflows"
+    assert not hasattr(workflows, "run_phase1")
+    assert cli.run_phase1.__module__ == "src.data_pipeline.cli"
     for seam in (
         "get_settings",
         "TieredGenerator",
