@@ -42,6 +42,9 @@ class ReportingAuthority:
     source_tree_sha256: str
     corrected_claim: str
     downstream_requirement: str
+    retracted_claims: tuple[str, ...]
+    access_impact: tuple[tuple[str, bool], ...]
+    automated_access_statements: tuple[str, ...]
     refactored_source_is_metric_producer: Literal[False] = False
     export_manifest_raw: bytes = field(repr=False, default=b"")
     results_raw: bytes = field(repr=False, default=b"")
@@ -106,6 +109,8 @@ def _require_literal(value: object, expected: object, *, where: str) -> None:
 
 
 def _artifact_hashes(manifest: Mapping[str, Any]) -> dict[str, str]:
+    if set(manifest) != {"artifacts", "schema_version", "status", "terminal_policy"}:
+        raise ReportingAuthorityError("evidence manifest fields are not closed")
     _require_literal(
         manifest.get("schema_version"),
         "phase41-evidence-manifest-v1",
@@ -136,7 +141,16 @@ def _artifact_hashes(manifest: Mapping[str, Any]) -> dict[str, str]:
         result[name] = _require_sha256(
             entry.get("sha256"), where=f"artifact {name!r} sha256"
         )
-    required = {_RESULTS_NAME, _SOURCE_MANIFEST_NAME, _MATERIALIZATION_NAME}
+    required = {
+        _RESULTS_NAME,
+        _SOURCE_MANIFEST_NAME,
+        _MATERIALIZATION_NAME,
+        "evaluation-request.json",
+        "one-shot-authorization.json",
+        "one-shot-claim.json",
+        "qwen-predictions.jsonl",
+        "phobert-predictions.jsonl",
+    }
     if not required.issubset(result):
         raise ReportingAuthorityError("evidence manifest omits a reporting authority member")
     return result
@@ -153,6 +167,31 @@ def _read_export_member(
     if sha256_bytes(raw) != expected_sha256:
         raise ReportingAuthorityError(f"reporting member {name} hash does not match manifest")
     return raw, payload
+
+
+def _source_runtime_links(
+    source: Mapping[str, Any]
+) -> tuple[str, str, str, list[str]]:
+    launcher_host = _require_mapping(
+        source.get("launcher_host"), where="source manifest launcher host"
+    )
+    host_sha256 = _require_sha256(
+        launcher_host.get("sha256"), where="source manifest launcher host sha256"
+    )
+    external_authority = _require_sha256(
+        launcher_host.get("external_launch_receipt_sha256"),
+        where="source manifest external launcher authority",
+    )
+    python = _require_mapping(source.get("python"), where="source manifest python")
+    python_sha256 = _require_sha256(
+        python.get("sha256"), where="source manifest python sha256"
+    )
+    runtime_import_roots = python.get("runtime_import_roots")
+    if not isinstance(runtime_import_roots, list) or not all(
+        isinstance(item, str) and item for item in runtime_import_roots
+    ):
+        raise ReportingAuthorityError("source manifest runtime import roots are invalid")
+    return host_sha256, external_authority, python_sha256, runtime_import_roots
 
 
 def _validate_source_chain(
@@ -178,6 +217,12 @@ def _validate_source_chain(
     launcher_sha256 = _require_sha256(
         launcher.get("sha256"), where="source manifest launcher sha256"
     )
+    (
+        host_sha256,
+        external_authority,
+        python_sha256,
+        runtime_import_roots,
+    ) = _source_runtime_links(source)
 
     _require_literal(
         receipt.get("schema_version"),
@@ -200,6 +245,36 @@ def _validate_source_chain(
         where="materialization launcher link",
     )
     _require_literal(
+        receipt.get("launcher_host_sha256"),
+        host_sha256,
+        where="materialization launcher host link",
+    )
+    _require_literal(
+        receipt.get("external_launcher_authority_sha256"),
+        external_authority,
+        where="materialization external launcher authority link",
+    )
+    _require_literal(
+        receipt.get("python_executable_sha256"),
+        python_sha256,
+        where="materialization python link",
+    )
+    _require_literal(
+        receipt.get("runtime_import_roots"),
+        runtime_import_roots,
+        where="materialization runtime import roots",
+    )
+    _require_literal(
+        receipt.get("preparation_scope"),
+        source.get("preparation_scope"),
+        where="materialization preparation scope",
+    )
+    _require_literal(
+        receipt.get("mode"),
+        "locked-clean-runtime",
+        where="materialization mode",
+    )
+    _require_literal(
         receipt.get("source_file_count"),
         len(files),
         where="materialization source file count",
@@ -212,7 +287,9 @@ def _validate_source_chain(
     return source_tree_sha256
 
 
-def _validate_erratum(erratum: Mapping[str, Any], manifest_sha256: str) -> tuple[str, str]:
+def _validate_erratum(
+    erratum: Mapping[str, Any], manifest_sha256: str
+) -> tuple[str, str, tuple[str, ...], tuple[tuple[str, bool], ...], tuple[str, ...]]:
     _require_literal(
         erratum.get("schema_version"),
         "phase41-provenance-erratum-v1",
@@ -233,12 +310,66 @@ def _validate_erratum(erratum: Mapping[str, Any], manifest_sha256: str) -> tuple
         False,
         where="erratum metric disposition",
     )
+    _require_literal(
+        sealed.get("erratum_location"),
+        "external_non_sealed_companion",
+        where="erratum companion location",
+    )
+    retracted = erratum.get("retracted_claims")
+    if not isinstance(retracted, list) or not retracted:
+        raise ReportingAuthorityError("erratum retracted claims must be a non-empty list")
+    retracted_claims = tuple(
+        _require_text(item, where="erratum retracted claim") for item in retracted
+    )
+    impact = _require_mapping(erratum.get("access_impact"), where="erratum access impact")
+    if not impact or any(not isinstance(value, bool) for value in impact.values()):
+        raise ReportingAuthorityError("erratum access impact values must be booleans")
+    automated = erratum.get("automated_split_reads")
+    if not isinstance(automated, list) or not automated:
+        raise ReportingAuthorityError("erratum automated access disclosures are required")
+    automated_statements = tuple(
+        _require_text(
+            _require_mapping(item, where="automated access disclosure").get("statement"),
+            where="automated access statement",
+        )
+        for item in automated
+    )
     return (
         _require_text(erratum.get("corrected_claim"), where="erratum corrected claim"),
         _require_text(
             erratum.get("downstream_requirement"), where="erratum downstream requirement"
         ),
+        retracted_claims,
+        tuple((str(key), value) for key, value in impact.items()),
+        automated_statements,
     )
+
+
+def _validate_result_links(
+    result: TwoModelEvaluationResult, hashes: Mapping[str, str]
+) -> None:
+    _require_literal(
+        result.prepared_sha256,
+        hashes["evaluation-request.json"],
+        where="results prepared request link",
+    )
+    _require_literal(
+        result.authorization_sha256,
+        hashes["one-shot-authorization.json"],
+        where="results authorization link",
+    )
+    _require_literal(
+        result.claim_sha256,
+        hashes["one-shot-claim.json"],
+        where="results claim link",
+    )
+    prediction_names = ("qwen-predictions.jsonl", "phobert-predictions.jsonl")
+    for model, name in zip(result.models, prediction_names, strict=True):
+        _require_literal(
+            model.predictions_sha256,
+            hashes[name],
+            where=f"results {model.role} prediction link",
+        )
 
 
 def load_reporting_authority(export_root: Path, erratum_path: Path) -> ReportingAuthority:
@@ -257,6 +388,8 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
 
     manifest_raw, manifest_payload = _read_json(manifest_path, where="evidence manifest")
     manifest_sha256 = sha256_bytes(manifest_raw)
+    if root.name != manifest_sha256:
+        raise ReportingAuthorityError("verified export directory identity does not match manifest")
     hashes = _artifact_hashes(manifest_payload)
     results_raw, results_payload = _read_export_member(
         root, _RESULTS_NAME, hashes[_RESULTS_NAME]
@@ -273,13 +406,18 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
         result = TwoModelEvaluationResult.model_validate(results_payload)
     except ValidationError as exc:
         raise ReportingAuthorityError(f"results contract failed: {exc}") from exc
+    _validate_result_links(result, hashes)
     source_sha256 = sha256_bytes(source_raw)
     source_tree_sha256 = _validate_source_chain(
         source_payload, receipt_payload, source_sha256
     )
-    corrected_claim, downstream_requirement = _validate_erratum(
-        erratum_payload, manifest_sha256
-    )
+    (
+        corrected_claim,
+        downstream_requirement,
+        retracted_claims,
+        access_impact,
+        automated_access_statements,
+    ) = _validate_erratum(erratum_payload, manifest_sha256)
     return ReportingAuthority(
         result=result,
         export_manifest_sha256=manifest_sha256,
@@ -290,6 +428,9 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
         source_tree_sha256=source_tree_sha256,
         corrected_claim=corrected_claim,
         downstream_requirement=downstream_requirement,
+        retracted_claims=retracted_claims,
+        access_impact=access_impact,
+        automated_access_statements=automated_access_statements,
         export_manifest_raw=manifest_raw,
         results_raw=results_raw,
         source_manifest_raw=source_raw,

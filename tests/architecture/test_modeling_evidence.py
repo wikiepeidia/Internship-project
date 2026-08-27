@@ -120,7 +120,15 @@ def _source_manifest_payload() -> dict[str, object]:
             "path": "scripts/frozen-launcher.ps1",
             "sha256": "6" * 64,
         },
+        "launcher_host": {
+            "external_launch_receipt_sha256": "a" * 64,
+            "sha256": "b" * 64,
+        },
         "preparation_scope": "production_canonical",
+        "python": {
+            "runtime_import_roots": ["C:/synthetic/site-packages"],
+            "sha256": "c" * 64,
+        },
         "schema_version": "phase41-execution-source-manifest-v1",
         "source_tree_sha256": "7" * 64,
         "upstream_declared_source_tree_sha256": "8" * 64,
@@ -129,9 +137,13 @@ def _source_manifest_payload() -> dict[str, object]:
 
 def _materialization_payload(source_manifest_sha256: str) -> dict[str, object]:
     return {
+        "external_launcher_authority_sha256": "a" * 64,
         "launcher_sha256": "6" * 64,
+        "launcher_host_sha256": "b" * 64,
         "mode": "locked-clean-runtime",
         "preparation_scope": "production_canonical",
+        "python_executable_sha256": "c" * 64,
+        "runtime_import_roots": ["C:/synthetic/site-packages"],
         "schema_version": "phase41-execution-materialization-v1",
         "source_file_count": 1,
         "source_handles_locked_at_launch": True,
@@ -142,8 +154,22 @@ def _materialization_payload(source_manifest_sha256: str) -> dict[str, object]:
 
 def _erratum_payload(evidence_manifest_sha256: str) -> dict[str, object]:
     return {
+        "access_impact": {
+            "model_inference_performed_by_these_tests": False,
+            "terminal_model_evaluation_retried": False,
+        },
+        "automated_split_reads": [
+            {
+                "minimum_occurrences": 2,
+                "operations": ["parse_jsonl_rows"],
+                "period": "before_terminal_model_evaluation",
+                "scope": "broad_default_pytest_runs",
+                "statement": "Synthetic disclosure statement.",
+            }
+        ],
         "corrected_claim": "Exactly one terminal shared-cohort model-evaluation pass.",
         "downstream_requirement": "Consume this disclosure with the frozen export.",
+        "retracted_claims": ["absolute global zero reserved-split access"],
         "schema_version": "phase41-provenance-erratum-v1",
         "sealed_export": {
             "erratum_location": "external_non_sealed_companion",
@@ -156,9 +182,6 @@ def _erratum_payload(evidence_manifest_sha256: str) -> dict[str, object]:
 
 
 def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
-    export_root = tmp_path / "verified-export"
-    export_root.mkdir()
-
     result_bytes = _json_bytes(_result_payload())
     source_bytes = _json_bytes(_source_manifest_payload())
     receipt_bytes = _json_bytes(_materialization_payload(_sha256(source_bytes)))
@@ -167,17 +190,17 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
         "execution-source-manifest.json": source_bytes,
         "execution-materialization-receipt.json": receipt_bytes,
     }
-    for name, value in payloads.items():
-        (export_root / name).write_bytes(value)
-
     evidence_manifest = {
         "artifacts": [
             {"name": name, "sha256": _sha256(value)}
             for name, value in payloads.items()
         ]
         + [
-            {"name": "qwen-predictions.jsonl", "sha256": "9" * 64},
-            {"name": "phobert-predictions.jsonl", "sha256": "0" * 64},
+            {"name": "evaluation-request.json", "sha256": "4" * 64},
+            {"name": "one-shot-authorization.json", "sha256": "a" * 64},
+            {"name": "one-shot-claim.json", "sha256": "b" * 64},
+            {"name": "qwen-predictions.jsonl", "sha256": "e" * 64},
+            {"name": "phobert-predictions.jsonl", "sha256": "2" * 64},
         ],
         "schema_version": "phase41-evidence-manifest-v1",
         "status": "completed",
@@ -188,6 +211,10 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
         },
     }
     manifest_bytes = _json_bytes(evidence_manifest)
+    export_root = tmp_path / _sha256(manifest_bytes)
+    export_root.mkdir(parents=True)
+    for name, value in payloads.items():
+        (export_root / name).write_bytes(value)
     (export_root / "evidence-manifest.json").write_bytes(manifest_bytes)
 
     erratum_path = tmp_path / "provenance-erratum.json"
@@ -196,6 +223,45 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
     payloads["evidence-manifest.json"] = manifest_bytes
     payloads["provenance-erratum.json"] = erratum_bytes
     return export_root, erratum_path, payloads
+
+
+def _rewrite_manifest(
+    export_root: Path,
+    erratum_path: Path,
+    mutate,
+) -> Path:
+    manifest_path = export_root / "evidence-manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    mutate(manifest)
+    manifest_bytes = _json_bytes(manifest)
+    erratum_path.write_bytes(_json_bytes(_erratum_payload(_sha256(manifest_bytes))))
+    replacement = export_root.with_name(_sha256(manifest_bytes))
+    replacement.mkdir()
+    for name in (
+        "results.json",
+        "execution-source-manifest.json",
+        "execution-materialization-receipt.json",
+    ):
+        (replacement / name).write_bytes((export_root / name).read_bytes())
+    (replacement / "evidence-manifest.json").write_bytes(manifest_bytes)
+    return replacement
+
+
+def _replace_member_and_rebind(
+    export_root: Path,
+    erratum_path: Path,
+    name: str,
+    payload: dict[str, object],
+) -> Path:
+    member_bytes = _json_bytes(payload)
+    (export_root / name).write_bytes(member_bytes)
+
+    def update(manifest: dict[str, object]) -> None:
+        next(item for item in manifest["artifacts"] if item["name"] == name)[
+            "sha256"
+        ] = _sha256(member_bytes)
+
+    return _rewrite_manifest(export_root, erratum_path, update)
 
 
 @pytest.mark.parametrize(
@@ -221,6 +287,18 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
         (
             lambda value: value.update(comparison_statements=["Models compared."]),
             "comparison statements",
+        ),
+        (
+            lambda value: value["models"][0]["metrics"].update(
+                risky_to_benign_count=1
+            ),
+            "risky-to-benign",
+        ),
+        (
+            lambda value: value["models"][0].update(
+                selected_checkpoint_identity="model-state-sha256:" + "f" * 64
+            ),
+            "checkpoint identity",
         ),
     ],
 )
@@ -250,6 +328,14 @@ def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: P
     assert authority.erratum_sha256 == _sha256(payloads["provenance-erratum.json"])
     assert authority.results_raw == payloads["results.json"]
     assert authority.erratum_raw == payloads["provenance-erratum.json"]
+    assert authority.retracted_claims == (
+        "absolute global zero reserved-split access",
+    )
+    assert authority.access_impact == (
+        ("model_inference_performed_by_these_tests", False),
+        ("terminal_model_evaluation_retried", False),
+    )
+    assert authority.automated_access_statements == ("Synthetic disclosure statement.",)
 
 
 def test_reporting_reader_is_read_only_and_never_opens_predictions(
@@ -276,6 +362,50 @@ def test_reporting_reader_is_read_only_and_never_opens_predictions(
         "export_root",
         "erratum_path",
     )
+
+
+def test_reporting_authority_binds_export_directory_and_result_links(tmp_path: Path):
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    wrong_named_root = export_root.with_name("wrong-export-name")
+    wrong_named_root.mkdir()
+    for name in (
+        "results.json",
+        "execution-source-manifest.json",
+        "execution-materialization-receipt.json",
+        "evidence-manifest.json",
+    ):
+        (wrong_named_root / name).write_bytes((export_root / name).read_bytes())
+    with pytest.raises(ReportingAuthorityError, match="directory identity"):
+        load_reporting_authority(wrong_named_root, erratum_path)
+
+    export_root, erratum_path, _ = _write_authority(tmp_path / "second")
+
+    def break_prepared_link(manifest: dict[str, object]) -> None:
+        next(
+            item
+            for item in manifest["artifacts"]
+            if item["name"] == "evaluation-request.json"
+        )["sha256"] = "f" * 64
+
+    export_root = _rewrite_manifest(export_root, erratum_path, break_prepared_link)
+    with pytest.raises(ReportingAuthorityError, match="prepared request link"):
+        load_reporting_authority(export_root, erratum_path)
+
+
+def test_reporting_authority_binds_materialization_environment(tmp_path: Path):
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    receipt_path = export_root / "execution-materialization-receipt.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    receipt["runtime_import_roots"] = ["C:/wrong/site-packages"]
+    export_root = _replace_member_and_rebind(
+        export_root,
+        erratum_path,
+        "execution-materialization-receipt.json",
+        receipt,
+    )
+
+    with pytest.raises(ReportingAuthorityError, match="runtime import roots"):
+        load_reporting_authority(export_root, erratum_path)
 
 
 @pytest.mark.parametrize(

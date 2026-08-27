@@ -106,6 +106,11 @@ class ModelMetrics(_StrictContract):
     def require_internal_consistency(self) -> "ModelMetrics":
         if tuple(item.label for item in self.per_class) != LABEL_ORDER:
             raise ValueError("per-class metrics must follow the locked label order")
+        if any(
+            item.support != sum(self.confusion_matrix[index])
+            for index, item in enumerate(self.per_class)
+        ):
+            raise ValueError("per-class support must match each confusion row")
         matrix_total = sum(sum(row) for row in self.confusion_matrix)
         support_total = sum(item.support for item in self.per_class)
         if matrix_total != self.evaluated_rows or support_total != self.evaluated_rows:
@@ -119,6 +124,12 @@ class ModelMetrics(_StrictContract):
         correct = sum(self.confusion_matrix[index][index] for index in range(4))
         if not math.isclose(self.accuracy, correct / self.evaluated_rows, abs_tol=1e-12):
             raise ValueError("accuracy must match the confusion matrix")
+        risky_to_benign = sum(row[3] for row in self.confusion_matrix[:3])
+        if self.risky_to_benign_count != risky_to_benign:
+            raise ValueError("risky-to-benign count must match the confusion matrix")
+        risky_to_invalid = sum(row[4] for row in self.confusion_matrix[:3])
+        if self.risky_to_invalid_count != risky_to_invalid:
+            raise ValueError("risky-to-invalid count must match the confusion matrix")
         return self
 
 
@@ -146,6 +157,22 @@ class EvaluatedModel(_StrictContract):
         if not value.strip():
             raise ValueError("identity text must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def require_checkpoint_identity(self) -> "EvaluatedModel":
+        prefix = (
+            "adapter-state-sha256:"
+            if self.role == "qwen"
+            else "model-state-sha256:"
+        )
+        digest = self.selected_checkpoint_identity.removeprefix(prefix)
+        if (
+            not self.selected_checkpoint_identity.startswith(prefix)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("checkpoint identity does not match the fixed model role")
+        return self
 
 
 class PriorExposureDisclosure(_StrictContract):
