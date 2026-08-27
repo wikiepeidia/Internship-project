@@ -20,6 +20,13 @@ _LAZY_CLASS_EXPORTS = {
 }
 
 
+def _nonnegative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("value must be non-negative")
+    return parsed
+
+
 def _add_input_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--seed-input",
@@ -28,7 +35,7 @@ def _add_input_options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--target-count",
-        type=int,
+        type=_nonnegative_int,
         default=2500,
         help="Synthetic record target count. Use 2000-3000 for the retained Phase 1 dataset.",
     )

@@ -215,19 +215,53 @@ def _deduplicate_recovered_by_label(
 def _balance_recovered_records(
     by_label: dict[str, list[dict[str, Any]]],
     target_count: int,
-) -> tuple[list[dict[str, Any]], int, int, dict[str, int]]:
+) -> tuple[
+    list[dict[str, Any]],
+    int,
+    int,
+    dict[str, int],
+    dict[str, int],
+    dict[str, int],
+]:
     counts = {label: len(records) for label, records in by_label.items()}
     feasible = min(counts.values()) if counts else 0
-    requested = max(target_count // len(THREAT_CLASSES), 0)
-    selected_per_class = min(feasible, requested) if requested else feasible
+    quotient, remainder = divmod(target_count, len(THREAT_CLASSES))
+    requested_by_label = {
+        label: quotient + (index < remainder)
+        for index, label in enumerate(THREAT_CLASSES)
+    }
     missing = {
-        label: max(requested - counts.get(label, 0), 0)
+        label: max(requested_by_label[label] - counts.get(label, 0), 0)
         for label in THREAT_CLASSES
     }
     balanced: list[dict[str, Any]] = []
+    selected_by_label: dict[str, int] = {}
     for label in THREAT_CLASSES:
-        balanced.extend(_select_seed_diverse_records(by_label[label], selected_per_class))
-    return balanced, feasible, selected_per_class, missing
+        selected = _select_seed_diverse_records(
+            by_label[label], requested_by_label[label]
+        )
+        if selected and len({record["seed_id"] for record in selected}) < 3:
+            raise ValueError(f"label {label!r} lacks three seed groups for recovery splitting")
+        selected_by_label[label] = len(selected)
+        balanced.extend(selected)
+    return (
+        balanced,
+        feasible,
+        min(selected_by_label.values(), default=0),
+        missing,
+        requested_by_label,
+        selected_by_label,
+    )
+
+
+def _validate_recovery_target_count(target_count: int) -> int:
+    if isinstance(target_count, bool) or not isinstance(target_count, int):
+        raise ValueError("recovery target_count must be an integer")
+    if target_count < 0:
+        raise ValueError("recovery target_count must be non-negative")
+    if 0 < target_count < len(THREAT_CLASSES) * 3:
+        raise ValueError("positive recovery target_count must be at least 12")
+    return target_count
 def _write_recovered_outputs(
     data_dir: Path,
     exact_records: list[dict[str, Any]],
@@ -260,6 +294,7 @@ def optimize_recovered_records(
 ) -> dict[str, Any]:
     """Merge, deduplicate, balance, and split recoverable local artifacts."""
 
+    target_count = _validate_recovery_target_count(target_count)
     source_paths = _recoverable_record_paths(data_dir)
     if not source_paths:
         raise ValueError("No recoverable JSONL artifacts found under data/.")
@@ -272,7 +307,14 @@ def optimize_recovered_records(
         lexical_threshold,
     )
     lexical_counts = {label: len(records) for label, records in by_label.items()}
-    balanced, feasible, selected, missing = _balance_recovered_records(
+    (
+        balanced,
+        feasible,
+        selected,
+        missing,
+        requested_by_label,
+        selected_by_label,
+    ) = _balance_recovered_records(
         by_label,
         target_count,
     )
@@ -294,10 +336,12 @@ def optimize_recovered_records(
         "lexical_unique_by_label": lexical_counts,
         "requested_target_count": target_count,
         "requested_per_class": requested_per_class,
+        "requested_by_label": requested_by_label,
         "missing_by_label_for_target": missing,
         "generation_gap_total": sum(missing.values()),
         "feasible_balanced_per_class": feasible,
         "selected_per_class": selected,
+        "selected_by_label": selected_by_label,
         "balanced_total": len(balanced),
         "balanced_by_label": _count_labels(balanced),
         "merged_output_path": str(merged_path),

@@ -9,6 +9,7 @@ import pytest
 
 from src.core.integrity import IntegrityError
 from src.data_pipeline import recovery
+from src.data_pipeline import workflows
 
 
 def _record(text: str, label: str = "benign", seed_id: str = "seed-a") -> dict[str, object]:
@@ -203,3 +204,67 @@ def test_salvage_success_retains_content_addressed_backup_and_receipt(
     lines = generated.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 2
     assert all(json.loads(line)["seed_id"] in {"seed-old", "seed-new"} for line in lines)
+
+
+@pytest.mark.parametrize("target_count", (13, 14, 15, 17))
+def test_nondivisible_recovery_targets_never_expand(target_count: int) -> None:
+    by_label: dict[str, list[dict[str, object]]] = {}
+    for label in workflows.THREAT_CLASSES:
+        by_label[label] = [
+            _record(
+                f"Tin nhắn {label} phục vụ cân bằng số {index}.",
+                label,
+                f"{label}-seed-{index}",
+            )
+            for index in range(5)
+        ]
+
+    balanced, _feasible, selected, missing, requested, selected_by_label = (
+        workflows._balance_recovered_records(by_label, target_count)
+    )
+
+    assert len(balanced) == target_count
+    assert sum(requested.values()) == target_count
+    assert sum(selected_by_label.values()) == target_count
+    assert selected == min(selected_by_label.values())
+    assert not any(missing.values())
+
+
+def test_zero_recovery_target_is_explicitly_empty() -> None:
+    by_label = {
+        label: [
+            _record(
+                f"Tin nhắn {label} không được chọn khi mục tiêu bằng không.",
+                label,
+                f"{label}-seed",
+            )
+        ]
+        for label in workflows.THREAT_CLASSES
+    }
+
+    balanced, _feasible, selected, missing, requested, selected_by_label = (
+        workflows._balance_recovered_records(by_label, 0)
+    )
+
+    assert balanced == []
+    assert selected == 0
+    assert requested == selected_by_label == {
+        label: 0 for label in workflows.THREAT_CLASSES
+    }
+    assert missing == {label: 0 for label in workflows.THREAT_CLASSES}
+
+
+@pytest.mark.parametrize("target_count", (-1, True, 1, 11, 12.0))
+def test_invalid_recovery_target_fails_before_discovery(
+    target_count: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        workflows,
+        "_recoverable_record_paths",
+        lambda _root: (_ for _ in ()).throw(AssertionError("discovery ran")),
+    )
+
+    with pytest.raises(ValueError, match="target_count"):
+        workflows.optimize_recovered_records(tmp_path, target_count=target_count)

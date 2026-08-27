@@ -19,7 +19,13 @@ from src.data_pipeline import cli
 REPO_ROOT = Path(__file__).parents[2]
 EXPECTED_OPTIONS = {
     "--seed-input": ("seed_input", None, None, "Path", "_StoreAction"),
-    "--target-count": ("target_count", 2500, None, "int", "_StoreAction"),
+    "--target-count": (
+        "target_count",
+        2500,
+        None,
+        "_nonnegative_int",
+        "_StoreAction",
+    ),
     "--version-tag": ("version_tag", "phase1", None, None, "_StoreAction"),
     "--max-pages": ("max_pages", 1, None, "int", "_StoreAction"),
     "--max-links-per-page": (
@@ -105,6 +111,11 @@ def test_parser_preserves_exact_sixteen_option_grammar() -> None:
         "Run the Phase 1 scrape -> generate flow, with optional judging and split building."
     )
     assert actions == EXPECTED_OPTIONS
+
+
+def test_parser_rejects_negative_target_count() -> None:
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["--target-count", "-1"])
 
 
 def test_help_construction_imports_no_optional_or_workflow_graph() -> None:
