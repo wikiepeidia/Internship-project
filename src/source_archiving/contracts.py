@@ -14,6 +14,7 @@ EXPECTED_SCHEMA_VERSION = "phase41-execution-source-manifest-v1"
 EXPECTED_TREE_SHA256 = "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
 EXPECTED_LAUNCHER_SHA256 = "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9"
 EXPECTED_MANIFEST_SHA256 = "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61"
+EXPECTED_RECEIPT_SHA256 = "ca4ca1bf019b567d5bfa2380658a11245d76543b323ce5e2fcf6cfe3f525213a"
 PROVENANCE_LABEL = "post_evaluation_archival_mirror_not_refactored_metric_producer"
 RECEIPT_SCHEMA_VERSION = "phase411-source-closure-archival-receipt-v1"
 MANIFEST_ARCHIVE_NAME = "execution-source-manifest.json"
@@ -95,6 +96,7 @@ class _ArchiveLayout:
     expected_launcher_sha256: str
     expected_source_paths: tuple[str, ...]
     expected_worktree_mismatches: tuple[str, ...]
+    expected_receipt_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,6 +14,7 @@ from .contracts import (
     ArchiveReceipt,
     EXPECTED_LAUNCHER_SHA256,
     EXPECTED_MANIFEST_SHA256,
+    EXPECTED_RECEIPT_SHA256,
     EXPECTED_SCHEMA_VERSION,
     EXPECTED_TREE_SHA256,
     LAUNCHER_RELATIVE_PATH,
@@ -202,12 +203,14 @@ def _publish(
             _canonical_json(_receipt_without_hash(provisional))
         )
         receipt = ArchiveReceipt(**receipt_payload)
-        write_exclusive(
-            binding,
-            Path(RECEIPT_ARCHIVE_NAME),
-            _canonical_json(receipt.as_dict()),
-        )
-        _receipt_from_raw((staging / RECEIPT_ARCHIVE_NAME).read_bytes(), clock=clock)
+        receipt_raw = _canonical_json(receipt.as_dict())
+        if (
+            layout.expected_receipt_sha256 is not None
+            and _sha256(receipt_raw) != layout.expected_receipt_sha256
+        ):
+            raise ArchiveError("archival receipt does not match independent digest authority")
+        write_exclusive(binding, Path(RECEIPT_ARCHIVE_NAME), receipt_raw)
+        _receipt_from_raw(receipt_raw, clock=clock)
         binding.publish()
         return _verify_archived_source_closure_for_test(layout, clock=clock)
 
@@ -340,12 +343,17 @@ def _verify_archived_source_closure_for_test(
     records, launcher = _manifest_records(layout, manifest_raw)
     _verify_payloads(layout, records, launcher, manifest_raw)
     try:
-        receipt = _receipt_from_raw(
-            (layout.destination / RECEIPT_ARCHIVE_NAME).read_bytes(),
-            clock=clock,
-        )
+        receipt_raw = (layout.destination / RECEIPT_ARCHIVE_NAME).read_bytes()
     except OSError as exc:
         raise ArchiveError("archival receipt is missing") from exc
+    if layout.expected_receipt_sha256 is not None:
+        _require_sha256(
+            layout.expected_receipt_sha256,
+            where="independent archival receipt SHA-256",
+        )
+        if _sha256(receipt_raw) != layout.expected_receipt_sha256:
+            raise ArchiveError("archival receipt does not match independent digest authority")
+    receipt = _receipt_from_raw(receipt_raw, clock=clock)
     if (
         receipt.schema_version != RECEIPT_SCHEMA_VERSION
         or receipt.manifest_sha256 != layout.expected_manifest_sha256
@@ -404,6 +412,7 @@ def _production_layout() -> _ArchiveLayout:
         expected_launcher_sha256=EXPECTED_LAUNCHER_SHA256,
         expected_source_paths=_SOURCE_PATHS,
         expected_worktree_mismatches=_WORKTREE_MISMATCHES,
+        expected_receipt_sha256=EXPECTED_RECEIPT_SHA256,
     )
 
 

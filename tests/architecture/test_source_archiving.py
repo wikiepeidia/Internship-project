@@ -328,6 +328,7 @@ def test_archive_bytes_and_cli_streams_match_independent_pre_refactor_baseline(
     assert archive.EXPECTED_SCHEMA_VERSION == "phase41-execution-source-manifest-v1"
     assert archive.EXPECTED_TREE_SHA256 == "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
     assert archive.EXPECTED_LAUNCHER_SHA256 == "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9"
+    assert archive.EXPECTED_RECEIPT_SHA256 == "ca4ca1bf019b567d5bfa2380658a11245d76543b323ce5e2fcf6cfe3f525213a"
     assert archive.EXPECTED_MANIFEST_SHA256 == "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61"
     assert archive.PROVENANCE_LABEL == "post_evaluation_archival_mirror_not_refactored_metric_producer"
     assert archive.RECEIPT_SCHEMA_VERSION == "phase411-source-closure-archival-receipt-v1"
@@ -739,18 +740,31 @@ def test_archive_verification_rejects_non_file_and_root_members(tmp_path: Path) 
         archive._verify_archived_source_closure_for_test(layout)
 
 
-def test_receipt_self_hash_cannot_rebind_false_mismatch_facts(tmp_path: Path) -> None:
+@pytest.mark.parametrize("mutation", ("expected_hash", "actual_hash", "timestamp"))
+def test_receipt_independent_digest_rejects_rebound_mutable_facts(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
     layout = _layout(tmp_path)
     archive._archive_bound_source_closure_for_test(layout)
     receipt_path = layout.destination / "archival-receipt.json"
-    receipt = _strict_json(receipt_path.read_bytes())
-    receipt["current_worktree_mismatches"][0]["expected_sha256"] = "f" * 64
+    original_raw = receipt_path.read_bytes()
+    bound_layout = replace(layout, expected_receipt_sha256=_sha256(original_raw))
+    assert archive._verify_archived_source_closure_for_test(bound_layout)
+
+    receipt = _strict_json(original_raw)
+    if mutation == "expected_hash":
+        receipt["current_worktree_mismatches"][0]["expected_sha256"] = "f" * 64
+    elif mutation == "actual_hash":
+        receipt["current_worktree_mismatches"][0]["actual_sha256"] = "e" * 64
+    else:
+        receipt["archived_at_utc"] = "2030-01-01T00:00:00Z"
     unsigned = dict(receipt)
     unsigned.pop("receipt_sha256")
     receipt["receipt_sha256"] = _sha256(_canonical_json(unsigned))
     receipt_path.write_bytes(_canonical_json(receipt))
-    with pytest.raises(archive.ArchiveError, match="source manifest"):
-        archive._verify_archived_source_closure_for_test(layout)
+    with pytest.raises(archive.ArchiveError, match="independent digest authority"):
+        archive._verify_archived_source_closure_for_test(bound_layout)
 
 
 def test_production_entry_points_are_fixed_and_accept_no_paths() -> None:
@@ -764,6 +778,7 @@ def test_production_entry_points_are_fixed_and_accept_no_paths() -> None:
     )
     assert not inspect.signature(archive.archive_bound_source_closure).parameters
     assert not inspect.signature(archive.verify_archived_source_closure).parameters
+    assert archive._production_layout().expected_receipt_sha256 == archive.EXPECTED_RECEIPT_SHA256
 
 
 @pytest.mark.parametrize("token", ("NaN", "Infinity", "-Infinity"))
