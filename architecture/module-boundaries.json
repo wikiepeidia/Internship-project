@@ -1,9 +1,11 @@
 {
   "active_modules": [
     "src.artifacts",
+    "src.config",
+    "src.config.settings",
     "src.core",
-    "src.core.integrity",
     "src.core_binding",
+    "src.core.integrity",
     "src.modeling",
     "src.modeling.evaluation",
     "src.modeling.evidence",
@@ -25,44 +27,158 @@
     "src.runtime.service"
   ],
   "allowed_edges": [
-    ["src.model_adaptation.cli", "src.model_adaptation"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.catalog"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.phase40_contract"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.phase40_handoff"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.phase40_modes"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.pilot"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.registry"],
-    ["src.model_adaptation.commands.adaptation", "src.model_adaptation.schemas"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_contract"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_evidence"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_graphs"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_handoff"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_notebooks"],
-    ["src.model_adaptation.commands.legacy_phase40", "src.model_adaptation.phase40_review"],
-    ["src.model_adaptation.commands.legacy_phase41", "src.model_adaptation"],
-    ["src.model_adaptation.commands.legacy_phase41", "src.model_adaptation.phase41_evaluation"],
-    ["src.model_adaptation.convert", "src.model_adaptation"],
-    ["src.model_adaptation.convert", "src.model_adaptation.registry"],
-    ["src.model_adaptation.convert", "src.model_adaptation.schemas"],
-    ["src.model_adaptation.convert", "src.model_adaptation.training"],
-    ["src.model_adaptation.doctor", "src.model_adaptation"],
-    ["src.model_adaptation.doctor", "src.model_adaptation.phase40_modes"],
-    ["src.model_adaptation.doctor", "src.model_adaptation.registry"],
-    ["src.model_adaptation.doctor", "src.model_adaptation.training"],
-    ["src.model_adaptation.explanation_review", "src.model_adaptation"],
-    ["src.model_adaptation.explanation_review", "src.model_adaptation.schemas"],
-    ["src.model_adaptation.release_evaluation", "src.model_adaptation"],
-    ["src.model_adaptation.release_evaluation", "src.model_adaptation.schemas"],
-    ["src.model_adaptation.release_gates", "src.model_adaptation"],
-    ["src.model_adaptation.release_gates", "src.model_adaptation.schemas"],
-    ["src.model_adaptation.release_readiness", "src.model_adaptation"],
-    ["src.model_adaptation.release_readiness", "src.model_adaptation.data"],
-    ["src.model_adaptation.release_readiness", "src.model_adaptation.schemas"],
-    ["src.modeling.legacy_adapters", "src.model_adaptation"],
-    ["src.modeling.legacy_adapters", "src.model_adaptation.phobert_training"],
-    ["src.modeling.legacy_adapters", "src.model_adaptation.training"]
+    [
+      "src.model_adaptation.cli",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.catalog"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.phase40_contract"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.phase40_handoff"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.phase40_modes"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.pilot"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.registry"
+    ],
+    [
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_contract"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_evidence"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_graphs"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_handoff"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_notebooks"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.phase40_review"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase41",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.commands.legacy_phase41",
+      "src.model_adaptation.phase41_evaluation"
+    ],
+    [
+      "src.model_adaptation.convert",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.convert",
+      "src.model_adaptation.registry"
+    ],
+    [
+      "src.model_adaptation.convert",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.model_adaptation.convert",
+      "src.model_adaptation.training"
+    ],
+    [
+      "src.model_adaptation.doctor",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.doctor",
+      "src.model_adaptation.phase40_modes"
+    ],
+    [
+      "src.model_adaptation.doctor",
+      "src.model_adaptation.registry"
+    ],
+    [
+      "src.model_adaptation.doctor",
+      "src.model_adaptation.training"
+    ],
+    [
+      "src.model_adaptation.explanation_review",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.explanation_review",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.model_adaptation.release_evaluation",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.release_evaluation",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.model_adaptation.release_gates",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.release_gates",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.model_adaptation.release_readiness",
+      "src.model_adaptation"
+    ],
+    [
+      "src.model_adaptation.release_readiness",
+      "src.model_adaptation.data"
+    ],
+    [
+      "src.model_adaptation.release_readiness",
+      "src.model_adaptation.schemas"
+    ],
+    [
+      "src.modeling.legacy_adapters",
+      "src.model_adaptation"
+    ],
+    [
+      "src.modeling.legacy_adapters",
+      "src.model_adaptation.phobert_training"
+    ],
+    [
+      "src.modeling.legacy_adapters",
+      "src.model_adaptation.training"
+    ]
   ],
   "compatibility_adapters": [
     "src.model_adaptation.cli",
@@ -205,9 +321,11 @@
     "budget_exceptions": [],
     "budgeted_modules": [
       "src.artifacts",
+      "src.config",
+      "src.config.settings",
       "src.core",
-      "src.core.integrity",
       "src.core_binding",
+      "src.core.integrity",
       "src.data_pipeline.core",
       "src.data_pipeline.core.records",
       "src.data_pipeline.core.splits",
@@ -247,6 +365,1066 @@
       "src.data_pipeline.scraper",
       "src.model_adaptation.training",
       "src.modeling.training"
-    ]
+    ],
+    "active_edges": [
+      [
+        "src.artifacts",
+        "src.core"
+      ],
+      [
+        "src.artifacts",
+        "src.core.integrity"
+      ],
+      [
+        "src.core",
+        "src.core"
+      ],
+      [
+        "src.core",
+        "src.core.integrity"
+      ],
+      [
+        "src.core.integrity",
+        "src.core_binding"
+      ],
+      [
+        "src.modeling.evidence",
+        "src.core"
+      ],
+      [
+        "src.modeling.evidence",
+        "src.core.integrity"
+      ],
+      [
+        "src.modeling.evidence",
+        "src.modeling"
+      ],
+      [
+        "src.modeling.evidence",
+        "src.modeling.evaluation"
+      ],
+      [
+        "src.modeling.inference",
+        "src.runtime"
+      ],
+      [
+        "src.modeling.inference",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.modeling.training",
+        "src.modeling"
+      ],
+      [
+        "src.runtime",
+        "src.runtime"
+      ],
+      [
+        "src.runtime",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.analyzers",
+        "src.runtime.analyzers.base"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.artifacts"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.config"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.config.settings"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.runtime.analyzers.local_model"
+      ],
+      [
+        "src.runtime.analyzers.accelerated",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers.base",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.base",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.artifacts"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.config"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.config.settings"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.runtime.analyzers.local_model"
+      ],
+      [
+        "src.runtime.analyzers.gguf",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers.heuristic",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.heuristic",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.analyzers.heuristic",
+        "src.runtime.analyzers.rules"
+      ],
+      [
+        "src.runtime.analyzers.heuristic",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers.local_model",
+        "src.artifacts"
+      ],
+      [
+        "src.runtime.analyzers.local_model",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.local_model",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.analyzers.local_model",
+        "src.runtime.analyzers.rules"
+      ],
+      [
+        "src.runtime.analyzers.local_model",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.analyzers.rules",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.analyzers.rules",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime.demo"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime.doctor"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime.render"
+      ],
+      [
+        "src.runtime.cli",
+        "src.runtime.service"
+      ],
+      [
+        "src.runtime.demo",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.demo",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.demo",
+        "src.runtime.service"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.artifacts"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.config"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.config.settings"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.core"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.core.integrity"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime.analyzers.accelerated"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime.analyzers.gguf"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime.analyzers.heuristic"
+      ],
+      [
+        "src.runtime.doctor",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.render",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.render",
+        "src.runtime.contracts"
+      ],
+      [
+        "src.runtime.service",
+        "src.config"
+      ],
+      [
+        "src.runtime.service",
+        "src.config.settings"
+      ],
+      [
+        "src.runtime.service",
+        "src.modeling"
+      ],
+      [
+        "src.runtime.service",
+        "src.modeling.inference"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.analyzers"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.analyzers.accelerated"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.analyzers.base"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.analyzers.gguf"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.analyzers.heuristic"
+      ],
+      [
+        "src.runtime.service",
+        "src.runtime.contracts"
+      ]
+    ],
+    "tool_contract_state": "pre_extraction_v1",
+    "tools": [
+      {
+        "path": "scripts/START_DEMO_UI.bat",
+        "lifecycle": "active",
+        "language": "batch",
+        "kind": "runtime_launcher",
+        "phase_language": "phase_neutral",
+        "imports": [],
+        "routes": [
+          [
+            "python",
+            "-m",
+            "src.runtime.cli",
+            "demo"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/START_TEXT_ANALYZE.bat",
+        "lifecycle": "active",
+        "language": "batch",
+        "kind": "runtime_launcher",
+        "phase_language": "phase_neutral",
+        "imports": [],
+        "routes": [
+          [
+            "python",
+            "-m",
+            "src.runtime.cli",
+            "analyze"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/archive_phase41_source_closure.py",
+        "lifecycle": "compatibility",
+        "language": "python",
+        "kind": "provenance_cli",
+        "phase_language": "phase_41",
+        "imports": [
+          "__future__",
+          "argparse",
+          "contextlib",
+          "dataclasses",
+          "datetime",
+          "hashlib",
+          "json",
+          "os",
+          "pathlib",
+          "re",
+          "secrets",
+          "src.core_binding",
+          "stat",
+          "sys",
+          "typing"
+        ],
+        "routes": []
+      },
+      {
+        "path": "scripts/measure_cold_latency.py",
+        "lifecycle": "historical",
+        "language": "python",
+        "kind": "latency_probe",
+        "phase_language": "phase_30",
+        "imports": [
+          "__future__",
+          "argparse",
+          "datetime",
+          "json",
+          "pathlib",
+          "playwright.sync_api",
+          "subprocess",
+          "sys",
+          "time",
+          "traceback",
+          "typing"
+        ],
+        "routes": [
+          [
+            "python",
+            "-m",
+            "src.runtime.cli",
+            "demo",
+            "--no-browser",
+            "--port",
+            "{port}"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/phase40_comparison_launcher.ps1",
+        "lifecycle": "historical",
+        "language": "powershell",
+        "kind": "evidence_launcher",
+        "phase_language": "phase_40",
+        "imports": [],
+        "routes": [
+          [
+            "python",
+            "-s",
+            "-B",
+            "-m",
+            "src.model_adaptation.phase40_finalize",
+            "--repo-root",
+            ".",
+            "--output-root",
+            "data/models/phase40",
+            "--bundle-root",
+            "phase40-qwen-qlora-full-seed42-v1=data/models/phase40/full/qwen-qlora",
+            "--bundle-root",
+            "phase40-phobert-full-seed42-v12=data/models/phase40/full/phobert",
+            "--gpu-identity",
+            "phase40-qwen-qlora-full-seed42-v1=NVIDIA GeForce RTX 5050 Laptop GPU",
+            "--gpu-identity",
+            "phase40-phobert-full-seed42-v12=NVIDIA GeForce RTX 5050 Laptop GPU"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/phase41_one_shot_launcher.ps1",
+        "lifecycle": "historical",
+        "language": "powershell",
+        "kind": "evidence_launcher",
+        "phase_language": "phase_41",
+        "imports": [
+          "datetime",
+          "hashlib",
+          "importlib.abc",
+          "importlib.util",
+          "json",
+          "os",
+          "pathlib",
+          "platform",
+          "runpy",
+          "sys"
+        ],
+        "routes": [
+          [
+            "python",
+            "-I",
+            "-S",
+            "-s",
+            "-B",
+            "-c",
+            "{bootstrap}",
+            "{clean_root}",
+            "{resolved_output}"
+          ],
+          [
+            "runpy",
+            "src.model_adaptation.cli",
+            "phase41-run-once",
+            "--output-root",
+            "{resolved_output}"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/vastai_gguf_export.sh",
+        "lifecycle": "historical",
+        "language": "bash",
+        "kind": "model_export_workflow",
+        "phase_language": "phase_neutral",
+        "imports": [
+          "json",
+          "os",
+          "pathlib",
+          "peft",
+          "torch",
+          "transformers",
+          "transformers.generation"
+        ],
+        "routes": []
+      },
+      {
+        "path": "scripts/vastai_qlora_full.sh",
+        "lifecycle": "historical",
+        "language": "bash",
+        "kind": "training_workflow",
+        "phase_language": "phase_neutral",
+        "imports": [
+          "collections",
+          "huggingface_hub",
+          "json",
+          "pathlib",
+          "peft",
+          "re",
+          "torch",
+          "transformers"
+        ],
+        "routes": [
+          [
+            "python3",
+            "-m",
+            "src.model_adaptation.cli",
+            "train",
+            "--candidate",
+            "baseline-winner",
+            "--version-tag",
+            "{version}",
+            "--train-split",
+            "/workspace/train.jsonl",
+            "--val-split",
+            "/workspace/val.jsonl",
+            "--output-root",
+            "{model_root}",
+            "--registry-path",
+            "{registry}",
+            "--device",
+            "cuda"
+          ],
+          [
+            "bash",
+            "{repo}/scripts/vastai_gguf_export.sh"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/verify_golden_prompts.py",
+        "lifecycle": "historical",
+        "language": "python",
+        "kind": "verification_runner",
+        "phase_language": "phase_28",
+        "imports": [
+          "__future__",
+          "argparse",
+          "datetime",
+          "json",
+          "pathlib",
+          "playwright.sync_api",
+          "subprocess",
+          "sys",
+          "time",
+          "traceback",
+          "typing"
+        ],
+        "routes": [
+          [
+            "vnphish",
+            "demo",
+            "--no-browser",
+            "--port",
+            "{port}"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/verify_phase32_fresh_process.py",
+        "lifecycle": "historical",
+        "language": "python",
+        "kind": "verification_runner",
+        "phase_language": "phase_32",
+        "imports": [
+          "__future__",
+          "argparse",
+          "datetime",
+          "importlib.util",
+          "json",
+          "os",
+          "pathlib",
+          "playwright.sync_api",
+          "re",
+          "subprocess",
+          "sys",
+          "time",
+          "traceback",
+          "typing"
+        ],
+        "routes": [
+          [
+            "cmd.exe",
+            "/c",
+            "{repo}/scripts/START_DEMO_UI.bat"
+          ],
+          [
+            "{repo}/scripts/START_DEMO_UI.bat"
+          ]
+        ]
+      },
+      {
+        "path": "scripts/verify_ui_quirks.py",
+        "lifecycle": "historical",
+        "language": "python",
+        "kind": "verification_runner",
+        "phase_language": "phase_31",
+        "imports": [
+          "__future__",
+          "argparse",
+          "datetime",
+          "json",
+          "pathlib",
+          "playwright.sync_api",
+          "subprocess",
+          "sys",
+          "time",
+          "traceback",
+          "typing"
+        ],
+        "routes": [
+          [
+            "python",
+            "-m",
+            "src.runtime.cli",
+            "demo",
+            "--no-browser",
+            "--port",
+            "{port}"
+          ]
+        ]
+      }
+    ],
+    "active_tool_edges": [
+      [
+        "scripts/archive_phase41_source_closure.py",
+        "src.core_binding"
+      ]
+    ],
+    "active_text_scan": {
+      "contract_state": "pre_extraction_v1",
+      "text_assets": [
+        "src/runtime/demo_assets/index.html",
+        "src/runtime/demo_assets/demo.css",
+        "src/runtime/demo_assets/demo.js",
+        "src/runtime/demo_assets/i18n.js"
+      ],
+      "binary_assets": [
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-400-vietnamese.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-400-latin-ext.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-400-latin.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-500-vietnamese.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-500-latin-ext.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-500-latin.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-600-vietnamese.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-600-latin-ext.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-600-latin.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-700-vietnamese.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-700-latin-ext.woff2",
+        "src/runtime/demo_assets/fonts/be-vietnam-pro-700-latin.woff2"
+      ],
+      "active_documents": [
+        "README.md",
+        "docs/architecture/overview.md",
+        "docs/architecture/cli-contracts.md",
+        "docs/architecture/provenance.md",
+        "docs/architecture/storage-retention.md",
+        "documents/user/LOCAL_MODELS.md",
+        "documents/user/QLORA.md",
+        "documents/user/USER_GUIDE.md"
+      ],
+      "historical_documents": [
+        "walkthrough/README.md"
+      ],
+      "literal_markers": [
+        {
+          "path": "README.md",
+          "marker_id": "legacy-readme-data-cli",
+          "start_marker": "<!-- legacy-readme-data-cli:start -->",
+          "end_marker": "<!-- legacy-readme-data-cli:end -->",
+          "reason": "preserve frozen data CLI version-tag examples",
+          "owner": "user-data-cli-compatibility"
+        },
+        {
+          "path": "documents/user/LOCAL_MODELS.md",
+          "marker_id": "legacy-local-model-cli",
+          "start_marker": "<!-- legacy-local-model-cli:start -->",
+          "end_marker": "<!-- legacy-local-model-cli:end -->",
+          "reason": "preserve frozen local-model training version-tag examples",
+          "owner": "local-model-cli-compatibility"
+        },
+        {
+          "path": "docs/architecture/overview.md",
+          "marker_id": "legacy-data-cli-identifier",
+          "start_marker": "<!-- legacy-data-cli-identifier:start -->",
+          "end_marker": "<!-- legacy-data-cli-identifier:end -->",
+          "reason": "preserve the run_phase1 compatibility identifier",
+          "owner": "data-cli-compatibility"
+        },
+        {
+          "path": "docs/architecture/overview.md",
+          "marker_id": "policy-groups",
+          "start_marker": "<!-- policy-groups:start -->",
+          "end_marker": "<!-- policy-groups:end -->",
+          "reason": "preserve policy-generated module identifiers",
+          "owner": "module-boundaries-policy"
+        },
+        {
+          "path": "docs/architecture/overview.md",
+          "marker_id": "policy-edges",
+          "start_marker": "<!-- policy-edges:start -->",
+          "end_marker": "<!-- policy-edges:end -->",
+          "reason": "preserve policy-generated compatibility edges",
+          "owner": "module-boundaries-policy"
+        },
+        {
+          "path": "docs/architecture/overview.md",
+          "marker_id": "historical-sccs",
+          "start_marker": "<!-- historical-sccs:start -->",
+          "end_marker": "<!-- historical-sccs:end -->",
+          "reason": "preserve policy-generated historical cycle identifiers",
+          "owner": "module-boundaries-policy"
+        },
+        {
+          "path": "docs/architecture/cli-contracts.md",
+          "marker_id": "cli-contracts",
+          "start_marker": "<!-- cli-contracts:start -->",
+          "end_marker": "<!-- cli-contracts:end -->",
+          "reason": "preserve frozen command rows",
+          "owner": "command-contract-policy"
+        },
+        {
+          "path": "docs/architecture/provenance.md",
+          "marker_id": "provenance-authority-identities",
+          "start_marker": "<!-- provenance-authority-identities:start -->",
+          "end_marker": "<!-- provenance-authority-identities:end -->",
+          "reason": "preserve exact source export and erratum authority paths",
+          "owner": "provenance-report-contract"
+        },
+        {
+          "path": "docs/architecture/provenance.md",
+          "marker_id": "provenance-schema-identities",
+          "start_marker": "<!-- provenance-schema-identities:start -->",
+          "end_marker": "<!-- provenance-schema-identities:end -->",
+          "reason": "preserve exact evidence and erratum schema identifiers",
+          "owner": "provenance-report-contract"
+        },
+        {
+          "path": "docs/architecture/provenance.md",
+          "marker_id": "provenance-correction-quote",
+          "start_marker": "<!-- provenance-correction-quote:start -->",
+          "end_marker": "<!-- provenance-correction-quote:end -->",
+          "reason": "preserve the mandatory correction quote byte-for-byte",
+          "owner": "provenance-report-contract"
+        },
+        {
+          "path": "docs/architecture/storage-retention.md",
+          "marker_id": "sealed-roots",
+          "start_marker": "<!-- sealed-roots:start -->",
+          "end_marker": "<!-- sealed-roots:end -->",
+          "reason": "preserve exact sealed model-root identities",
+          "owner": "storage-retention-contract"
+        },
+        {
+          "path": "docs/architecture/storage-retention.md",
+          "marker_id": "optional-gguf",
+          "start_marker": "<!-- optional-gguf:start -->",
+          "end_marker": "<!-- optional-gguf:end -->",
+          "reason": "preserve the exact optional GGUF identity",
+          "owner": "storage-retention-contract"
+        },
+        {
+          "path": "docs/architecture/storage-retention.md",
+          "marker_id": "cleanup-candidates",
+          "start_marker": "<!-- cleanup-candidates:start -->",
+          "end_marker": "<!-- cleanup-candidates:end -->",
+          "reason": "preserve exact informational cleanup-candidate identities",
+          "owner": "storage-retention-contract"
+        },
+        {
+          "path": "docs/architecture/storage-retention.md",
+          "marker_id": "nested-candidates",
+          "start_marker": "<!-- nested-candidates:start -->",
+          "end_marker": "<!-- nested-candidates:end -->",
+          "reason": "preserve exact reviewed nested-duplicate identities",
+          "owner": "storage-retention-contract"
+        },
+        {
+          "path": "docs/architecture/storage-retention.md",
+          "marker_id": "older-bases",
+          "start_marker": "<!-- older-bases:start -->",
+          "end_marker": "<!-- older-bases:end -->",
+          "reason": "preserve exact older-base identities",
+          "owner": "storage-retention-contract"
+        }
+      ],
+      "frozen_literal_owners": [
+        {
+          "id": "terminal-result-schema",
+          "path": "src/modeling/evaluation.py",
+          "literal": "phase41-one-shot-results-v1",
+          "owner_symbol": "TwoModelEvaluationResult.schema_version",
+          "reason": "preserve terminal two-model result schema compatibility",
+          "lifecycle": "active"
+        },
+        {
+          "id": "evidence-manifest-schema",
+          "path": "src/modeling/evidence.py",
+          "literal": "phase41-evidence-manifest-v1",
+          "owner_symbol": "_artifact_hashes",
+          "reason": "preserve sealed evidence manifest schema compatibility",
+          "lifecycle": "active"
+        },
+        {
+          "id": "source-manifest-schema-validator",
+          "path": "src/modeling/evidence.py",
+          "literal": "phase41-execution-source-manifest-v1",
+          "owner_symbol": "_validate_source_chain",
+          "reason": "preserve execution source manifest schema compatibility",
+          "lifecycle": "active"
+        },
+        {
+          "id": "materialization-schema-validator",
+          "path": "src/modeling/evidence.py",
+          "literal": "phase41-execution-materialization-v1",
+          "owner_symbol": "_validate_source_chain",
+          "reason": "preserve locked runtime materialization schema compatibility",
+          "lifecycle": "active"
+        },
+        {
+          "id": "provenance-erratum-schema",
+          "path": "src/modeling/evidence.py",
+          "literal": "phase41-provenance-erratum-v1",
+          "owner_symbol": "_validate_erratum",
+          "reason": "preserve corrective provenance erratum schema compatibility",
+          "lifecycle": "active"
+        },
+        {
+          "id": "legacy-release-artifact-glob",
+          "path": "src/runtime/doctor.py",
+          "literal": "phase5-release-eval-*.json",
+          "owner_symbol": "RELEASE_MANIFEST_PATTERNS",
+          "reason": "preserve legacy release-evaluation artifact discovery",
+          "lifecycle": "active"
+        },
+        {
+          "id": "archive-facade-description",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "Archive and verify the exact source closure that produced Phase 41 evidence.",
+          "owner_symbol": "<module>.__doc__",
+          "reason": "characterize pre-extraction facade description until authorized domain rewrite",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-manifest-schema",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "phase41-execution-source-manifest-v1",
+          "owner_symbol": "EXPECTED_SCHEMA_VERSION",
+          "reason": "preserve immutable source-closure schema compatibility",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-receipt-schema",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "phase411-source-closure-archival-receipt-v1",
+          "owner_symbol": "RECEIPT_SCHEMA_VERSION",
+          "reason": "preserve immutable archival receipt schema compatibility",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-provenance-label",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "post_evaluation_archival_mirror_not_refactored_metric_producer",
+          "owner_symbol": "PROVENANCE_LABEL",
+          "reason": "preserve immutable post-evaluation archival provenance",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-callbacks",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_callbacks.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-comparison-launch",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_comparison_launch.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-contract",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_contract.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-evidence",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_evidence.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-final-authority",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_final_authority.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-gguf",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_gguf.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-graphs",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_graphs.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-handoff",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_handoff.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-metrics",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_metrics.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-modes",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_modes.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-notebooks",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_notebooks.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-phobert-release",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_phobert_release.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-production-authorities",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_production_authorities.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-release-authorities",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_release_authorities.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-review",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_review.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase40-runtime-materialize",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase40_runtime_materialize.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase41-evaluation",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase41_evaluation.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-source-phase41-protocols",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase41_protocols.py",
+          "owner_symbol": "_SOURCE_PATHS",
+          "reason": "preserve immutable source-closure member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-worktree-phase41-evaluation",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "src/model_adaptation/phase41_evaluation.py",
+          "owner_symbol": "_WORKTREE_MISMATCHES",
+          "reason": "preserve immutable worktree-mismatch member identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-production-evidence-root",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "C:\\ProgramData\\VNPhish\\phase41-evaluation-evidence",
+          "owner_symbol": "PRODUCTION_EVIDENCE_ROOT",
+          "reason": "preserve immutable production evidence authority identity",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-production-launcher-filename",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "phase41_one_shot_launcher.ps1",
+          "owner_symbol": "PRODUCTION_LAUNCHER_PATH",
+          "reason": "preserve immutable production launcher filename",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-production-manifest-root",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "data/models/phase41/verified-export",
+          "owner_symbol": "PRODUCTION_MANIFEST_PATH",
+          "reason": "preserve immutable verified-export manifest root",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-production-destination-root",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "historical/phase41-source-closure",
+          "owner_symbol": "PRODUCTION_DESTINATION",
+          "reason": "preserve immutable archive destination root",
+          "lifecycle": "compatibility"
+        },
+        {
+          "id": "archive-launcher-relative-path",
+          "path": "scripts/archive_phase41_source_closure.py",
+          "literal": "scripts/phase41_one_shot_launcher.ps1",
+          "owner_symbol": "_manifest_records",
+          "reason": "preserve immutable launcher manifest identity",
+          "lifecycle": "compatibility"
+        }
+      ]
+    }
   }
 }
