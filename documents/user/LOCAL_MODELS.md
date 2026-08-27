@@ -2,7 +2,7 @@
 
 ## Scope
 
-Phase 3 keeps the runtime local-only and text-only while adding explicit profile selection for local model artifacts. The public runtime commands stay the same:
+The runtime stays local-only and text-only while explicit profiles select local model artifacts. The public runtime commands stay the same:
 
 ```bash
 vnphish doctor
@@ -15,9 +15,9 @@ The difference is which local backend/profile is selected through settings.
 
 Important distinction:
 
-- LoRA/QLoRA is the Phase 3 training path used to adapt the selected Qwen checkpoints.
+- LoRA/QLoRA is the model-adaptation path used to train the selected Qwen checkpoints.
 - GGUF is the laptop CPU/iGPU inference artifact used after training.
-- In other words, the CPU baseline in Phase 3 is for local inference, not for the main fine-tuning step.
+- In other words, the CPU baseline is for local inference, not for the main fine-tuning step.
 
 ## Profiles
 
@@ -86,21 +86,23 @@ The doctor guidance remains local-only. It should not suggest cloud fallback.
 
 Recommended order:
 
-1. Run the Phase 3 pilot dry-run to record the baseline winner and runner-up.
-2. Run the Phase 3 training doctor to confirm local dependencies, base-model paths, and smoke-test commands.
-3. Run a short Phase 3 smoke training job for `baseline-winner`, let it save checkpoints, then resume from `latest` if the short probe succeeds.
-4. Run the Phase 3 training dry-run or full run for `runner-up` when needed.
+1. Run the model pilot dry-run to record the baseline winner and runner-up.
+2. Run the training doctor to confirm local dependencies, base-model paths, and smoke-test commands.
+3. Run a short smoke training job for `baseline-winner`, let it save checkpoints, then resume from `latest` if the short probe succeeds.
+4. Run the training dry-run or full run for `runner-up` when needed.
 5. Stage the `GGUF` baseline artifact.
 6. Select the target profile in settings.
 7. Run the runtime doctor command before `analyze`.
 
-Phase 3 operator commands:
+Model-adaptation operator commands:
 
+<!-- legacy-local-model-cli:start -->
 ```bash
 python -m src.model_adaptation.cli doctor --candidate baseline-winner
 python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-smoke --smoke-test
 python -m src.model_adaptation.cli train --candidate baseline-winner --version-tag phase3-main --resume-from-checkpoint latest
 ```
+<!-- legacy-local-model-cli:end -->
 
 If the local environment is missing the training stack, install the optional extra first:
 
@@ -110,7 +112,7 @@ python -m pip install -e .[dev,train]
 
 ## Colab Generation
 
-If you want to avoid paid API generation for Phase 1 or Phase 7, you can run an OpenAI-compatible server from Google Colab and point the existing generator CLI at it.
+If you want to avoid paid API generation for dataset experiments, you can run an OpenAI-compatible server from Google Colab and point the existing generator CLI at it.
 
 Recommended hardware:
 
