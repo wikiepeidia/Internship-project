@@ -1,0 +1,37 @@
+"""Import-free ownership index for retained Phase 40-era implementations."""
+
+OWNED_MODULES: tuple[str, ...] = (
+    "src.model_adaptation",
+    "src.model_adaptation.catalog",
+    "src.model_adaptation.data",
+    "src.model_adaptation.phase40_callbacks",
+    "src.model_adaptation.phase40_colab_prepare",
+    "src.model_adaptation.phase40_comparison_launch",
+    "src.model_adaptation.phase40_contract",
+    "src.model_adaptation.phase40_evidence",
+    "src.model_adaptation.phase40_final_authority",
+    "src.model_adaptation.phase40_finalize",
+    "src.model_adaptation.phase40_gguf",
+    "src.model_adaptation.phase40_graphs",
+    "src.model_adaptation.phase40_handoff",
+    "src.model_adaptation.phase40_local_experiment",
+    "src.model_adaptation.phase40_lora_recovery",
+    "src.model_adaptation.phase40_metrics",
+    "src.model_adaptation.phase40_modes",
+    "src.model_adaptation.phase40_notebooks",
+    "src.model_adaptation.phase40_operator",
+    "src.model_adaptation.phase40_phobert_release",
+    "src.model_adaptation.phase40_production_authorities",
+    "src.model_adaptation.phase40_qlora_session",
+    "src.model_adaptation.phase40_release_authorities",
+    "src.model_adaptation.phase40_review",
+    "src.model_adaptation.phase40_runtime_materialize",
+    "src.model_adaptation.phobert_training",
+    "src.model_adaptation.pilot",
+    "src.model_adaptation.prompts",
+    "src.model_adaptation.registry",
+    "src.model_adaptation.schemas",
+    "src.model_adaptation.training",
+)
+
+__all__ = ["OWNED_MODULES"]

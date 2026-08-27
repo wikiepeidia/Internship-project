@@ -456,15 +456,15 @@ def preflight_phase40_inputs(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
 
 
 def build_training_config(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-    from src.model_adaptation.training import build_training_config as implementation
+    from src.modeling.training import qwen_training_service
 
-    return implementation(*args, **kwargs)
+    return qwen_training_service().build_config(*args, **kwargs)
 
 
 def run_training(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-    from src.model_adaptation.training import run_training as implementation
+    from src.modeling.training import qwen_training_service
 
-    return implementation(*args, **kwargs)
+    return qwen_training_service().train(*args, **kwargs)
 
 
 def build_gguf_request(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
