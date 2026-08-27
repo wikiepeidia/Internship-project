@@ -496,6 +496,9 @@ def test_release_artifact_rejects_fail_open_pass_states() -> None:
 
     below_floor = json.loads(json.dumps(valid))
     below_floor["per_label_metrics"][0]["recall"] = 0.1
+    below_floor["per_label_metrics"][0]["f1"] = 0.18
+    below_floor["overall_metrics"]["macro_f1"] = 0.72
+    below_floor["overall_metrics"]["weighted_f1"] = 0.72
     with pytest.raises(ValidationError, match="verdict .* inconsistent"):
         artifacts.ReleaseEvaluationArtifact.model_validate(below_floor)
 
@@ -503,6 +506,31 @@ def test_release_artifact_rejects_fail_open_pass_states() -> None:
     contradictory_blocker["blocker_reasons"] = ["synthetic blocker"]
     with pytest.raises(ValidationError, match="verdict .* inconsistent"):
         artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_blocker)
+
+
+def test_release_artifact_reconciles_floor_and_metric_claims() -> None:
+    valid = _release_artifact(artifacts).model_dump(mode="json")
+
+    contradictory_floor = json.loads(json.dumps(valid))
+    contradictory_floor["risky_recall_floor"] = 1.0
+    with pytest.raises(ValidationError, match="immutable release floor"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_floor)
+
+    audit_floor = json.loads(json.dumps(valid))
+    audit_floor["readiness_audit"]["risky_recall_floor"] = 0.8
+    with pytest.raises(ValidationError, match="immutable release floor"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(audit_floor)
+
+    contradictory_f1 = json.loads(json.dumps(valid))
+    contradictory_f1["per_label_metrics"][0]["f1"] = 0.2
+    with pytest.raises(ValidationError, match="recomputed from precision and recall"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_f1)
+
+    for field in ("macro_f1", "weighted_f1"):
+        contradictory_aggregate = json.loads(json.dumps(valid))
+        contradictory_aggregate["overall_metrics"][field] = 0.2
+        with pytest.raises(ValidationError, match=f"overall {field}"):
+            artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_aggregate)
 
 
 def test_historical_sources_keep_archived_hashes_and_no_active_reverse_edges() -> None:

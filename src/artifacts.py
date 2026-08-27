@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping
@@ -275,6 +276,8 @@ class HeldOutSupportAudit(BaseModel):
             raise ValueError("locked_label_order must match the locked release labels")
         if self.risky_labels != LOCKED_RISKY_LABELS:
             raise ValueError("risky_labels must match the locked risky labels")
+        if self.risky_recall_floor != UNIFORM_RISKY_RECALL_FLOOR:
+            raise ValueError("risky_recall_floor must match the immutable release floor")
 
         root = self.evaluated_split_root
         path = self.evaluated_split_path
@@ -326,6 +329,12 @@ class PerLabelMetricRow(BaseModel):
 
     @model_validator(mode="after")
     def align_risky_label_flag(self) -> "PerLabelMetricRow":
+        denominator = self.precision + self.recall
+        computed_f1 = (
+            0.0 if denominator == 0.0 else 2.0 * self.precision * self.recall / denominator
+        )
+        if not math.isclose(self.f1, computed_f1, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError("f1 must be recomputed from precision and recall")
         self.recall_floor_applies = self.label in LOCKED_RISKY_LABELS
         return self
 
@@ -400,6 +409,10 @@ class ReleaseEvaluationArtifact(BaseModel):
             raise ValueError("per_label_metrics must follow the locked release label order")
         if self.readiness_audit is None:
             raise ValueError("readiness_audit is required")
+        if self.risky_recall_floor != UNIFORM_RISKY_RECALL_FLOOR:
+            raise ValueError("risky_recall_floor must match the immutable release floor")
+        if self.readiness_audit.risky_recall_floor != self.risky_recall_floor:
+            raise ValueError("release and readiness risky_recall_floor values must agree")
         support_total = sum(row.support for row in self.per_label_metrics)
         if support_total != self.overall_metrics.evaluated_rows:
             raise ValueError("per-label support must equal evaluated_rows")
@@ -407,11 +420,32 @@ class ReleaseEvaluationArtifact(BaseModel):
             if self.readiness_audit.support_by_label[row.label] != row.support:
                 raise ValueError("metric support must match readiness_audit support")
 
+        expected_macro_f1 = sum(row.f1 for row in self.per_label_metrics) / len(
+            self.per_label_metrics
+        )
+        expected_weighted_f1 = (
+            sum(row.f1 * row.support for row in self.per_label_metrics) / support_total
+        )
+        if not math.isclose(
+            self.overall_metrics.macro_f1,
+            expected_macro_f1,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            raise ValueError("overall macro_f1 must match per-label metrics")
+        if not math.isclose(
+            self.overall_metrics.weighted_f1,
+            expected_weighted_f1,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            raise ValueError("overall weighted_f1 must match supported per-label metrics")
+
         below_floor = [
             row.label
             for row in self.per_label_metrics
             if row.label in LOCKED_RISKY_LABELS
-            and row.recall < RISKY_LABEL_RECALL_FLOORS[row.label]
+            and row.recall < self.risky_recall_floor
         ]
         has_blocker = bool(
             self.blocker_reasons
