@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-15-PLAN.md
-last_updated: "2026-08-27T13:23:47.199Z"
+stopped_at: Completed 41.1-12-PLAN.md
+last_updated: "2026-08-27T13:31:21.199Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: 6436f38e34a21e0427288a705663e0f7604e3f9b
+state_head: 7eb3866a91da18bf119380b63a7bc2449fb4ba08
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 65
+  completed_plans: 66
   percent: 13
 ---
 
@@ -38,7 +38,7 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 11 of 15
+Plan: 12 of 15
 Status: Ready to execute
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T13:23:46.413Z
-**Stopped at:** Completed 41.1-15-PLAN.md
+**Last session:** 2026-08-27T13:31:20.214Z
+**Stopped at:** Completed 41.1-12-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -360,6 +360,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Treat pre_extraction_v1 marker ownership as an exact transition contract: absent future pairs are allowed, but any introduced endpoint must form one complete non-overlapping pair.
 - [Phase 41.1]: Keep JavaScript replacement comments at the characterized line count because comment stripping preserves newline positions.
 - [Phase 41.1]: Retain phase5-release-eval-*.json only as the exact policy-owned compatibility literal in RELEASE_MANIFEST_PATTERNS.
+- [Phase 41.1]: Keep legacy version tags byte-exact inside one command-only marker region per document.
+- [Phase 41.1]: Keep QLORA.md visibly inventoried and explicitly uncertified until later documentation work.
 
 ## Performance Metrics
 
@@ -380,6 +382,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P11 | 10min | 3 tasks | 9 files |
 | Phase 41.1 P08 | 9min | 2 tasks | 5 files |
 | Phase 41.1 P15 | 9min | 2 tasks | 5 files |
+| Phase 41.1 P12 | 15min | 2 tasks | 4 files |
 
 ### Blockers
 
