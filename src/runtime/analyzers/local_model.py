@@ -192,7 +192,6 @@ class ThreatDecision(BaseModel):
     decision_summary: str = Field(min_length=12, max_length=280)
     evidence: list[EvidenceReason] = Field(default_factory=list, max_length=5)
     recommendations: list[Recommendation] = Field(min_length=1, max_length=3)
-    provisional: bool = True
 
     @field_validator("decision_summary")
     @classmethod
@@ -658,7 +657,6 @@ def _apply_safety_floor(decision: ThreatDecision, helper_cues: list[HelperCue], 
             "decision_summary": decision.decision_summary,
             "evidence": [item.model_dump() for item in floored_evidence[:5]],
             "recommendations": [item.model_dump() for item in decision.recommendations],
-            "provisional": decision.provisional,
         }
     )
 
@@ -706,7 +704,6 @@ def _downgrade_legitimate_otp_notice(decision: ThreatDecision, request: Analysis
             ),
             "evidence": [],
             "recommendations": [{"text": DEFAULT_BENIGN_RECOMMENDATION, "priority": "medium"}],
-            "provisional": decision.provisional,
         }
     )
 
@@ -763,7 +760,6 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
             "decision_summary": summary,
             "evidence": evidence_payload,
             "recommendations": recommendation_payload,
-            "provisional": payload.get("provisional", True),
         }
     )
     if _looks_like_legitimate_bank_otp_notice(request.text, helper_cues):
@@ -778,7 +774,6 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
             "decision_summary": decision.decision_summary,
             "evidence": [item.model_dump() for item in decision.evidence],
             "recommendations": [item.model_dump() for item in sanitized_recommendations],
-            "provisional": decision.provisional,
         }
     )
 
@@ -801,6 +796,6 @@ def build_analysis_result(payload: dict[str, Any], request: AnalysisRequest, bac
         threat_labels=decision.threat_labels,
         recommendations=[recommendation.text for recommendation in decision.recommendations[:3]],
         backend_name=backend_name,
-        provisional=decision.provisional,
+        provisional=True,
         normalized_text=request.text,
     )

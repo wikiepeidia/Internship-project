@@ -565,6 +565,36 @@ def test_exact_nondisclosure_otp_notice_can_correct_model_suspicion() -> None:
     assert result.top_cues == []
 
 
+def test_local_model_output_cannot_clear_provisional_warning() -> None:
+    module = importlib.import_module("src.runtime.analyzers.local_model")
+    contracts = importlib.import_module("src.runtime.contracts")
+    message = "VPBank yeu cau chuyen tien 5 trieu de xac minh tai khoan."
+    result = module.build_analysis_result(
+        {
+            "risk_tier": "high-risk",
+            "threat_labels": ["bank_impersonation"],
+            "decision_summary": "Tin nhan gia danh ngan hang va yeu cau chuyen tien.",
+            "evidence": [
+                {
+                    "span": "chuyen tien 5 trieu",
+                    "reason": "Yeu cau thanh toan truc tiep la dau hieu rui ro cao.",
+                    "cue_type": "payment_request",
+                    "supports_labels": ["bank_impersonation"],
+                    "severity": "high",
+                }
+            ],
+            "recommendations": ["Khong chuyen tien khi chua xac minh."],
+            "provisional": False,
+        },
+        contracts.AnalysisRequest(text=message, channel="sms"),
+        backend_name="synthetic-local",
+    )
+
+    assert "provisional" not in module.STRUCTURED_ANALYSIS_SCHEMA
+    assert "provisional" not in module.ThreatDecision.model_fields
+    assert result.provisional is True
+
+
 def _release_payload(verdict: str) -> dict[str, object]:
     labels = (
         "bank_impersonation",
