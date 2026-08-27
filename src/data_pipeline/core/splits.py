@@ -18,7 +18,12 @@ from src.core.integrity import (
     atomic_replace_new_artifact,
     reject_redirecting_ancestry,
 )
-from src.data_pipeline.core.records import DatasetRecord, ManifestEntry, ManifestFile
+from src.data_pipeline.core.records import (
+    DatasetRecord,
+    ManifestEntry,
+    ManifestFile,
+    _validate_jsonl_record,
+)
 
 
 SplitName = Literal["train", "val", "test"]
@@ -299,10 +304,24 @@ def _capture_manifest_members(
 
 def _jsonl_facts(path: Path, raw: bytes) -> tuple[bytes, int]:
     try:
-        text = raw.decode("utf-8", errors="strict")
+        raw.decode("utf-8", errors="strict")
     except UnicodeDecodeError as error:
         raise IntegrityError(f"manifest member is not strict UTF-8: {path}") from error
-    return raw, sum(1 for line in text.splitlines() if line.strip())
+    records = 0
+    for line_number, line in enumerate(raw.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            _validate_jsonl_record(
+                line,
+                source=path,
+                line_number=line_number,
+                record_type=DatasetRecord,
+            )
+        except ValueError as error:
+            raise IntegrityError(str(error)) from error
+        records += 1
+    return raw, records
 
 
 def build_manifest(data_dir: Path, version_tag: str) -> ManifestEntry:

@@ -611,7 +611,8 @@ def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path
         verify_manifest as legacy_verify,
     )
 
-    payload = "{\"synthetic\":true}\n\n{\"synthetic\":false}\n".encode("utf-8")
+    row = _dataset_record(core_records).model_dump_json()
+    payload = f"{row}\n\n{row}\n".encode("utf-8")
     dataset = tmp_path / "fixture.jsonl"
     dataset.write_bytes(payload)
     manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
@@ -677,11 +678,11 @@ def test_manifest_verification_reconciles_members_bytes_rows_and_utf8(
     tmp_path: Path,
 ) -> None:
     member = tmp_path / "fixture.jsonl"
-    member.write_text('{"row":1}\n', encoding="utf-8")
+    member.write_text(_dataset_record(core_records).model_dump_json() + "\n", encoding="utf-8")
     manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
 
     extra = tmp_path / "unexpected.jsonl"
-    extra.write_text('{"row":2}\n', encoding="utf-8")
+    extra.write_text(_dataset_record(core_records).model_dump_json() + "\n", encoding="utf-8")
     ok, errors = core_splits.verify_manifest(manifest, tmp_path)
     assert not ok
     assert errors == ["Unexpected file: unexpected.jsonl"]
@@ -717,7 +718,7 @@ def test_manifest_verification_rejects_redirected_members(
     from src.core.integrity import IntegrityError
 
     member = tmp_path / "redirected.jsonl"
-    member.write_text('{"row":1}\n', encoding="utf-8")
+    member.write_text(_dataset_record(core_records).model_dump_json() + "\n", encoding="utf-8")
     manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
     original_guard = core_splits.reject_redirecting_ancestry
 
@@ -740,7 +741,7 @@ def test_manifest_capture_rejects_member_swap_after_enumeration(
     from src.core_binding import BoundParent
 
     member = tmp_path / "fixture.jsonl"
-    member.write_text('{"synthetic":true}\n', encoding="utf-8")
+    member.write_text(_dataset_record(core_records).model_dump_json() + "\n", encoding="utf-8")
     original_open = BoundParent.open
     swapped = False
 
@@ -761,6 +762,31 @@ def test_manifest_capture_rejects_member_swap_after_enumeration(
     with pytest.raises(integrity.IntegrityError, match="identity changed"):
         core_splits.build_manifest(tmp_path, "synthetic-v1")
     assert swapped is True
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    (
+        (b'{"row":1}\n', "invalid DatasetRecord"),
+        (b'[]\n', "must be an object"),
+        (b'{"text":"first","text":"second"}\n', "duplicate JSON key"),
+        (b'{malformed}\n', "invalid strict JSON object"),
+    ),
+)
+def test_manifest_refuses_malformed_or_schema_invalid_jsonl(
+    tmp_path: Path,
+    raw: bytes,
+    message: str,
+) -> None:
+    member = tmp_path / "invalid.jsonl"
+    member.write_bytes(raw)
+
+    with pytest.raises(integrity.IntegrityError) as raised:
+        core_splits.build_manifest(tmp_path, "synthetic-v1")
+
+    rendered = str(raised.value)
+    assert f"{member}:1" in rendered
+    assert message in rendered
 
 
 def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
