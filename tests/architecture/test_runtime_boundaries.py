@@ -383,7 +383,9 @@ def _release_payload(verdict: str) -> dict[str, object]:
             "manual_reviewed_predictions": 3,
         },
         "readiness_audit": {
-            "evaluated_split_path": "synthetic-heldout.jsonl",
+            "evaluated_split_path": os.fspath(
+                REPO_ROOT / ".tmp" / "synthetic-heldout.jsonl"
+            ),
             "support_by_label": {label: 1 for label in labels},
         },
     }

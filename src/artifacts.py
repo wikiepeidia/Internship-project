@@ -182,17 +182,19 @@ class HeldOutSupportAudit(BaseModel):
     ready: bool = False
     verdict: ReleaseVerdict = "BLOCK"
 
-    @field_validator("support_by_label")
+    @field_validator("support_by_label", mode="before")
     @classmethod
-    def normalize_support_by_label(cls, value: dict[ThreatLabel, int]) -> dict[ThreatLabel, int]:
+    def normalize_support_by_label(cls, value: object) -> dict[ThreatLabel, int]:
+        if not isinstance(value, Mapping):
+            raise ValueError("support_by_label must be an object")
         unknown_labels = sorted(set(value).difference(LOCKED_RELEASE_LABELS))
         if unknown_labels:
             raise ValueError(f"unknown labels in support_by_label: {', '.join(unknown_labels)}")
         normalized: dict[ThreatLabel, int] = {}
         for label in LOCKED_RELEASE_LABELS:
-            count = int(value.get(label, 0))
-            if count < 0:
-                raise ValueError("support counts must be non-negative")
+            count = value.get(label, 0)
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise ValueError("support counts must be non-negative integers")
             normalized[label] = count
         return normalized
 
@@ -205,8 +207,44 @@ class HeldOutSupportAudit(BaseModel):
 
     @model_validator(mode="after")
     def align_status_with_blockers(self) -> "HeldOutSupportAudit":
-        self.ready = not self.blocker_reasons
-        self.verdict = "PASS" if self.ready else "BLOCK"
+        if self.locked_label_order != LOCKED_RELEASE_LABELS:
+            raise ValueError("locked_label_order must match the locked release labels")
+        if self.risky_labels != LOCKED_RISKY_LABELS:
+            raise ValueError("risky_labels must match the locked risky labels")
+
+        root = self.evaluated_split_root
+        path = self.evaluated_split_path
+        if root is not None:
+            if not root.is_absolute() or ".." in root.parts or "\x00" in os.fspath(root):
+                raise ValueError("evaluated_split_root must be canonical and absolute")
+            root = Path(os.path.abspath(os.path.normpath(os.fspath(root))))
+            candidate = path if path.is_absolute() else root / path
+            candidate = Path(os.path.abspath(os.path.normpath(os.fspath(candidate))))
+            if candidate == root or root not in candidate.parents:
+                raise ValueError("evaluated_split_path must be below evaluated_split_root")
+            self.evaluated_split_root = root
+            self.evaluated_split_path = candidate
+        elif not path.is_absolute() or ".." in path.parts or "\x00" in os.fspath(path):
+            raise ValueError(
+                "evaluated_split_path must be absolute when evaluated_split_root is omitted"
+            )
+
+        computed_reasons = [
+            f"missing held-out support for {label}"
+            for label in LOCKED_RELEASE_LABELS
+            if self.support_by_label[label] == 0
+        ]
+        if "blocker_reasons" in self.model_fields_set and self.blocker_reasons != computed_reasons:
+            raise ValueError("blocker_reasons are inconsistent with held-out support")
+        computed_ready = not computed_reasons
+        computed_verdict: ReleaseVerdict = "PASS" if computed_ready else "BLOCK"
+        if "ready" in self.model_fields_set and self.ready is not computed_ready:
+            raise ValueError("ready is inconsistent with held-out support")
+        if "verdict" in self.model_fields_set and self.verdict != computed_verdict:
+            raise ValueError("verdict is inconsistent with held-out support")
+        self.blocker_reasons = computed_reasons
+        self.ready = computed_ready
+        self.verdict = computed_verdict
         return self
 
 

@@ -42,7 +42,7 @@ def _release_artifact(module: Any) -> Any:
         for label in module.LOCKED_RELEASE_LABELS
     ]
     audit = module.HeldOutSupportAudit(
-        evaluated_split_path=Path("<TMP_ROOT>") / "synthetic-heldout.jsonl",
+        evaluated_split_path=Path.cwd() / ".tmp" / "synthetic-heldout.jsonl",
         support_by_label={label: 1 for label in module.LOCKED_RELEASE_LABELS},
     )
     return module.ReleaseEvaluationArtifact(
@@ -92,6 +92,30 @@ def test_strict_json_rejects_non_finite_tokens(tmp_path: Path, token: str) -> No
     path.write_text('{"value":' + token + "}", encoding="utf-8")
     with pytest.raises(integrity.IntegrityError, match="non-standard JSON token"):
         integrity.strict_json_object(path, where="synthetic document")
+
+
+def test_held_out_audit_rejects_self_authored_status(tmp_path: Path) -> None:
+    zero_support = {label: 0 for label in artifacts.LOCKED_RELEASE_LABELS}
+    with pytest.raises(ValidationError, match="blocker_reasons are inconsistent"):
+        artifacts.HeldOutSupportAudit(
+            evaluated_split_path=tmp_path / "heldout.jsonl",
+            support_by_label=zero_support,
+            blocker_reasons=[],
+        )
+    with pytest.raises(ValidationError, match="locked_label_order"):
+        artifacts.HeldOutSupportAudit(
+            evaluated_split_path=tmp_path / "heldout.jsonl",
+            locked_label_order=tuple(reversed(artifacts.LOCKED_RELEASE_LABELS)),
+            support_by_label={label: 1 for label in artifacts.LOCKED_RELEASE_LABELS},
+        )
+    audit = artifacts.HeldOutSupportAudit(
+        evaluated_split_root=tmp_path,
+        evaluated_split_path=Path("heldout.jsonl"),
+        support_by_label={label: 1 for label in artifacts.LOCKED_RELEASE_LABELS},
+    )
+    assert audit.ready is True
+    assert audit.verdict == "PASS"
+    assert audit.evaluated_split_path == tmp_path / "heldout.jsonl"
 
 
 def _import_targets(source: str) -> set[str]:
