@@ -194,6 +194,7 @@ def _runtime_rows(fixture: Mapping[str, Any]) -> list[tuple[str, str, str, str, 
             if action["option_strings"] and action["dest"] != "help"
         ]
         parser_fact = "flags: " + (", ".join(options) if options else "none")
+        assert command in results
         result = results[command]
         assert result["stdout"] and result["stderr"]
         claim = f"fixture return {result['return_value']}; stdout and stderr preserved"
