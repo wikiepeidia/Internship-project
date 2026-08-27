@@ -454,6 +454,47 @@ def test_explicit_zero_similarity_threshold_reaches_dedup(
     assert captured == {"threshold": 0.0}
 
 
+def test_semantic_cleanup_cannot_remove_last_label_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.data_pipeline.processing import dedup, splitter
+
+    rows = [
+        {
+            "text": f"Tin nhắn ngân hàng tổng hợp đủ dài số {index}",
+            "label": "bank_impersonation",
+            "risk_tier": "high-risk",
+            "suspicious_spans": ["ngân hàng"],
+            "xai_explanation": "Giải thích tổng hợp đủ dài cho kiểm thử phủ nhãn.",
+            "source": "synthetic_claude",
+            "seed_id": f"coverage-seed-{index}",
+        }
+        for index in range(3)
+    ]
+    monkeypatch.setattr(dedup, "lexical_dedup", lambda records: records)
+    monkeypatch.setattr(
+        splitter,
+        "split_dataset",
+        lambda _records, *, split_ratios, salt: {
+            "train": [rows[0]],
+            "val": [rows[1]],
+            "test": [rows[2]],
+        },
+    )
+    monkeypatch.setattr(
+        dedup,
+        "cross_split_dedup",
+        lambda *_splits, threshold: {"val": ["0"], "test": []},
+    )
+
+    with pytest.raises(
+        ValueError, match="post-dedup split coverage failed.*val/bank_impersonation"
+    ):
+        splitter.split_and_dedup(
+            rows, split_ratios=(0.6, 0.2, 0.2), similarity_threshold=0.9
+        )
+
+
 def test_dataset_builder_preserves_explicit_zero_similarity_threshold(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
