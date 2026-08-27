@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.model_adaptation.commands import legacy_phase40 as phase40_commands
 from src.model_adaptation.registry import save_model_registry
 from src.model_adaptation.schemas import (
     ModelRegistry,
@@ -145,12 +146,12 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
     captured = {}
 
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "_load_phase40_review_authorities",
         lambda args: (*sentinels, queue_bytes),
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "_load_jsonl_models_from_bytes",
         lambda payload, path, model_type, **kwargs: sentinel_reviews,
     )
@@ -164,7 +165,7 @@ def test_phase40_human_review_cli_passes_exact_reviewer_return_bytes(
             report_path=tmp_path / "human-review-report.md",
         )
 
-    monkeypatch.setattr(cli_module, "finalize_phase40_human_review", fake_finalize)
+    monkeypatch.setattr(phase40_commands, "finalize_phase40_human_review", fake_finalize)
     args = SimpleNamespace(
         reviewer_return_path=reviewer_return_path,
         repo_root=tmp_path,
@@ -197,7 +198,7 @@ def test_phase40_human_review_cli_sanitizes_unreadable_reviewer_input(
     reviewer_return_path.mkdir(parents=True)
     sentinels = tuple(object() for _ in range(5))
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "_load_phase40_review_authorities",
         lambda args: (*sentinels, b"{}\n"),
     )
@@ -230,7 +231,7 @@ def test_phase40_human_review_cli_hides_path_for_malformed_reviewer_input(
     reviewer_return_path.write_bytes(b"{not-json}\n")
     sentinels = tuple(object() for _ in range(5))
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "_load_phase40_review_authorities",
         lambda args: (*sentinels, b"{}\n"),
     )
@@ -278,22 +279,22 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
     calls: list[str] = []
 
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_frozen_phase40_run_request",
         lambda **kwargs: request,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "verify_phase40_input_bundle",
         lambda *args, **kwargs: contract,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_canonical_phase40_comparison_manifest",
         lambda **kwargs: (comparison, b"{}\n"),
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_frozen_phase40_scope_amendment",
         lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("v3 review reactivated the legacy amendment")
@@ -311,25 +312,25 @@ def test_phase40_v3_review_loader_uses_frozen_upstream_authority(
         assert kwargs["final_authority"] is final
 
     monkeypatch.setattr(
-        cli_module, "load_phase40_review_authority", load_review_authority
+        phase40_commands, "load_phase40_review_authority", load_review_authority
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "verify_phase40_final_review_comparison",
         verify_review_comparison,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_phase40_selected_prediction_bundles",
         lambda *args, **kwargs: bundles,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "_load_jsonl_models_from_bytes",
         lambda *args, **kwargs: queue,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "verify_phase40_review_queue",
         lambda rows, **kwargs: calls.append("queue"),
     )
@@ -376,17 +377,17 @@ def test_phase40_verify_review_queue_rejects_ambiguous_comparison_bytes(
         input_bundle=SimpleNamespace(repository_relative_path="phase40-input.zip")
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_frozen_phase40_run_request",
         lambda **kwargs: request,
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "verify_phase40_input_bundle",
         lambda *args, **kwargs: object(),
     )
     monkeypatch.setattr(
-        cli_module,
+        phase40_commands,
         "load_phase40_review_authority",
         lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("ambiguous comparison reached authority verification")
@@ -436,8 +437,10 @@ def test_phase40_comparison_cli_builds_typed_operator_return(tmp_path, monkeypat
             report_path=tmp_path / "comparison-report.md",
         )
 
-    monkeypatch.setattr(cli_module, "load_frozen_phase40_run_request", fake_load_request)
-    monkeypatch.setattr(cli_module, "finalize_phase40_comparison", fake_finalize)
+    monkeypatch.setattr(
+        phase40_commands, "load_frozen_phase40_run_request", fake_load_request
+    )
+    monkeypatch.setattr(phase40_commands, "finalize_phase40_comparison", fake_finalize)
     argv = [
         "phase40-finalize-comparison",
         "--request-path",

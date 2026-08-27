@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import sys
 
-from src.model_adaptation.commands import adaptation
+from src.model_adaptation.commands import adaptation, legacy_phase40
 from src.model_adaptation.commands.router import dispatch
 
 
@@ -61,23 +61,13 @@ def _resolve_candidate_alias(candidate_arg: str, selection):  # noqa: ANN001, AN
 
 
 def _add_phase40_review_authority_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--request-path", type=Path, required=True)
-    parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--scope-amendment-path", type=Path, required=True)
-    parser.add_argument("--comparison-manifest-path", type=Path, required=True)
-    parser.add_argument("--selected-predictions-path", type=Path, required=True)
-    parser.add_argument("--queue-path", type=Path, required=True)
+    legacy_phase40._add_review_authority_arguments(parser)
 
 
 def _reject_duplicate_json_keys(
     pairs: list[tuple[str, object]],
 ) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"duplicate JSON key: {key}")
-        result[key] = value
-    return result
+    return legacy_phase40._reject_duplicate_json_keys(pairs)
 
 
 def _load_jsonl_models_from_bytes(  # noqa: ANN001
@@ -87,59 +77,25 @@ def _load_jsonl_models_from_bytes(  # noqa: ANN001
     *,
     description: str | None = None,
 ):
-    display = description if description is not None else os.fspath(path)
-    if not payload:
-        raise ValueError(f"required JSONL input is missing or empty: {display}")
-    try:
-        text = payload.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        raise ValueError(f"JSONL input is not strict UTF-8: {display}") from exc
-    if not text.endswith("\n"):
-        raise ValueError(f"JSONL input has a partial final record: {display}")
-    rows = []
-    for index, line in enumerate(text.splitlines()):
-        if not line:
-            raise ValueError(f"JSONL input contains an empty row: {display}")
-        try:
-            parsed = json.loads(line, object_pairs_hook=_reject_duplicate_json_keys)
-            if not isinstance(parsed, dict):
-                raise ValueError("JSONL row must be one object")
-            rows.append(model_type.model_validate(parsed))
-        except Exception as exc:
-            raise ValueError(f"invalid JSONL row {index}: {display}") from exc
-    return tuple(rows)
-
-
-def _load_jsonl_models(path: Path, model_type):  # noqa: ANN001
-    if not path.is_file():
-        raise ValueError(f"required JSONL input is missing or empty: {path}")
-    return _load_jsonl_models_from_bytes(path.read_bytes(), path, model_type)
-
-
-def _parse_package_decision(value: str) -> PackageDecision:
-    if "=" not in value:
-        raise ValueError("package decision must use PACKAGE=approve or PACKAGE=reject:REASON")
-    package, raw_decision = value.rsplit("=", 1)
-    decision, reason_separator, reason = raw_decision.partition(":")
-    return PackageDecision(
-        package=package,
-        decision=decision,
-        reason=(reason if reason_separator else None),
+    return legacy_phase40._load_jsonl_models_from_bytes(
+        payload, path, model_type, description=description
     )
 
 
-def _parse_returned_root(value: str) -> ReturnedBundleRoot:
-    run_id, separator, path = value.partition("=")
-    if not separator:
-        raise ValueError("bundle root must use RUN_ID=REPOSITORY_PATH")
-    return ReturnedBundleRoot(run_id=run_id, path=path)
+def _load_jsonl_models(path: Path, model_type):  # noqa: ANN001
+    return legacy_phase40._load_jsonl_models(path, model_type)
 
 
-def _parse_gpu_identity(value: str) -> ReturnedGpuIdentity:
-    run_id, separator, accelerator = value.partition("=")
-    if not separator:
-        raise ValueError("GPU identity must use RUN_ID=GPU_NAME")
-    return ReturnedGpuIdentity(run_id=run_id, accelerator=accelerator)
+def _parse_package_decision(value: str):  # noqa: ANN202
+    return legacy_phase40._parse_package_decision(value)
+
+
+def _parse_returned_root(value: str):  # noqa: ANN202
+    return legacy_phase40._parse_returned_root(value)
+
+
+def _parse_gpu_identity(value: str):  # noqa: ANN202
+    return legacy_phase40._parse_gpu_identity(value)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,144 +111,23 @@ def build_parser() -> argparse.ArgumentParser:
         convert=handle_convert,
         doctor=handle_doctor,
     )
-
-    phase40_preflight_parser = subparsers.add_parser(
-        "phase40-preflight",
-        help="Authorize the canonical Phase 40 train and validation snapshots",
+    legacy_phase40.register_commands(
+        subparsers,
+        **{
+            "phase40-preflight": handle_phase40_preflight,
+            "phase40-build-source-bundle": handle_phase40_build_source_bundle,
+            "phase40-build-input-bundle": handle_phase40_build_input_bundle,
+            "phase40-verify-input-bundle": handle_phase40_verify_input_bundle,
+            "phase40-verify-run-request": handle_phase40_verify_run_request,
+            "phase40-verify-run-evidence": handle_phase40_verify_run_evidence,
+            "phase40-render-graphs": handle_phase40_render_graphs,
+            "phase40-validate-notebooks": handle_phase40_validate_notebooks,
+            "phase40-finalize-comparison": handle_phase40_finalize_comparison,
+            "phase40-freeze-scope-amendment": handle_phase40_freeze_scope_amendment,
+            "phase40-verify-review-queue": handle_phase40_verify_review_queue,
+            "phase40-finalize-human-review": handle_phase40_finalize_human_review,
+        },
     )
-    phase40_preflight_parser.add_argument(
-        "--train-split",
-        type=Path,
-        required=True,
-        help="Canonical data/splits/train.jsonl path",
-    )
-    phase40_preflight_parser.add_argument(
-        "--val-split",
-        type=Path,
-        required=True,
-        help="Canonical data/splits/val.jsonl path",
-    )
-    phase40_preflight_parser.set_defaults(handler=handle_phase40_preflight)
-
-    phase40_source_parser = subparsers.add_parser(
-        "phase40-build-source-bundle",
-        help="Build the deterministic allowlisted Phase 40 source transfer bundle",
-    )
-    phase40_source_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_source_parser.add_argument("--output-root", type=Path, required=True)
-    phase40_source_parser.set_defaults(handler=handle_phase40_build_source_bundle)
-
-    phase40_input_parser = subparsers.add_parser(
-        "phase40-build-input-bundle",
-        help="Build the deterministic canonical train/validation-only transfer bundle",
-    )
-    phase40_input_parser.add_argument("--train-split", type=Path, required=True)
-    phase40_input_parser.add_argument("--val-split", type=Path, required=True)
-    phase40_input_parser.add_argument("--output-path", type=Path, required=True)
-    phase40_input_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_input_parser.add_argument("--reference-output", type=Path, default=None)
-    phase40_input_parser.set_defaults(handler=handle_phase40_build_input_bundle)
-
-    phase40_verify_input_parser = subparsers.add_parser(
-        "phase40-verify-input-bundle",
-        help="Verify a request-bound input archive before opening its data members",
-    )
-    phase40_verify_input_parser.add_argument("--archive-path", type=Path, required=True)
-    phase40_verify_input_parser.add_argument("--reference-path", type=Path, required=True)
-    phase40_verify_input_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_verify_input_parser.add_argument("--extraction-root", type=Path, default=None)
-    phase40_verify_input_parser.add_argument("--verify-only", action="store_true")
-    phase40_verify_input_parser.set_defaults(handler=handle_phase40_verify_input_bundle)
-
-    phase40_request_parser = subparsers.add_parser(
-        "phase40-verify-run-request",
-        help="Verify the immutable Phase 40 source and train/validation transfer authorities",
-    )
-    phase40_request_parser.add_argument("--request-path", type=Path, required=True)
-    phase40_request_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_request_parser.set_defaults(handler=handle_phase40_verify_run_request)
-
-    phase40_evidence_parser = subparsers.add_parser(
-        "phase40-verify-run-evidence",
-        help="Rehash and verify one complete Phase 40 run-evidence bundle",
-    )
-    phase40_evidence_parser.add_argument("--run-root", type=Path, required=True)
-    phase40_evidence_parser.add_argument(
-        "--allow-prestart-failure",
-        action="store_true",
-        help="Explicitly accept a hash-verified pre-start failure record",
-    )
-    phase40_evidence_parser.set_defaults(handler=handle_phase40_verify_run_evidence)
-
-    phase40_graph_parser = subparsers.add_parser(
-        "phase40-render-graphs",
-        help="Rebuild Phase 40 loss graphs from retained raw events and metrics",
-    )
-    phase40_graph_parser.add_argument("--run-root", type=Path, required=True)
-    phase40_graph_parser.add_argument("--smoothing-window", type=int, default=None)
-    phase40_graph_parser.add_argument("--dpi", type=int, default=120)
-    phase40_graph_parser.set_defaults(handler=handle_phase40_render_graphs)
-
-    phase40_notebook_parser = subparsers.add_parser(
-        "phase40-validate-notebooks",
-        help="Statically validate the three canonical Phase 40 notebook controllers",
-    )
-    phase40_notebook_parser.add_argument("--root", type=Path, required=True)
-    phase40_notebook_parser.set_defaults(handler=handle_phase40_validate_notebooks)
-
-    phase40_comparison_parser = subparsers.add_parser(
-        "phase40-finalize-comparison",
-        help="Reverify local QLoRA/PhoBERT plus the resource-only LoRA probe",
-    )
-    phase40_comparison_parser.add_argument("--request-path", type=Path, required=True)
-    phase40_comparison_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_comparison_parser.add_argument("--output-root", type=Path, required=True)
-    phase40_comparison_parser.add_argument(
-        "--scope-amendment-path", type=Path, required=True
-    )
-    phase40_comparison_parser.add_argument(
-        "--package-decision",
-        action="append",
-        default=[],
-        metavar="PACKAGE=approve|reject:REASON",
-    )
-    phase40_comparison_parser.add_argument(
-        "--bundle-root", action="append", default=[], metavar="RUN_ID=REPOSITORY_PATH"
-    )
-    phase40_comparison_parser.add_argument(
-        "--gpu-identity", action="append", default=[], metavar="RUN_ID=GPU_NAME"
-    )
-    phase40_comparison_parser.add_argument("--verify-only", action="store_true")
-    phase40_comparison_parser.set_defaults(handler=handle_phase40_finalize_comparison)
-
-    phase40_scope_parser = subparsers.add_parser(
-        "phase40-freeze-scope-amendment",
-        help="Freeze the request-bound local two-full-model scope waiver",
-    )
-    phase40_scope_parser.add_argument("--request-path", type=Path, required=True)
-    phase40_scope_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    phase40_scope_parser.set_defaults(handler=handle_phase40_freeze_scope_amendment)
-
-    phase40_queue_parser = subparsers.add_parser(
-        "phase40-verify-review-queue",
-        help="Re-derive a frozen review queue from comparison/input authorities",
-    )
-    _add_phase40_review_authority_arguments(phase40_queue_parser)
-    phase40_queue_parser.set_defaults(handler=handle_phase40_verify_review_queue)
-
-    phase40_human_parser = subparsers.add_parser(
-        "phase40-finalize-human-review",
-        help="Freeze exact-coverage Vietnamese review notes without changing predictions",
-    )
-    _add_phase40_review_authority_arguments(phase40_human_parser)
-    phase40_human_parser.add_argument("--queue-manifest-path", type=Path, required=True)
-    phase40_human_parser.add_argument("--reviewer-return-path", type=Path, required=True)
-    phase40_human_parser.add_argument("--output-root", type=Path, required=True)
-    phase40_human_parser.add_argument(
-        "--vietnamese-fluent-attestation", action="store_true", required=True
-    )
-    phase40_human_parser.add_argument("--verify-only", action="store_true")
-    phase40_human_parser.set_defaults(handler=handle_phase40_finalize_human_review)
 
     phase41_prepare_parser = subparsers.add_parser(
         "phase41-prepare-evaluation",
@@ -599,7 +434,7 @@ def handle_doctor(args: argparse.Namespace) -> int:
     return dispatch("doctor", args)
 
 
-def handle_phase40_preflight(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_preflight(args: argparse.Namespace) -> int:
     """Validate only the canonical train/validation inputs and print identities."""
 
     contract = preflight_phase40_inputs(
@@ -615,7 +450,7 @@ def handle_phase40_preflight(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_build_source_bundle(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_build_source_bundle(args: argparse.Namespace) -> int:
     """Build and print the exact deterministic source transfer identity."""
 
     built = build_phase40_source_bundle(args.repo_root, args.output_root)
@@ -623,7 +458,7 @@ def handle_phase40_build_source_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_build_input_bundle(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_build_input_bundle(args: argparse.Namespace) -> int:
     """Build an exact-byte train/validation archive from canonical preflight."""
 
     contract = preflight_phase40_inputs(
@@ -642,7 +477,7 @@ def handle_phase40_build_input_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_verify_input_bundle(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_verify_input_bundle(args: argparse.Namespace) -> int:
     """Verify a typed input reference and optionally materialize fixed outputs."""
 
     reference = InputBundleReference.model_validate_json(
@@ -662,7 +497,7 @@ def handle_phase40_verify_input_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_verify_run_request(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_verify_run_request(args: argparse.Namespace) -> int:
     """Verify a frozen run request and both of its transfer authorities."""
 
     request = RunRequest.model_validate_json(args.request_path.read_text(encoding="utf-8"))
@@ -671,7 +506,7 @@ def handle_phase40_verify_run_request(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_verify_run_evidence(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_verify_run_evidence(args: argparse.Namespace) -> int:
     evidence = verify_phase40_bundle(
         args.run_root,
         allow_prestart_failure=args.allow_prestart_failure,
@@ -683,7 +518,7 @@ def handle_phase40_verify_run_evidence(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_render_graphs(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_render_graphs(args: argparse.Namespace) -> int:
     provenance = render_phase40_graphs(
         args.run_root,
         smoothing_window=args.smoothing_window,
@@ -696,7 +531,7 @@ def handle_phase40_render_graphs(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_freeze_scope_amendment(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_freeze_scope_amendment(args: argparse.Namespace) -> int:
     request = load_frozen_phase40_run_request(
         repo_root=args.repo_root,
         request_path=args.request_path,
@@ -710,7 +545,7 @@ def handle_phase40_freeze_scope_amendment(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
     request = load_frozen_phase40_run_request(
         repo_root=args.repo_root,
         request_path=args.request_path,
@@ -739,7 +574,7 @@ def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
+def _legacy_load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
     request = load_frozen_phase40_run_request(
         repo_root=args.repo_root,
         request_path=args.request_path,
@@ -818,7 +653,7 @@ def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
     return request, contract, comparison, bundles, queue, queue_bytes
 
 
-def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
     _, _, comparison, _, queue, queue_bytes = _load_phase40_review_authorities(args)
     if comparison.review_queue_sha256 is None:
         raise ValueError("comparison manifest has no review-queue identity")
@@ -828,7 +663,7 @@ def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
     request, contract, _, bundles, queue, queue_bytes = (
         _load_phase40_review_authorities(args)
     )
@@ -870,7 +705,7 @@ def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
+def _legacy_handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
     """Compatibility entrypoint for the Plan 40-03 documented verification command."""
 
     from src.model_adaptation.phase40_notebooks import validate_phase40_notebooks
@@ -882,6 +717,58 @@ def handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
         return 1
     print(f"Phase 40 notebooks validated: root={args.root} count=3")
     return 0
+
+
+def handle_phase40_preflight(args: argparse.Namespace) -> int:
+    return dispatch("phase40-preflight", args)
+
+
+def handle_phase40_build_source_bundle(args: argparse.Namespace) -> int:
+    return dispatch("phase40-build-source-bundle", args)
+
+
+def handle_phase40_build_input_bundle(args: argparse.Namespace) -> int:
+    return dispatch("phase40-build-input-bundle", args)
+
+
+def handle_phase40_verify_input_bundle(args: argparse.Namespace) -> int:
+    return dispatch("phase40-verify-input-bundle", args)
+
+
+def handle_phase40_verify_run_request(args: argparse.Namespace) -> int:
+    return dispatch("phase40-verify-run-request", args)
+
+
+def handle_phase40_verify_run_evidence(args: argparse.Namespace) -> int:
+    return dispatch("phase40-verify-run-evidence", args)
+
+
+def handle_phase40_render_graphs(args: argparse.Namespace) -> int:
+    return dispatch("phase40-render-graphs", args)
+
+
+def handle_phase40_validate_notebooks(args: argparse.Namespace) -> int:
+    return dispatch("phase40-validate-notebooks", args)
+
+
+def handle_phase40_finalize_comparison(args: argparse.Namespace) -> int:
+    return dispatch("phase40-finalize-comparison", args)
+
+
+def handle_phase40_freeze_scope_amendment(args: argparse.Namespace) -> int:
+    return dispatch("phase40-freeze-scope-amendment", args)
+
+
+def handle_phase40_verify_review_queue(args: argparse.Namespace) -> int:
+    return dispatch("phase40-verify-review-queue", args)
+
+
+def handle_phase40_finalize_human_review(args: argparse.Namespace) -> int:
+    return dispatch("phase40-finalize-human-review", args)
+
+
+def _load_phase40_review_authorities(args: argparse.Namespace):  # noqa: ANN201
+    return legacy_phase40._load_phase40_review_authorities(args)
 
 
 def _phase41_output_root(value: Path | None) -> Path:
