@@ -44,6 +44,11 @@ EXPECTED_COMMANDS = (
     "phase41-export-evidence",
     "phase41-verify-evidence",
 )
+PHASE40_ROUTES = {
+    command: ("src.model_adaptation.commands.legacy_phase40", f"handle_{command.replace('-', '_')}")
+    for command in EXPECTED_COMMANDS
+    if command.startswith("phase40-")
+}
 OPTIONAL_OR_IMPLEMENTATION_PREFIXES = (
     "numpy",
     "sklearn",
@@ -369,6 +374,15 @@ def test_router_is_closed_and_adaptation_routes_are_lazy() -> None:
     assert "MappingProxyType" in source
     assert "import_module(route.module)" in source
     assert "import_module(command" not in source
+
+
+def test_phase40_routes_are_closed_and_lazy() -> None:
+    rows = _literal_route_rows()
+    assert {command: rows[command] for command in PHASE40_ROUTES} == PHASE40_ROUTES
+    facade_source = (REPO_ROOT / "src/model_adaptation/cli.py").read_text(encoding="utf-8")
+    for command, (_, symbol) in PHASE40_ROUTES.items():
+        assert f'dispatch("{command}", args)' in facade_source
+        assert f"def {symbol}(" in facade_source
 
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--capture":
