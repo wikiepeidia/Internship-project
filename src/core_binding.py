@@ -239,6 +239,23 @@ class BoundParent:
         except FileNotFoundError:
             return False
 
+    def rmdir_if_identity(self, name: str, expected: tuple[int, int]) -> bool:
+        """Remove one empty child directory only when its held identity matches."""
+
+        self.child(name)
+        if os.name == "nt":
+            return _windows_rmdir_opened(self.windows_handles[-1], name, expected)
+        try:
+            metadata = self.lstat(name)
+            if not stat.S_ISDIR(metadata.st_mode):
+                return False
+            if (metadata.st_dev, metadata.st_ino) != expected:
+                return False
+            os.rmdir(name, dir_fd=self.directory_fd)
+            return True
+        except FileNotFoundError:
+            return False
+
 
 def _windows_open_directory(path: Path) -> int:
     import ctypes
@@ -552,6 +569,63 @@ def _windows_unlink_opened(
         return True
     finally:
         os.close(descriptor)
+
+
+def _windows_rmdir_opened(
+    parent_handle: int,
+    name: str,
+    expected: tuple[int, int],
+) -> bool:
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        handle = _windows_nt_open(
+            parent_handle,
+            name,
+            desired_access=0x00010000 | 0x80,
+            disposition=1,
+            directory=True,
+        )
+    except FileNotFoundError:
+        return False
+    try:
+        _attributes, volume, index = _windows_handle_identity(handle)
+        if (volume, index) != expected:
+            return False
+
+        class FileDisposition(ctypes.Structure):
+            _fields_ = [("delete_file", wintypes.BOOLEAN)]
+
+        class IoStatusBlock(ctypes.Structure):
+            _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
+
+        disposition = FileDisposition(True)
+        io_status = IoStatusBlock()
+        function = ctypes.windll.ntdll.NtSetInformationFile
+        function.argtypes = (
+            wintypes.HANDLE,
+            ctypes.POINTER(IoStatusBlock),
+            wintypes.LPVOID,
+            wintypes.ULONG,
+            wintypes.ULONG,
+        )
+        function.restype = ctypes.c_long
+        status = function(
+            handle,
+            ctypes.byref(io_status),
+            ctypes.byref(disposition),
+            ctypes.sizeof(disposition),
+            13,
+        )
+        if status < 0:
+            converter = ctypes.windll.ntdll.RtlNtStatusToDosError
+            converter.argtypes = (wintypes.ULONG,)
+            converter.restype = wintypes.ULONG
+            raise ctypes.WinError(converter(ctypes.c_ulong(status).value))
+        return True
+    finally:
+        _windows_close_handle(handle)
 
 
 @contextmanager

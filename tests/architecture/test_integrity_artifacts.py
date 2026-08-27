@@ -351,6 +351,52 @@ def test_exclusive_write_binds_parent_across_ancestor_swap(
         assert target.read_bytes() == b"owned"
 
 
+def test_nested_output_parents_are_created_through_the_bound_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core_binding import BoundParent
+
+    root = tmp_path / "stable-root"
+    displaced = tmp_path / "displaced-root"
+    root.mkdir()
+    original_bind = BoundParent.bind_child_directory
+    outcome: dict[str, bool] = {}
+
+    def swap_before_nested_create(
+        parent: BoundParent,
+        name: str,
+        *,
+        create: bool = False,
+        mode: int = 0o700,
+    ):
+        if name == "second" and create and not outcome:
+            try:
+                root.rename(displaced)
+                root.mkdir()
+                outcome["swapped"] = True
+            except OSError:
+                outcome["blocked"] = True
+        return original_bind(parent, name, create=create, mode=mode)
+
+    monkeypatch.setattr(BoundParent, "bind_child_directory", swap_before_nested_create)
+    relative = Path("first") / "second" / "artifact.json"
+    try:
+        target = integrity.prepare_bounded_output(
+            root,
+            relative,
+            where="synthetic nested output",
+        )
+    except integrity.IntegrityError:
+        assert outcome == {"swapped": True}
+        assert not (root / "first").exists()
+        assert not (displaced / "first").exists()
+    else:
+        assert outcome == {"blocked": True}
+        assert target == root / relative
+        assert target.parent.is_dir()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Win32 delete-by-handle contract")
 def test_owned_cleanup_handle_blocks_post_check_name_replacement(
     tmp_path: Path,

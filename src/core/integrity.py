@@ -300,21 +300,57 @@ def prepare_bounded_output(root: Path, relative: Path, *, where: str) -> Path:
 
     trusted_root = reject_redirecting_ancestry(Path(root), where=f"{where} root")
     root_identity = _directory_identity(trusted_root, where=f"{where} root")
-    target = bounded_descendant(trusted_root, relative, where=where)
+    bounded_descendant(trusted_root, relative, where=where)
     supplied = Path(relative)
-    current = trusted_root
-    for part in supplied.parent.parts:
-        current = current / part
+
+    def ensure_chain(parent: BoundParent, parts: tuple[str, ...]) -> None:
+        if not parts:
+            parent.assert_still_named()
+            return
+        name = parts[0]
+        manager = parent.bind_child_directory(name)
+        created = False
+        child: BoundParent | None = None
         try:
-            metadata = os.lstat(current)
+            child = manager.__enter__()
         except FileNotFoundError:
+            manager = parent.bind_child_directory(name, create=True)
             try:
-                current.mkdir()
+                child = manager.__enter__()
+                created = True
             except FileExistsError:
-                pass
-            metadata = os.lstat(current)
-        if _is_redirecting(current) or not stat.S_ISDIR(metadata.st_mode):
-            raise IntegrityError(f"{where} parent must be a non-redirecting directory")
+                manager = parent.bind_child_directory(name)
+                child = manager.__enter__()
+        if child is None:  # pragma: no cover - context managers either yield or raise
+            raise IntegrityError(f"cannot bind {where} parent")
+        created_identity = child.directory_identity() if created else None
+        failed = False
+        try:
+            parent.assert_still_named()
+            child.assert_still_named()
+            ensure_chain(child, parts[1:])
+            child.assert_still_named()
+            parent.assert_still_named()
+        except Exception:
+            failed = True
+            raise
+        finally:
+            manager.__exit__(*__import__("sys").exc_info())
+            if failed and created_identity is not None:
+                try:
+                    parent.rmdir_if_identity(name, created_identity)
+                except OSError as cleanup_error:
+                    raise IntegrityError(
+                        f"cannot clean an owned {where} parent after failure"
+                    ) from cleanup_error
+
+    try:
+        with bind_parent(trusted_root) as bound_root:
+            bound_root.assert_still_named()
+            ensure_chain(bound_root, tuple(supplied.parent.parts))
+            bound_root.assert_still_named()
+    except (OSError, ValueError) as error:
+        raise IntegrityError(f"cannot create {where} parents through the bound root") from error
     _require_directory_identity(trusted_root, root_identity, where=f"{where} root")
     return bounded_descendant(trusted_root, supplied, where=where)
 
