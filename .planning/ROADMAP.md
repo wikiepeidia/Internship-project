@@ -969,12 +969,12 @@ Plans:
 5. Oversized active modules and dependency cycles are reduced through bounded extraction slices, with explicit size/import budgets and no private-symbol mass rewrite in one step.
 6. A report-ready architecture/provenance document and reviewed D-drive storage inventory explain what is active, what is historical, which files are safe cleanup candidates, and why the retained artifacts prove the actual training/evaluation story.
 
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 41.1-01-PLAN.md -- Archive the exact Phase 41 producer source and freeze synthetic compatibility/safety baselines
+- [x] 41.1-01-PLAN.md -- Archive the exact Phase 41 producer source and freeze synthetic compatibility/safety baselines
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -1121,7 +1121,7 @@ Plans:
 | 39. Independent Quality Re-Judge | 7/7 | Complete   | 2026-08-24 |
 | 40. Multi-Model Training Evidence | 6/6 | Complete    | 2026-08-26 |
 | 41. Held-Out Evaluation Discipline | 2/2 | Complete | 2026-08-26 |
-| 41.1 Codebase Architecture Overhaul | 0/6 | Ready to execute | - |
+| 41.1 Codebase Architecture Overhaul | 1/6 | In Progress|  |
 | 42. Report Overhaul | 0/TBD | Not started | - |
 | 43. Slide Overhaul | 0/TBD | Not started | - |
 | 44. Code Cleanup and Defense Prep | 0/TBD | Not started | - |

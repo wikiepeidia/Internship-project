@@ -4,17 +4,17 @@ milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
-status: ready_to_execute
-stopped_at: Phase 41.1 planned and independently checked; 41.1-01 is ready to execute
-last_updated: "2026-08-27T00:47:32+07:00"
+status: executing
+stopped_at: Completed 41.1-01-PLAN.md
+last_updated: "2026-08-27T00:46:38.159Z"
 last_activity: 2026-08-27
-last_activity_desc: Phase 41.1 planned in six verified waves with full requirement and decision coverage
-state_head: 6cf1e7a762336925ab6bcdc8da9493a579b954ae
+last_activity_desc: Phase 41.1 execution started
+state_head: b0d24820720f53100d9a94174790d70b5354fa27
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 87
-  completed_plans: 55
+  completed_plans: 56
   percent: 13
 ---
 
@@ -37,11 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 41.1 — Codebase Architecture Overhaul
-Plan: 41.1-01 ready
-Status: Ready to execute six sequential, compatibility-first refactor waves
-Last activity: 2026-08-27 — Phase 41.1 plans passed the GSD plan checker after two targeted revision rounds; 6/6 requirements and 8/8 decisions are covered
-Progress: [█████████████░░░░░░░] 55/87 plans (63%)
+Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-08-27 — Phase 41.1 execution started
+Progress: [█████████████░░░░░░░] 56/87 plans (64%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -233,9 +233,9 @@ Progress: [█████████████░░░░░░░] 55/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T00:47:32+07:00
-**Stopped at:** Phase 41.1 planned and independently verified; implementation has not started
-**Resume file:** `.planning/phases/41.1-codebase-architecture-overhaul/41.1-01-PLAN.md`
+**Last session:** 2026-08-27T00:46:37.406Z
+**Stopped at:** Completed 41.1-01-PLAN.md
+**Resume file:** None
 
 - Last session: 2026-07-02
 - Stopped at: Quick task 260702-ldt removed the irrelevant OTP sentence from the Vietcombank scam golden prompt and revalidated both final golden prompts 5/5 through the real web demo. Phase 29 (Environment Parity & Offline Verification) is next and has no phase directory yet.
@@ -332,6 +332,9 @@ Progress: [█████████████░░░░░░░] 55/87 p
 - [Phase 41 release review, 2026-08-26]: The terminal metrics remain one immutable two-model evaluation pass, but absolute global zero-filesystem-access wording is retracted. At least two broad pre-run pytest executions and one post-run focused regression parsed/statted/hashed the live splits outside the launcher; none influenced training, tuning, selection, repair, inference, or retry. `data/models/phase41/phase41-provenance-erratum.json` (SHA-256 `c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672`) is a mandatory downstream companion.
 - [Phase 41 release review, 2026-08-26]: The sealed export and manifest `9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7` were not altered or resealed. Default downstream-contract validation is metadata-only; live integrity reads require explicit opt-in. Export publication is transactional/idempotent and legacy-console-safe. The erratum separately maps the captured-helper and model-lease preclaim audits that the frozen legacy field conflated.
 - [Phase 41 verification closure, 2026-08-26]: Goal verification passed 12/12 and the independent release review is clean after commits `9037404`, `dde319e`, `48fe16d`, and `526393b`. Focused remediation checks passed 7/7 and the bounded re-review passed 6/6. The broad suite was intentionally not rerun after CR-01 because it was unnecessary and could cross the reserved-data boundary. The immutable export and mandatory erratum are one downstream reporting authority.
+- [Phase 41.1]: Capture real CLI parser construction only after installing a closed synthetic dependency set in a fresh guarded process.
+- [Phase 41.1]: Store the historical mirror with Git text conversion disabled and compare index blobs to the receipt hashes.
+- [Phase 41.1]: Escape unencodable console characters only at the terminal boundary; never rewrite archival or receipt bytes.
 
 ## Performance Metrics
 
@@ -342,6 +345,7 @@ Progress: [█████████████░░░░░░░] 55/87 p
 | Phase 39 P01 | 25min | 2 tasks | 4 files |
 | Phase 41 P01 | 3h 36m active | 3 tasks | 8 files |
 | Phase 41 P02 | 8h | 3 tasks | 17 files |
+| Phase 41.1 P01 | 24min | 3 tasks | 50 files |
 
 ### Blockers
 
