@@ -142,44 +142,11 @@ def _count_nonempty_jsonl_lines(path: Path) -> int:
     with path.open("r", encoding="utf-8") as handle:
         return sum(1 for line in handle if line.strip())
 def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
-    """Merge partial generation output into the primary artifact by text."""
+    """Validate and atomically salvage generated and partial artifacts."""
 
-    synthetic_dir = data_dir / "synthetic"
-    generated_path = synthetic_dir / "generated.jsonl"
-    partial_path = synthetic_dir / "generated-partial.jsonl"
-    seen_texts: set[str] = set()
-    merged: list[str] = []
-    for source_path in (generated_path, partial_path):
-        if not source_path.exists():
-            continue
-        with source_path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                try:
-                    record = json.loads(stripped)
-                except json.JSONDecodeError:
-                    continue
-                key = record.get("text") or stripped
-                if key not in seen_texts:
-                    seen_texts.add(key)
-                    merged.append(stripped)
-    before_generated = _count_nonempty_jsonl_lines(generated_path)
-    before_partial = _count_nonempty_jsonl_lines(partial_path)
-    tmp_path = generated_path.with_suffix(".tmp")
-    generated_path.parent.mkdir(parents=True, exist_ok=True)
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        handle.writelines(f"{line}\n" for line in merged)
-    os.replace(tmp_path, generated_path)
-    return {
-        "generated_before": before_generated,
-        "partial_before": before_partial,
-        "merged_unique": len(merged),
-        "duplicates_dropped": before_generated + before_partial - len(merged),
-        "generated_path": str(generated_path),
-        "partial_path_kept": str(partial_path),
-    }
+    from src.data_pipeline.recovery import salvage_partial_records as implementation
+
+    return implementation(data_dir)
 def _write_jsonl_records(
     output_path: Path,
     records: list[dict[str, Any]],

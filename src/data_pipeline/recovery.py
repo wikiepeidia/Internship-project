@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import stat
 from typing import Any
+import uuid
 
 from src.core.integrity import IntegrityError, reject_redirecting_ancestry
 from src.data_pipeline.core.records import DatasetRecord
@@ -206,8 +208,157 @@ def load_recoverable_records(
     return unique_by_text, source_stats, loaded, invalid, conflicts
 
 
+def _read_salvage_sources(
+    root: Path,
+    sources: list[Path],
+) -> tuple[list[dict[str, Any]], dict[Path, bytes], int]:
+    records: list[dict[str, Any]] = []
+    captured: dict[Path, bytes] = {}
+    by_text: dict[str, dict[str, Any]] = {}
+    errors: list[str] = []
+    nonblank = duplicates = 0
+    for path in sources:
+        identity = path.relative_to(root).as_posix()
+        raw = path.read_bytes()
+        captured[path] = raw
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as error:
+            errors.append(f"{identity}: not strict UTF-8: {error}")
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if not (stripped := line.strip()):
+                continue
+            nonblank += 1
+            try:
+                value = _strict_json_value(
+                    stripped, source=identity, line_number=line_number
+                )
+                record = DatasetRecord.model_validate(value).model_dump()
+            except Exception as error:
+                errors.append(f"{identity}:{line_number}: invalid DatasetRecord: {error}")
+                continue
+            key = record["text"].strip()
+            existing = by_text.get(key)
+            if existing is None:
+                by_text[key] = record
+                records.append(record)
+            elif existing == record:
+                duplicates += 1
+            else:
+                errors.append(f"{identity}:{line_number}: conflicting duplicate text")
+    if nonblank == 0:
+        errors.append("salvage requires at least one nonempty source")
+    if errors:
+        raise RecoveryValidationError(
+            f"salvage validation failed with {len(errors)} error(s): " + " | ".join(errors)
+        )
+    return records, captured, duplicates
+
+
+def _ensure_owned_directory(root: Path, relative: Path) -> Path:
+    target = root / relative
+    target.mkdir(parents=True, exist_ok=True)
+    target = reject_redirecting_ancestry(target, where="recovery-owned directory")
+    if root not in target.parents or not target.is_dir():
+        raise RecoveryValidationError("recovery-owned directory escaped its data root")
+    return target
+
+
+def _validated_jsonl_bytes(records: list[dict[str, Any]]) -> bytes:
+    rendered = b"".join(
+        (DatasetRecord.model_validate(record).model_dump_json() + "\n").encode("utf-8")
+        for record in records
+    )
+    for line in rendered.decode("utf-8", errors="strict").splitlines():
+        DatasetRecord.model_validate_json(line)
+    return rendered
+
+
+def _write_exclusive_bytes(path: Path, value: bytes) -> Path:
+    with path.open("xb") as handle:
+        handle.write(value)
+        handle.flush()
+        os.fsync(handle.fileno())
+    if path.read_bytes() != value:
+        raise RecoveryValidationError(f"recovery write changed bytes: {path}")
+    return path
+
+
+def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
+    """Validate and atomically salvage generated and partial artifacts."""
+
+    root = _trusted_data_root(data_dir)
+    synthetic = root / "synthetic"
+    if not synthetic.is_dir():
+        raise RecoveryValidationError("salvage requires an existing synthetic directory")
+    synthetic = reject_redirecting_ancestry(synthetic, where="salvage source root")
+    generated = synthetic / "generated.jsonl"
+    partial = synthetic / "generated-partial.jsonl"
+    sources = [
+        _regular_member(path, root)
+        for path in (generated, partial)
+        if path.exists()
+    ]
+    if not sources:
+        raise RecoveryValidationError("salvage requires at least one existing source")
+    records, captured, duplicates = _read_salvage_sources(root, sources)
+    candidate = _validated_jsonl_bytes(records)
+    token = uuid.uuid4().hex
+    stage = synthetic / f".generated.salvage-{token}.tmp"
+    _write_exclusive_bytes(stage, candidate)
+
+    backup_path: Path | None = None
+    old_generated = captured.get(generated)
+    if old_generated:
+        backups = _ensure_owned_directory(root, Path("recovery/backups"))
+        digest = hashlib.sha256(old_generated).hexdigest()
+        backup_path = backups / f"generated-{digest}.jsonl"
+        try:
+            _write_exclusive_bytes(backup_path, old_generated)
+        except FileExistsError:
+            if backup_path.read_bytes() != old_generated:
+                raise RecoveryValidationError("content-addressed salvage backup collision")
+
+    receipts = _ensure_owned_directory(root, Path("recovery/receipts"))
+    receipt_path = receipts / f"salvage-{token}.json"
+    receipt = {
+        "status": "validated-for-publish",
+        "sources": [path.relative_to(root).as_posix() for path in sources],
+        "candidate_sha256": hashlib.sha256(candidate).hexdigest(),
+        "records": len(records),
+        "backup": backup_path.relative_to(root).as_posix() if backup_path else None,
+    }
+    _write_exclusive_bytes(
+        receipt_path,
+        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8"),
+    )
+    if old_generated is not None and generated.read_bytes() != old_generated:
+        raise RecoveryValidationError("generated source changed before salvage publication")
+    if old_generated is None and generated.exists():
+        raise RecoveryValidationError("generated target appeared before salvage publication")
+    os.replace(stage, generated)
+    return {
+        "generated_before": sum(
+            1 for line in (old_generated or b"").decode("utf-8").splitlines() if line.strip()
+        ),
+        "partial_before": sum(
+            1
+            for line in captured.get(partial, b"").decode("utf-8").splitlines()
+            if line.strip()
+        ),
+        "merged_unique": len(records),
+        "duplicates_dropped": duplicates,
+        "generated_path": str(generated),
+        "partial_path_kept": str(partial),
+        "backup_path": str(backup_path) if backup_path else None,
+        "receipt_path": str(receipt_path),
+    }
+
+
 __all__ = (
     "RecoveryValidationError",
     "load_recoverable_records",
     "recoverable_record_paths",
+    "salvage_partial_records",
 )

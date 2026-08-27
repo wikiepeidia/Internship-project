@@ -132,3 +132,74 @@ def test_source_statistics_use_distinct_root_relative_identities(tmp_path: Path)
     ]
     assert loaded == 2
     assert invalid == conflicts == 0
+
+
+def test_salvage_absent_or_empty_sources_never_create_primary(tmp_path: Path) -> None:
+    root = tmp_path / "corpus"
+    partial = root / "synthetic" / "generated-partial.jsonl"
+    partial.parent.mkdir(parents=True)
+    partial.write_text("\n", encoding="utf-8")
+    generated = partial.with_name("generated.jsonl")
+
+    with pytest.raises(recovery.RecoveryValidationError, match="nonempty source"):
+        recovery.salvage_partial_records(root)
+
+    assert not generated.exists()
+    assert not (root / "recovery").exists()
+
+
+def test_salvage_aggregates_errors_and_preserves_previous_primary(tmp_path: Path) -> None:
+    root = tmp_path / "corpus"
+    generated = root / "synthetic" / "generated.jsonl"
+    shared_text = "Thông báo trùng nội dung phải được phát hiện xung đột."
+    _write_record(generated, _record(shared_text, "benign", "seed-old"))
+    previous = generated.read_bytes()
+    partial = generated.with_name("generated-partial.jsonl")
+    partial.write_text(
+        "{not-json}\n"
+        + json.dumps(
+            _record(shared_text, "task_scam", "seed-conflict"),
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(recovery.RecoveryValidationError) as exc_info:
+        recovery.salvage_partial_records(root)
+
+    message = str(exc_info.value)
+    assert "invalid strict JSON" in message
+    assert "conflicting duplicate text" in message
+    assert generated.read_bytes() == previous
+    assert not (root / "recovery").exists()
+
+
+def test_salvage_success_retains_content_addressed_backup_and_receipt(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    generated = root / "synthetic" / "generated.jsonl"
+    partial = generated.with_name("generated-partial.jsonl")
+    _write_record(
+        generated,
+        _record("Thông báo hợp lệ đã có trong dữ liệu chính.", seed_id="seed-old"),
+    )
+    previous = generated.read_bytes()
+    _write_record(
+        partial,
+        _record("Thông báo hợp lệ được phục hồi từ tệp tạm.", seed_id="seed-new"),
+    )
+    partial_before = partial.read_bytes()
+
+    result = recovery.salvage_partial_records(root)
+
+    assert result["generated_before"] == 1
+    assert result["partial_before"] == 1
+    assert result["merged_unique"] == 2
+    assert Path(result["backup_path"]).read_bytes() == previous
+    assert Path(result["receipt_path"]).is_file()
+    assert partial.read_bytes() == partial_before
+    lines = generated.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert all(json.loads(line)["seed_id"] in {"seed-old", "seed-new"} for line in lines)
