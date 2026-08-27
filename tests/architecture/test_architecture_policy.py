@@ -700,6 +700,16 @@ def _python_routes(source: str) -> list[list[str]]:
         "subprocess.check_call", "subprocess.check_output", "os.system",
         "os.popen", "os.startfile",
     }
+    command_keywords = {
+        "subprocess.Popen": "args",
+        "subprocess.run": "args",
+        "subprocess.call": "args",
+        "subprocess.check_call": "args",
+        "subprocess.check_output": "args",
+        "os.system": "command",
+        "os.popen": "cmd",
+        "os.startfile": "path",
+    }
     delegated_wrapper = any(
         isinstance(node, ast.FunctionDef)
         and node.name == "command_output"
@@ -709,32 +719,51 @@ def _python_routes(source: str) -> list[list[str]]:
     )
     routes: list[tuple[int, list[str]]] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not node.args:
+        if not isinstance(node, ast.Call):
             continue
         function_name = _qualified_call_name(node.func, aliases)
+        if any(keyword.arg is None for keyword in node.keywords):
+            if function_name in execution_apis or function_name == "command_output":
+                raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
+            continue
+        keyword_name = (
+            "command" if function_name == "command_output" else command_keywords.get(function_name)
+        )
+        if keyword_name is None:
+            continue
+        keyword_nodes = [
+            keyword.value for keyword in node.keywords if keyword.arg == keyword_name
+        ]
+        if len(node.args) > 1 or len(keyword_nodes) > 1 or (node.args and keyword_nodes):
+            raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
+        command_node = node.args[0] if node.args else keyword_nodes[0] if keyword_nodes else None
+        if command_node is None:
+            raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
         if function_name == "command_output" and delegated_wrapper:
             routes.append(
-                (node.lineno, _static_route(node.args[0], where=f"line {node.lineno}"))
+                (node.lineno, _static_route(command_node, where=f"line {node.lineno}"))
             )
             continue
         if function_name not in execution_apis:
             continue
-        if any(
-            keyword.arg == "shell"
-            and isinstance(keyword.value, ast.Constant)
-            and keyword.value.value is True
-            for keyword in node.keywords
-        ):
-            raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
+        for keyword in node.keywords:
+            if keyword.arg == "shell" and not (
+                isinstance(keyword.value, ast.Constant) and keyword.value.value is False
+            ):
+                raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
+            if keyword.arg == "executable" and not (
+                isinstance(keyword.value, ast.Constant) and keyword.value.value is None
+            ):
+                raise AssertionError(f"unreviewed executable statement at line {node.lineno}")
         if (
             delegated_wrapper
             and function_name == "subprocess.run"
-            and isinstance(node.args[0], ast.Name)
-            and node.args[0].id == "command"
+            and isinstance(command_node, ast.Name)
+            and command_node.id == "command"
         ):
             continue
         routes.append(
-            (node.lineno, _static_route(node.args[0], where=f"line {node.lineno}"))
+            (node.lineno, _static_route(command_node, where=f"line {node.lineno}"))
         )
     return [route for _line, route in sorted(routes)]
 
@@ -745,13 +774,19 @@ def _batch_routes(source: str) -> list[list[str]]:
     for raw_line in logical.splitlines():
         line = raw_line.strip().lstrip("@").strip()
         lowered = line.casefold()
-        if not line or lowered.startswith(("rem ", "::", "echo", "@echo")):
+        if not line or lowered.startswith(("rem ", "::", "echo")):
             continue
+        if re.match(r"(?i)^(?:cd(?:\s|$)|chcp(?:\s|$)|pause(?:\s|$))", line):
+            continue
+        if re.match(r"(?i)^(?:start|call)\b|^[&|]", line):
+            raise AssertionError("unreviewed executable statement in batch tool")
         if re.match(
             r"(?i)^(?:python(?:3)?|py|cmd(?:\.exe)?|powershell(?:\.exe)?|pwsh(?:\.exe)?|bash|sh)\b",
             line,
         ):
             routes.append(shlex.split(line, posix=True))
+            continue
+        raise AssertionError("unreviewed executable statement in batch tool")
     return routes
 
 
@@ -762,9 +797,15 @@ def _powershell_routes(path: Path, source: str) -> list[list[str]]:
     )
     assert not forbidden_wrappers, "unreviewed executable statement in PowerShell tool"
     call_operators = re.findall(r"(?m)^\s*&\s+([^\r\n]+)", source)
+    dot_operators = re.findall(r"(?m)^\s*\.\s+([^\r\n]+)", source)
+    direct_process_heads = re.findall(
+        r"(?im)^\s*(?:python(?:3)?|py|git|cmd(?:\.exe)?|powershell(?:\.exe)?|"
+        r"pwsh(?:\.exe)?|bash|sh|[^\s]+\.(?:exe|com|cmd|bat|ps1|sh))\b[^\r\n]*",
+        source,
+    )
     dotnet_starts = re.findall(r"\[System\.Diagnostics\.Process\]::Start\s*\(", source)
     if path.name == "phase40_comparison_launcher.ps1":
-        assert call_operators == [] and len(dotnet_starts) == 1
+        assert call_operators == [] and dot_operators == [] and len(dotnet_starts) == 1
         match = re.search(
             r"\$FinalizerArguments\s*=\s*@\((.*?)\)\s*\r?\n",
             source,
@@ -773,7 +814,8 @@ def _powershell_routes(path: Path, source: str) -> list[list[str]]:
         assert match is not None
         return [["python", *re.findall(r"'([^']*)'", match.group(1))]]
     if path.name == "phase41_one_shot_launcher.ps1":
-        assert len(call_operators) == 1 and call_operators[0].lstrip().startswith("$PythonPath ")
+        assert len(call_operators) == 1 and dot_operators == []
+        assert call_operators[0].lstrip().startswith("$PythonPath ")
         assert len(dotnet_starts) == 1
         match = re.search(
             r"foreach\s*\(\$Argument\s+in\s+@\((.*?)\)\s*\)\s*\{",
@@ -829,7 +871,7 @@ def _powershell_routes(path: Path, source: str) -> list[list[str]]:
                 module = str(node.args[0].value)
         assert argv is not None and module is not None and argv[0] == module
         return [["python", *argument_tokens], ["runpy", module, *argv[1:]]]
-    if call_operators or dotnet_starts:
+    if call_operators or dot_operators or dotnet_starts or direct_process_heads:
         raise AssertionError("unreviewed executable statement in PowerShell tool")
     return []
 
@@ -842,8 +884,13 @@ def _bash_routes(path: Path, source: str) -> list[list[str]]:
         raise AssertionError("unreviewed executable statement in shell tool")
     shell_delegations = re.findall(r"(?m)^\s*(?:bash|sh)\s+([^\r\n]+)$", source)
     if path.name != "vastai_qlora_full.sh":
-        if shell_delegations:
-            raise AssertionError("unreviewed shell-to-shell route")
+        direct_process_heads = re.findall(
+            r"(?im)^\s*(?:python(?:3)?|py|git|cmd(?:\.exe)?|powershell(?:\.exe)?|"
+            r"pwsh(?:\.exe)?|bash|sh|[^\s]+\.(?:exe|com|cmd|bat|ps1|sh))\b[^\r\n]*",
+            source,
+        )
+        if shell_delegations or (path.name != "vastai_gguf_export.sh" and direct_process_heads):
+            raise AssertionError("unreviewed executable statement in shell tool")
         return []
     logical = re.sub(r"\\\s*\r?\n\s*", " ", source)
     training = re.search(
@@ -996,12 +1043,20 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
         "import os\nos.system('python -m src.runtime.cli demo')\n": [
             ["python", "-m", "src.runtime.cli", "demo"]
         ],
+        "import subprocess\nsubprocess.run(args=['python', '-m', 'src.runtime.cli', 'demo'])\n": [
+            ["python", "-m", "src.runtime.cli", "demo"]
+        ],
     }
     for source, expected_routes in python_mutations.items():
         assert _python_routes(source) == expected_routes
     for source in (
         "import subprocess\nsubprocess.run(command)\n",
         "import subprocess\nsubprocess.run('python -m src.runtime.cli demo', shell=True)\n",
+        "import subprocess\nsubprocess.run(args=command)\n",
+        "import subprocess\nsubprocess.run(['python'], args=['python'])\n",
+        "import subprocess\nsubprocess.run(args=['python'], **options)\n",
+        "import subprocess\nsubprocess.run(args=['python'], shell=dynamic)\n",
+        "import subprocess\nsubprocess.run(args=['python'], executable='other-python')\n",
     ):
         with pytest.raises(AssertionError, match="unreviewed executable statement"):
             _python_routes(source)
@@ -1011,16 +1066,29 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
     ]
     assert _batch_routes("powershell -Command python -m src.runtime.cli demo\n")
     for source in (
+        "start powershell -File unsafe.ps1\n",
+        "call python -m src.runtime.cli demo\n",
+        "unsafe.exe --flag\n",
+        "& unsafe.exe\n",
+        "unclassified-command --flag\n",
+    ):
+        with pytest.raises(AssertionError, match="unreviewed executable statement"):
+            _batch_routes(source)
+    for source in (
         "Start-Process python -ArgumentList '-m src.runtime.cli demo'\n",
         "cmd /c python -m src.runtime.cli demo\n",
         "powershell -Command python -m src.runtime.cli demo\n",
         "& $UnreviewedExecutable -ArgumentList 'demo'\n",
+        ". $UnreviewedExecutable -ArgumentList 'demo'\n",
+        "unsafe.exe --flag\n",
     ):
         with pytest.raises(AssertionError, match="unreviewed executable statement"):
             _powershell_routes(Path("synthetic.ps1"), source)
     for source in (
         "sh -c 'python -m src.runtime.cli demo'\n",
         "bash other-script.sh\n",
+        "unsafe.exe --flag\n",
+        "python -m src.runtime.cli demo\n",
     ):
         with pytest.raises(AssertionError, match="unreviewed|shell-to-shell"):
             _bash_routes(Path("synthetic.sh"), source)
