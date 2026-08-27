@@ -198,6 +198,63 @@ def test_guard_descriptor_capabilities_are_post_install_only(tmp_path: Path) -> 
         os.close(write_fd)
 
 
+def test_protected_authority_fixture_is_strict_and_complete() -> None:
+    baseline = _strict_json(FIXTURE_PATH.read_bytes())
+    assert list(baseline) == [
+        "archive_publication_commit", "baseline_commit", "expected_member_count",
+        "historical_mirror", "protected_authorities", "receipt_bytes", "schema_version",
+    ]
+    assert baseline["archive_publication_commit"] == "b0d24820720f53100d9a94174790d70b5354fa27"
+    assert baseline["expected_member_count"] == 40
+    assert baseline["receipt_bytes"] == 1746
+    assert baseline["schema_version"] == "phase411-protected-authority-baseline-v1"
+    mirror = baseline["historical_mirror"]
+    assert list(mirror) == [
+        "destination", "launcher", "manifest_schema_version", "source_tree_sha256", "sources"
+    ]
+    assert len(mirror["sources"]) == 37
+    assert all(list(item) == ["bytes", "path", "sha256"] for item in mirror["sources"])
+    assert list(mirror["launcher"]) == ["bytes", "path", "sha256"]
+    assert len(baseline["protected_authorities"]) == 2
+    assert all(
+        list(item) == ["baseline_commit_blob", "bytes", "index_blob", "path", "worktree_sha256"]
+        for item in baseline["protected_authorities"]
+    )
+    destination = mirror["destination"]
+    members = [
+        f"{destination}/execution-source-manifest.json",
+        f"{destination}/archival-receipt.json",
+        *(f"{destination}/tree/{item['path']}" for item in mirror["sources"]),
+        f"{destination}/tree/{mirror['launcher']['path']}",
+    ]
+    assert len(members) == len(set(members)) == 40
+    for path in members:
+        pure = PurePosixPath(path)
+        assert not pure.is_absolute()
+        assert ".." not in pure.parts
+        assert "\\" not in path
+
+
+def test_historical_import_boundary_is_static_and_unloaded() -> None:
+    import sitecustomize
+
+    historical_root = ntpath.normcase(
+        ntpath.normpath(ntpath.join(os.fspath(REPO_ROOT), "historical", "phase41-source-closure"))
+    )
+    for entry in sys.path:
+        if not entry:
+            continue
+        candidate = ntpath.normcase(ntpath.normpath(ntpath.abspath(entry)))
+        assert candidate != historical_root
+        assert not candidate.startswith(historical_root + "\\")
+    assert not any(
+        name == "historical.phase41_source_closure"
+        or name.startswith("historical.phase41_source_closure.")
+        for name in sys.modules
+    )
+    assert historical_root in sitecustomize.PHASE411_PROTECTED_ROOTS
+
+
 def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 

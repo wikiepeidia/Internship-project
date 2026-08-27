@@ -1,5 +1,7 @@
 {
+  "archive_publication_commit": "b0d24820720f53100d9a94174790d70b5354fa27",
   "baseline_commit": "864340bd6fee7c1a7c89c5bf1369bbcd8de76684",
+  "expected_member_count": 40,
   "historical_mirror": {
     "destination": "historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434",
     "launcher": {
@@ -65,5 +67,6 @@
       "worktree_sha256": "c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672"
     }
   ],
+  "receipt_bytes": 1746,
   "schema_version": "phase411-protected-authority-baseline-v1"
 }
