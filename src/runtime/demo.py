@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import webbrowser
 from pathlib import Path
@@ -19,6 +20,13 @@ from src.runtime.service import (
 ASSET_DIR = Path(__file__).with_name("demo_assets")
 FONT_DIR = ASSET_DIR / "fonts"
 FONT_CONTENT_TYPE = "font/woff2"
+MAX_REQUEST_BYTES = 64 * 1024
+MALFORMED_REQUEST = {
+    "error": {
+        "message": "Request body must be a valid JSON object.",
+        "steps": [],
+    }
+}
 KNOWN_FONT_FILES = frozenset(
     {
         "be-vietnam-pro-400-vietnamese.woff2",
@@ -93,17 +101,20 @@ class DemoApp:
         return _json_response(start_response, "404 Not Found", {"error": {"message": "Not found", "steps": []}})
 
     def _handle_analyze(self, environ, start_response):
-        content_length = int(environ.get("CONTENT_LENGTH") or 0)
-        raw_body = environ["wsgi.input"].read(content_length) if content_length else b"{}"
-
         try:
-            payload = json.loads(raw_body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return _json_response(
-                start_response,
-                "400 Bad Request",
-                {"error": {"message": "Request body must be valid JSON.", "steps": []}},
+            content_length = int(environ.get("CONTENT_LENGTH") or 0)
+            if content_length < 0 or content_length > MAX_REQUEST_BYTES:
+                raise ValueError("request body length is outside the local demo bound")
+            raw_body = (
+                environ["wsgi.input"].read(content_length)
+                if content_length
+                else b"{}"
             )
+            payload = json.loads(raw_body.decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("request body is not a JSON object")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            return _json_response(start_response, "400 Bad Request", MALFORMED_REQUEST)
 
         text = payload.get("text", "")
         channel = payload.get("channel", "unknown")
@@ -144,9 +155,25 @@ def build_demo_app(service=None) -> DemoApp:
     return DemoApp(service=service or build_default_runtime_service())
 
 
+def require_loopback_host(host: str) -> str:
+    """Return a normalized local host or reject network-visible binding."""
+
+    candidate = host.strip()
+    if candidate.lower().rstrip(".") == "localhost":
+        return candidate
+    try:
+        address = ipaddress.ip_address(candidate)
+    except ValueError as exc:
+        raise ValueError("demo host must be localhost or a loopback IP address") from exc
+    if not address.is_loopback:
+        raise ValueError("demo host must be localhost or a loopback IP address")
+    return candidate
+
+
 def run_demo_server(*, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> int:
     """Run the local demo UI server until interrupted."""
 
+    host = require_loopback_host(host)
     app = build_demo_app()
     url = f"http://{host}:{port}"
     print("Warming up local model...")

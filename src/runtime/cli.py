@@ -5,7 +5,7 @@ import sys
 from typing import get_args
 
 from src.runtime.contracts import ChannelName
-from src.runtime.demo import run_demo_server
+from src.runtime.demo import require_loopback_host, run_demo_server
 from src.runtime.doctor import format_doctor_report, run_runtime_doctor
 from src.runtime.render import render_analysis_result, render_runtime_error
 from src.runtime.service import (
@@ -63,7 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
             "is passed)."
         ),
     )
-    demo_parser.add_argument("--host", default="127.0.0.1", help="Host interface for the local demo server")
+    demo_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        type=_loopback_host,
+        help="Loopback host for the local demo server (localhost or loopback IP only)",
+    )
     demo_parser.add_argument("--port", type=int, default=8765, help="Port for the local demo server")
     demo_parser.add_argument(
         "--no-browser",
@@ -73,6 +78,13 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.set_defaults(handler=handle_demo)
 
     return parser
+
+
+def _loopback_host(value: str) -> str:
+    try:
+        return require_loopback_host(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def read_message_from_stdin() -> str:
