@@ -138,6 +138,37 @@ def test_synthetic_archive_is_captured_receipted_and_verified(tmp_path: Path) ->
     assert archive._verify_archived_source_closure_for_test(layout) == receipt
 
 
+def test_archive_cli_is_successful_on_legacy_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class StrictLegacyConsole:
+        encoding = "cp1252"
+
+        def __init__(self) -> None:
+            self.text = ""
+
+        def write(self, value: str) -> int:
+            value.encode(self.encoding, errors="strict")
+            self.text += value
+            return len(value)
+
+        def flush(self) -> None:
+            return None
+
+    class SyntheticReceipt:
+        @staticmethod
+        def as_dict() -> dict[str, str]:
+            return {"archive_destination": os.fspath(tmp_path / "bài tập")}
+
+    console = StrictLegacyConsole()
+    monkeypatch.setattr(archive, "verify_archived_source_closure", SyntheticReceipt)
+    monkeypatch.setattr(archive.sys, "stdout", console)
+
+    assert archive.main(["verify"]) == 0
+    assert "\\u1eadp" in console.text
+    assert console.text.endswith("\n")
+
+
 @pytest.mark.parametrize(
     ("mutation", "match"),
     [
@@ -364,7 +395,24 @@ def test_protected_authorities_match_fixed_baseline() -> None:
         }
         assert actual == set(expected) | {"archival-receipt.json"}
         for relative, expected_sha in expected.items():
-            assert _sha256((destination / PurePosixPath(relative)).read_bytes()) == expected_sha
+            archived_path = destination / PurePosixPath(relative)
+            assert _sha256(archived_path.read_bytes()) == expected_sha
+            repository_relative = archived_path.relative_to(REPO_ROOT).as_posix()
+            staged = subprocess.run(
+                ["git", "ls-files", "--stage", "--", repository_relative],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.split()
+            assert staged, f"historical mirror is not staged: {repository_relative}"
+            blob = subprocess.run(
+                ["git", "cat-file", "blob", staged[1]],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                check=True,
+            ).stdout
+            assert _sha256(blob) == expected_sha
 
         archive_root = os.path.normcase(os.path.abspath(destination))
         assert all(

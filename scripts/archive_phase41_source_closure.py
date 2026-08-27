@@ -11,6 +11,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
+import sys
 from typing import Any, Mapping, Sequence
 
 
@@ -168,6 +169,25 @@ def _canonical_json(value: object) -> bytes:
 
 def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _write_console_safe(message: object) -> None:
+    """Write exact text without letting a legacy Windows console change success."""
+
+    text = str(message)
+    target = sys.stdout
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    try:
+        safe_text = text.encode(encoding, errors="backslashreplace").decode(encoding)
+    except LookupError:
+        safe_text = text.encode("ascii", errors="backslashreplace").decode("ascii")
+    try:
+        target.write(safe_text)
+    except UnicodeEncodeError:
+        target.write(text.encode("ascii", errors="backslashreplace").decode("ascii"))
+    flush = getattr(target, "flush", None)
+    if callable(flush):
+        flush()
 
 
 def _strict_json(raw: bytes, *, where: str) -> dict[str, Any]:
@@ -561,7 +581,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "archive"
         else verify_archived_source_closure()
     )
-    print(_canonical_json(receipt.as_dict()).decode("utf-8"), end="")
+    _write_console_safe(_canonical_json(receipt.as_dict()).decode("utf-8"))
     return 0
 
 
