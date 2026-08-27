@@ -9,54 +9,8 @@ import os
 from pathlib import Path
 import sys
 
-from src.config.settings import get_settings
-from src.model_adaptation.catalog import build_default_catalog
-from src.model_adaptation.convert import build_gguf_request, convert_to_gguf
-from src.model_adaptation.doctor import format_training_doctor_report, run_training_doctor
-from src.model_adaptation.pilot import run_pilot
-from src.model_adaptation.phase40_contract import preflight_phase40_inputs
-from src.model_adaptation.phase40_handoff import (
-    InputBundleReference,
-    LocalTwoModelOperatorReturn,
-    PackageDecision,
-    Phase40ComparisonManifest,
-    ReturnedBundleRoot,
-    ReturnedGpuIdentity,
-    ReviewQueueManifest,
-    ReviewQueueRow,
-    ReviewerReturnRow,
-    RunRequest,
-    build_phase40_input_bundle,
-    build_phase40_source_bundle,
-    finalize_phase40_comparison,
-    freeze_phase40_scope_amendment,
-    load_frozen_phase40_run_request,
-    load_frozen_phase40_scope_amendment,
-    load_phase40_selected_prediction_bundles,
-    transfer_authority_from_request,
-    verify_phase40_input_bundle,
-    verify_phase40_review_queue,
-    verify_phase40_run_request,
-)
-from src.model_adaptation.phase40_review import (
-    FIXED_REVIEW_QUEUE_PATH,
-    FIXED_REVIEWER_RETURN_PATH,
-    FIXED_SELECTED_PREDICTIONS_PATH,
-    finalize_phase40_human_review,
-    load_canonical_phase40_comparison_manifest,
-    load_phase40_review_authority,
-    read_canonical_phase40_review_regular_bytes,
-    verify_phase40_final_review_comparison,
-)
-from src.model_adaptation.phase40_evidence import verify_phase40_bundle
-from src.model_adaptation.phase40_graphs import render_phase40_graphs
-from src.model_adaptation.phase40_modes import AdaptationMode, RunKind
-from src.model_adaptation.registry import load_model_registry, save_model_registry
-from src.model_adaptation.schemas import (
-    ModelRegistry,
-    PilotSelection,
-)
-from src.model_adaptation.training import build_training_config, run_training
+from src.model_adaptation.commands import adaptation
+from src.model_adaptation.commands.router import dispatch
 
 
 def _print_console_safe(message: object, *, stream=None) -> None:
@@ -79,72 +33,31 @@ def _print_console_safe(message: object, *, stream=None) -> None:
 
 
 def _default_split_root() -> Path:
-    settings = get_settings()
-    retained_root = settings.data_dir / "splits" / "recovered-balanced-claude-v2"
-    if retained_root.exists():
-        return retained_root
-    return settings.data_dir / "splits"
+    return adaptation._default_split_root()
 
 
 def _default_split_path(split_name: str) -> Path:
-    return _default_split_root() / f"{split_name}.jsonl"
+    return adaptation._default_split_path(split_name)
 
 
 def _default_registry_path() -> Path:
-    return get_settings().model_registry_path
+    return adaptation._default_registry_path()
 
 
 def _default_phase_five_split_path() -> Path:
-    """Retain the retired helper name without restoring any evaluation route."""
-
-    raise RuntimeError(
-        "The legacy Phase 5 split evaluator is retired; use phase41-run-once."
-    )
+    return adaptation._default_phase_five_split_path()
 
 
 def _build_dry_run_pilot_rows() -> list[dict[str, object]]:
-    return [
-        {
-            "candidate_id": "qwen3-4b-instruct-2507",
-            "quality_score": 0.91,
-            "recall_score": 0.94,
-            "latency_score": 0.90,
-            "memory_fit_score": 0.97,
-            "profile_notes": "Locked 4B baseline winner for the laptop profile.",
-        },
-        {
-            "candidate_id": "qwen3.5-4b",
-            "quality_score": 0.89,
-            "recall_score": 0.90,
-            "latency_score": 0.83,
-            "memory_fit_score": 0.94,
-            "profile_notes": "Locked 4B runner-up for the accelerated profile.",
-        },
-        {
-            "candidate_id": "qwen2.5-7b-instruct",
-            "quality_score": 0.96,
-            "recall_score": 0.95,
-            "latency_score": 0.64,
-            "memory_fit_score": 0.57,
-            "hardware_penalty": 0.10,
-            "profile_notes": "Stronger capacity, but weaker laptop feasibility.",
-        },
-    ]
+    return adaptation._build_dry_run_pilot_rows()
 
 
-def _load_selection(registry_path: Path) -> PilotSelection:
-    registry = load_model_registry(registry_path)
-    if registry.selection is None:
-        raise ValueError("Model registry does not contain a pilot selection")
-    return registry.selection
+def _load_selection(registry_path: Path):  # noqa: ANN202
+    return adaptation._load_selection(registry_path)
 
 
-def _resolve_candidate_alias(candidate_arg: str, selection: PilotSelection) -> str:
-    if candidate_arg == "baseline-winner":
-        return selection.baseline_winner_id
-    if candidate_arg == "runner-up":
-        return selection.runner_up_id
-    return candidate_arg
+def _resolve_candidate_alias(candidate_arg: str, selection):  # noqa: ANN001, ANN201
+    return adaptation._resolve_candidate_alias(candidate_arg, selection)
 
 
 def _add_phase40_review_authority_arguments(parser: argparse.ArgumentParser) -> None:
@@ -235,241 +148,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m src.model_adaptation.cli", allow_abbrev=False)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    pilot_parser = subparsers.add_parser("pilot", help="Run the Phase 3 pilot scaffold")
-    pilot_parser.add_argument("--version-tag", required=True, help="Version tag for pilot outputs")
-    pilot_parser.add_argument(
-        "--evaluated-split",
-        default="val",
-        choices=["train", "val", "test", "pilot"],
-        help="Split label recorded in pilot scorecards",
+    adaptation.register_commands(
+        subparsers,
+        pilot=handle_pilot,
+        train=handle_train,
+        convert=handle_convert,
+        doctor=handle_doctor,
     )
-    pilot_parser.add_argument(
-        "--registry-path",
-        type=Path,
-        default=None,
-        help="Path to the local model registry JSON",
-    )
-    pilot_parser.add_argument("--dry-run", action="store_true", help="Use local mock pilot metrics")
-    pilot_parser.set_defaults(handler=handle_pilot)
-
-    train_parser = subparsers.add_parser("train", help="Run the Phase 3 training scaffold")
-    train_parser.add_argument(
-        "--candidate",
-        required=True,
-        help="Candidate id or alias: baseline-winner | runner-up",
-    )
-    train_parser.add_argument("--version-tag", required=True, help="Version tag for training outputs")
-    train_parser.add_argument(
-        "--train-split",
-        type=Path,
-        required=True,
-        help="Canonical data/splits/train.jsonl path",
-    )
-    train_parser.add_argument(
-        "--val-split",
-        type=Path,
-        required=True,
-        help="Canonical data/splits/val.jsonl path",
-    )
-    train_parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=None,
-        help="Root directory for local model artifacts",
-    )
-    train_parser.add_argument(
-        "--registry-path",
-        type=Path,
-        default=None,
-        help="Path to the local model registry JSON",
-    )
-    train_parser.add_argument(
-        "--base-model-path",
-        type=Path,
-        default=None,
-        help="Override the local base checkpoint path",
-    )
-    train_parser.add_argument(
-        "--num-train-epochs",
-        type=float,
-        default=1.0,
-        help="Epoch count for full runs when --max-steps is not set",
-    )
-    train_parser.add_argument(
-        "--max-steps",
-        type=int,
-        default=None,
-        help="Maximum optimizer steps; use small values for smoke tests",
-    )
-    train_parser.add_argument(
-        "--per-device-train-batch-size",
-        type=int,
-        default=1,
-        help="Per-device train batch size",
-    )
-    train_parser.add_argument(
-        "--gradient-accumulation-steps",
-        type=int,
-        default=4,
-        help="Gradient accumulation steps",
-    )
-    train_parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=2e-4,
-        help="Learning rate for adapter tuning",
-    )
-    train_parser.add_argument(
-        "--logging-steps",
-        type=int,
-        default=10,
-        help="Training log interval in optimizer steps",
-    )
-    train_parser.add_argument(
-        "--save-steps",
-        type=int,
-        default=50,
-        help="Checkpoint save interval in optimizer steps",
-    )
-    train_parser.add_argument(
-        "--save-total-limit",
-        type=int,
-        default=2,
-        help="Maximum number of saved checkpoints to keep",
-    )
-    train_parser.add_argument(
-        "--max-seq-length",
-        type=int,
-        default=1024,
-        help="Maximum tokenized sequence length",
-    )
-    train_parser.add_argument(
-        "--resume-from-checkpoint",
-        default=None,
-        help="Exact checkpoint-N path with a verified compatibility manifest; 'latest' is forbidden",
-    )
-    train_parser.add_argument(
-        "--device",
-        choices=["auto", "cpu", "cuda"],
-        default="auto",
-        help="Execution device for the training backend",
-    )
-    train_parser.add_argument(
-        "--smoke-test",
-        action="store_true",
-        help="Run a short checkpoint-friendly preflight training job",
-    )
-    train_parser.add_argument(
-        "--adaptation-mode",
-        required=True,
-        choices=[AdaptationMode.LORA.value, AdaptationMode.QLORA.value],
-        help="Explicit adapter mode; QLoRA never falls back to LoRA",
-    )
-    train_parser.add_argument(
-        "--run-kind",
-        choices=[RunKind.PROBE.value, RunKind.FULL.value],
-        default=RunKind.FULL.value,
-        help="Bounded probe or full evidence-producing run",
-    )
-    train_parser.add_argument(
-        "--post-warmup-steps",
-        type=int,
-        default=None,
-        help="Required 30-50 post-warm-up optimizer steps for a probe run",
-    )
-    train_parser.add_argument(
-        "--warmup-steps",
-        type=int,
-        default=5,
-        help="Measured probe warm-up optimizer steps (default: 5)",
-    )
-    train_parser.add_argument(
-        "--run-id",
-        default=None,
-        help="Safe immutable Phase 40 run identifier",
-    )
-    train_parser.add_argument(
-        "--model-revision",
-        default="cdbee75f17c01a7cc42f958dc650907174af0554",
-        help="Pinned 40-hex base-model revision",
-    )
-    train_parser.add_argument(
-        "--run-request-path",
-        type=Path,
-        default=None,
-        help="Verified Phase 40 full-run request supplying transfer authority (required for full publication)",
-    )
-    train_parser.add_argument("--dry-run", action="store_true", help="Validate config without a real fine-tune")
-    train_parser.set_defaults(handler=handle_train)
-
-    convert_parser = subparsers.add_parser("convert", help="Convert one trained adapter into a GGUF artifact")
-    convert_parser.add_argument(
-        "--candidate",
-        required=True,
-        help="Candidate id or alias: baseline-winner | runner-up",
-    )
-    convert_parser.add_argument("--version-tag", required=True, help="Version tag for GGUF outputs")
-    convert_parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=None,
-        help="Root directory for local model artifacts",
-    )
-    convert_parser.add_argument(
-        "--registry-path",
-        type=Path,
-        default=None,
-        help="Path to the local model registry JSON",
-    )
-    convert_parser.add_argument(
-        "--quantization-profile",
-        default="q4_k_m",
-        help="Requested GGUF quantization profile",
-    )
-    convert_parser.add_argument("--dry-run", action="store_true", help="Validate conversion wiring without producing GGUF output")
-    convert_parser.set_defaults(handler=handle_convert)
-
-    doctor_parser = subparsers.add_parser("doctor", help="Check local Phase 3 training readiness")
-    doctor_parser.add_argument(
-        "--candidate",
-        default="baseline-winner",
-        help="Candidate id or alias: baseline-winner | runner-up",
-    )
-    doctor_parser.add_argument(
-        "--train-split",
-        type=Path,
-        default=None,
-        help="Training split JSONL path",
-    )
-    doctor_parser.add_argument(
-        "--val-split",
-        type=Path,
-        default=None,
-        help="Validation split JSONL path",
-    )
-    doctor_parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=None,
-        help="Root directory for local model artifacts",
-    )
-    doctor_parser.add_argument(
-        "--registry-path",
-        type=Path,
-        default=None,
-        help="Path to the local model registry JSON",
-    )
-    doctor_parser.set_defaults(handler=handle_doctor)
 
     phase40_preflight_parser = subparsers.add_parser(
         "phase40-preflight",
         help="Authorize the canonical Phase 40 train and validation snapshots",
-    )
-    doctor_parser.add_argument(
-        "--adaptation-mode",
-        required=True,
-        choices=[AdaptationMode.LORA.value, AdaptationMode.QLORA.value],
-        help="Mode whose readiness must be checked without fallback",
     )
     phase40_preflight_parser.add_argument(
         "--train-split",
@@ -743,7 +432,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def handle_pilot(args: argparse.Namespace) -> int:
+def _legacy_handle_pilot(args: argparse.Namespace) -> int:
     """Run the lightweight pilot scoring scaffold and persist selection metadata."""
 
     if not args.dry_run:
@@ -768,7 +457,7 @@ def handle_pilot(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_train(args: argparse.Namespace) -> int:
+def _legacy_handle_train(args: argparse.Namespace) -> int:
     """Run the dry-run training scaffold for the selected candidate alias."""
 
     data_contract = preflight_phase40_inputs(
@@ -846,7 +535,7 @@ def handle_train(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_convert(args: argparse.Namespace) -> int:
+def _legacy_handle_convert(args: argparse.Namespace) -> int:
     """Run the GGUF conversion flow for the selected candidate alias."""
 
     registry_path = args.registry_path or _default_registry_path()
@@ -875,7 +564,7 @@ def handle_convert(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_doctor(args: argparse.Namespace) -> int:
+def _legacy_handle_doctor(args: argparse.Namespace) -> int:
     """Run the training doctor command and print the readiness report."""
 
     registry_path = args.registry_path or _default_registry_path()
@@ -892,6 +581,22 @@ def handle_doctor(args: argparse.Namespace) -> int:
     )
     print(format_training_doctor_report(status))
     return 0 if status.ready else 1
+
+
+def handle_pilot(args: argparse.Namespace) -> int:
+    return dispatch("pilot", args)
+
+
+def handle_train(args: argparse.Namespace) -> int:
+    return dispatch("train", args)
+
+
+def handle_convert(args: argparse.Namespace) -> int:
+    return dispatch("convert", args)
+
+
+def handle_doctor(args: argparse.Namespace) -> int:
+    return dispatch("doctor", args)
 
 
 def handle_phase40_preflight(args: argparse.Namespace) -> int:

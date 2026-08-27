@@ -53,10 +53,8 @@ OPTIONAL_OR_IMPLEMENTATION_PREFIXES = (
     "bitsandbytes",
     "anthropic",
     "openai",
-    "src.model_adaptation.catalog",
     "src.model_adaptation.convert",
     "src.model_adaptation.doctor",
-    "src.model_adaptation.pilot",
     "src.model_adaptation.training",
     "src.model_adaptation.phase40_",
     "src.model_adaptation.phase41_",
@@ -243,7 +241,7 @@ def _invoke_with_streams(call) -> tuple[dict[str, object], list[dict[str, str]]]
     )
 
 
-def _main_contract(module, temp_root: Path) -> dict[str, object]:  # noqa: ANN001
+def _model_main_contract(module, temp_root: Path) -> dict[str, object]:  # noqa: ANN001
     argv = ["pilot", "--version-tag", "snapshot", "--dry-run"]
     invocations: list[dict[str, object]] = []
 
@@ -290,7 +288,7 @@ def _capture(temp_root: Path) -> dict[str, object]:
     module = importlib.import_module("src.model_adaptation.cli")
     parser = module.build_parser()
     parse_cases = _parse_cases(parser)
-    main_contract = _main_contract(module, temp_root)
+    main_contract = _model_main_contract(module, temp_root)
     return {
         "before": before,
         "after": _loaded_forbidden_modules(),
