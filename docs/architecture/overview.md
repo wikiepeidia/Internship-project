@@ -167,6 +167,8 @@ reverse-edge allowlist.
 <!-- policy-edges:start -->
 | Adapter source | Historical target |
 | --- | --- |
+| `src.model_adaptation.cli` | `src.model_adaptation` |
+| `src.model_adaptation.commands.adaptation` | `src.model_adaptation` |
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.catalog` |
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.phase40_contract` |
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.phase40_handoff` |
@@ -174,36 +176,46 @@ reverse-edge allowlist.
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.pilot` |
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.registry` |
 | `src.model_adaptation.commands.adaptation` | `src.model_adaptation.schemas` |
+| `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_contract` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_evidence` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_graphs` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_handoff` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_notebooks` |
 | `src.model_adaptation.commands.legacy_phase40` | `src.model_adaptation.phase40_review` |
+| `src.model_adaptation.commands.legacy_phase41` | `src.model_adaptation` |
 | `src.model_adaptation.commands.legacy_phase41` | `src.model_adaptation.phase41_evaluation` |
+| `src.model_adaptation.convert` | `src.model_adaptation` |
 | `src.model_adaptation.convert` | `src.model_adaptation.registry` |
 | `src.model_adaptation.convert` | `src.model_adaptation.schemas` |
 | `src.model_adaptation.convert` | `src.model_adaptation.training` |
+| `src.model_adaptation.doctor` | `src.model_adaptation` |
 | `src.model_adaptation.doctor` | `src.model_adaptation.phase40_modes` |
 | `src.model_adaptation.doctor` | `src.model_adaptation.registry` |
 | `src.model_adaptation.doctor` | `src.model_adaptation.training` |
+| `src.model_adaptation.explanation_review` | `src.model_adaptation` |
 | `src.model_adaptation.explanation_review` | `src.model_adaptation.schemas` |
+| `src.model_adaptation.release_evaluation` | `src.model_adaptation` |
 | `src.model_adaptation.release_evaluation` | `src.model_adaptation.schemas` |
+| `src.model_adaptation.release_gates` | `src.model_adaptation` |
 | `src.model_adaptation.release_gates` | `src.model_adaptation.schemas` |
+| `src.model_adaptation.release_readiness` | `src.model_adaptation` |
 | `src.model_adaptation.release_readiness` | `src.model_adaptation.data` |
 | `src.model_adaptation.release_readiness` | `src.model_adaptation.schemas` |
+| `src.modeling.legacy_adapters` | `src.model_adaptation` |
 | `src.modeling.legacy_adapters` | `src.model_adaptation.phobert_training` |
 | `src.modeling.legacy_adapters` | `src.model_adaptation.training` |
 <!-- policy-edges:end -->
 
 ### Historical cycles retained as debt
 
-The active graph has zero strongly connected components. Only these three
+The active graph has zero strongly connected components. Only these four
 historical components are allowed to remain:
 
 <!-- historical-sccs:start -->
 | Historical SCC members |
 | --- |
+| `src.model_adaptation`<br>`src.model_adaptation.catalog`<br>`src.model_adaptation.pilot`<br>`src.model_adaptation.registry` |
 | `src.model_adaptation.phase40_evidence`<br>`src.model_adaptation.phase40_graphs` |
 | `src.model_adaptation.phase40_final_authority`<br>`src.model_adaptation.phase40_gguf`<br>`src.model_adaptation.phase40_handoff`<br>`src.model_adaptation.phase40_phobert_release`<br>`src.model_adaptation.phase40_production_authorities`<br>`src.model_adaptation.training` |
 | `src.model_adaptation.phase41_evaluation`<br>`src.model_adaptation.phase41_protocols` |
