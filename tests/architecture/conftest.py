@@ -25,6 +25,20 @@ _actual_origin = ntpath.normcase(
 )
 if _actual_file != _expected_origin or _actual_origin != _expected_origin:
     raise RuntimeError("Phase 41.1 sitecustomize origin is not the exact bootstrap file")
+if getattr(_bootstrap, "PHASE411_GUARD_BOUNDARY", None) != (
+    "audited-interpreter-native-load-denied"
+):
+    raise RuntimeError("Phase 41.1 audited interpreter boundary is not active")
+if not getattr(_bootstrap, "PHASE411_AUDIT_GUARD_INSTALLED", False):
+    raise RuntimeError("Phase 41.1 append-only audit guard is not active")
+_native_dispositions = getattr(
+    _bootstrap, "PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS", {}
+)
+if len(_native_dispositions) != 10 or any(
+    disposition not in {"wrapped", "unavailable_on_platform"}
+    for disposition in _native_dispositions.values()
+):
+    raise RuntimeError("Phase 41.1 native process surfaces are not fail-closed")
 
 _repo_root = ntpath.normpath(ntpath.join(ntpath.dirname(__file__), "..", ".."))
 _historical_root = ntpath.normcase(

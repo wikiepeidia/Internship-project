@@ -7,6 +7,8 @@ root, and guarded Python receives no process-launch exception.
 from __future__ import annotations
 
 import builtins
+import ctypes
+import _ctypes
 import glob as glob_module
 import io
 import ntpath
@@ -17,10 +19,15 @@ import sys
 from types import MappingProxyType
 from typing import Any, Callable
 
+try:  # pytest imports colorama after startup; preload its fixed console functions.
+    import colorama as _phase411_colorama  # noqa: F401
+except ImportError:  # pragma: no cover - optional pytest dependency
+    _phase411_colorama = None
 
-PHASE411_GUARD_POLICY_VERSION = "phase411-guard-v2"
-PHASE411_PROCESS_POLICY = "python-defense-in-depth"
-PHASE411_GUARD_BOUNDARY = "requires-external-os-process-isolation"
+
+PHASE411_GUARD_POLICY_VERSION = "phase411-guard-v3"
+PHASE411_PROCESS_POLICY = "audited-python-native-load-deny"
+PHASE411_GUARD_BOUNDARY = "audited-interpreter-native-load-denied"
 PHASE411_PREINSTALL_DESCRIPTOR_PROBES = 0
 PHASE411_GUARD_INSTALLED = False
 PHASE411_AUDIT_GUARD_INSTALLED = False
@@ -90,19 +97,13 @@ _NATIVE_PROCESS_OPERATION_NAMES = (
     "ctypes.PyDLL.__init__",
     "ctypes.WinDLL.__init__",
     "ctypes.OleDLL.__init__",
+    "ctypes.LibraryLoader.__getattr__",
     "ctypes._dlopen",
     "_ctypes.dlopen",
     "importlib.reload",
 )
-_EXTERNAL_OS_ISOLATION_NATIVE_NAMES = frozenset(
-    {
-        "ctypes.CDLL.__init__",
-        "ctypes.PyDLL.__init__",
-        "ctypes.WinDLL.__init__",
-        "ctypes.OleDLL.__init__",
-        "ctypes._dlopen",
-        "_ctypes.dlopen",
-    }
+_AUDITED_PROCESS_EVENTS = frozenset(
+    {"ctypes.dlopen", "os.system", "os.posix_spawn", "subprocess.Popen"}
 )
 
 
@@ -176,6 +177,10 @@ _AUDITED_PATH_ARGUMENTS = MappingProxyType(
 def _phase411_audit_hook(event: str, args: tuple[object, ...]) -> None:
     """Deny protected paths below wrappers through CPython's append-only hook."""
 
+    if event in _AUDITED_PROCESS_EVENTS:
+        _AUDIT_REJECTED.append({"operation": event, "path": "<process-denied>"})
+        _REJECTED.append({"operation": f"audit:{event}", "path": "<process-denied>"})
+        raise PermissionError(f"Phase 41.1 audited process execution denied: {event}")
     for position in _AUDITED_PATH_ARGUMENTS.get(event, ()):
         if position >= len(args):
             continue
@@ -367,17 +372,22 @@ def _install_low_level_process_denial() -> dict[str, str]:
 def _install_native_process_denial() -> dict[str, str]:
     dispositions: dict[str, str] = {}
     for name in _NATIVE_PROCESS_OPERATION_NAMES:
-        if name in _EXTERNAL_OS_ISOLATION_NATIVE_NAMES:
-            dispositions[name] = (
-                "external_os_isolation_required"
-                if _resolve_process_owner(name) is not None
-                else "unavailable_on_platform"
-            )
-        else:
-            dispositions[name] = (
-                "wrapped" if _patch_process(name) else "unavailable_on_platform"
-            )
+        dispositions[name] = (
+            "wrapped" if _patch_process(name) else "unavailable_on_platform"
+        )
     return dispositions
+
+
+def _clear_ctypes_loader_cache() -> None:
+    """Drop DLL objects cached while trusted pytest console support imported."""
+
+    for loader_name in ("cdll", "pydll", "windll", "oledll"):
+        loader = getattr(ctypes, loader_name, None)
+        if loader is None:
+            continue
+        for attribute in tuple(vars(loader)):
+            if not attribute.startswith("_"):
+                delattr(loader, attribute)
 
 
 def _attest_standard_handles_after_guards() -> None:
@@ -536,6 +546,7 @@ def install_phase411_deny_open_guard() -> None:
     PHASE411_AUDIT_GUARD_INSTALLED = True
     PHASE411_INSTALLED_PATH_OPERATIONS = _install_path_guards()
     native_dispositions = _install_native_process_denial()
+    _clear_ctypes_loader_cache()
     dispositions = _install_low_level_process_denial()
     _attest_standard_handles_after_guards()
     PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS = _install_descriptor_guards()

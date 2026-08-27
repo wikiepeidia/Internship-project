@@ -95,7 +95,10 @@ selected-model claims remain bound to the frozen export. The provenance receipt 
 explain which historical bytes produced that authority, but it supplies no new
 metric and authorizes no rerun.
 
-The Python startup guard used by architecture checks is defense in depth, not an OS
-sandbox. It blocks accidental filesystem and process use inside the guarded test
-interpreter, while an externally isolated process remains mandatory for a security
-boundary because Python callables are introspectable.
+The architecture checks run inside one deliberately restricted Python interpreter,
+not a general-purpose OS sandbox. Its append-only audit hook independently rejects
+protected-path opens even when a Python wrapper's captured original is recovered.
+Every reviewed native loader and process surface must be either denied before
+collection or unavailable on the platform; collection refuses any other disposition.
+This contract supports only the exact synthetic architecture suite and makes no
+security-isolation claim for arbitrary Python or native extensions.

@@ -45,13 +45,13 @@ def _guard_contract() -> dict[str, Any]:
         "boundary", "native_process_symbols", "process_symbols",
         "protected_roots", "schema_version",
     ]
-    assert contract["schema_version"] == "phase411-guard-contract-v2"
-    assert contract["boundary"] == "requires-external-os-process-isolation"
+    assert contract["schema_version"] == "phase411-guard-contract-v3"
+    assert contract["boundary"] == "audited-interpreter-native-load-denied"
     assert len(contract["protected_roots"]) == len(set(contract["protected_roots"])) == 7
     assert len(contract["process_symbols"]) == len(set(contract["process_symbols"])) == 53
     assert len(contract["native_process_symbols"]) == len(
         set(contract["native_process_symbols"])
-    ) == 9
+    ) == 10
     return contract
 
 
@@ -75,8 +75,8 @@ def test_guard_origin_and_contract_are_exact_before_collection() -> None:
     assert ntpath.normcase(ntpath.normpath(sitecustomize.__file__)) == expected_origin
     assert ntpath.normcase(ntpath.normpath(sitecustomize.__spec__.origin)) == expected_origin
     expected_roots = tuple(_manifest_root(item) for item in contract["protected_roots"])
-    assert sitecustomize.PHASE411_GUARD_POLICY_VERSION == "phase411-guard-v2"
-    assert sitecustomize.PHASE411_PROCESS_POLICY == "python-defense-in-depth"
+    assert sitecustomize.PHASE411_GUARD_POLICY_VERSION == "phase411-guard-v3"
+    assert sitecustomize.PHASE411_PROCESS_POLICY == "audited-python-native-load-deny"
     assert sitecustomize.PHASE411_GUARD_BOUNDARY == contract["boundary"]
     assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
     assert sitecustomize.PHASE411_AUDIT_GUARD_INSTALLED is True
@@ -286,8 +286,8 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
     independent_native_symbols = (
         "nt.system", "posix.system", "ctypes.CDLL.__init__",
         "ctypes.PyDLL.__init__", "ctypes.WinDLL.__init__",
-        "ctypes.OleDLL.__init__", "ctypes._dlopen", "_ctypes.dlopen",
-        "importlib.reload",
+        "ctypes.OleDLL.__init__", "ctypes.LibraryLoader.__getattr__",
+        "ctypes._dlopen", "_ctypes.dlopen", "importlib.reload",
     )
     assert tuple(contract["native_process_symbols"]) == independent_native_symbols
     assert tuple(sitecustomize.PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS) == (
@@ -296,31 +296,35 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
     native_resolved = {
         name: _resolve_fixed_symbol(name) for name in independent_native_symbols
     }
-    external_native_symbols = {
-        "ctypes.CDLL.__init__", "ctypes.PyDLL.__init__",
-        "ctypes.WinDLL.__init__", "ctypes.OleDLL.__init__",
-        "ctypes._dlopen", "_ctypes.dlopen",
-    }
     expected_native = {
-        name: (
-            "unavailable_on_platform"
-            if value is None
-            else "external_os_isolation_required"
-            if name in external_native_symbols
-            else "wrapped"
-        )
+        name: ("unavailable_on_platform" if value is None else "wrapped")
         for name, value in native_resolved.items()
     }
     assert dict(sitecustomize.PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS) == expected_native
     for name, value in native_resolved.items():
         if value is None:
             continue
-        if name in external_native_symbols:
-            assert not hasattr(value, "__phase411_process_guard__")
-            continue
         assert getattr(value, "__phase411_process_guard__", None) == name
         with pytest.raises(PermissionError, match="process execution denied"):
             value(Trap())
+    import ctypes
+
+    for loader_name in ("cdll", "pydll", "windll", "oledll"):
+        loader = getattr(ctypes, loader_name, None)
+        if loader is None:
+            continue
+        assert not [name for name in vars(loader) if not name.startswith("_")]
+        with pytest.raises(PermissionError, match="process execution denied"):
+            getattr(loader, "phase411_synthetic_never_loaded")
+    before_audit = sitecustomize.phase411_guard_snapshot()
+    with pytest.raises(PermissionError, match="audited process execution denied"):
+        sys.audit("ctypes.dlopen", "synthetic-never-loaded")
+    after_audit = sitecustomize.phase411_guard_snapshot()
+    assert len(after_audit["audit_rejected"]) == len(before_audit["audit_rejected"]) + 1
+    assert after_audit["audit_rejected"][-1] == {
+        "operation": "ctypes.dlopen",
+        "path": "<process-denied>",
+    }
     assert calls == {"coercion": 0, "underlying": 0}
 
 
