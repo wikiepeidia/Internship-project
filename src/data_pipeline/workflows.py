@@ -10,7 +10,6 @@ import sys
 from typing import Any, Callable
 
 from src.data_pipeline.core.records import DatasetRecord, SeedRecord
-from src.data_pipeline.core.splits import split_dataset
 from src.data_pipeline.core.text import RAPIDFUZZ_AVAILABLE, lexical_dedup
 
 
@@ -147,17 +146,6 @@ def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
     from src.data_pipeline.recovery import salvage_partial_records as implementation
 
     return implementation(data_dir)
-def _write_jsonl_records(
-    output_path: Path,
-    records: list[dict[str, Any]],
-) -> Path:
-    tmp_path = output_path.with_suffix(".tmp")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        for record in records:
-            handle.write(DatasetRecord.model_validate(record).model_dump_json() + "\n")
-    os.replace(tmp_path, output_path)
-    return output_path
 def _count_labels(records: list[dict[str, Any]]) -> dict[str, int]:
     counts = {label: 0 for label in THREAT_CLASSES}
     for record in records:
@@ -266,27 +254,10 @@ def _write_recovered_outputs(
     data_dir: Path,
     exact_records: list[dict[str, Any]],
     balanced_records: list[dict[str, Any]],
-) -> tuple[Path, Path, Path, dict[str, int]]:
-    from src.config.settings import get_data_settings
+) -> dict[str, Any]:
+    from src.data_pipeline.recovery import publish_recovered_outputs
 
-    merged = _write_jsonl_records(
-        data_dir / "synthetic" / "recovered-merged.jsonl",
-        exact_records,
-    )
-    balanced = _write_jsonl_records(
-        data_dir / "synthetic" / "recovered-balanced.jsonl",
-        balanced_records,
-    )
-    split_dir = data_dir / "splits" / "recovered-balanced"
-    split_counts: dict[str, int] = {}
-    ratios = get_data_settings().split_ratios
-    for split_name, records in split_dataset(
-        balanced_records,
-        split_ratios=ratios,
-    ).items():
-        _write_jsonl_records(split_dir / f"{split_name}.jsonl", records)
-        split_counts[split_name] = len(records)
-    return merged, balanced, split_dir, split_counts
+    return publish_recovered_outputs(data_dir, exact_records, balanced_records)
 def optimize_recovered_records(
     data_dir: Path,
     target_count: int = 2500,
@@ -318,7 +289,7 @@ def optimize_recovered_records(
         by_label,
         target_count,
     )
-    merged_path, balanced_path, split_dir, split_counts = _write_recovered_outputs(
+    publication = _write_recovered_outputs(
         data_dir,
         exact_records,
         balanced,
@@ -344,10 +315,13 @@ def optimize_recovered_records(
         "selected_by_label": selected_by_label,
         "balanced_total": len(balanced),
         "balanced_by_label": _count_labels(balanced),
-        "merged_output_path": str(merged_path),
-        "balanced_output_path": str(balanced_path),
-        "split_dir": str(split_dir),
-        "split_counts": split_counts,
+        "recovery_generation_id": publication["generation_id"],
+        "recovery_current_pointer": str(publication["current_pointer"]),
+        "recovery_manifest_path": str(publication["manifest_path"]),
+        "merged_output_path": str(publication["merged_path"]),
+        "balanced_output_path": str(publication["balanced_path"]),
+        "split_dir": str(publication["split_dir"]),
+        "split_counts": publication["split_counts"],
     }
 def _prepare_gap_fill(
     settings: Any,

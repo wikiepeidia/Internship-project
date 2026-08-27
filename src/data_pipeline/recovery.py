@@ -13,6 +13,12 @@ import uuid
 
 from src.core.integrity import IntegrityError, reject_redirecting_ancestry
 from src.data_pipeline.core.records import DatasetRecord
+from src.data_pipeline.core.splits import (
+    build_manifest,
+    save_manifest,
+    split_dataset,
+    verify_manifest,
+)
 
 
 _DIRECT_SYNTHETIC_INPUTS = (
@@ -356,9 +362,79 @@ def salvage_partial_records(data_dir: Path) -> dict[str, Any]:
     }
 
 
+def _write_generation_jsonl(path: Path, records: list[dict[str, Any]]) -> Path:
+    return _write_exclusive_bytes(path, _validated_jsonl_bytes(records))
+
+
+def publish_recovered_outputs(
+    data_dir: Path,
+    exact_records: list[dict[str, Any]],
+    balanced_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Publish one immutable recovery generation, then switch one pointer."""
+
+    from src.config.settings import get_data_settings
+
+    root = _trusted_data_root(data_dir)
+    recovery_root = _ensure_owned_directory(root, Path("recovery"))
+    staging_root = _ensure_owned_directory(root, Path("recovery/staging"))
+    versions_root = _ensure_owned_directory(root, Path("recovery/versions"))
+    generation_id = uuid.uuid4().hex
+    stage = staging_root / generation_id
+    stage.mkdir()
+    stage = reject_redirecting_ancestry(stage, where="recovery generation stage")
+    merged = _write_generation_jsonl(stage / "merged.jsonl", exact_records)
+    balanced = _write_generation_jsonl(stage / "balanced.jsonl", balanced_records)
+    split_root = stage / "splits"
+    split_root.mkdir()
+    split_counts: dict[str, int] = {}
+    split_records = split_dataset(
+        balanced_records,
+        split_ratios=get_data_settings().split_ratios,
+    )
+    for split_name in ("train", "val", "test"):
+        rows = split_records[split_name]
+        _write_generation_jsonl(split_root / f"{split_name}.jsonl", rows)
+        split_counts[split_name] = len(rows)
+    manifest = build_manifest(stage, f"recovery-{generation_id}")
+    manifest_path = save_manifest(manifest, stage / "generation-manifest.json")
+    valid, errors = verify_manifest(manifest, stage)
+    if not valid:
+        raise RecoveryValidationError(
+            "recovery generation verification failed: " + " | ".join(errors)
+        )
+    final = versions_root / generation_id
+    os.rename(stage, final)
+    final_manifest = final / manifest_path.name
+    pointer = recovery_root / "current.json"
+    pointer_stage = recovery_root / f".current-{generation_id}.tmp"
+    pointer_payload = {
+        "generation_id": generation_id,
+        "relative_path": f"versions/{generation_id}",
+        "manifest_sha256": hashlib.sha256(final_manifest.read_bytes()).hexdigest(),
+    }
+    _write_exclusive_bytes(
+        pointer_stage,
+        (json.dumps(pointer_payload, sort_keys=True, separators=(",", ":")) + "\n").encode(
+            "utf-8"
+        ),
+    )
+    os.replace(pointer_stage, pointer)
+    return {
+        "generation_id": generation_id,
+        "current_pointer": pointer,
+        "manifest_path": final_manifest,
+        "merged_path": final / merged.name,
+        "balanced_path": final / balanced.name,
+        "split_dir": final / split_root.name,
+        "split_counts": split_counts,
+    }
+
+
 __all__ = (
     "RecoveryValidationError",
     "load_recoverable_records",
+    "publish_recovered_outputs",
     "recoverable_record_paths",
     "salvage_partial_records",
 )

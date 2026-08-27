@@ -268,3 +268,64 @@ def test_invalid_recovery_target_fails_before_discovery(
 
     with pytest.raises(ValueError, match="target_count"):
         workflows.optimize_recovered_records(tmp_path, target_count=target_count)
+
+
+def _group_safe_recovery_records() -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for label in workflows.THREAT_CLASSES:
+        for index in range(3):
+            records.append(
+                _record(
+                    f"Tin nhắn {label} cho thế hệ phục hồi số {index}.",
+                    label,
+                    f"{label}-generation-seed-{index}",
+                )
+            )
+    return records
+
+
+def test_recovery_publication_switches_one_verified_generation_pointer(
+    tmp_path: Path,
+) -> None:
+    from src.data_pipeline.core.records import ManifestEntry
+    from src.data_pipeline.core.splits import verify_manifest
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    records = _group_safe_recovery_records()
+
+    result = recovery.publish_recovered_outputs(root, records, records)
+
+    pointer = json.loads(Path(result["current_pointer"]).read_text(encoding="utf-8"))
+    assert pointer["generation_id"] == result["generation_id"]
+    assert Path(result["merged_path"]).parent == Path(result["manifest_path"]).parent
+    assert Path(result["balanced_path"]).parent == Path(result["manifest_path"]).parent
+    manifest = ManifestEntry.model_validate_json(
+        Path(result["manifest_path"]).read_text(encoding="utf-8")
+    )
+    assert verify_manifest(manifest, Path(result["manifest_path"]).parent) == (True, [])
+
+
+def test_failed_recovery_generation_leaves_previous_pointer_unchanged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "corpus"
+    root.mkdir()
+    records = _group_safe_recovery_records()
+    first = recovery.publish_recovered_outputs(root, records, records)
+    pointer = Path(first["current_pointer"])
+    previous = pointer.read_bytes()
+    monkeypatch.setattr(
+        recovery,
+        "save_manifest",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            OSError("synthetic manifest failure")
+        ),
+    )
+
+    with pytest.raises(OSError, match="synthetic manifest failure"):
+        recovery.publish_recovered_outputs(root, records, records)
+
+    assert pointer.read_bytes() == previous
+    assert Path(first["manifest_path"]).is_file()
