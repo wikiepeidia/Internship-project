@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import os
 from pathlib import Path
@@ -336,6 +337,28 @@ def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwar
         assert getattr(workflows, name).__module__ == "src.data_pipeline.workflows"
         assert getattr(cli, name).__module__ == "src.data_pipeline.cli"
     assert workflows.build_training_corpus.__module__ == "src.data_pipeline.workflows"
+    assert (
+        inspect.signature(workflows.build_training_corpus)
+        .parameters["version_tag"]
+        .default
+        == "dataset-v1"
+    )
+    assert (
+        inspect.signature(workflows.judge_existing_records)
+        .parameters["version_tag"]
+        .default
+        == "dataset-v1"
+    )
+    assert inspect.signature(cli.run_phase1).parameters["version_tag"].default == "phase1"
+    assert (
+        inspect.signature(cli.judge_existing_records)
+        .parameters["version_tag"]
+        .default
+        == "phase1"
+    )
+    assert "Phase 1 generation" not in (
+        REPO_ROOT / "src/data_pipeline/workflows.py"
+    ).read_text(encoding="utf-8")
     assert not hasattr(workflows, "run_phase1")
     assert cli.run_phase1.__module__ == "src.data_pipeline.cli"
     for seam in (

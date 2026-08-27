@@ -99,7 +99,7 @@ def _load_dataset_records(dataset_path: Path) -> list[dict[str, Any]]:
 def judge_existing_records(
     data_dir: Path,
     input_path: Path,
-    version_tag: str = "phase1",
+    version_tag: str = "dataset-v1",
     *,
     _dependencies: WorkflowDependencies | None = None,
 ) -> dict[str, Any]:
@@ -487,7 +487,7 @@ def _judge_generated_records(
 def build_training_corpus(
     seed_input: Path | None = None,
     target_count: int = 2500,
-    version_tag: str = "phase1",
+    version_tag: str = "dataset-v1",
     max_pages: int = 1,
     max_links_per_page: int = 5,
     max_seeds: int | None = None,
@@ -533,7 +533,7 @@ def build_training_corpus(
         seed_input, max_pages, max_links_per_page, max_seeds, dependencies
     )
     if not seeds:
-        raise ValueError("No seeds available for Phase 1 generation")
+        raise ValueError("No seeds available for dataset generation")
     client = dependencies.anthropic_client_builder(settings.anthropic_api_key)
     generator = dependencies.generator_factory(
         settings=settings,
