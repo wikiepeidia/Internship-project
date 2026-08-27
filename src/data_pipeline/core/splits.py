@@ -7,9 +7,11 @@ import hashlib
 import math
 import os
 from pathlib import Path
+import stat
 import subprocess
 from typing import Any, Literal
 
+from src.core_binding import BoundParent, bind_parent
 from src.core.integrity import (
     IntegrityError,
     atomic_replace_artifact,
@@ -191,13 +193,30 @@ def split_dataset(
     return splits
 
 
-def _manifest_jsonl_paths(data_dir: Path) -> tuple[Path, tuple[Path, ...]]:
+FileIdentity = tuple[int, int, int, int, int]
+
+
+def _file_identity(metadata: os.stat_result) -> FileIdentity:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+    )
+
+
+def _manifest_jsonl_paths(
+    data_dir: Path,
+) -> tuple[Path, tuple[int, int], tuple[tuple[Path, FileIdentity], ...]]:
     root = reject_redirecting_ancestry(
         Path(os.path.abspath(data_dir)), where="dataset manifest root"
     )
     if not root.is_dir():
         raise IntegrityError("dataset manifest root must be an existing directory")
-    members: list[Path] = []
+    root_metadata = os.lstat(root)
+    root_identity = (root_metadata.st_dev, root_metadata.st_ino)
+    members: list[tuple[Path, FileIdentity]] = []
     for current, directories, filenames in os.walk(root, followlinks=False):
         current_path = reject_redirecting_ancestry(
             Path(current), where="dataset manifest directory"
@@ -208,16 +227,77 @@ def _manifest_jsonl_paths(data_dir: Path) -> tuple[Path, tuple[Path, ...]]:
             )
         for name in filenames:
             if name.endswith(".jsonl"):
-                members.append(
-                    reject_redirecting_ancestry(
-                        current_path / name, where="dataset manifest member"
-                    )
+                member = reject_redirecting_ancestry(
+                    current_path / name, where="dataset manifest member"
                 )
-    return root, tuple(sorted(members))
+                metadata = os.lstat(member)
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise IntegrityError("dataset manifest member must be a regular file")
+                members.append((member, _file_identity(metadata)))
+    final_root = os.lstat(root)
+    if (final_root.st_dev, final_root.st_ino) != root_identity:
+        raise IntegrityError("dataset manifest root changed during enumeration")
+    return root, root_identity, tuple(sorted(members, key=lambda item: os.fspath(item[0])))
 
 
-def _jsonl_facts(path: Path) -> tuple[bytes, int]:
-    raw = path.read_bytes()
+def _capture_bound_member(
+    root_parent: BoundParent,
+    relative: Path,
+    expected: FileIdentity,
+) -> bytes:
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        parent = root_parent
+        for part in relative.parent.parts:
+            parent = stack.enter_context(parent.bind_child_directory(part))
+            parent.assert_still_named()
+        metadata = parent.lstat(relative.name)
+        if _file_identity(metadata) != expected or not stat.S_ISREG(metadata.st_mode):
+            raise IntegrityError("dataset manifest member identity changed before capture")
+        flags = os.O_RDONLY | int(getattr(os, "O_BINARY", 0))
+        flags |= int(getattr(os, "O_NOFOLLOW", 0))
+        try:
+            descriptor = parent.open(relative.name, flags)
+        except OSError as error:
+            raise IntegrityError("dataset manifest member could not be opened safely") from error
+        with os.fdopen(descriptor, "rb") as handle:
+            if _file_identity(os.fstat(handle.fileno())) != expected:
+                raise IntegrityError("dataset manifest member descriptor identity changed")
+            raw = handle.read()
+            if _file_identity(os.fstat(handle.fileno())) != expected:
+                raise IntegrityError("dataset manifest member changed during capture")
+        if _file_identity(parent.lstat(relative.name)) != expected:
+            raise IntegrityError("dataset manifest member pathname identity changed")
+        parent.assert_still_named()
+        return raw
+
+
+def _capture_manifest_members(
+    root: Path,
+    root_identity: tuple[int, int],
+    members: tuple[tuple[Path, FileIdentity], ...],
+) -> dict[Path, bytes]:
+    expected = tuple((path.relative_to(root), identity) for path, identity in members)
+    captured: dict[Path, bytes] = {}
+    with bind_parent(root) as root_parent:
+        if root_parent.directory_identity()[1] != root_identity[1]:
+            raise IntegrityError("dataset manifest root identity changed before capture")
+        root_parent.assert_still_named()
+        for relative, identity in expected:
+            captured[relative] = _capture_bound_member(root_parent, relative, identity)
+        root_parent.assert_still_named()
+        after_root, after_root_identity, after_members = _manifest_jsonl_paths(root)
+        after = tuple(
+            (path.relative_to(after_root), identity) for path, identity in after_members
+        )
+        if after_root != root or after_root_identity != root_identity or after != expected:
+            raise IntegrityError("dataset manifest membership changed during capture")
+        root_parent.assert_still_named()
+    return captured
+
+
+def _jsonl_facts(path: Path, raw: bytes) -> tuple[bytes, int]:
     try:
         text = raw.decode("utf-8", errors="strict")
     except UnicodeDecodeError as error:
@@ -228,7 +308,8 @@ def _jsonl_facts(path: Path) -> tuple[bytes, int]:
 def build_manifest(data_dir: Path, version_tag: str) -> ManifestEntry:
     """Build a strict SHA-256 manifest under an explicit dataset root."""
 
-    root, jsonl_files = _manifest_jsonl_paths(data_dir)
+    root, root_identity, jsonl_files = _manifest_jsonl_paths(data_dir)
+    captured = _capture_manifest_members(root, root_identity, jsonl_files)
     git_commit = None
     try:
         result = subprocess.run(
@@ -243,9 +324,9 @@ def build_manifest(data_dir: Path, version_tag: str) -> ManifestEntry:
     except FileNotFoundError:
         pass
     files: dict[str, ManifestFile] = {}
-    for jsonl_file in jsonl_files:
-        raw, records = _jsonl_facts(jsonl_file)
-        files[jsonl_file.relative_to(root).as_posix()] = ManifestFile(
+    for relative, raw in captured.items():
+        raw, records = _jsonl_facts(root / relative, raw)
+        files[relative.as_posix()] = ManifestFile(
             sha256=hashlib.sha256(raw).hexdigest(),
             records=records,
             bytes=len(raw),
@@ -265,17 +346,18 @@ def verify_manifest(
     """Reconcile exact members, bytes, rows, and hashes under one root."""
 
     try:
-        root, paths = _manifest_jsonl_paths(data_dir)
+        root, root_identity, paths = _manifest_jsonl_paths(data_dir)
+        captured = _capture_manifest_members(root, root_identity, paths)
     except (IntegrityError, OSError) as error:
         return False, [str(error)]
-    actual = {path.relative_to(root).as_posix(): path for path in paths}
+    actual = {relative.as_posix(): raw for relative, raw in captured.items()}
     expected = set(manifest.files)
     errors = [f"Missing file: {name}" for name in sorted(expected - set(actual))]
     errors.extend(f"Unexpected file: {name}" for name in sorted(set(actual) - expected))
     for name in sorted(expected & set(actual)):
         expected_facts = manifest.files[name]
         try:
-            raw, records = _jsonl_facts(actual[name])
+            raw, records = _jsonl_facts(root / Path(name), actual[name])
         except (IntegrityError, OSError) as error:
             errors.append(f"Invalid file {name}: {error}")
             continue

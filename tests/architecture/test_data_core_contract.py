@@ -733,6 +733,36 @@ def test_manifest_verification_rejects_redirected_members(
     assert errors == ["synthetic reparse member"]
 
 
+def test_manifest_capture_rejects_member_swap_after_enumeration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core_binding import BoundParent
+
+    member = tmp_path / "fixture.jsonl"
+    member.write_text('{"synthetic":true}\n', encoding="utf-8")
+    original_open = BoundParent.open
+    swapped = False
+
+    def replace_before_open(
+        parent: BoundParent,
+        name: str,
+        flags: int,
+        mode: int = 0o600,
+    ) -> int:
+        nonlocal swapped
+        if name == member.name and not swapped:
+            member.unlink()
+            member.write_text('{"external":"replacement"}\n', encoding="utf-8")
+            swapped = True
+        return original_open(parent, name, flags, mode)
+
+    monkeypatch.setattr(BoundParent, "open", replace_before_open)
+    with pytest.raises(integrity.IntegrityError, match="identity changed"):
+        core_splits.build_manifest(tmp_path, "synthetic-v1")
+    assert swapped is True
+
+
 def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
