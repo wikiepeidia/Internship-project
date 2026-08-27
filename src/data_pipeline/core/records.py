@@ -136,6 +136,32 @@ class DatasetRecord(BaseModel):
         description="Link back to originating seed record for split governance"
     )
 
+    @field_validator("text", "xai_explanation")
+    @classmethod
+    def reject_blank_human_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("human text fields must not be blank")
+        return value
+
+    @field_validator("seed_id")
+    @classmethod
+    def normalize_seed_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("seed_id must not be blank")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_suspicious_spans(self) -> "DatasetRecord":
+        if any(not span.strip() for span in self.suspicious_spans):
+            raise ValueError("suspicious spans must not be blank")
+        if len(self.suspicious_spans) != len(set(self.suspicious_spans)):
+            raise ValueError("suspicious spans must be unique")
+        missing = [span for span in self.suspicious_spans if span not in self.text]
+        if missing:
+            raise ValueError("suspicious spans must be exact substrings of text")
+        return self
+
 
 class ManifestFile(BaseModel):
     """Metadata for a single dataset file in a versioned release."""

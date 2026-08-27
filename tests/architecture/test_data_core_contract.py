@@ -92,6 +92,42 @@ def test_dataset_record_preserves_seven_field_utf8_bytes_and_defaults() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "value", "match"),
+    (
+        ("text", " " * 12, "human text fields"),
+        ("xai_explanation", " " * 24, "human text fields"),
+        ("seed_id", "   ", "seed_id must not be blank"),
+        ("suspicious_spans", ["   "], "must not be blank"),
+        (
+            "suspicious_spans",
+            ["Khẩn cấp", "Khẩn cấp"],
+            "must be unique",
+        ),
+        (
+            "suspicious_spans",
+            ["cụm từ không có trong tin nhắn"],
+            "exact substrings",
+        ),
+    ),
+)
+def test_dataset_record_rejects_fake_groups_and_invalid_spans(
+    field: str, value: object, match: str
+) -> None:
+    payload = _dataset_record(core_records).model_dump()
+    payload[field] = value
+    with pytest.raises(ValidationError, match=match):
+        core_records.DatasetRecord.model_validate(payload)
+
+
+def test_dataset_record_normalizes_seed_identity_without_changing_message() -> None:
+    payload = _dataset_record(core_records).model_dump()
+    payload["seed_id"] = "  seed_unicode_001  "
+    record = core_records.DatasetRecord.model_validate(payload)
+    assert record.seed_id == "seed_unicode_001"
+    assert record.text == payload["text"]
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {
