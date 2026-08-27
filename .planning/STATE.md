@@ -5,16 +5,16 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-07-PLAN.md
-last_updated: "2026-08-27T12:52:05.457Z"
+stopped_at: Completed 41.1-11-PLAN.md
+last_updated: "2026-08-27T13:06:14.193Z"
 last_activity: 2026-08-27
 last_activity_desc: Completed 41.1-07 exact architecture inventories
-state_head: 3ac9f6c2dc0b2a0c9b3738467b3cb4253130072d
+state_head: 0fdb7bf101e3fd63c502cd18f314a4833440ab38
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 62
+  completed_plans: 63
   percent: 13
 ---
 
@@ -38,7 +38,7 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 8 of 15
+Plan: 9 of 15
 Status: Ready to execute
 Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
 Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
@@ -233,8 +233,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T12:52:04.806Z
-**Stopped at:** Completed 41.1-07-PLAN.md
+**Last session:** 2026-08-27T13:06:13.431Z
+**Stopped at:** Completed 41.1-11-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -354,6 +354,8 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 - [Phase 41.1]: Publish D-root retention facts only from the approved inventory, with cleanup candidates explicitly informational and non-authorized.
 - [Phase 41.1]: Phase 41.1 Plan 07 keeps script imports and project routes in an exact typed 11-tool graph outside compatibility allowed_edges.
 - [Phase 41.1]: Phase 41.1 Plan 07 treats pre-extraction asset, marker, and frozen-literal ownership as an independent test-owned authority exact-equal to policy.
+- [Phase 41.1]: Guarded Python has no process exception; all reviewed Git metadata verification remains in outer PowerShell.
+- [Phase 41.1]: Report authority validation is fixture-only and protected receipt, export, and erratum locations remain lexical denied strings.
 
 ## Performance Metrics
 
@@ -371,6 +373,7 @@ Progress: [███░░░░░░░░░░░░░░░░░] 62/96 p
 | Phase 41.1 P05 | 25min | 3 tasks | 17 files |
 | Phase 41.1 P06 | 24min | 3 tasks | 10 files |
 | Phase 41.1 P07 | 9min | 2 tasks | 5 files |
+| Phase 41.1 P11 | 10min | 3 tasks | 9 files |
 
 ### Blockers
 
