@@ -5,10 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import math
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 from typing import Any, Literal
 
+from src.core.integrity import (
+    IntegrityError,
+    atomic_replace_new_artifact,
+    reject_redirecting_ancestry,
+)
 from src.data_pipeline.core.records import DatasetRecord, ManifestEntry, ManifestFile
 
 
@@ -184,65 +191,134 @@ def split_dataset(
     return splits
 
 
-def build_manifest(data_dir: Path, version_tag: str) -> ManifestEntry:
-    """Build a SHA-256 manifest under an explicit dataset root."""
+def _manifest_jsonl_paths(data_dir: Path) -> tuple[Path, tuple[Path, ...]]:
+    root = reject_redirecting_ancestry(
+        Path(os.path.abspath(data_dir)), where="dataset manifest root"
+    )
+    if not root.is_dir():
+        raise IntegrityError("dataset manifest root must be an existing directory")
+    members: list[Path] = []
+    for current, directories, filenames in os.walk(root, followlinks=False):
+        current_path = reject_redirecting_ancestry(
+            Path(current), where="dataset manifest directory"
+        )
+        for name in tuple(directories):
+            reject_redirecting_ancestry(
+                current_path / name, where="dataset manifest directory"
+            )
+        for name in filenames:
+            if name.endswith(".jsonl"):
+                members.append(
+                    reject_redirecting_ancestry(
+                        current_path / name, where="dataset manifest member"
+                    )
+                )
+    return root, tuple(sorted(members))
 
+
+def _jsonl_facts(path: Path) -> tuple[bytes, int]:
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise IntegrityError(f"manifest member is not strict UTF-8: {path}") from error
+    return raw, sum(1 for line in text.splitlines() if line.strip())
+
+
+def build_manifest(data_dir: Path, version_tag: str) -> ManifestEntry:
+    """Build a strict SHA-256 manifest under an explicit dataset root."""
+
+    root, jsonl_files = _manifest_jsonl_paths(data_dir)
     git_commit = None
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
-            cwd=str(data_dir),
+            cwd=str(root),
             check=False,
         )
         if result.returncode == 0:
             git_commit = result.stdout.strip()
     except FileNotFoundError:
         pass
-    manifest = ManifestEntry(
+    files: dict[str, ManifestFile] = {}
+    for jsonl_file in jsonl_files:
+        raw, records = _jsonl_facts(jsonl_file)
+        files[jsonl_file.relative_to(root).as_posix()] = ManifestFile(
+            sha256=hashlib.sha256(raw).hexdigest(),
+            records=records,
+            bytes=len(raw),
+        )
+    return ManifestEntry(
         version=version_tag,
         build_timestamp=datetime.now(timezone.utc).isoformat(),
         git_commit=git_commit,
-        files={},
+        files=files,
     )
-    for jsonl_file in sorted(data_dir.rglob("*.jsonl")):
-        raw = jsonl_file.read_bytes()
-        manifest.files[str(jsonl_file.relative_to(data_dir))] = ManifestFile(
-            sha256=hashlib.sha256(raw).hexdigest(),
-            records=sum(1 for line in raw.decode("utf-8").splitlines() if line.strip()),
-            bytes=len(raw),
-        )
-    return manifest
 
 
 def verify_manifest(
     manifest: ManifestEntry,
     data_dir: Path,
 ) -> tuple[bool, list[str]]:
-    """Verify all explicit manifest members against an explicit dataset root."""
+    """Reconcile exact members, bytes, rows, and hashes under one root."""
 
-    errors: list[str] = []
-    for relative_path, file_info in manifest.files.items():
-        file_path = data_dir / relative_path
-        if not file_path.exists():
-            errors.append(f"Missing file: {relative_path}")
+    try:
+        root, paths = _manifest_jsonl_paths(data_dir)
+    except (IntegrityError, OSError) as error:
+        return False, [str(error)]
+    actual = {path.relative_to(root).as_posix(): path for path in paths}
+    expected = set(manifest.files)
+    errors = [f"Missing file: {name}" for name in sorted(expected - set(actual))]
+    errors.extend(f"Unexpected file: {name}" for name in sorted(set(actual) - expected))
+    for name in sorted(expected & set(actual)):
+        expected_facts = manifest.files[name]
+        try:
+            raw, records = _jsonl_facts(actual[name])
+        except (IntegrityError, OSError) as error:
+            errors.append(f"Invalid file {name}: {error}")
             continue
-        actual_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
-        if actual_hash != file_info.sha256:
-            errors.append(
-                f"Hash mismatch for {relative_path}: expected "
-                f"{file_info.sha256}, got {actual_hash}"
-            )
+        if hashlib.sha256(raw).hexdigest() != expected_facts.sha256:
+            errors.append(f"Hash mismatch for {name}")
+        if len(raw) != expected_facts.bytes:
+            errors.append(f"Byte-count mismatch for {name}")
+        if records != expected_facts.records:
+            errors.append(f"Record-count mismatch for {name}")
     return not errors, errors
 
 
-def save_manifest(manifest: ManifestEntry, output_path: Path) -> Path:
-    """Persist a manifest as formatted UTF-8 JSON."""
+def save_manifest(
+    manifest: ManifestEntry,
+    output_path: Path,
+    *,
+    replace: bool = False,
+) -> Path:
+    """Publish a complete manifest with an explicit replacement policy."""
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
-    return output_path
+    target = reject_redirecting_ancestry(
+        Path(os.path.abspath(output_path)), where="dataset manifest output"
+    )
+    parent = reject_redirecting_ancestry(
+        target.parent, where="dataset manifest output parent"
+    )
+    if not parent.is_dir():
+        raise IntegrityError("dataset manifest output parent must already exist")
+    payload = (manifest.model_dump_json(indent=2) + "\n").encode("utf-8")
+    if not replace:
+        return atomic_replace_new_artifact(target, payload, where="dataset manifest")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=parent
+    )
+    temporary = Path(temporary_name)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+    if temporary.read_bytes() != payload:
+        raise IntegrityError("dataset manifest staging bytes changed")
+    os.replace(temporary, target)
+    return target
 
 
 __all__ = (

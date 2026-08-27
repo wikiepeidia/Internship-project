@@ -61,7 +61,8 @@ class DatasetBuilder:
 
         manifest = build_manifest(splits_dir, self.version_tag)
         manifest_path = manifests_dir / f"manifest-{self.version_tag}.json"
-        save_manifest(manifest, manifest_path)
+        manifests_dir.mkdir(parents=True, exist_ok=True)
+        save_manifest(manifest, manifest_path, replace=True)
 
         return {
             "version": self.version_tag,

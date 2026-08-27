@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 import hashlib
+from pathlib import PurePosixPath
 import re
 from typing import Literal
 import unicodedata
@@ -139,9 +140,9 @@ class DatasetRecord(BaseModel):
 class ManifestFile(BaseModel):
     """Metadata for a single dataset file in a versioned release."""
 
-    sha256: str = Field(description="File integrity hash")
-    records: int = Field(description="Number of records in file")
-    bytes: int = Field(description="File size in bytes")
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="File integrity hash")
+    records: int = Field(ge=0, description="Number of records in file")
+    bytes: int = Field(ge=0, description="File size in bytes")
 
 
 class ManifestEntry(BaseModel):
@@ -157,6 +158,25 @@ class ManifestEntry(BaseModel):
         default_factory=dict,
         description="Map of filename -> file metadata",
     )
+
+    @field_validator("files")
+    @classmethod
+    def require_bounded_jsonl_members(
+        cls, value: dict[str, ManifestFile]
+    ) -> dict[str, ManifestFile]:
+        for member in value:
+            path = PurePosixPath(member)
+            if (
+                not member
+                or "\\" in member
+                or ":" in member
+                or path.is_absolute()
+                or path.as_posix() != member
+                or any(part in {"", ".", ".."} for part in path.parts)
+                or path.suffix != ".jsonl"
+            ):
+                raise ValueError("manifest members must be normalized relative JSONL paths")
+        return value
 
 
 __all__ = (

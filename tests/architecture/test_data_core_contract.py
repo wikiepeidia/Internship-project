@@ -444,7 +444,11 @@ def test_dataset_builder_preserves_explicit_zero_similarity_threshold(
         "build_manifest",
         lambda _root, version: SimpleNamespace(version=version),
     )
-    monkeypatch.setattr(build_module, "save_manifest", lambda _manifest, _path: None)
+    monkeypatch.setattr(
+        build_module,
+        "save_manifest",
+        lambda _manifest, _path, **_options: None,
+    )
 
     builder.build_splits(
         input_path=tmp_path / "input.jsonl",
@@ -491,6 +495,131 @@ def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path
     assert core_records.ManifestEntry.model_validate_json(
         saved.read_text(encoding="utf-8")
     ).version == "synthetic-v1"
+
+
+@pytest.mark.parametrize(
+    "member",
+    (
+        "../escape.jsonl",
+        "/absolute.jsonl",
+        "nested\\windows.jsonl",
+        "C:/drive.jsonl",
+        "./dot.jsonl",
+        "not-json.txt",
+    ),
+)
+def test_manifest_contract_rejects_unbounded_member_names(member: str) -> None:
+    with pytest.raises(ValidationError, match="manifest members"):
+        core_records.ManifestEntry(
+            version="synthetic-v1",
+            build_timestamp="2026-08-27T00:00:00Z",
+            files={
+                member: core_records.ManifestFile(
+                    sha256="a" * 64,
+                    records=0,
+                    bytes=0,
+                )
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"sha256": "A" * 64},
+        {"sha256": "g" * 64},
+        {"records": -1},
+        {"bytes": -1},
+    ),
+)
+def test_manifest_file_contract_rejects_invalid_facts(updates: dict[str, object]) -> None:
+    payload: dict[str, object] = {"sha256": "a" * 64, "records": 0, "bytes": 0}
+    payload.update(updates)
+    with pytest.raises(ValidationError):
+        core_records.ManifestFile.model_validate(payload)
+
+
+def test_manifest_verification_reconciles_members_bytes_rows_and_utf8(
+    tmp_path: Path,
+) -> None:
+    member = tmp_path / "fixture.jsonl"
+    member.write_text('{"row":1}\n', encoding="utf-8")
+    manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
+
+    extra = tmp_path / "unexpected.jsonl"
+    extra.write_text('{"row":2}\n', encoding="utf-8")
+    ok, errors = core_splits.verify_manifest(manifest, tmp_path)
+    assert not ok
+    assert errors == ["Unexpected file: unexpected.jsonl"]
+    extra.unlink()
+
+    original = manifest.files["fixture.jsonl"]
+    wrong_facts = core_records.ManifestEntry(
+        version=manifest.version,
+        build_timestamp=manifest.build_timestamp,
+        files={
+            "fixture.jsonl": core_records.ManifestFile(
+                sha256=original.sha256,
+                records=original.records + 1,
+                bytes=original.bytes + 1,
+            )
+        },
+    )
+    ok, errors = core_splits.verify_manifest(wrong_facts, tmp_path)
+    assert not ok
+    assert "Byte-count mismatch for fixture.jsonl" in errors
+    assert "Record-count mismatch for fixture.jsonl" in errors
+
+    member.write_bytes(b"\xff\n")
+    ok, errors = core_splits.verify_manifest(manifest, tmp_path)
+    assert not ok
+    assert any("strict UTF-8" in error for error in errors)
+
+
+def test_manifest_verification_rejects_redirected_members(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.integrity import IntegrityError
+
+    member = tmp_path / "redirected.jsonl"
+    member.write_text('{"row":1}\n', encoding="utf-8")
+    manifest = core_splits.build_manifest(tmp_path, "synthetic-v1")
+    original_guard = core_splits.reject_redirecting_ancestry
+
+    def reject_member(path: Path, *, where: str) -> Path:
+        if Path(path).name == member.name:
+            raise IntegrityError("synthetic reparse member")
+        return original_guard(path, where=where)
+
+    monkeypatch.setattr(core_splits, "reject_redirecting_ancestry", reject_member)
+
+    ok, errors = core_splits.verify_manifest(manifest, tmp_path)
+    assert not ok
+    assert errors == ["synthetic reparse member"]
+
+
+def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "manifest.json"
+    previous = b'{"previous":true}\n'
+    target.write_bytes(previous)
+    manifest = core_records.ManifestEntry(
+        version="synthetic-v2",
+        build_timestamp="2026-08-27T00:00:00Z",
+    )
+    monkeypatch.setattr(
+        core_splits.os,
+        "replace",
+        lambda _source, _target: (_ for _ in ()).throw(OSError("synthetic failure")),
+    )
+
+    with pytest.raises(OSError, match="synthetic failure"):
+        core_splits.save_manifest(manifest, target, replace=True)
+
+    assert target.read_bytes() == previous
 
 
 def test_active_data_modules_are_neutral_and_within_static_budgets() -> None:
