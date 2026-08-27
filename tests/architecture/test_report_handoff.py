@@ -1,68 +1,51 @@
-"""Static authority, retention, and report-handoff truth gates."""
+"""Fixture-only authority, retention, and report-handoff truth gates."""
 
 from __future__ import annotations
 
+import copy
 import json
+import math
+import ntpath
+import os
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 
 
 REPO_ROOT = Path(__file__).parents[2]
-SOURCE_TREE = "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
-EXPORT_IDENTITY = "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7"
-SOURCE_RECEIPT_PATH = (
-    REPO_ROOT
-    / "historical/phase41-source-closure"
-    / SOURCE_TREE
-    / "archival-receipt.json"
-)
-EXPORT_MANIFEST_PATH = (
-    REPO_ROOT
-    / "data/models/phase41/verified-export"
-    / EXPORT_IDENTITY
-    / "evidence-manifest.json"
-)
-ERRATUM_PATH = REPO_ROOT / "data/models/phase41/phase41-provenance-erratum.json"
+FACT_PATH = REPO_ROOT / "tests/architecture/fixtures/report_fact_contract.json"
 BASELINE_PATH = REPO_ROOT / "tests/architecture/fixtures/protected_authority_baseline.json"
-INVENTORY_PATH = (
-    REPO_ROOT
-    / ".planning/phases/41.1-codebase-architecture-overhaul/41.1-STORAGE-INVENTORY.md"
-)
+INVENTORY_PATH = REPO_ROOT / ".planning/phases/41.1-codebase-architecture-overhaul/41.1-STORAGE-INVENTORY.md"
 PROVENANCE_PATH = REPO_ROOT / "docs/architecture/provenance.md"
 STORAGE_PATH = REPO_ROOT / "docs/architecture/storage-retention.md"
-HANDOFF_PATH = (
-    REPO_ROOT
-    / ".planning/phases/41.1-codebase-architecture-overhaul/41.1-REPORT-HANDOFF.md"
+OVERVIEW_PATH = REPO_ROOT / "docs/architecture/overview.md"
+POLICY_PATH = REPO_ROOT / "architecture/module-boundaries.json"
+HANDOFF_PATH = REPO_ROOT / ".planning/phases/41.1-codebase-architecture-overhaul/41.1-REPORT-HANDOFF.md"
+
+SOURCE_TREE = "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
+EXPORT_IDENTITY = "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7"
+RECEIPT_SHA256 = "ca4ca1bf019b567d5bfa2380658a11245d76543b323ce5e2fcf6cfe3f525213a"
+SOURCE_MANIFEST_SHA256 = "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61"
+LAUNCHER_SHA256 = "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9"
+ERRATUM_SHA256 = "c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672"
+PROVENANCE_LABEL = "post_evaluation_archival_mirror_not_refactored_metric_producer"
+CORRECTED_CLAIM = (
+    "Phase 41 contains exactly one terminal shared-cohort model-evaluation pass over "
+    "the frozen Qwen QLoRA and PhoBERT models. It does not have zero prior filesystem "
+    "access to the held-out file."
 )
+SOURCE_RECEIPT_RELATIVE = f"historical/phase41-source-closure/{SOURCE_TREE}/archival-receipt.json"
+EXPORT_MANIFEST_RELATIVE = f"data/models/phase41/verified-export/{EXPORT_IDENTITY}/evidence-manifest.json"
+ERRATUM_RELATIVE = "data/models/phase41/phase41-provenance-erratum.json"
+
 PHASE_ROOT = r"D:\PROJEct\AI MODELS\phase40-full-local-20260825"
 SEALED_ROOTS = [
-    (
-        "Qwen QLoRA adapter",
-        PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\full\qwen-qlora\adapter-or-model",
-        "0.139 GiB",
-        "466d107d7212fd9b65f19b36be5011e6043865bce4c937460145908d3847b7ec",
-    ),
-    (
-        "Qwen base",
-        PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\base\qwen3-4b-instruct-2507",
-        "7.507 GiB",
-        "bab9c18a02587fb842c9332848bdc4f1316bae7ee5bed3bb1d573dca2d64554c",
-    ),
-    (
-        "PhoBERT inference bundle",
-        PHASE_ROOT + r"\phobert-release-v4\data\models\phase40\inference\phobert",
-        "1.513 GiB",
-        "649f566a6525833778fbc617261278ef53e4ecc6ab88ae54715f6aaf7b56bb7a",
-    ),
-    (
-        "PhoBERT base",
-        PHASE_ROOT + r"\transfer-root-v5\data\models\phase40\base\phobert-base-v2",
-        "1.011 GiB",
-        "1708ec099dcc8385a88ab49d0bb7860e4ceb496fd08aa792b0ec95e2326d8d5f",
-    ),
+    ("Qwen QLoRA adapter", PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\full\qwen-qlora\adapter-or-model", "0.139 GiB", "466d107d7212fd9b65f19b36be5011e6043865bce4c937460145908d3847b7ec"),
+    ("Qwen base", PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\base\qwen3-4b-instruct-2507", "7.507 GiB", "bab9c18a02587fb842c9332848bdc4f1316bae7ee5bed3bb1d573dca2d64554c"),
+    ("PhoBERT inference bundle", PHASE_ROOT + r"\phobert-release-v4\data\models\phase40\inference\phobert", "1.513 GiB", "649f566a6525833778fbc617261278ef53e4ecc6ab88ae54715f6aaf7b56bb7a"),
+    ("PhoBERT base", PHASE_ROOT + r"\transfer-root-v5\data\models\phase40\base\phobert-base-v2", "1.011 GiB", "1708ec099dcc8385a88ab49d0bb7860e4ceb496fd08aa792b0ec95e2326d8d5f"),
 ]
 OPTIONAL_GGUF = (
     "Qwen Q8_0 GGUF and manifest",
@@ -81,43 +64,95 @@ CLEANUP_CANDIDATES = [
     (PHASE_ROOT + r"\comparison-root-v6", "part of 5.013 GiB", "comparison staging"),
 ]
 NESTED_CANDIDATES = [
-    (
-        PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\base\phobert-base-v2",
-        "1.011 GiB",
-    ),
-    (
-        PHASE_ROOT + r"\transfer-root-v5\data\models\phase40\full\phobert",
-        "1.514 GiB",
-    ),
-    (
-        PHASE_ROOT + r"\phobert-release-v4\data\models\phase40\full\phobert",
-        "1.514 GiB",
-    ),
+    (PHASE_ROOT + r"\transfer-root-v3\data\models\phase40\base\phobert-base-v2", "1.011 GiB"),
+    (PHASE_ROOT + r"\transfer-root-v5\data\models\phase40\full\phobert", "1.514 GiB"),
+    (PHASE_ROOT + r"\phobert-release-v4\data\models\phase40\full\phobert", "1.514 GiB"),
 ]
 OLDER_BASES = [
     (r"D:\PROJEct\AI MODELS\base\qwen2.5-7b-instruct", "14.196 GiB"),
     (r"D:\PROJEct\AI MODELS\base\qwen3.5-4b", "8.701 GiB"),
 ]
-DELETION_COMMAND = re.compile(
-    r"(?im)^\s*(?:rm\b|rmdir\b|rd\s+/|del\s+/|erase\b|Remove-Item\b|shutil\.rmtree\b)"
-)
-SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(?:sk-[A-Za-z0-9]{8,}|\b(?:api[_-]?key|access[_-]?token|secret)\s*=)"
-)
+
+DELETION_COMMAND = re.compile(r"(?im)^\s*(?:rm\b|rmdir\b|rd\s+/|del\s+/|erase\b|Remove-Item\b|shutil\.rmtree\b)")
+SECRET_ASSIGNMENT = re.compile(r"(?i)(?:sk-[A-Za-z0-9]{8,}|\b(?:api[_-]?key|access[_-]?token|secret)\s*=)")
 BANNED_OVERCLAIMS = (
-    "zero prior filesystem access",
-    "the only process that ever opened",
-    "untouched until the launcher",
-    "the refactored code produced the frozen metrics",
-    "cleanup has been authorized",
-    "one model is superior",
+    "zero prior filesystem access", "the only process that ever opened",
+    "untouched until the launcher", "the refactored code produced the frozen metrics",
+    "cleanup has been authorized", "one model is superior",
 )
+
+
+def _reject_constant(value: str) -> None:
+    raise AssertionError(f"non-finite JSON value: {value}")
+
+
+def _strict_json(raw: bytes) -> dict[str, Any]:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            assert key not in result, f"duplicate JSON key: {key}"
+            result[key] = value
+        return result
+
+    value = json.loads(
+        raw.decode("utf-8"), object_pairs_hook=reject_duplicates,
+        parse_constant=_reject_constant,
+    )
+    assert isinstance(value, dict)
+    return value
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert isinstance(payload, dict)
-    return payload
+    return _strict_json(path.read_bytes())
+
+
+def _validate_fact_contract(facts: dict[str, Any]) -> None:
+    assert list(facts) == ["erratum", "export", "schema_version", "source"]
+    assert facts["schema_version"] == "phase411-report-fact-contract-v1"
+    erratum = facts["erratum"]
+    export = facts["export"]
+    source = facts["source"]
+    assert isinstance(erratum, dict) and list(erratum) == [
+        "corrected_claim", "path", "schema_version",
+        "sealed_export_evidence_manifest_sha256", "sha256",
+    ]
+    assert isinstance(export, dict) and list(export) == [
+        "artifact_count", "evidence_manifest_sha256", "manifest_path",
+        "schema_version", "terminal_policy",
+    ]
+    assert isinstance(source, dict) and list(source) == [
+        "archival_receipt_sha256", "execution_source_manifest_sha256", "launcher_sha256",
+        "provenance_label", "receipt_path", "source_tree_sha256",
+    ]
+    assert erratum == {
+        "corrected_claim": CORRECTED_CLAIM,
+        "path": ERRATUM_RELATIVE,
+        "schema_version": "phase41-provenance-erratum-v1",
+        "sealed_export_evidence_manifest_sha256": EXPORT_IDENTITY,
+        "sha256": ERRATUM_SHA256,
+    }
+    assert export == {
+        "artifact_count": 12,
+        "evidence_manifest_sha256": EXPORT_IDENTITY,
+        "manifest_path": EXPORT_MANIFEST_RELATIVE,
+        "schema_version": "phase41-evidence-manifest-v1",
+        "terminal_policy": {
+            "rerun_permitted": False,
+            "test_outcome_used_for_tuning": False,
+            "unbiased_test_score_claim_after_deployment_fit": False,
+        },
+    }
+    assert source == {
+        "archival_receipt_sha256": RECEIPT_SHA256,
+        "execution_source_manifest_sha256": SOURCE_MANIFEST_SHA256,
+        "launcher_sha256": LAUNCHER_SHA256,
+        "provenance_label": PROVENANCE_LABEL,
+        "receipt_path": SOURCE_RECEIPT_RELATIVE,
+        "source_tree_sha256": SOURCE_TREE,
+    }
+    assert type(export["artifact_count"]) is int
+    assert all(type(value) is bool for value in export["terminal_policy"].values())
+    assert all(math.isfinite(value) for value in [float(export["artifact_count"])])
 
 
 def _marked_table(document: str, name: str, width: int) -> list[tuple[str, ...]]:
@@ -127,8 +162,7 @@ def _marked_table(document: str, name: str, width: int) -> list[tuple[str, ...]]
     block = document.split(start, 1)[1].split(end, 1)[0]
     rows = [line.strip() for line in block.splitlines() if line.strip().startswith("|")]
     parsed = [tuple(cell.strip() for cell in row.strip("|").split("|")) for row in rows]
-    assert len(parsed) >= 2
-    assert all(len(row) == width for row in parsed)
+    assert len(parsed) >= 2 and all(len(row) == width for row in parsed)
     assert all(set(cell) <= {"-", ":", " "} for cell in parsed[1])
     return [tuple(_unquote(cell) for cell in row) for row in parsed[2:]]
 
@@ -138,28 +172,15 @@ def _unquote(value: str) -> str:
     return value[1:-1]
 
 
-def _erratum_sha(baseline: dict[str, Any]) -> str:
-    matches = [
-        row["worktree_sha256"]
-        for row in baseline["protected_authorities"]
-        if row["path"] == "data/models/phase41/phase41-provenance-erratum.json"
-    ]
-    assert len(matches) == 1
-    return matches[0]
-
-
-def _allowed_hashes(
-    receipt: dict[str, Any], baseline: dict[str, Any]
-) -> set[str]:
+def _allowed_hashes(facts: dict[str, Any]) -> set[str]:
     return {
-        SOURCE_TREE,
-        EXPORT_IDENTITY,
-        receipt["receipt_sha256"],
-        receipt["manifest_sha256"],
-        receipt["launcher_sha256"],
-        _erratum_sha(baseline),
-        *(row[3] for row in SEALED_ROOTS),
-        OPTIONAL_GGUF[3],
+        facts["source"]["source_tree_sha256"],
+        facts["source"]["archival_receipt_sha256"],
+        facts["source"]["execution_source_manifest_sha256"],
+        facts["source"]["launcher_sha256"],
+        facts["export"]["evidence_manifest_sha256"],
+        facts["erratum"]["sha256"],
+        *(row[3] for row in SEALED_ROOTS), OPTIONAL_GGUF[3],
     }
 
 
@@ -167,56 +188,33 @@ def _assert_safe_static_text(document: str) -> None:
     assert not DELETION_COMMAND.search(document)
     assert not SECRET_ASSIGNMENT.search(document)
     lowered = document.lower().replace(
-        "does not have zero prior filesystem access",
-        "records prior filesystem access",
+        "does not have zero prior filesystem access", "records prior filesystem access"
     )
     assert all(claim not in lowered for claim in BANNED_OVERCLAIMS)
-    assert "data/splits" not in lowered
-    assert "test.jsonl" not in lowered
+    assert "data/splits" not in lowered and "test.jsonl" not in lowered
 
 
-def _validate_provenance(
-    document: str,
-    receipt: dict[str, Any],
-    manifest: dict[str, Any],
-    erratum: dict[str, Any],
-    baseline: dict[str, Any],
-) -> None:
+def _validate_provenance(document: str, facts: dict[str, Any]) -> None:
+    _validate_fact_contract(facts)
     _assert_safe_static_text(document)
-    assert receipt["source_tree_sha256"] == SOURCE_TREE
-    assert receipt["provenance_label"] in document
-    assert receipt["source_tree_sha256"] in document
-    assert receipt["receipt_sha256"] in document
-    assert receipt["manifest_sha256"] in document
-    assert receipt["launcher_sha256"] in document
-    assert manifest["schema_version"] == "phase41-evidence-manifest-v1"
-    assert len(manifest["artifacts"]) == 12
-    assert manifest["terminal_policy"] == {
-        "rerun_permitted": False,
-        "test_outcome_used_for_tuning": False,
-        "unbiased_test_score_claim_after_deployment_fit": False,
-    }
-    assert EXPORT_IDENTITY in document
-    erratum_sha = _erratum_sha(baseline)
-    assert erratum["schema_version"] == "phase41-provenance-erratum-v1"
-    assert erratum["sealed_export"]["evidence_manifest_sha256"] == EXPORT_IDENTITY
-    assert erratum_sha in document
-    assert erratum["corrected_claim"] in document
-    assert "active architecture" in document.lower()
-    assert "historical producer source" in document.lower()
+    source, export, erratum = facts["source"], facts["export"], facts["erratum"]
+    for value in (
+        source["source_tree_sha256"], source["archival_receipt_sha256"],
+        source["execution_source_manifest_sha256"], source["launcher_sha256"],
+        source["provenance_label"], export["evidence_manifest_sha256"],
+        export["schema_version"], erratum["sha256"], erratum["corrected_claim"],
+    ):
+        assert str(value) in document
+    assert "reports\nstatus `completed`, and names 12 hash-bound members" in document
     assert "Current source is not the metric-producing source" in document
     assert "Every downstream result claim must cite the verified export and the erratum together." in document
-
     hashes = set(re.findall(r"\b[0-9a-f]{64}\b", document))
     required = {
-        SOURCE_TREE,
-        EXPORT_IDENTITY,
-        receipt["receipt_sha256"],
-        receipt["manifest_sha256"],
-        receipt["launcher_sha256"],
-        erratum_sha,
+        source["source_tree_sha256"], source["archival_receipt_sha256"],
+        source["execution_source_manifest_sha256"], source["launcher_sha256"],
+        export["evidence_manifest_sha256"], erratum["sha256"],
     }
-    assert required <= hashes <= _allowed_hashes(receipt, baseline)
+    assert required <= hashes <= _allowed_hashes(facts)
 
 
 def _validate_storage(document: str) -> None:
@@ -226,33 +224,26 @@ def _validate_storage(document: str) -> None:
     assert _marked_table(document, "cleanup-candidates", 3) == CLEANUP_CANDIDATES
     assert _marked_table(document, "nested-candidates", 2) == NESTED_CANDIDATES
     assert _marked_table(document, "older-bases", 2) == OLDER_BASES
-    assert "10.170 GiB" in document
-    assert "30.304 GiB" in document
-    assert "4.040 GiB" in document
-    assert "informational and not authorized for deletion" in document
-    assert "separate exact-path user authorization" in document
-    assert "NTFS hardlinks" in document
-    hashes = set(re.findall(r"\b[0-9a-f]{64}\b", document))
-    assert hashes == {*(row[3] for row in SEALED_ROOTS), OPTIONAL_GGUF[3]}
+    assert all(value in document for value in (
+        "10.170 GiB", "30.304 GiB", "4.040 GiB",
+        "informational and not authorized for deletion",
+        "separate exact-path user authorization", "NTFS hardlinks",
+    ))
+    assert set(re.findall(r"\b[0-9a-f]{64}\b", document)) == {
+        *(row[3] for row in SEALED_ROOTS), OPTIONAL_GGUF[3]
+    }
 
 
-def _validate_handoff(
-    document: str,
-    receipt: dict[str, Any],
-    erratum: dict[str, Any],
-    baseline: dict[str, Any],
-) -> None:
+def _validate_handoff(document: str, facts: dict[str, Any]) -> None:
+    _validate_fact_contract(facts)
     _assert_safe_static_text(document)
     for heading in (
-        "## Architecture facts",
-        "## Metric-authority facts",
-        "## Required limitation language",
-        "## Prohibited claims",
-        "## Source citations",
-        "## Later-phase ownership",
+        "## Architecture facts", "## Metric-authority facts",
+        "## Required limitation language", "## Prohibited claims",
+        "## Source citations", "## Later-phase ownership",
     ):
         assert heading in document
-    required_statements = (
+    required = (
         "The refactored code did not generate the frozen metrics.",
         "At least two broad default pytest executions before the terminal model evaluation parsed, statted, and hashed the live split files; the exact count may be higher.",
         "One focused post-evaluation regression rerun also reread the live split files.",
@@ -261,68 +252,109 @@ def _validate_handoff(
         "Every result claim must cite the verified export and mandatory erratum together.",
         "Phase 44—not this handoff—owns student-written comments and the guided defense walkthrough.",
     )
-    assert all(statement in document for statement in required_statements)
-    assert SOURCE_TREE in document
-    assert EXPORT_IDENTITY in document
-    assert _erratum_sha(baseline) in document
-    assert receipt["provenance_label"] in document
-    assert erratum["corrected_claim"] in document
-    assert "current active architecture" in document.lower()
-    assert "historical producer source" in document.lower()
-    hashes = set(re.findall(r"\b[0-9a-f]{64}\b", document))
-    assert hashes <= _allowed_hashes(receipt, baseline)
+    assert all(statement in document for statement in required)
+    for value in (
+        facts["source"]["source_tree_sha256"], facts["source"]["provenance_label"],
+        facts["export"]["evidence_manifest_sha256"], facts["erratum"]["sha256"],
+        facts["erratum"]["corrected_claim"],
+    ):
+        assert value in document
+    assert set(re.findall(r"\b[0-9a-f]{64}\b", document)) <= _allowed_hashes(facts)
+
+
+def _leaf_paths(value: object, prefix: tuple[object, ...] = ()) -> Iterator[tuple[object, ...]]:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            yield from _leaf_paths(child, (*prefix, key))
+    else:
+        yield prefix
+
+
+def _mutate_leaf(document: dict[str, Any], path: tuple[object, ...]) -> None:
+    owner: Any = document
+    for key in path[:-1]:
+        owner = owner[key]
+    key = path[-1]
+    value = owner[key]
+    if type(value) is bool:
+        owner[key] = not value
+    elif type(value) is int:
+        owner[key] = value + 1
+    else:
+        owner[key] = str(value) + "-mutated"
+
+
+def test_report_fact_fixture_is_strict_and_baseline_bound() -> None:
+    facts = _load_json(FACT_PATH)
+    _validate_fact_contract(facts)
+    baseline = _load_json(BASELINE_PATH)
+    authorities = {item["path"]: item for item in baseline["protected_authorities"]}
+    source_manifest_path = f"data/models/phase41/verified-export/{EXPORT_IDENTITY}/execution-source-manifest.json"
+    assert authorities[source_manifest_path]["worktree_sha256"] == facts["source"]["execution_source_manifest_sha256"]
+    assert authorities[ERRATUM_RELATIVE]["worktree_sha256"] == facts["erratum"]["sha256"]
+    assert facts["erratum"]["sealed_export_evidence_manifest_sha256"] == facts["export"]["evidence_manifest_sha256"]
+    raw = FACT_PATH.read_bytes()
+    with pytest.raises(AssertionError, match="duplicate JSON key"):
+        _strict_json(b'{"schema_version":"duplicate",' + raw[1:])
+    with pytest.raises(AssertionError, match="non-finite"):
+        _strict_json(b'{"value":NaN}')
 
 
 def test_provenance_binds_source_export_and_erratum() -> None:
-    _validate_provenance(
-        PROVENANCE_PATH.read_text(encoding="utf-8"),
-        _load_json(SOURCE_RECEIPT_PATH),
-        _load_json(EXPORT_MANIFEST_PATH),
-        _load_json(ERRATUM_PATH),
-        _load_json(BASELINE_PATH),
-    )
+    _validate_provenance(PROVENANCE_PATH.read_text(encoding="utf-8"), _load_json(FACT_PATH))
 
 
 def test_storage_retention_matches_approved_inventory_without_deletion() -> None:
-    inventory = INVENTORY_PATH.read_text(encoding="utf-8")
-    assert "nothing deleted" in inventory.lower()
+    assert "nothing deleted" in INVENTORY_PATH.read_text(encoding="utf-8").lower()
     _validate_storage(STORAGE_PATH.read_text(encoding="utf-8"))
 
 
 def test_report_handoff_carries_facts_limitations_and_later_phase_scope() -> None:
-    _validate_handoff(
-        HANDOFF_PATH.read_text(encoding="utf-8"),
-        _load_json(SOURCE_RECEIPT_PATH),
-        _load_json(ERRATUM_PATH),
-        _load_json(BASELINE_PATH),
-    )
+    _validate_handoff(HANDOFF_PATH.read_text(encoding="utf-8"), _load_json(FACT_PATH))
+
+
+def test_handoff_historical_cycle_count_matches_policy() -> None:
+    policy = _load_json(POLICY_PATH)
+    assert policy["schema_version"] == "module-boundaries-v2"
+    assert len(policy["historical_sccs"]) == 4
+    overview = OVERVIEW_PATH.read_text(encoding="utf-8")
+    block = overview.split("<!-- historical-sccs:start -->", 1)[1].split("<!-- historical-sccs:end -->", 1)[0]
+    rows = [line for line in block.splitlines() if line.lstrip().startswith("|")]
+    assert len(rows) - 2 == 4
+    assert "four reviewed legacy-only cycles" in HANDOFF_PATH.read_text(encoding="utf-8")
 
 
 def test_static_validators_reject_missing_authority_invented_facts_and_commands() -> None:
-    receipt = _load_json(SOURCE_RECEIPT_PATH)
-    manifest = _load_json(EXPORT_MANIFEST_PATH)
-    erratum = _load_json(ERRATUM_PATH)
-    baseline = _load_json(BASELINE_PATH)
+    facts = _load_json(FACT_PATH)
+    for path in _leaf_paths(facts):
+        mutated = copy.deepcopy(facts)
+        _mutate_leaf(mutated, path)
+        with pytest.raises(AssertionError):
+            _validate_fact_contract(mutated)
     provenance = PROVENANCE_PATH.read_text(encoding="utf-8")
     storage = STORAGE_PATH.read_text(encoding="utf-8")
     handoff = HANDOFF_PATH.read_text(encoding="utf-8")
-
     with pytest.raises(AssertionError):
-        _validate_provenance(
-            provenance.replace(_erratum_sha(baseline), "f" * 64),
-            receipt,
-            manifest,
-            erratum,
-            baseline,
-        )
+        _validate_provenance(provenance.replace(ERRATUM_SHA256, "f" * 64), facts)
     with pytest.raises(AssertionError):
         _validate_storage(storage.replace("10.170 GiB", "10.999 GiB"))
     with pytest.raises(AssertionError):
         _validate_storage(storage + "\nRemove-Item -Recurse candidate\n")
     with pytest.raises(AssertionError):
-        _validate_handoff(
-            handoff + "\nThe held-out file had zero prior filesystem access.\n",
-            receipt,
-            erratum,
-            baseline,
-        )
+        _validate_handoff(handoff + "\nThe held-out file had zero prior filesystem access.\n", facts)
+
+
+def test_former_live_authority_paths_are_guarded_before_call() -> None:
+    import sitecustomize
+
+    calls = {"underlying": 0}
+
+    def recorder(*_args: object, **_kwargs: object) -> None:
+        calls["underlying"] += 1
+
+    guarded = sitecustomize._make_path_guard("synthetic.authority-read", recorder)
+    for relative in (SOURCE_RECEIPT_RELATIVE, EXPORT_MANIFEST_RELATIVE, ERRATUM_RELATIVE):
+        lexical = ntpath.join(os.fspath(REPO_ROOT), relative.replace("/", "\\"))
+        with pytest.raises(PermissionError, match="forbidden authority path"):
+            guarded(lexical)
+    assert calls == {"underlying": 0}

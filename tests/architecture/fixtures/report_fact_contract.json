@@ -1,0 +1,29 @@
+{
+  "erratum": {
+    "corrected_claim": "Phase 41 contains exactly one terminal shared-cohort model-evaluation pass over the frozen Qwen QLoRA and PhoBERT models. It does not have zero prior filesystem access to the held-out file.",
+    "path": "data/models/phase41/phase41-provenance-erratum.json",
+    "schema_version": "phase41-provenance-erratum-v1",
+    "sealed_export_evidence_manifest_sha256": "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7",
+    "sha256": "c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672"
+  },
+  "export": {
+    "artifact_count": 12,
+    "evidence_manifest_sha256": "9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7",
+    "manifest_path": "data/models/phase41/verified-export/9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7/evidence-manifest.json",
+    "schema_version": "phase41-evidence-manifest-v1",
+    "terminal_policy": {
+      "rerun_permitted": false,
+      "test_outcome_used_for_tuning": false,
+      "unbiased_test_score_claim_after_deployment_fit": false
+    }
+  },
+  "schema_version": "phase411-report-fact-contract-v1",
+  "source": {
+    "archival_receipt_sha256": "ca4ca1bf019b567d5bfa2380658a11245d76543b323ce5e2fcf6cfe3f525213a",
+    "execution_source_manifest_sha256": "41a3a7e166dd5077b3b2c689868b862bd5665137e1824094eb5ff1cdce2b0c61",
+    "launcher_sha256": "c5f15a32b2c8d8ee196e3ec484707c27c4c05e5389d958626e775e44f52d49e9",
+    "provenance_label": "post_evaluation_archival_mirror_not_refactored_metric_producer",
+    "receipt_path": "historical/phase41-source-closure/c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434/archival-receipt.json",
+    "source_tree_sha256": "c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434"
+  }
+}
