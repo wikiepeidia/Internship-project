@@ -14,6 +14,8 @@ import tomllib
 
 import pytest
 
+from src.core import integrity
+
 
 REPO_ROOT = Path(__file__).parents[2]
 RUNTIME_CLI_FIXTURE = REPO_ROOT / "tests/architecture/fixtures/runtime_cli_contract.json"
@@ -83,6 +85,30 @@ def _write_manifest(root: Path, payload: object) -> Path:
     return path
 
 
+def _write_strict_model_manifest(root: Path, candidate_id: str) -> Path:
+    model_root = root / "base" / candidate_id
+    model_root.mkdir(parents=True)
+    (model_root / "config.json").write_text('{"model":"synthetic"}', encoding="utf-8")
+    digest, file_count, total_bytes = integrity.artifact_digest(model_root)
+    _write_manifest(
+        root,
+        {
+            "schema_version": "model-download-manifest-v2",
+            "models": [
+                {
+                    "candidate_id": candidate_id,
+                    "local_path": model_root.relative_to(root).as_posix(),
+                    "revision": "synthetic-revision",
+                    "sha256": digest,
+                    "file_count": file_count,
+                    "total_bytes": total_bytes,
+                }
+            ],
+        },
+    )
+    return model_root
+
+
 def _run_isolated_lookup(root: Path, candidate_id: str) -> subprocess.CompletedProcess[str]:
     script = textwrap.dedent(
         f"""
@@ -122,14 +148,10 @@ def _run_isolated_lookup(root: Path, candidate_id: str) -> subprocess.CompletedP
 
 
 def test_runtime_manifest_lookup_succeeds_with_optional_graph_blocked(tmp_path: Path) -> None:
-    candidate = tmp_path / "synthetic-model"
-    candidate.mkdir()
-    _write_manifest(
-        tmp_path,
-        {"models": [{"candidate_id": "synthetic-qwen", "local_path": os.fspath(candidate)}]},
-    )
+    candidate_id = "qwen3-4b-instruct-2507"
+    candidate = _write_strict_model_manifest(tmp_path, candidate_id)
 
-    completed = _run_isolated_lookup(tmp_path, "synthetic-qwen")
+    completed = _run_isolated_lookup(tmp_path, candidate_id)
 
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == os.fspath(candidate).encode(
@@ -138,14 +160,26 @@ def test_runtime_manifest_lookup_succeeds_with_optional_graph_blocked(tmp_path: 
 
 
 def test_runtime_missing_candidate_preserves_frozen_error_contract(tmp_path: Path) -> None:
-    _write_manifest(tmp_path, {"models": []})
+    _write_manifest(
+        tmp_path,
+        {"schema_version": "model-download-manifest-v2", "models": []},
+    )
 
     completed = _run_isolated_lookup(tmp_path, "missing-candidate")
 
     assert completed.returncode != 0
-    assert "Missing base model for candidate_id=missing-candidate" in completed.stderr
-    assert "manifests\\download-manifest.json" in completed.stderr
-    assert "base\\missing-candidate" in completed.stderr
+    assert "Missing base model manifest entry for candidate_id=missing-candidate" in completed.stderr
+
+
+def test_runtime_rejects_unmanifested_base_model_fallback(tmp_path: Path) -> None:
+    fallback = tmp_path / "base" / "qwen3.5-4b"
+    fallback.mkdir(parents=True)
+    (fallback / "config.json").write_text("{}", encoding="utf-8")
+
+    completed = _run_isolated_lookup(tmp_path, "qwen3.5-4b")
+
+    assert completed.returncode != 0
+    assert "Missing base model manifest entry" in completed.stderr
 
 
 @pytest.mark.parametrize(
@@ -172,15 +206,31 @@ def test_download_manifest_rejects_invalid_json(
     "payload",
     [
         {"models": {}},
-        {"models": ["not-an-object"]},
-        {"models": [{}]},
-        {"models": [{"candidate_id": "candidate"}]},
-        {"models": [{"candidate_id": "", "local_path": "model"}]},
-        {"models": [{"candidate_id": "candidate", "local_path": ""}]},
+        {"schema_version": "model-download-manifest-v2", "models": ["not-an-object"]},
+        {"schema_version": "model-download-manifest-v2", "models": [{}]},
         {
+            "schema_version": "model-download-manifest-v2",
+            "models": [{"candidate_id": "unknown", "local_path": "model"}],
+        },
+        {
+            "schema_version": "model-download-manifest-v2",
             "models": [
-                {"candidate_id": "duplicate", "local_path": "first"},
-                {"candidate_id": "duplicate", "local_path": "second"},
+                {
+                    "candidate_id": "qwen3.5-4b",
+                    "local_path": "first",
+                    "revision": "one",
+                    "sha256": "a" * 64,
+                    "file_count": 1,
+                    "total_bytes": 1,
+                },
+                {
+                    "candidate_id": "qwen3.5-4b",
+                    "local_path": "second",
+                    "revision": "two",
+                    "sha256": "b" * 64,
+                    "file_count": 1,
+                    "total_bytes": 1,
+                },
             ]
         },
     ],
@@ -201,6 +251,31 @@ def test_absent_download_manifest_is_an_empty_mapping(tmp_path: Path) -> None:
     assert artifacts.load_download_manifest(tmp_path) == {}
 
 
+@pytest.mark.parametrize("field,value", (("local_path", "../outside"), ("sha256", "A" * 64)))
+def test_download_manifest_rejects_unbounded_paths_and_hashes(
+    tmp_path: Path,
+    field: str,
+    value: str,
+) -> None:
+    artifacts = importlib.import_module("src.artifacts")
+    record = {
+        "candidate_id": "qwen3.5-4b",
+        "local_path": "base/qwen3.5-4b",
+        "revision": "synthetic-revision",
+        "sha256": "a" * 64,
+        "file_count": 1,
+        "total_bytes": 1,
+    }
+    record[field] = value
+    _write_manifest(
+        tmp_path,
+        {"schema_version": "model-download-manifest-v2", "models": [record]},
+    )
+
+    with pytest.raises(artifacts.ArtifactError):
+        artifacts.load_download_manifest(tmp_path)
+
+
 def test_neutral_boundary_is_closed_and_within_static_budgets() -> None:
     for relative in ("src/core/integrity.py", "src/artifacts.py"):
         source = (REPO_ROOT / relative).read_text(encoding="utf-8")
@@ -217,8 +292,28 @@ def test_neutral_boundary_is_closed_and_within_static_budgets() -> None:
     local_source = (REPO_ROOT / "src/runtime/analyzers/local_model.py").read_text(
         encoding="utf-8"
     )
-    assert "from src.artifacts import load_download_manifest" in local_source
+    assert "from src.artifacts import resolve_downloaded_model" in local_source
     assert "src.model_adaptation.training" not in local_source
+
+
+def test_runtime_loaders_reverify_before_import_and_disable_remote_code() -> None:
+    accelerated = (REPO_ROOT / "src/runtime/analyzers/accelerated.py").read_text(
+        encoding="utf-8"
+    )
+    gguf = (REPO_ROOT / "src/runtime/analyzers/gguf.py").read_text(encoding="utf-8")
+
+    accelerated_load = accelerated[accelerated.index("    def _load_runtime(") :]
+    gguf_load = gguf[gguf.index("    def _load_runtime(") :]
+    assert accelerated_load.index("verify_artifact_identity") < accelerated_load.index(
+        'importlib.import_module("torch")'
+    )
+    assert gguf_load.index("verify_artifact_identity") < gguf_load.index(
+        'importlib.import_module("llama_cpp")'
+    )
+    assert "trust_remote_code=True" not in accelerated
+    assert "trust_remote_code=False" in accelerated
+    assert '"trust_remote_code": False' in accelerated
+    assert '"use_safetensors": True' in accelerated
 
 
 def _clear_owner_caches(settings_module: object) -> None:
@@ -345,6 +440,7 @@ def test_runtime_construction_uses_secret_free_owner_getter() -> None:
         source = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "get_runtime_settings as get_settings" in source
         assert not any(field_name in source for field_name in PROVIDER_DEFAULTS)
+        assert "resolved_model_registry_path" in source
 
 
 def test_runtime_minimum_python_matches_package_metadata() -> None:

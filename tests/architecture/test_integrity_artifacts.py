@@ -86,6 +86,26 @@ def _registry_payload() -> dict[str, Any]:
     }
 
 
+def _strict_download_manifest(root: Path, candidate_id: str) -> dict[str, Any]:
+    model_root = root / "base" / candidate_id
+    model_root.mkdir(parents=True)
+    (model_root / "config.json").write_text('{"model":"synthetic"}', encoding="utf-8")
+    digest, file_count, total_bytes = integrity.artifact_digest(model_root)
+    return {
+        "schema_version": "model-download-manifest-v2",
+        "models": [
+            {
+                "candidate_id": candidate_id,
+                "local_path": model_root.relative_to(root).as_posix(),
+                "revision": "synthetic-revision",
+                "sha256": digest,
+                "file_count": file_count,
+                "total_bytes": total_bytes,
+            }
+        ],
+    }
+
+
 @pytest.mark.parametrize("token", ("NaN", "Infinity", "-Infinity"))
 def test_strict_json_rejects_non_finite_tokens(tmp_path: Path, token: str) -> None:
     path = tmp_path / "non-finite.json"
@@ -233,6 +253,22 @@ def test_file_hash_rejects_final_redirect_when_supported(tmp_path: Path) -> None
         integrity.sha256_file(redirect)
 
 
+def test_model_artifact_digest_rejects_redirect_members_when_supported(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifact"
+    artifact_root.mkdir()
+    source = tmp_path / "outside.bin"
+    source.write_bytes(b"outside")
+    try:
+        (artifact_root / "redirect.bin").symlink_to(source)
+    except OSError as exc:
+        pytest.skip(f"file symlinks unavailable: {exc}")
+
+    with pytest.raises(integrity.IntegrityError, match="must not contain redirects"):
+        integrity.artifact_digest(artifact_root)
+
+
 def test_atomic_failure_never_unlinks_post_publication_replacement(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -256,44 +292,32 @@ def test_atomic_failure_never_unlinks_post_publication_replacement(
     assert target.read_bytes() == b"racer"
 
 
-def test_download_manifest_matches_independent_historical_reader_on_shared_contracts(
+def test_download_manifest_requires_strict_hashed_v2_contract(
     tmp_path: Path,
 ) -> None:
-    from src.model_adaptation import training as historical_training
-
     absent = tmp_path / "absent"
-    assert artifacts.load_download_manifest(absent) == historical_training._load_download_manifest(
-        absent
-    )
+    absent.mkdir()
+    assert artifacts.load_download_manifest(absent) == {}
 
     valid = tmp_path / "valid"
     manifest = valid / "manifests" / "download-manifest.json"
     manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        json.dumps(
-            {
-                "models": [
-                    {
-                        "candidate_id": "synthetic-qwen",
-                        "local_path": "synthetic/base-model",
-                    }
-                ]
-            }
-        ),
+    payload = _strict_download_manifest(valid, "qwen3-4b-instruct-2507")
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    loaded = artifacts.load_download_manifest(valid)
+    assert loaded["qwen3-4b-instruct-2507"].sha256 == payload["models"][0]["sha256"]
+    resolved = artifacts.resolve_downloaded_model(valid, "qwen3-4b-instruct-2507")
+    assert artifacts.verify_artifact_identity(resolved) == valid / "base/qwen3-4b-instruct-2507"
+
+    legacy = tmp_path / "legacy"
+    legacy_manifest = legacy / "manifests" / "download-manifest.json"
+    legacy_manifest.parent.mkdir(parents=True)
+    legacy_manifest.write_text(
+        json.dumps({"models": [{"candidate_id": "qwen3.5-4b", "local_path": "base/model"}]}),
         encoding="utf-8",
     )
-    assert artifacts.load_download_manifest(valid) == historical_training._load_download_manifest(
-        valid
-    )
-
-    malformed = tmp_path / "malformed"
-    bad_manifest = malformed / "manifests" / "download-manifest.json"
-    bad_manifest.parent.mkdir(parents=True)
-    bad_manifest.write_bytes(b"{")
-    with pytest.raises(Exception):
-        historical_training._load_download_manifest(malformed)
-    with pytest.raises(artifacts.ArtifactError):
-        artifacts.load_download_manifest(malformed)
+    with pytest.raises(artifacts.ArtifactError, match="schema_version"):
+        artifacts.load_download_manifest(legacy)
 
 
 def test_active_registry_matches_historical_bytes_and_validation(tmp_path: Path) -> None:
@@ -312,7 +336,9 @@ def test_active_registry_matches_historical_bytes_and_validation(tmp_path: Path)
     artifacts.save_model_registry(active, active_path, storage_root=active_root)
     historical_registry.save_model_registry(historical, historical_path)
     assert active_path.read_bytes() == historical_path.read_bytes()
-    assert artifacts.load_model_registry(active_path).model_dump(mode="json") == (
+    assert artifacts.load_model_registry(
+        active_path, storage_root=active_root
+    ).model_dump(mode="json") == (
         historical_registry.load_model_registry(historical_path).model_dump(mode="json")
     )
 
@@ -323,7 +349,7 @@ def test_active_registry_matches_historical_bytes_and_validation(tmp_path: Path)
     with pytest.raises(Exception):
         historical_registry.load_model_registry(malformed)
     with pytest.raises(artifacts.ArtifactError):
-        artifacts.load_model_registry(malformed)
+        artifacts.load_model_registry(malformed, storage_root=tmp_path)
 
 
 def test_registry_writer_rejects_unbounded_paths_without_side_effects(
@@ -375,6 +401,51 @@ def test_registry_writer_rejects_redirecting_parent_without_side_effects(
         )
 
     assert not (external / "registry.json").exists()
+
+
+def test_registry_artifact_requires_exact_metadata_and_rechecks_hash(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "models"
+    artifact_path = artifact_root / "gguf" / "synthetic.gguf"
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_bytes(b"verified-gguf")
+    digest, _, _ = integrity.artifact_digest(artifact_path)
+    payload = _registry_payload()
+    payload["artifacts"][0].update(
+        {
+            "local_path": "gguf/synthetic.gguf",
+            "sha256": digest,
+            "profile_name": "gguf-laptop",
+        }
+    )
+    registry = artifacts.ModelRegistry.model_validate(payload)
+
+    verified = artifacts.resolve_registry_artifact(
+        registry,
+        artifact_root=artifact_root,
+        candidate_id="qwen3-4b-instruct-2507",
+        artifact_type="gguf",
+        profile_name="gguf-laptop",
+    )
+    assert artifacts.verify_artifact_identity(verified) == artifact_path
+
+    artifact_path.write_bytes(b"tampered-gguf")
+    with pytest.raises(artifacts.ArtifactError, match="SHA-256 mismatch"):
+        artifacts.verify_artifact_identity(verified)
+
+
+@pytest.mark.parametrize("invalid_hash", ("A" * 64, "g" * 64, "a" * 63))
+def test_registry_rejects_invalid_hash_and_version_metadata(invalid_hash: str) -> None:
+    payload = _registry_payload()
+    payload["artifacts"][0]["sha256"] = invalid_hash
+    with pytest.raises(ValidationError):
+        artifacts.ModelRegistry.model_validate(payload)
+
+    payload = _registry_payload()
+    payload["artifacts"][0]["version_tag"] = "different-version"
+    with pytest.raises(ValidationError, match="must match registry"):
+        artifacts.ModelRegistry.model_validate(payload)
 
 
 def test_active_release_models_match_independent_historical_contract_and_reader(

@@ -7,7 +7,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.artifacts import find_latest_artifact, load_model_registry
+from src.artifacts import (
+    VerifiedArtifact,
+    load_model_registry,
+    resolve_registry_artifact,
+    verify_artifact_identity,
+)
 from src.config.settings import get_runtime_settings as get_settings
 from src.runtime.analyzers.local_model import (
     build_analysis_result,
@@ -28,11 +33,19 @@ GGUF_COMPLETION_MAX_TOKENS = 250
 class GGUFAnalyzer:
     """Contract-compatible local analyzer backed by registered GGUF artifacts."""
 
-    registry_path: Path = field(default_factory=lambda: get_settings().model_registry_path)
+    registry_path: Path = field(
+        default_factory=lambda: get_settings().resolved_model_registry_path
+    )
+    artifact_root: Path = field(
+        default_factory=lambda: get_settings().resolved_model_artifact_root
+    )
+    storage_root: Path = field(
+        default_factory=lambda: get_settings().resolved_model_storage_root
+    )
     runtime_profile: str = field(default_factory=lambda: get_settings().runtime_profile_gguf)
     backend_name: str = "gguf"
     _cached_runtime: Any | None = field(default=None, init=False, repr=False)
-    _cached_artifact_path: Path | None = field(default=None, init=False, repr=False)
+    _cached_artifact: VerifiedArtifact | None = field(default=None, init=False, repr=False)
     _cached_doctor_status: DoctorStatus | None = field(default=None, init=False, repr=False)
 
     def _allowed_profiles(self) -> dict[str, str]:
@@ -42,24 +55,27 @@ class GGUFAnalyzer:
             settings.runtime_profile_gguf_runner_up: "runner_up_id",
         }
 
-    def _resolve_artifact_path(self) -> Path:
-        registry = load_model_registry(self.registry_path)
+    def _resolve_artifact(self) -> VerifiedArtifact:
+        registry = load_model_registry(self.registry_path, storage_root=self.storage_root)
         if registry.selection is None:
             raise RuntimeError("Pilot selection metadata is missing")
 
         candidate_field = self._allowed_profiles()[self.runtime_profile]
         target_candidate_id = getattr(registry.selection, candidate_field)
-        gguf_artifact = find_latest_artifact(
+        return resolve_registry_artifact(
             registry,
+            artifact_root=self.artifact_root,
             candidate_id=target_candidate_id,
             artifact_type="gguf",
+            profile_name=self.runtime_profile,
         )
-        if gguf_artifact is None or not gguf_artifact.local_path.exists():
-            raise FileNotFoundError(f"Missing GGUF artifact for candidate_id={target_candidate_id}")
-        return gguf_artifact.local_path
 
-    def _load_runtime(self, artifact_path: Path) -> Any:
-        if self._cached_runtime is not None and self._cached_artifact_path == artifact_path:
+    def _resolve_artifact_path(self) -> Path:
+        return self._resolve_artifact().path
+
+    def _load_runtime(self, artifact: VerifiedArtifact) -> Any:
+        artifact_path = verify_artifact_identity(artifact)
+        if self._cached_runtime is not None and self._cached_artifact == artifact:
             return self._cached_runtime
 
         llama_cpp = importlib.import_module("llama_cpp")
@@ -70,7 +86,7 @@ class GGUFAnalyzer:
             verbose=False,
         )
         self._cached_runtime = runtime
-        self._cached_artifact_path = artifact_path
+        self._cached_artifact = artifact
         return runtime
 
     def _infer_payload(self, runtime: Any, text: str) -> dict[str, Any]:
@@ -121,12 +137,17 @@ class GGUFAnalyzer:
             )
         )
 
-        if not self.registry_path.exists():
+        try:
+            registry = load_model_registry(
+                self.registry_path,
+                storage_root=self.storage_root,
+            )
+        except Exception as exc:
             checks.append(
                 DoctorCheck(
                     name="model-registry",
                     passed=False,
-                    detail=f"Missing model registry: {self.registry_path}",
+                    detail=f"Model registry is unavailable or invalid: {exc}",
                     remediation_command=GGUF_SETUP_GUIDE,
                 )
             )
@@ -137,7 +158,14 @@ class GGUFAnalyzer:
                 setup_steps=[GGUF_SETUP_GUIDE],
             )
 
-        registry = load_model_registry(self.registry_path)
+        checks.append(
+            DoctorCheck(
+                name="model-registry",
+                passed=True,
+                detail="Model registry passed its bounded integrity checks.",
+                remediation_command=GGUF_SETUP_GUIDE,
+            )
+        )
         has_selection = registry.selection is not None
         checks.append(
             DoctorCheck(
@@ -156,22 +184,21 @@ class GGUFAnalyzer:
                 setup_steps=[GGUF_SETUP_GUIDE],
             )
 
-        candidate_field = allowed_profiles[self.runtime_profile]
-        target_candidate_id = getattr(registry.selection, candidate_field)
-        gguf_artifact = find_latest_artifact(
-            registry,
-            candidate_id=target_candidate_id,
-            artifact_type="gguf",
-        )
-        artifact_ready = gguf_artifact is not None and gguf_artifact.local_path.exists()
+        artifact: VerifiedArtifact | None = None
+        artifact_error: Exception | None = None
+        try:
+            artifact = self._resolve_artifact()
+        except Exception as exc:
+            artifact_error = exc
+        artifact_ready = artifact is not None
         checks.append(
             DoctorCheck(
                 name="gguf-artifact",
                 passed=artifact_ready,
                 detail=(
-                    f"GGUF artifact ready at {gguf_artifact.local_path}"
+                    "GGUF artifact passed bounded integrity verification."
                     if artifact_ready
-                    else f"Missing GGUF artifact for candidate_id={target_candidate_id}"
+                    else f"GGUF artifact is unavailable or invalid: {artifact_error}"
                 ),
                 remediation_command=GGUF_SETUP_GUIDE,
             )
@@ -179,13 +206,13 @@ class GGUFAnalyzer:
 
         if artifact_ready:
             try:
-                artifact_path = self._resolve_artifact_path()
-                self._load_runtime(artifact_path)
+                assert artifact is not None
+                self._load_runtime(artifact)
                 checks.append(
                     DoctorCheck(
                         name="gguf-runtime-load",
                         passed=True,
-                        detail=f"GGUF runtime can load {artifact_path}",
+                        detail="GGUF runtime loaded the verified artifact identity.",
                         remediation_command=GGUF_SETUP_GUIDE,
                     )
                 )
@@ -216,7 +243,7 @@ class GGUFAnalyzer:
         if not status.ready:
             raise RuntimeError("GGUF backend is not ready")
 
-        artifact_path = self._resolve_artifact_path()
-        runtime = self._load_runtime(artifact_path)
+        artifact = self._resolve_artifact()
+        runtime = self._load_runtime(artifact)
         payload = self._infer_payload(runtime, request.text)
         return build_analysis_result(payload, request, self.backend_name)

@@ -118,6 +118,74 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def read_file_bytes(path: Path, *, where: str) -> bytes:
+    """Capture bytes from one stable, non-redirecting file descriptor."""
+
+    source = reject_redirecting_ancestry(Path(os.path.abspath(path)), where=where)
+    parent_identity = _directory_identity(source.parent, where=f"{where} parent")
+    path_identity = _regular_identity(source, where=where)
+    flags = os.O_RDONLY | int(getattr(os, "O_BINARY", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    try:
+        descriptor = os.open(source, flags)
+    except OSError as error:
+        raise IntegrityError(f"cannot open {where} without following redirects") from error
+    with os.fdopen(descriptor, "rb") as handle:
+        if _identity(os.fstat(handle.fileno())) != path_identity:
+            raise IntegrityError(f"{where} descriptor does not match the inspected file")
+        value = handle.read()
+        if _identity(os.fstat(handle.fileno())) != path_identity:
+            raise IntegrityError(f"{where} changed while reading")
+    _require_identity(source, path_identity, where=where)
+    _require_directory_identity(source.parent, parent_identity, where=f"{where} parent")
+    return value
+
+
+def _artifact_inventory(root: Path, current: Path) -> list[tuple[str, tuple[int, int, int, int, int]]]:
+    metadata = os.lstat(current)
+    if _is_redirecting(current):
+        raise IntegrityError("model artifact must not contain redirects")
+    if stat.S_ISREG(metadata.st_mode):
+        return [(current.relative_to(root).as_posix(), _identity(metadata))]
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise IntegrityError("model artifact may contain only directories and regular files")
+    result: list[tuple[str, tuple[int, int, int, int, int]]] = []
+    for name in sorted(os.listdir(current)):
+        result.extend(_artifact_inventory(root, current / name))
+    return result
+
+
+def artifact_digest(path: Path) -> tuple[str, int, int]:
+    """Hash one regular file or an exact redirect-free directory tree."""
+
+    candidate = reject_redirecting_ancestry(
+        Path(os.path.abspath(path)), where="model artifact"
+    )
+    metadata = os.lstat(candidate)
+    if stat.S_ISREG(metadata.st_mode):
+        identity = _identity(metadata)
+        digest = sha256_file(candidate)
+        _require_identity(candidate, identity, where="model artifact")
+        return digest, 1, identity[3]
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise IntegrityError("model artifact must be a regular file or directory")
+    before = _artifact_inventory(candidate, candidate)
+    if not before:
+        raise IntegrityError("model artifact directory must not be empty")
+    entries: list[dict[str, object]] = []
+    for relative, identity in before:
+        source = candidate / Path(relative)
+        digest = sha256_file(source)
+        _require_identity(source, identity, where="model artifact member")
+        entries.append({"path": relative, "bytes": identity[3], "sha256": digest})
+    if _artifact_inventory(candidate, candidate) != before:
+        raise IntegrityError("model artifact tree changed while hashing")
+    payload = {"schema_version": "model-artifact-tree-v1", "files": entries}
+    return sha256_bytes(canonical_json_bytes(payload)), len(entries), sum(
+        int(entry["bytes"]) for entry in entries
+    )
+
+
 def canonical_json_bytes(value: Any) -> bytes:
     """Serialize a JSON-compatible value as compact UTF-8 plus one LF."""
 
@@ -135,7 +203,7 @@ def canonical_json_bytes(value: Any) -> bytes:
 def strict_json_object(path: Path, *, where: str) -> dict[str, Any]:
     """Read one strict UTF-8 JSON object while rejecting duplicate keys."""
 
-    raw = Path(path).read_bytes()
+    raw = read_file_bytes(Path(path), where=where)
 
     def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}

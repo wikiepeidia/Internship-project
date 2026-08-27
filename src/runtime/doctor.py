@@ -111,12 +111,16 @@ class RuntimeDoctor:
                 backend_status = HeuristicAnalyzer().doctor()
             elif settings.runtime_backend == "gguf":
                 backend_status = GGUFAnalyzer(
-                    registry_path=settings.model_registry_path,
+                    registry_path=settings.resolved_model_registry_path,
+                    artifact_root=settings.resolved_model_artifact_root,
+                    storage_root=settings.resolved_model_storage_root,
                     runtime_profile=settings.runtime_profile,
                 ).doctor()
             elif settings.runtime_backend == "accelerated":
                 backend_status = AcceleratedAnalyzer(
-                    registry_path=settings.model_registry_path,
+                    registry_path=settings.resolved_model_registry_path,
+                    artifact_root=settings.resolved_model_artifact_root,
+                    storage_root=settings.resolved_model_storage_root,
                     runtime_profile=runtime_profile,
                 ).doctor()
             else:

@@ -67,11 +67,15 @@ def _build_backend_from_settings(settings: RuntimeSettings) -> AnalyzerBackend:
         return HeuristicAnalyzer()
     if settings.runtime_backend == "gguf":
         return GGUFAnalyzer(
-            registry_path=settings.model_registry_path,
+            registry_path=settings.resolved_model_registry_path,
+            artifact_root=settings.resolved_model_artifact_root,
+            storage_root=settings.resolved_model_storage_root,
             runtime_profile=settings.runtime_profile,
         )
     return AcceleratedAnalyzer(
-        registry_path=settings.model_registry_path,
+        registry_path=settings.resolved_model_registry_path,
+        artifact_root=settings.resolved_model_artifact_root,
+        storage_root=settings.resolved_model_storage_root,
         runtime_profile=settings.runtime_profile,
     )
 
