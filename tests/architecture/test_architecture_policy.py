@@ -620,7 +620,7 @@ def _derive_tool_record(record: Mapping[str, Any]) -> tuple[list[str], list[list
 def _validate_tool_contract(candidate: object, expected: Mapping[str, Any]) -> None:
     assert isinstance(candidate, dict)
     assert set(candidate) == {"contract_state", "tools"}
-    assert candidate["contract_state"] == "pre_extraction_v1"
+    assert candidate["contract_state"] == "post_extraction_v1"
     assert candidate == expected
     tools = candidate["tools"]
     assert isinstance(tools, list) and len(tools) == 11
@@ -689,7 +689,7 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
             if imported.startswith("src.")
         )
     assert static["active_tool_edges"] == derived_edges == [
-        ["scripts/archive_phase41_source_closure.py", "src.core_binding"]
+        ["scripts/archive_phase41_source_closure.py", "src.source_archiving"]
     ]
     assert not any(str(edge[0]).startswith("scripts/") for edge in policy["allowed_edges"])
 
@@ -704,7 +704,7 @@ def test_tool_inventory_exactly_classifies_scripts_imports_and_routes() -> None:
         )
         _must_reject(lambda mutant=mutant: _validate_tool_contract(mutant, fixture))
     for mutant in (
-        {**fixture, "contract_state": "post_extraction_v1"},
+        {**fixture, "contract_state": "pre_extraction_v1"},
         {**fixture, "tools": fixture["tools"][:-1]},
         {**fixture, "tools": [*fixture["tools"], copy.deepcopy(fixture["tools"][0])]},
     ):
@@ -722,7 +722,7 @@ def _validate_active_text_contract(candidate: object, expected: Mapping[str, Any
         "literal_markers",
         "frozen_literal_owners",
     }
-    assert candidate["contract_state"] == "pre_extraction_v1"
+    assert candidate["contract_state"] == "post_extraction_v1"
     assert candidate == expected
     assert len(candidate["text_assets"]) == 4
     assert len(candidate["binary_assets"]) == 12
@@ -733,7 +733,7 @@ def _validate_active_text_contract(candidate: object, expected: Mapping[str, Any
     markers = candidate["literal_markers"]
     owners = candidate["frozen_literal_owners"]
     assert len(markers) == 15
-    assert len(owners) == 34
+    assert len(owners) == 31
     assert all(
         set(row) == {"path", "marker_id", "start_marker", "end_marker", "reason", "owner"}
         for row in markers
@@ -745,8 +745,8 @@ def _validate_active_text_contract(candidate: object, expected: Mapping[str, Any
         set(row) == {"id", "path", "literal", "owner_symbol", "reason", "lifecycle"}
         for row in owners
     )
-    assert len({row["id"] for row in owners}) == 34
-    assert {row["lifecycle"] for row in owners} == {"active", "compatibility"}
+    assert len({row["id"] for row in owners}) == 31
+    assert {row["lifecycle"] for row in owners} == {"active"}
 
 
 def _owner_source_segment(source: str, owner_symbol: str) -> str:
@@ -862,5 +862,53 @@ def test_active_text_contract_exactly_classifies_assets_documents_and_markers() 
         mutant["frozen_literal_owners"][0][field] += "-wrong"
         _must_reject(lambda mutant=mutant: _validate_active_text_contract(mutant, fixture))
     stale = copy.deepcopy(fixture)
-    stale["contract_state"] = "post_extraction_v1"
+    stale["contract_state"] = "pre_extraction_v1"
     _must_reject(lambda: _validate_active_text_contract(stale, fixture))
+
+
+def test_archive_contract_fixtures_transition_atomically() -> None:
+    policy = _policy()["static_policy"]
+    tools = _json_fixture(TOOL_INVENTORY_FIXTURE)
+    active_text = _json_fixture(ACTIVE_TEXT_FIXTURE)
+
+    assert tools["contract_state"] == policy["tool_contract_state"] == "post_extraction_v1"
+    assert active_text["contract_state"] == "post_extraction_v1"
+    assert policy["active_text_scan"] == active_text
+    archive_tool = next(
+        row for row in tools["tools"]
+        if row["path"] == "scripts/archive_phase41_source_closure.py"
+    )
+    assert archive_tool["imports"] == [
+        "__future__", "argparse", "contextlib", "dataclasses", "datetime",
+        "hashlib", "json", "os", "pathlib", "re", "secrets",
+        "src.source_archiving", "stat", "sys", "typing",
+    ]
+    assert policy["tools"] == tools["tools"]
+    assert policy["active_tool_edges"] == [
+        ["scripts/archive_phase41_source_closure.py", "src.source_archiving"]
+    ]
+
+    owners = active_text["frozen_literal_owners"]
+    assert len(owners) == 31
+    by_id = {row["id"]: row for row in owners}
+    assert len(by_id) == 31
+    assert {
+        "archive-facade-description",
+        "archive-worktree-phase41-evaluation",
+        "archive-production-launcher-filename",
+    }.isdisjoint(by_id)
+    assert by_id["archive-source-manifest-schema"] == {
+        "id": "archive-source-manifest-schema",
+        "path": "src/source_archiving/contracts.py",
+        "literal": "phase41-execution-source-manifest-v1",
+        "owner_symbol": "EXPECTED_SCHEMA_VERSION",
+        "reason": "preserve immutable source-closure schema compatibility",
+        "lifecycle": "active",
+    }
+    assert by_id["archive-source-phase41-evaluation"]["owner_symbol"] == (
+        "SOURCE_PHASE41_EVALUATION"
+    )
+    assert by_id["archive-launcher-relative-path"]["owner_symbol"] == (
+        "LAUNCHER_RELATIVE_PATH"
+    )
+    assert all(row["lifecycle"] == "active" for row in owners)

@@ -676,7 +676,7 @@
         "src.runtime.contracts"
       ]
     ],
-    "tool_contract_state": "pre_extraction_v1",
+    "tool_contract_state": "post_extraction_v1",
     "tools": [
       {
         "path": "scripts/START_DEMO_UI.bat",
@@ -728,7 +728,7 @@
           "pathlib",
           "re",
           "secrets",
-          "src.core_binding",
+          "src.source_archiving",
           "stat",
           "sys",
           "typing"
@@ -991,11 +991,11 @@
     "active_tool_edges": [
       [
         "scripts/archive_phase41_source_closure.py",
-        "src.core_binding"
+        "src.source_archiving"
       ]
     ],
     "active_text_scan": {
-      "contract_state": "pre_extraction_v1",
+      "contract_state": "post_extraction_v1",
       "text_assets": [
         "src/runtime/demo_assets/index.html",
         "src/runtime/demo_assets/demo.css",
@@ -1201,228 +1201,204 @@
           "lifecycle": "active"
         },
         {
-          "id": "archive-facade-description",
-          "path": "scripts/archive_phase41_source_closure.py",
-          "literal": "Archive and verify the exact source closure that produced Phase 41 evidence.",
-          "owner_symbol": "<module>.__doc__",
-          "reason": "characterize pre-extraction facade description until authorized domain rewrite",
-          "lifecycle": "compatibility"
-        },
-        {
           "id": "archive-source-manifest-schema",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "phase41-execution-source-manifest-v1",
           "owner_symbol": "EXPECTED_SCHEMA_VERSION",
           "reason": "preserve immutable source-closure schema compatibility",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-receipt-schema",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "phase411-source-closure-archival-receipt-v1",
           "owner_symbol": "RECEIPT_SCHEMA_VERSION",
           "reason": "preserve immutable archival receipt schema compatibility",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-provenance-label",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "post_evaluation_archival_mirror_not_refactored_metric_producer",
           "owner_symbol": "PROVENANCE_LABEL",
           "reason": "preserve immutable post-evaluation archival provenance",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-callbacks",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_callbacks.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-comparison-launch",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_comparison_launch.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-contract",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_contract.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-evidence",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_evidence.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-final-authority",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_final_authority.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-gguf",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_gguf.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-graphs",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_graphs.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-handoff",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_handoff.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-metrics",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_metrics.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-modes",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_modes.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-notebooks",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_notebooks.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-phobert-release",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_phobert_release.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-production-authorities",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_production_authorities.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-release-authorities",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_release_authorities.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-review",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_review.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase40-runtime-materialize",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase40_runtime_materialize.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase41-evaluation",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase41_evaluation.py",
-          "owner_symbol": "_SOURCE_PATHS",
+          "owner_symbol": "SOURCE_PHASE41_EVALUATION",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-source-phase41-protocols",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "src/model_adaptation/phase41_protocols.py",
           "owner_symbol": "_SOURCE_PATHS",
           "reason": "preserve immutable source-closure member identity",
-          "lifecycle": "compatibility"
-        },
-        {
-          "id": "archive-worktree-phase41-evaluation",
-          "path": "scripts/archive_phase41_source_closure.py",
-          "literal": "src/model_adaptation/phase41_evaluation.py",
-          "owner_symbol": "_WORKTREE_MISMATCHES",
-          "reason": "preserve immutable worktree-mismatch member identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-production-evidence-root",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/service.py",
           "literal": "C:\\ProgramData\\VNPhish\\phase41-evaluation-evidence",
           "owner_symbol": "PRODUCTION_EVIDENCE_ROOT",
           "reason": "preserve immutable production evidence authority identity",
-          "lifecycle": "compatibility"
-        },
-        {
-          "id": "archive-production-launcher-filename",
-          "path": "scripts/archive_phase41_source_closure.py",
-          "literal": "phase41_one_shot_launcher.ps1",
-          "owner_symbol": "PRODUCTION_LAUNCHER_PATH",
-          "reason": "preserve immutable production launcher filename",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-production-manifest-root",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/service.py",
           "literal": "data/models/phase41/verified-export",
           "owner_symbol": "PRODUCTION_MANIFEST_PATH",
           "reason": "preserve immutable verified-export manifest root",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-production-destination-root",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/service.py",
           "literal": "historical/phase41-source-closure",
           "owner_symbol": "PRODUCTION_DESTINATION",
           "reason": "preserve immutable archive destination root",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         },
         {
           "id": "archive-launcher-relative-path",
-          "path": "scripts/archive_phase41_source_closure.py",
+          "path": "src/source_archiving/contracts.py",
           "literal": "scripts/phase41_one_shot_launcher.ps1",
-          "owner_symbol": "_manifest_records",
+          "owner_symbol": "LAUNCHER_RELATIVE_PATH",
           "reason": "preserve immutable launcher manifest identity",
-          "lifecycle": "compatibility"
+          "lifecycle": "active"
         }
       ]
     }

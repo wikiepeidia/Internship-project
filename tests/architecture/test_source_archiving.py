@@ -301,11 +301,20 @@ def test_archive_bytes_and_cli_streams_match_independent_pre_refactor_baseline(
     active = _strict_json(ACTIVE_TEXT_FIXTURE.read_bytes())
     tools = _strict_json(TOOL_FIXTURE.read_bytes())
     archive_tool = next(row for row in tools["tools"] if row["path"] == PRE_ARCHIVE_TOOL["path"])
-    assert tools["contract_state"] == "pre_extraction_v1"
-    assert archive_tool == PRE_ARCHIVE_TOOL
+    states = (tools["contract_state"], active["contract_state"])
+    assert states in {
+        ("pre_extraction_v1", "pre_extraction_v1"),
+        ("post_extraction_v1", "post_extraction_v1"),
+    }
+    expected_tool = (
+        PRE_ARCHIVE_TOOL if states[0] == "pre_extraction_v1" else POST_ARCHIVE_TOOL
+    )
+    expected_owners = (
+        PRE_ACTIVE_OWNERS if states[1] == "pre_extraction_v1" else POST_ACTIVE_OWNERS
+    )
+    assert archive_tool == expected_tool
     assert {**PRE_ARCHIVE_TOOL, "imports": POST_ARCHIVE_TOOL["imports"]} == POST_ARCHIVE_TOOL
-    assert active["contract_state"] == "pre_extraction_v1"
-    assert _owner_rows(active) == PRE_ACTIVE_OWNERS
+    assert _owner_rows(active) == expected_owners
     assert len(PRE_ACTIVE_OWNERS) == 34
     assert len(POST_ACTIVE_OWNERS) == 31
     assert len({row[0] for row in PRE_ACTIVE_OWNERS}) == 34

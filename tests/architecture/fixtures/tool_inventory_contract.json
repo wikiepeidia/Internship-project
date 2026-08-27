@@ -1,5 +1,5 @@
 {
-  "contract_state": "pre_extraction_v1",
+  "contract_state": "post_extraction_v1",
   "tools": [
     {
       "path": "scripts/START_DEMO_UI.bat",
@@ -25,7 +25,7 @@
       "language": "python",
       "kind": "provenance_cli",
       "phase_language": "phase_41",
-      "imports": ["__future__", "argparse", "contextlib", "dataclasses", "datetime", "hashlib", "json", "os", "pathlib", "re", "secrets", "src.core_binding", "stat", "sys", "typing"],
+      "imports": ["__future__", "argparse", "contextlib", "dataclasses", "datetime", "hashlib", "json", "os", "pathlib", "re", "secrets", "src.source_archiving", "stat", "sys", "typing"],
       "routes": []
     },
     {
