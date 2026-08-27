@@ -314,6 +314,37 @@ def test_active_release_models_match_independent_historical_contract_and_reader(
         artifacts.ReleaseEvaluationArtifact.model_validate(invalid_payload)
 
 
+def test_release_artifact_rejects_fail_open_pass_states() -> None:
+    valid = _release_artifact(artifacts).model_dump(mode="json")
+
+    missing_metrics = dict(valid)
+    missing_metrics["per_label_metrics"] = []
+    with pytest.raises(ValidationError, match="locked release label order"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(missing_metrics)
+
+    blocked_readiness = json.loads(json.dumps(valid))
+    blocked_readiness["readiness_audit"]["support_by_label"]["task_scam"] = 0
+    blocked_readiness["readiness_audit"]["blocker_reasons"] = [
+        "missing held-out support for task_scam"
+    ]
+    blocked_readiness["readiness_audit"]["ready"] = False
+    blocked_readiness["readiness_audit"]["verdict"] = "BLOCK"
+    blocked_readiness["per_label_metrics"][2]["support"] = 0
+    blocked_readiness["overall_metrics"]["evaluated_rows"] = 3
+    with pytest.raises(ValidationError, match="verdict .* inconsistent"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(blocked_readiness)
+
+    below_floor = json.loads(json.dumps(valid))
+    below_floor["per_label_metrics"][0]["recall"] = 0.1
+    with pytest.raises(ValidationError, match="verdict .* inconsistent"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(below_floor)
+
+    contradictory_blocker = json.loads(json.dumps(valid))
+    contradictory_blocker["blocker_reasons"] = ["synthetic blocker"]
+    with pytest.raises(ValidationError, match="verdict .* inconsistent"):
+        artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_blocker)
+
+
 def test_historical_sources_keep_archived_hashes_and_no_active_reverse_edges() -> None:
     baseline = json.loads(PROTECTED_BASELINE.read_text(encoding="utf-8"))
     recorded = {

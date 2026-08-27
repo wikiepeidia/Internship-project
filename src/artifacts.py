@@ -273,7 +273,7 @@ class OverallMetricSummary(BaseModel):
 
     macro_f1: float = Field(ge=0.0, le=1.0)
     weighted_f1: float = Field(ge=0.0, le=1.0)
-    evaluated_rows: int = Field(ge=0)
+    evaluated_rows: int = Field(gt=0)
 
 
 class ExplanationRubricSummary(BaseModel):
@@ -332,8 +332,40 @@ class ReleaseEvaluationArtifact(BaseModel):
     @model_validator(mode="after")
     def require_full_label_metrics(self) -> "ReleaseEvaluationArtifact":
         metric_labels = [row.label for row in self.per_label_metrics]
-        if metric_labels and metric_labels != list(LOCKED_RELEASE_LABELS):
+        if metric_labels != list(LOCKED_RELEASE_LABELS):
             raise ValueError("per_label_metrics must follow the locked release label order")
+        if self.readiness_audit is None:
+            raise ValueError("readiness_audit is required")
+        support_total = sum(row.support for row in self.per_label_metrics)
+        if support_total != self.overall_metrics.evaluated_rows:
+            raise ValueError("per-label support must equal evaluated_rows")
+        for row in self.per_label_metrics:
+            if self.readiness_audit.support_by_label[row.label] != row.support:
+                raise ValueError("metric support must match readiness_audit support")
+
+        below_floor = [
+            row.label
+            for row in self.per_label_metrics
+            if row.label in LOCKED_RISKY_LABELS
+            and row.recall < RISKY_LABEL_RECALL_FLOORS[row.label]
+        ]
+        has_blocker = bool(
+            self.blocker_reasons
+            or self.explanation_rubric_summary.blocker_reasons
+            or not self.readiness_audit.ready
+            or below_floor
+        )
+        has_flag = bool(
+            self.flag_reasons or self.explanation_rubric_summary.flag_reasons
+        )
+        expected: ReleaseVerdict = (
+            "BLOCK" if has_blocker else "FLAG" if has_flag else "PASS"
+        )
+        if self.verdict != expected:
+            raise ValueError(
+                f"verdict {self.verdict!r} is inconsistent with release evidence; "
+                f"expected {expected!r}"
+            )
         return self
 
 
