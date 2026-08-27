@@ -1,26 +1,24 @@
 \begin{table}[H]
 \centering
-\small
-\renewcommand{\arraystretch}{1.05}
-\begin{tabular}{p{3.6cm}p{4.6cm}p{4.7cm}}
+\footnotesize
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{L{3.4cm}L{5.2cm}L{4.7cm}}
 \toprule
-\textbf{Evidence item} & \textbf{Value} & \textbf{Source} \\
+\textbf{Evidence item} & \textbf{Measured result} & \textbf{Interpretation boundary} \\
 \midrule
-Final joined judge evidence        & 1,395/2,097 passed; five means 4.020 / 4.851 / 4.672 / 4.119 / 4.745 & Final judge summary and provenance \\
-Final human quality sample         & 44/100 passed; 87/100 agreement & Manifest-bound human sheet \\
-Pilot model selection              & qwen3-4b-instruct-2507 selected; qwen3.5-4b alternative candidate & Pilot scoring record \\
-Historical training evidence       & NF4 QLoRA; 2,333 train; checkpoint 584 & \texttt{training-summary.json} \\
-Historical internal validation     & 254 examples          & \texttt{eval-results-qlora.json} \\
-Per-class support                  & 56 bank, 75 Zalo, 62 task, 61 benign & \texttt{eval-results-qlora.json} \\
-Bank impersonation                 & recall 1.000, precision 0.862, F1 0.926 & \texttt{eval-results-qlora.json} \\
-Zalo social engineering            & recall 0.987, precision 1.000, F1 0.993 & \texttt{eval-results-qlora.json} \\
-Task scam                          & recall 0.871, precision 1.000, F1 0.931 & \texttt{eval-results-qlora.json} \\
-Benign                             & recall 1.000, precision 1.000, F1 1.000 & \texttt{eval-results-qlora.json} \\
-Accuracy / macro F1                & 0.9646 / 0.9625       & \texttt{eval-results-qlora.json} \\
-GGUF deployment                    & Q8\_0, 4,280,403,232 bytes; CLI verified & External registry + SHA-256 manifest \\
-Historical/current split boundary  & 254 validation (seed overlap) + 413 then-test; current test 220 and final splits seed-disjoint & Training snapshot and promoted manifest \\
+Final corpus & 2{,}097 rows; 1{,}658 / 219 / 220; zero seed overlap; 7.9638\% max seed share & Promoted seed-governed snapshot \\
+Joined machine judge & 1{,}395/2{,}097 pass (66.52\%); 1{,}561 carries + 536 fresh delta & Descriptive; not an all-new independent rerun \\
+Human quality sample & 44/100 pass; 87/100 judge agreement & Stratified partial audit, not full annotation \\
+Targeted mislabel triage & 324 reviewed; 91 drops; 233 relabel approvals; 57 admitted & 176 approved Zalo rows excluded for shared lineage \\
+Ordinary LoRA probe & 31 events; 53.274 s median; 7{,}902/8{,}151 MiB; no OOM & 18.42 h is an incomplete-window compute projection \\
+NF4 QLoRA probe & 40 measured steps; 3.462389 s median; 7{,}516/8{,}151 MiB; no OOM & 72m49.750s is a projected schedule, not observed full duration \\
+Qwen validation & $N=219$; accuracy 0.990868; macro F1 0.988515 & Seed 42; checkpoint 200; development evidence \\
+PhoBERT validation & $N=219$; accuracy 0.986301; macro F1 0.984893 & Seed 42; checkpoint 100; development evidence \\
+Qwen terminal result & $N=220$; 0.981818 / 0.980493 / 0.981848; invalid 0; risky-to-benign 1 & One terminal shared-cohort pass \\
+PhoBERT terminal result & $N=220$; 0.990909 / 0.990892 / 0.990925; invalid 0; risky-to-benign 1 & Descriptively higher overall; no stable-winner claim \\
+Qwen deployment artifact & Q8\_0 GGUF, 4{,}280{,}403{,}232 bytes; verified load smokes & PhoBERT has no GGUF; deployment fitting deferred \\
 \bottomrule
 \end{tabular}
-\caption{Current data-quality evidence and explicitly historical model-evaluation evidence.}
+\caption{Compact evidence snapshot. Terminal metric triplets are accuracy / macro F1 / weighted F1. Observations, projections, validation results, and terminal results are deliberately separated.}
 \label{tab:evaluation-snapshot}
 \end{table}

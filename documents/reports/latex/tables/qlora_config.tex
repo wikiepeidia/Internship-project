@@ -1,21 +1,27 @@
 \begin{table}[H]
 \centering
-\begin{tabular}{ll}
+\small
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{L{5.0cm}L{8.0cm}}
 \toprule
-\textbf{Parameter / Metric} & \textbf{Value} \\
+\textbf{Configuration / Result} & \textbf{Verified value} \\
 \midrule
-Base model         & \texttt{qwen3-4b-instruct-2507} \\
-LoRA rank $r$      & 16 \\
-LoRA scale $\alpha$& 32 \\
-Quantization       & 4-bit NF4 with double quantization \\
-Training examples  & 2{,}333 \\
-Internal validation examples& 254 \\
-Epochs             & 1 \\
-Final checkpoint   & step 584 \\
-Training loss      & 0.5073 \\
-Export format      & GGUF Q8\_0 (llama.cpp) \\
+Base model & \texttt{Qwen3-4B-Instruct-2507} \\
+Adaptation & Genuine 4-bit QLoRA; NF4 with double quantization \\
+LoRA rank / scale & $r=16$, $\alpha=32$ \\
+Quantized modules & 252 \texttt{Linear4bit} modules \\
+Trainable adapter tensors & 504; base weights frozen \\
+Random seed & 42 \\
+Training / validation rows & 1{,}658 / 219 \\
+Epochs / optimizer steps & 3 / 1{,}245 \\
+Selected checkpoint & Step 200 under the frozen validation safety gate \\
+Validation accuracy / macro F1 & 0.9908675799 / 0.9885153110 \\
+Invalid / risky-to-benign outputs & 0 / 0 on validation \\
+Exact training stack & Python 3.13.13; PyTorch 2.12.0+cu132; Transformers 5.9.0; PEFT 0.19.1; bitsandbytes 0.50.1 \\
+Export & GGUF Q8\_0, 4{,}280{,}403{,}232 bytes \\
+GGUF SHA-256 & \texttt{457f6f92d36a7d54da9916fd80a4028d}\allowbreak\texttt{cd055a653a015c4877370a0fea4d18ab} \\
 \bottomrule
 \end{tabular}
-\caption{Historical QLoRA configuration and results from the earlier model-training snapshot; these values were not recomputed on the promoted 2{,}097-row corpus.}
+\caption{Final local Qwen QLoRA configuration and selected validation result. The 220-row terminal cohort was not used for checkpoint selection.}
 \label{tab:qlora-config}
 \end{table}

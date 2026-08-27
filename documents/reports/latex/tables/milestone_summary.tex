@@ -1,18 +1,21 @@
 \begin{table}[H]
 \centering
-\renewcommand{\arraystretch}{1.4}
-\begin{tabular}{L{3.2cm}L{6.5cm}L{4.5cm}}
+\small
+\renewcommand{\arraystretch}{1.22}
+\begin{tabular}{L{3.1cm}L{6.2cm}L{4.7cm}}
 \toprule
-\textbf{Component} & \textbf{Description} & \textbf{Outcome} \\
+\textbf{Implemented component} & \textbf{Contribution} & \textbf{Verified outcome} \\
 \midrule
-Data construction    & Final joined judge evidence and separate human sample & Judge 1{,}395/2{,}097 passed; human 44/100 passed \\
-Local runtime        & Offline text analysis with privacy-preserving safe defaults & End-to-end inference verified \\
-Model pilot          & Recall-first candidate comparison for the 4B baseline     & qwen3-4b-instruct-2507 selected \\
-Local deployment     & Adapted model exported to GGUF; CPU inference verified     & GGUF artifact registered \\
-Decision layer       & Risk tiers, threat labels, cues, and safe guidance         & Structured runtime output verified \\
-Historical model evaluation & Earlier internal validation on 254 examples & Macro F1 0.9625; not recomputed on promoted corpus \\
+Corpus engineering & Seed-preserving repair, deduplication, span validation, concentration cap, and group-integrity splitting & 2{,}097 rows; 1{,}658/219/220; zero cross-split seed overlap \\
+Quality governance & Joined machine judgment, 100-row stratified audit, and 324-candidate Vietnamese triage & 66.52\% judge pass; 44/100 human pass; 87/100 agreement \\
+Hardware decision & Same-laptop bounded ordinary-LoRA and genuine NF4-QLoRA probes & Resource pressure recorded honestly; neither probe OOMed \\
+Qwen adaptation & Fresh three-epoch, 1{,}245-step local QLoRA with strict structured-output safety gate & Validation macro F1 0.988515; checkpoint 200 \\
+PhoBERT baseline & Fresh three-epoch, 312-step full Vietnamese classification-head training & Validation macro F1 0.984893; checkpoint 100 \\
+Portable runtime artifact & Merged Qwen adapter and verified Q8\_0 conversion & 4{,}280{,}403{,}232-byte GGUF; two load smokes \\
+Terminal comparison & Exactly one frozen two-model pass on the same 220-row cohort & Macro F1: Qwen 0.980493, PhoBERT 0.990892 \\
+Evidence and disclosure & Hash-linked logs, curves, predictions, export, failure history, and provenance correction & No test-driven retraining; deployment fitting deferred \\
 \bottomrule
 \end{tabular}
-\caption{Implemented pipeline components, current data-quality evidence, and historical model-evaluation outcome.}
+\caption{Implemented project contributions and the strongest verified outcome for each.}
 \label{tab:milestone-summary}
 \end{table}

@@ -4,17 +4,17 @@
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Model Candidate} & \textbf{High-risk Recall} & \textbf{Peak Memory (GB)} & \textbf{Latency/Sample (s)} & \textbf{Selection Status} \\
+\textbf{Model Candidate} & \textbf{Overall Risky Recall} & \textbf{Peak VRAM (GB)} & \textbf{Latency/Sample (s)} & \textbf{Selection Status} \\
 \midrule
-qwen3-4b-instruct-2507  & 11/11 (100\%) & 2.77 & 0.35 & \textbf{Selected} \\
-qwen3.5-4b              & 11/11 (100\%) & 3.28 & 0.94 & Alternative \\
-qwen2.5-7b-instruct     &  0/11 (\phantom{0}0\%) & 5.62 & 0.56 & Excluded \\
+qwen3-4b-instruct-2507  & 0.5000 & 2.77 & 0.35 & \textbf{Selected} \\
+qwen3.5-4b              & 0.5000 & 3.28 & 0.94 & Alternative \\
+qwen2.5-7b-instruct     & 0.5000 & 5.62 & 0.56 & Excluded \\
 \bottomrule
 \end{tabular}%
 }
 
 \smallskip
-{\footnotesize Note: All three models achieved identical overall risky-class recall (0.50) on the combined suspicious\,+\,high-risk tiers. Both 4B candidates correctly identified all 11 high-risk examples before fine-tuning; the 7B model missed all 11. \texttt{qwen3-4b-instruct-2507} was selected based on lower memory usage (2.77\,GB vs 3.28\,GB) and lower latency (0.35\,s vs 0.94\,s).}
-\caption{Pre-adaptation pilot screening on 33 fixed examples (11 per risk tier). Selection criterion: high-risk recall under hardware constraint. Scores reflect performance before any fine-tuning.}
+{\footnotesize Note: This was a bounded pre-adaptation screen, not the final Qwen--PhoBERT experiment. All three candidates had overall risky-class recall 0.50 across the combined suspicious and high-risk tiers. The selected 4B checkpoint matched the observed recall while using less measured pilot VRAM and latency than the other 4B candidate. These small-sample measurements do not establish general model-family speed or quality superiority.}
+\caption{Pre-adaptation pilot on 33 fixed examples (11 per risk tier). The pilot selected a feasible Qwen checkpoint for later adaptation; it is not a terminal evaluation result.}
 \label{tab:pilot-comparison}
 \end{table}

@@ -211,11 +211,6 @@ B.~Lim, R.~Huerta, A.~Sotelo, A.~Quintela, and P.~Kumar, ``Explicate: Enhancing
 A.~Yang, A.~Li, B.~Yang, B.~Zhang, B.~Hui, B.~Zheng, {\em et~al.}, ``{Qwen3}
   technical report,'' {\em arXiv preprint arXiv:2505.09388}, 2025.
 
-\bibitem{tran2021bartpho}
-N.~L. Tran, D.~M. Le, and D.~Q. Nguyen, ``{BARTpho}: Pre-trained
-  sequence-to-sequence models for {Vietnamese},'' {\em arXiv preprint
-  arXiv:2109.09701}, 2021.
-
 \bibitem{gerganov2023llamacpp}
 G.~Gerganov and contributors, ``{llama.cpp}: {LLM} inference in {C/C++}.''
   \url{https://github.com/ggerganov/llama.cpp}, 2023.

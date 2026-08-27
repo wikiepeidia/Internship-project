@@ -1,0 +1,35 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  tick/.style={font=\scriptsize, text=black!65},
+  val/.style={font=\scriptsize\bfseries, rotate=90, anchor=west}
+]
+% Truncated vertical scale: y = (score - 0.97) * 180.
+\foreach \score/\y in {0.970/0.00,0.980/1.80,0.990/3.60,1.000/5.40} {
+  \draw[black!15] (0,\y) -- (7.6,\y);
+  \node[tick,anchor=east] at (-0.12,\y) {\score};
+}
+\draw[black!55] (0,0) -- (0,5.55);
+\draw[black!55] (0,0) -- (7.6,0);
+
+\fill[CVBLUE!80] (1.20,0) rectangle (2.00,3.756);
+\fill[orange!80] (2.07,0) rectangle (2.87,2.934);
+\node[val] at (1.60,3.88) {0.9909};
+\node[val] at (2.47,3.06) {0.9863};
+
+\fill[CVBLUE!80] (4.60,0) rectangle (5.40,3.333);
+\fill[orange!80] (5.47,0) rectangle (6.27,2.681);
+\node[val] at (5.00,3.46) {0.9885};
+\node[val] at (5.87,2.81) {0.9849};
+
+\node[font=\small] at (2.04,-0.45) {Accuracy};
+\node[font=\small] at (5.44,-0.45) {Macro F1};
+
+\fill[CVBLUE!80] (1.65,6.00) rectangle (2.00,6.25);
+\node[font=\small,anchor=west] at (2.12,6.125) {Qwen QLoRA};
+\fill[orange!80] (4.65,6.00) rectangle (5.00,6.25);
+\node[font=\small,anchor=west] at (5.12,6.125) {PhoBERT};
+\end{tikzpicture}
+\caption{Fresh validation comparison on the same 219 records. The vertical axis is truncated at 0.970 to show the small differences; one seed provides no variance or significance estimate.}
+\label{fig:validation-metric-comparison}
+\end{figure}

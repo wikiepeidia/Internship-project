@@ -1,82 +1,71 @@
-% Appendices — department template (v2.2 APPEND-01)
+% Editorial status: evidence-enriched review draft; student voice/style review and passed-reference comparison remain pending.
+% Appendices --- department template (v2.2 APPEND-01)
 
 \section*{Appendix 1: Source Code and Project Artifacts}
 \addcontentsline{toc}{section}{Appendix 1: Source Code and Project Artifacts}
 
-The complete source code, dataset manifests, training configurations, and
-evaluation artifacts produced in this project are publicly available at:
+The source code, compact manifests, training configurations, verification receipts, and report assets are available at:
 
 \begin{center}
 \url{https://github.com/wikiepeidia/Internship-project}
 \end{center}
 
-The codebase is organised into three packages:
-\texttt{src/data\_pipeline} for dataset construction, \texttt{src/runtime}
-for the user-facing local inference server, and
-\texttt{src/model\_adaptation} for the QLoRA fine-tuning and GGUF
-conversion workflow. All entry points are documented in the repository
-\texttt{README.md}.
+The maintained application is organised by responsibility. \texttt{src/runtime} owns the installed text-analysis interface; \texttt{src/data\_pipeline} owns records, normalization, group-safe splitting, generation workflows, and a closed migration catalog; \texttt{src/modeling} exposes phase-neutral training, inference, evaluation, and evidence ports; and \texttt{src/artifacts}, \texttt{src/core}, and \texttt{src/source\_archiving} own neutral artifact access, integrity operations, and immutable source capture. \texttt{src/model\_adaptation} retains compatibility commands and the exact implementations that produced historical evidence. It should not be read as the forward application architecture.
 
-The 4.28~GB GGUF inference artifact (\texttt{gguf-laptop.gguf}) and the
-external model registry are not included in the repository. The small
-final-evidence manifest records the artifact path, byte size, and SHA-256
-identifier so that the deployed file can be checked without committing it.
-
-\noindent\textbf{Runnable workflow commands:} the repository exposes the following commands for checking and running the current workflow:
+The public application entry point is \texttt{vnphish}. The three installed commands are intentionally small:
 
 \begin{center}
 \small
-\begin{tabular}{ll}
+\begin{tabular}{lp{8.5cm}}
 \toprule
-\textbf{Step} & \textbf{Command} \\
+\textbf{Command} & \textbf{Purpose} \\
 \midrule
-Check training readiness & \texttt{python -m src.model\_adaptation.cli doctor} \\
-Run QLoRA adaptation & \texttt{python -m src.model\_adaptation.cli train} \\
-Export to GGUF & \texttt{python -m src.model\_adaptation.cli convert} \\
-Run evaluation workflow & \texttt{python -m src.model\_adaptation.cli evaluate-release-split} \\
-Check runtime readiness & \texttt{vnphish doctor} \\
-Analyze one message & \texttt{vnphish analyze} \\
+\texttt{vnphish doctor} & Check local runtime and selected-artifact readiness. \\
+\texttt{vnphish analyze} & Analyze one Vietnamese text message and render the structured result. \\
+\texttt{vnphish demo} & Start the local browser demonstration over the same runtime service. \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-These are runnable workflow examples; the current defaults are a development-validation configuration, not a historical-metric reproduction configuration. In the current tree, \texttt{evaluate-release-split} defaults to \path{data/splits/val.jsonl}, the 219-row development-validation partition. That default is not a held-out test and cannot yield the historical 254-row result without the pinned earlier snapshot and artifacts. The promoted 220-row test partition remains reserved for subsequent retraining and held-out evaluation. Other commands likewise require explicit historical artifact paths and parameters to reproduce an earlier run.
+The selected Qwen inference artifact is not stored in Git. Its portable verification receipt records a Q8\_0 file of 4{,}280{,}403{,}232 bytes with SHA-256
+\begin{center}
+\small\texttt{457f6f92d36a7d54da9916fd80a4028dcd055a653a015c4877370a0fea4d18ab}.
+\end{center}
+The receipt also binds the selected-checkpoint lineage and two load-smoke records. It verifies identity and materialization; it is not a substitute for committing the 4.28~GB file and does not claim a PhoBERT GGUF export.
+
+The maintained architecture map and CLI contract catalog are listed in the evidence index. The current code review still records six critical and three warning findings, so these documents describe a substantially improved maintained structure, not a fully security-closed deployment.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
-The promoted corpus contains 2{,}097 Vietnamese messages constructed from
-cybercrime alert seeds (tinnhiemmang.vn) combined with synthetic
-generation. Pydantic validates record structure, while final joined judge
-evidence, targeted human triage, and lineage governance support semantic quality. The corpus is split into
-training, validation, and test partitions. Table~\ref{tab:dataset-splits}
-summarises the final split sizes and Table~\ref{tab:validation-class-dist} shows
-the per-class distribution of the historical 254-example validation set used
-for the existing model comparison; the latter is not a distribution of the
-promoted validation split.
+The final governed corpus contains 2{,}097 Vietnamese messages derived from public cybercrime-warning seeds and synthetic/model-assisted generation. Structural validation covers schemas and suspicious spans. Publication checks additionally enforce lexical duplicate control, group-level seed disjointness, all-label support, and the declared seed-concentration cap. The three partitions shown below are the identities used by the completed training, validation, and terminal-evaluation workflow.
 
 \begin{table}[H]
 \centering
-\caption{Corpus split overview.}
+\caption{Final governed corpus by partition and class.}
 \label{tab:dataset-splits}
-\setlength{\tabcolsep}{10pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{lr}
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrr}
 \toprule
-\textbf{Split} & \textbf{Examples} \\
+\textbf{Partition} & \textbf{Bank} & \textbf{Zalo} & \textbf{Task} & \textbf{Benign} & \textbf{Total} \\
 \midrule
-Training       & 1{,}658 \\
-Validation     &   219   \\
-Test           &   220   \\
+Training             & 595 & 240 & 306 & 517 & 1{,}658 \\
+Development validation & 76 & 22 & 49 & 72 & 219 \\
+Terminal evaluation  & 70 & 35 & 49 & 66 & 220 \\
 \midrule
-\textbf{Total} & \textbf{2{,}097} \\
+\textbf{Total}       & \textbf{741} & \textbf{297} & \textbf{404} & \textbf{655} & \textbf{2{,}097} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+The final joined quality-judge bundle covers every corpus row and records 1{,}395/2{,}097 passes. The separate 100-row human review records 44 PASS, 56 FAIL, and 87/100 agreement with the judge. Because the sample was stratified across labels, judge outcomes, and provenance origins, 44/100 is corroboration on that sample rather than a random estimate of corpus quality or a 56\% corpus-failure claim.
+
+For historical comparison only, the earlier Qwen study used a different 254-example internal validation set with the distribution below. Its metrics were not recomputed on the final governed corpus and are not authority for the 219-row development validation or 220-row terminal evaluation.
+
 \begin{table}[H]
 \centering
-\caption{Per-class distribution of the historical 254-example internal validation set used for the existing model comparison.}
+\caption{Historical 254-example internal validation distribution retained only as background.}
 \label{tab:validation-class-dist}
 \setlength{\tabcolsep}{10pt}
 \renewcommand{\arraystretch}{1.3}
@@ -97,8 +86,70 @@ Benign                   & 61  \\
 \section*{Appendix 3: Evaluation Traceability Snapshot}
 \addcontentsline{toc}{section}{Appendix 3: Evaluation Traceability Snapshot}
 
-Table~\ref{tab:evaluation-snapshot} provides a full evidence traceability
-record linking each reported metric to its source artifact in the
-project repository.
+Table~\ref{tab:evaluation-snapshot} is a compact metric index. The failure ledger and evidence-source table that follow provide the required boundary between current results, historical background, operational failures, and deferred work.
 
 \input{tables/evaluation_snapshot}
+
+\section*{Appendix 4: Failure and Recovery Ledger}
+\addcontentsline{toc}{section}{Appendix 4: Failure and Recovery Ledger}
+
+Failures were retained as evidence rather than removed from the narrative. Table~\ref{tab:failure-recovery-ledger} records what failed, what changed, and what the surviving evidence can support.
+
+\small
+\begin{longtable}{p{2.8cm}p{6.1cm}p{5.1cm}}
+\caption{Auditable failure-and-recovery ledger.}\label{tab:failure-recovery-ledger}\\
+\toprule
+\textbf{Stage} & \textbf{Observed failure or limitation} & \textbf{Recovery and claim boundary} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Stage} & \textbf{Observed failure or limitation} & \textbf{Recovery and claim boundary} \\
+\midrule
+\endhead
+Corpus reconstruction & Independent review found systematic scenario-framing/narrator artifacts in the synthetic Zalo subset. The affected 240 retained rows were replaced through 60 preserved semantic roots, producing 300 direct-message realizations; four later failed semantic convergence. & The final release retains 296 reconstructed rows, preserves seed lineage, and passes structural/group checks. The rows remain synthetic and share the final judge's model family. Evidence: \path{.planning/phases/39-independent-quality-re-judge/39-REPORT-NOTE.md}. \\
+\addlinespace
+Ordinary LoRA probe & The first attempt stopped before step 1 because the strict verifier expected an older Transformers warm-up representation. The corrected retry retained 31 observed steps and ended with \texttt{parent\_controller\_error}. It recorded no OOM, but reached 7{,}902/8{,}151~MiB VRAM with 9~MiB minimum free and an incomplete-window compute ETA of 18.42--18.88 hours. & The branch was sealed as resource evidence only and full ordinary LoRA was cancelled before a production run. It supplies no accuracy result and does not prove that LoRA is impossible. Evidence: \path{.planning/phases/40-multi-model-training-evidence/40-LOCAL-PROBE-REPORT.md}. \\
+\addlinespace
+QLoRA feasibility & The genuine four-bit probe reached exactly five excluded warm-up plus 40 measured steps. Its 72m49.750s full-schedule projection included one measured validation/save overhead, not the repeated 219-row prediction generation used by the full evidence run. & The disposable probe was hash-verified and removed. A fresh step-zero run, not the probe adapter, supplied the full model. The projection is feasibility evidence rather than an observed full-run duration. \\
+\addlinespace
+Full Qwen QLoRA & The first full attempt reached material checkpoints but exposed two operator defects: a mutable output root omitted the run ID, and one control path reconstructed canonical JSON through an incompatible Python-object representation. It was intentionally interrupted and preserved. & A clean authority package restarted from step zero. The accepted run completed 1{,}245 optimizer steps, selected step 200, and produced the verified Q8\_0 receipt. Evidence: \path{.planning/phases/40-multi-model-training-evidence/40-LOCAL-FULL-QLORA-REPORT.md} and \path{.planning/phases/40-multi-model-training-evidence/40-VERIFICATION.md}. \\
+\addlinespace
+Full PhoBERT & The production path was required to remain a non-quantized four-logit classifier and to retain any failed attempts rather than silently change controls. & The accepted local run \path{phase40-phobert-full-seed42-v12} completed 312 optimizer steps and selected step 100. No PhoBERT GGUF claim is made. Evidence: \path{.planning/phases/40-multi-model-training-evidence/40-VERIFICATION.md}. \\
+\addlinespace
+Terminal evaluator bootstrap & Five launcher attempts failed before their invocation-local claim/access boundaries because of reparse ancestry, loader-source metadata, a missing output argument, captured-helper identity, and Qwen lease identity. & The sixth authorized invocation created a durable claim, read one 220-row cohort once, evaluated both frozen models, completed, and permanently disabled replay. The five receipts are not a machine-wide filesystem audit. Evidence: \path{.planning/phases/41-one-shot-two-model-evaluation/41-VERIFICATION.md}. \\
+\addlinespace
+Provenance correction & Later review found that absolute ``untouched'' and global zero-filesystem-access wording was false: automated integrity tests had parsed, statted, and hashed the live files before and after the terminal run. & The sealed result was not changed or rerun. A mandatory external erratum records the reads and their non-inference/non-selection effect. The defensible claim is one terminal model-evaluation pass, not zero prior filesystem access. Evidence: \path{data/models/phase41/phase41-provenance-erratum.json}. \\
+\addlinespace
+Architecture refactor & The maintained structure was simplified, but the latest review still records six critical and three warning findings, including filesystem/native guard gaps, route-discovery omissions, loopback-demo request validation, and terminal escape handling. & The refactor is reported as maintainability work, not as a security-closed system and not as the producer of frozen metrics. Evidence: \path{.planning/phases/41.1-codebase-architecture-overhaul/41.1-REVIEW.md}. \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section*{Appendix 5: Reproducibility and Evidence Sources}
+\addcontentsline{toc}{section}{Appendix 5: Reproducibility and Evidence Sources}
+
+The following paths are the compact audit route for the major thesis claims. ``Verified'' means that the corresponding closeout verifier passed; it does not mean that this editorial update reran training, inference, evaluation, or large-artifact loading.
+
+\small
+\begin{longtable}{p{3.0cm}p{7.7cm}p{3.2cm}}
+\caption{Primary evidence map for major claims.}\label{tab:repro-evidence-map}\\
+\toprule
+\textbf{Claim area} & \textbf{Primary retained source} & \textbf{Status / permitted use} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Claim area} & \textbf{Primary retained source} & \textbf{Status / permitted use} \\
+\midrule
+\endhead
+Final corpus and quality & \path{data/manifests/manifest.json}; \path{data/processed/judge-summary.json}; \path{.planning/phases/39-independent-quality-re-judge/39-REPORT-NOTE.md} & Verified release and descriptive quality evidence; human sample is bounded. \\
+Local training and resource choice & \path{.planning/phases/40-multi-model-training-evidence/40-LOCAL-PROBE-REPORT.md}; \path{.planning/phases/40-multi-model-training-evidence/40-VERIFICATION.md} & Verified local probes and two completed full models; one seed, no significance claim. \\
+Validation comparison & \path{.planning/phases/40-multi-model-training-evidence/40-VALIDATION-COMPARISON.md} & 219 aligned validation rows/model; quality comparison admitted, speed comparison rejected. \\
+Qwen GGUF & \path{data/models/phase40/qwen-gguf-verification-receipt.json} & Portable verified receipt; Q8\_0 only; no PhoBERT GGUF. \\
+Terminal evaluation & \path{.planning/phases/41-one-shot-two-model-evaluation/41-VERIFICATION.md}; manifest SHA \texttt{9ac54d58\ldots ee49f7} & Frozen N=220 two-model result; no replay or test-driven action. \\
+Access correction & \path{data/models/phase41/phase41-provenance-erratum.json} & Mandatory companion to every terminal-result claim. \\
+Maintained architecture & \path{architecture/module-boundaries.json}; \path{docs/architecture/overview.md}; \path{docs/architecture/cli-contracts.md} & Current domain map and command contracts; not the frozen metric producer. \\
+Open architecture debt & \path{.planning/phases/41.1-codebase-architecture-overhaul/41.1-REVIEW.md} & Current status: six critical and three warning findings; closure not claimed. \\
+Claim-by-claim report map & \path{documents/reports/latex/EVIDENCE_MAP.md} & Editorial audit index; requires final student voice/style approval. \\
+\bottomrule
+\end{longtable}
+\normalsize

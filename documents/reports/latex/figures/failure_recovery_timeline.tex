@@ -1,0 +1,33 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  event/.style={draw=orange!70!black, fill=orange!8, rounded corners=3pt,
+    text width=3.65cm, minimum height=1.15cm, align=center, font=\scriptsize},
+  recovery/.style={draw=green!55!black, fill=green!7, rounded corners=3pt,
+    text width=3.65cm, minimum height=1.15cm, align=center, font=\scriptsize},
+  arr/.style={->, >=stealth, thick, black!45}
+]
+\node[event] (d1) at (-4.4,2.3) {Narrative/scenario artifacts detected in social-engineering rows};
+\node[recovery] (d2) at (0,2.3) {Offline root-preserving replacement; schema, span, lineage, and cap gates};
+\node[event] (l1) at (4.4,2.3) {Ordinary LoRA reached 9 MiB free VRAM and controller error};
+
+\node[recovery] (l2) at (-4.4,0) {NF4 QLoRA probe retained 395 MiB free and bounded the schedule};
+\node[event] (q1) at (0,0) {Qwen evidence run restarted after noncanonical work-root/output state};
+\node[recovery] (q2) at (4.4,0) {Clean run completed 1,245 steps; checkpoint policy and GGUF verified};
+
+\node[event] (p1) at (-4.4,-2.3) {PhoBERT attempts exposed telemetry/finalization defects};
+\node[recovery] (p2) at (0,-2.3) {Training completed; telemetry was recovered without changing metrics};
+\node[event] (a1) at (4.4,-2.3) {Architecture refactor passed bounded tests but review debt remains open};
+
+\draw[arr] (d1)--(d2);
+\draw[arr] (d2)--(l1);
+\draw[arr] (l1) -- ++(0,-1.15) -| (l2);
+\draw[arr] (l2)--(q1);
+\draw[arr] (q1)--(q2);
+\draw[arr] (q2) -- ++(0,-1.15) -| (p1);
+\draw[arr] (p1)--(p2);
+\draw[arr] (p2)--(a1);
+\end{tikzpicture}
+\caption{Engineering failure-and-recovery chronology. Failures are retained as evidence of the decisions and controls used; the final architecture review is explicitly unresolved rather than presented as closed.}
+\label{fig:failure-recovery-timeline}
+\end{figure}

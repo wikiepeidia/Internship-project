@@ -1,159 +1,139 @@
-This chapter maps the implemented system to the actual codebase organization. The codebase is split into three main subsystems: the data pipeline under \texttt{src/data\_pipeline}, the user-facing runtime under \texttt{src/runtime}, and the local adaptation workflow under \texttt{src/model\_adaptation}. This separation shows that the system works as one connected pipeline rather than a collection of isolated scripts.
+This chapter describes the implementation that produced the final dataset, the two locally trained models, and the offline analysis runtime. The implementation was designed around three constraints: seed-level data integrity, an 8~GiB laptop GPU, and evidence that could be checked after each long-running experiment. The current repository architecture was refactored after the terminal evaluation; consequently, the frozen experiment bundle remains the authority for the reported metrics, while the refactored source tree is the maintained implementation.
 
-\section{Codebase Organization}
+\section{Implemented System Boundary}
 
-The structural layout of the source repository is organized as follows:
+The installed application is \texttt{vnphish}. Its public commands are \texttt{analyze}, \texttt{doctor}, and \texttt{demo}. The analyze and demo paths share the \texttt{AnalysisRequest}/\texttt{AnalysisResult} contract, while doctor reports profile readiness separately through \texttt{DoctorStatus}. The maintained source tree is organized by domain rather than by experiment date:
 
 \begin{quote}
 \begin{verbatim}
 src/
-+-- data_pipeline/           # Subsystem (1): Data Construction
-|   +-- cli.py               # Dataset engineering CLI
-|   `-- schemas.py           # Pydantic data provenance models
-+-- runtime/                 # Subsystem (2): User Runtime
-|   +-- cli.py               # vnphish demo & doctor entry points
-|   +-- contracts.py         # AnalysisRequest & AnalysisResult
-|   +-- service.py           # Normalization & backend dispatch
-|   `-- render.py            # Terminal output formatting
-`-- model_adaptation/        # Subsystem (3): Model Training
-    +-- catalog.py           # Qwen candidate registry
-    `-- training.py          # QLoRA fine-tuning orchestration
++-- core/                 # strict JSON, hashing and safe writes
++-- artifacts/            # model and result artifact readers
++-- config/               # local settings and profile selection
++-- data_pipeline/
+|   +-- core/             # records, text, seed-safe splitting
+|   +-- workflows/        # scraping, generation and judging
+|   `-- migrations/       # reviewed one-off corpus repairs
++-- modeling/             # training, inference, evaluation ports
++-- runtime/              # CLI, service, analyzers, demo, rendering
++-- source_archiving/     # immutable source-closure operations
+`-- model_adaptation/     # retained experiment compatibility layer
 \end{verbatim}
 \end{quote}
 
-The three main packages divide responsibility cleanly. The data-pipeline package handles schemas, scraping, normalization, synthetic generation, quality judging, and versioned manifest output. The runtime package exposes the public analysis contract, the service boundary, backend dispatchers, rendering, and the doctor readiness checker. The model-adaptation package manages candidate catalogs, pilot scoring, training orchestration, GGUF conversion, and the off-device registry integration. This division was chosen so that each package can be read and tested independently even though the three packages form one connected system at runtime.
+The active dependency graph contains 29 modules and 83 declared import edges and is acyclic. New code enters model training, inference, evaluation, and evidence handling through the domain-neutral \texttt{src.modeling} ports. The older model-adaptation modules remain behind explicit compatibility adapters because they are still needed to explain and verify the completed experiments. This separation avoids pretending that a later refactor generated earlier measurements.
 
-The main command-line entry point is \texttt{vnphish}, registered as a console script in \texttt{pyproject.toml}. The primary demo launch paths are \texttt{vnphish demo} and \texttt{python -m src.runtime.cli demo}. The readiness check is available as \texttt{vnphish doctor} or \texttt{python -m src.runtime.cli doctor}. All entry points are documented in the user guide shipped with the codebase.
-
-\section{Data Pipeline Implementation}
-
-The data-pipeline implementation centers on typed schemas and a single command-line interface. Seed records, dataset records, and manifest entries are validated through Pydantic models so that each stage operates on a known data shape and shape violations are caught at ingestion rather than at analysis time. This makes debugging pipeline failures cheaper because errors surface at the boundary where they originate rather than inside downstream training or runtime code.
-
-The synthetic generation and quality-judge steps are explicit CLI commands rather than embedded notebook cells. This keeps provenance visible: each generation batch records the source seed file, the target count, the provider, and the version tag, and each quality-judge run records pass counts and score averages before the batch merges into the corpus. Keeping these steps separate reduces accidental contamination between build stages and makes it possible to re-run only the judging step if generation succeeds but scores are low.
-
-Versioned manifests record the SHA-256 content hash, build timestamp, and git commit identifier for each produced artifact. This means a later evaluation claim can name the specific manifest version it relied on rather than restating the corpus description from memory.
-
-\section{Runtime Contracts and Service Boundary}
-
-The runtime is built around explicit interfaces. \texttt{AnalysisRequest} and \texttt{AnalysisResult} are the primary public types. Both are defined in the runtime contracts module and are the only types that cross the service boundary. This keeps the command-line interface stable even when the backend changes: callers construct an \texttt{AnalysisRequest}, pass it to the service layer, and receive an \texttt{AnalysisResult} regardless of which backend is active.
-
-The service layer performs message normalization and dispatches to the configured backend. The renderer converts the structured result into a readable terminal report. This separation means that changing the display format requires no changes to the analysis contract, and adding a new backend requires no changes to the renderer.
-
-The readiness check uses the same service boundary. Before analysis begins, it reports the selected backend and profile and checks whether the expected model artifacts are present. If they are not, the system stops rather than proceeding with an unintended backend.
+The main model-adaptation command facade was reduced from 1{,}329 physical lines to 232 lines while preserving its 23-command compatibility contract. Similarly, an 886-line source-archiving utility was reduced to a 160-line facade over bounded contract, filesystem, and service modules. The refactor therefore improves navigation for maintenance and defence without rewriting the frozen producer source or metric artifacts.
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
   block/.style={draw=black!65, rectangle, rounded corners=3pt, fill=white,
-                minimum width=2.8cm, minimum height=0.8cm,
+                text width=2.55cm, minimum height=0.9cm,
                 align=center, font=\small},
   arr/.style={->, >=stealth, semithick}
 ]
-  \node[block] (cli) at (0,   0) {CLI \\ \texttt{(vnphish)}};
-  \node[block] (srv) at (5.2, 0) {Service Layer \\ \texttt{(service.py)}};
-  \node[block] (be)  at (10.4,0) {Backend \\ \texttt{(GGUF/Accel.)}};
+  \node[block] (data) at (0,0) {Seeded data\\and provenance};
+  \node[block] (train) at (3.35,0) {Local training\\Qwen / PhoBERT};
+  \node[block] (evidence) at (6.70,0) {Hash-bound\\evidence bundles};
+  \node[block] (eval) at (10.05,0) {Terminal shared-\\cohort evaluation};
+  \node[block] (runtime) at (6.70,-2.05) {Offline runtime\\\texttt{vnphish}};
 
-  %% Request path (above, left→right)
-  \draw[arr, thick]
-    ([yshift=5pt]cli.east) -- node[above, font=\scriptsize\ttfamily] {AnalysisRequest}
-    ([yshift=5pt]srv.west);
-  \draw[arr]
-    ([yshift=5pt]srv.east) -- node[above, font=\scriptsize] {Normalize \& Route}
-    ([yshift=5pt]be.west);
-
-  %% Response path (below, right→left)
-  \draw[arr]
-    ([yshift=-5pt]srv.west) -- node[below, font=\scriptsize] {Render Output}
-    ([yshift=-5pt]cli.east);
-  \draw[arr, thick]
-    ([yshift=-5pt]be.west) -- node[below, font=\scriptsize\ttfamily] {AnalysisResult}
-    ([yshift=-5pt]srv.east);
+  \draw[arr] (data) -- node[above,font=\scriptsize] {seed-safe splits} (train);
+  \draw[arr] (train) -- node[above,font=\scriptsize] {checkpoints + logs} (evidence);
+  \draw[arr] (evidence) -- node[above,font=\scriptsize] {frozen models} (eval);
+  \draw[arr] (evidence) -- node[right,font=\scriptsize] {registered artifact} (runtime);
 \end{tikzpicture}
-\caption{Runtime contract boundaries: the CLI passes an \texttt{AnalysisRequest} to the service layer, which normalizes the input and routes it to the active backend, then returns a structured \texttt{AnalysisResult} for rendering.}
-\label{fig:runtime-flow}
+\caption{Implemented artifact flow. The terminal evaluation consumes frozen model authorities once; its results cannot trigger repair, retraining, threshold changes, or checkpoint reselection.}
+\label{fig:implemented-artifact-flow}
 \end{figure}
 
-\section{Backend Implementations}
+\section{Dataset Construction and Repair}
 
-Two local model backends are available in the shipped codebase. The \texttt{gguf-laptop} profile targets CPU inference via \texttt{llama.cpp} using the \texttt{Qwen3-4B-Instruct-2507} GGUF Q8\_0 artifact. This is the default local profile and the path validated on the project laptop hardware. The \texttt{accelerated-local} profile targets stronger GPU hardware and reuses the same \texttt{AnalysisResult} contract, so the rendering layer does not need to branch on backend type.
+Every record carries a \texttt{seed\_id}. Variants derived from one semantic scenario retain that identifier, and group-integrity splitting assigns the entire seed group to one partition. This is more restrictive than row-level random splitting, but it prevents paraphrases of one root scenario from appearing on both sides of an evaluation boundary. The promoted corpus contains 2{,}097 rows: 1{,}658 for training, 219 for validation, and 220 for terminal evaluation. The three seed sets are disjoint, and the largest seed contributes 7.9638\% of the corpus, below the declared 8\% cap.
 
-The heuristic backend provides the offline baseline when no model artifact is available. All three backends return the same \texttt{AnalysisResult} type, which means the command-line interface remains consistent across backend families. Profile selection is explicit: the user sets the profile in a settings file before startup rather than relying on auto-detection. A readiness check verifies the selected profile before any analysis begins. If the selected profile is not ready, the system reports the reason and stops rather than silently falling back to a different configuration.
+The data work also retained failures rather than hiding them. Independent review detected systematic third-person narrative and scenario-framing artifacts in a synthetic Zalo social-engineering subset. The affected 240 retained records were replaced rather than relabelled as authentic messages. A controlled offline, model-assisted reconstruction started from 60 preserved semantic roots and produced five direct-message realizations per root. The root's \texttt{seed\_id} and its pre-existing split assignment were retained; non-Zalo records were unchanged. Schema, character-span, lexical and normalized-duplicate, label-support, seed-cap, and cross-split lineage checks all passed. Four reconstructed records were later quarantined by semantic convergence, leaving 296 reconstructed rows in the 297-row final Zalo class. This procedure made no external API call, but it remains synthetic reconstruction and is not presented as independently observed traffic.
 
-\section{Model Adaptation Workflow}
+The quality pipeline then joined 2{,}097 machine-judge verdicts: 1{,}561 exact-record carries and 536 newly judged final-delta records. A Vietnamese-fluent reviewer separately completed a 100-row stratified audit and a targeted 324-candidate mislabel triage. These artifacts are kept distinct because a partial human review cannot be described as complete manual annotation of the corpus.
 
-The adaptation package coordinates three steps: candidate selection via a pilot scorecard, training via the QLoRA workflow, and artifact registration in the off-device model registry. The candidate catalog locks the set of Qwen model checkpoints considered for the project and records the selection result alongside the pilot scoring data. This means the selection decision is tied to a named artifact rather than left as an informal record.
+\section{Resource-Gated Adaptation Strategy}
 
-Training scripts run over the retained dataset and save periodic checkpoints. After training completes, the convert command merges the adapter weights and exports a GGUF artifact at \texttt{q8\_0} quantization. The export uses \texttt{convert\_hf\_to\_gguf.py} with direct \texttt{q8\_0} output to produce a single artifact that supports CPU inference without a separate quantization step. The exported artifact is then registered in the off-device model registry.
+The selected generative model was \texttt{Qwen3-4B-Instruct-2507} \cite{qwen2025}. Ordinary LoRA \cite{hu2022lora} and 4-bit QLoRA \cite{dettmers2023qlora} were first measured in bounded probes on the same NVIDIA GeForce RTX~5050 Laptop GPU, which reports 8{,}151~MiB of device memory. The probes were feasibility experiments, not accuracy experiments, and their disposable adapters were deleted after verification.
 
-Registry-based artifact resolution ensures the runtime always loads the newest registered adapter and GGUF file. This prevents stale artifacts from being selected after a new training or conversion run, which would otherwise be a silent correctness hazard if the registry were not updated consistently.
+\subsection{Ordinary-LoRA Probe}
 
-\section{Runtime Packaging and Demo}
+The ordinary-LoRA retry retained 31 optimizer events: five excluded warm-up events and 26 measured events. It ran for 1{,}782.206~seconds (29~minutes 42.206~seconds), with a median measured step time of 53.274~seconds. Multiplying this incomplete-window median by the planned 1{,}245-step schedule gives an 18.42-hour compute-only estimate; the corresponding mean-step estimate is 18.88~hours. Neither value includes the full evaluation and checkpoint cadence, so neither is an observed training duration or a completion guarantee.
 
-The \texttt{pyproject.toml} separates dependencies into three groups: \texttt{dev} for development and testing tools, \texttt{train} for GPU-dependent training libraries, and \texttt{runtime} for the inference-only deployment path. A user who only wants to run the analysis demo can install only the \texttt{runtime} group without pulling in training dependencies such as PEFT or the CUDA-aware transformer libraries. This separation was important for the thesis demonstration because the laptop environment needed a clean inference-only install path that did not require the full training stack.
+The run peaked at 7{,}902/8{,}151~MiB device VRAM and reached only 9~MiB minimum free VRAM. Peak system RAM used was 22{,}479{,}200{,}256~bytes on a 33{,}943{,}490{,}560-byte host. It completed optimizer work with finite losses and did \emph{not} produce a CUDA or system out-of-memory exception. The controller stopped with \texttt{parent\_controller\_error} before the 40-step evidence target, so the honest conclusion is practical resource pressure and insufficient headroom on this laptop, not that LoRA is impossible or that it OOMed. A 32~GB-class system-RAM host with more than 8~GB VRAM is therefore a practical recommendation for a reliable full run with headroom, not a benchmarked minimum specification.
 
-The demo server is started with \texttt{vnphish demo} or \texttt{python -m src.runtime.cli demo}. It loads the configured GGUF model \cite{gerganov2023llamacpp} once at startup. In a single-message verification, end-to-end analysis of one message took approximately 24~seconds on the target laptop CPU. The demo opens a local browser page where the user can paste a suspicious message, choose an optional channel hint, and review the risk tier, threat labels, grounded suspicious cues, and safe next steps without using CLI syntax.
+\subsection{Genuine NF4 QLoRA Probe}
 
-\subsection{Example Analysis Output}
+The separate QLoRA probe verified NF4 with double quantization, 252 \texttt{Linear4bit} modules, a frozen base model, and 504 trainable adapter tensors. It completed exactly five warm-up plus 40 measured optimizer steps. The measured median was 3.462389~seconds per step. Combining that median with one observed validation pass and one observed checkpoint save produced a projected 4{,}369.750-second schedule (72~minutes 49.750~seconds). This is an extrapolation from the bounded probe, not the wall-clock duration later observed for full training.
 
-The following examples show the output produced by running \texttt{vnphish analyze} through the same runtime contract used by the local demo. The first case is a common bank-impersonation message, while the second and third cases show a brief qualitative check on a noisy scam-style SMS and a benign OTP notification.
+The QLoRA probe peaked at 7{,}516/8{,}151~MiB VRAM, retained 395~MiB minimum free VRAM, and used 22{,}136{,}381{,}440~bytes peak system RAM. It reached the exact evidence target without an OOM. Figure~\ref{fig:resource-probe-comparison} summarizes the measured resource evidence while keeping the projected durations visibly separate from observed execution.
 
-\begin{quote}
-\small
-\textbf{Input (channel: sms):}\\
-\textit{``Tài khoản Vietcombank của bạn đang bị khóa do giao dịch bất thường. Gửi mã OTP qua Zalo 0912\,345\,678 để mở khóa trong 2 giờ.''}
+\input{figures/resource_probe_comparison}
 
-\medskip
-\textbf{Risk Tier:} High risk \\
-\textbf{Threat Labels:} Bank impersonation, Task scam
+\section{Full Local Model Training}
 
-\medskip
-\textbf{Grounded Cues:}
-\begin{itemize}[leftmargin=1.5em, topsep=2pt, itemsep=1pt]
-  \item \textit{``mã OTP''} --- Yêu cầu mã xác thực hoặc thông tin đăng nhập nhạy cảm.
-  \item \textit{``mở khóa''} --- Dẫn người dùng tới thao tác xác minh hoặc liên kết đăng nhập.
-\end{itemize}
+Both final models were trained locally from step zero with random seed 42 on the same 1{,}658-row training and 219-row validation identities. The 220-row terminal partition was not an input to training or checkpoint selection. The two validation runs are comparable for predictive quality because they use the same ordered validation cohort; their timing is not used for a speed claim because Qwen is a generative structured-output model whereas PhoBERT is a classification-head model.
 
-\textbf{Next Steps:}
-\begin{itemize}[leftmargin=1.5em, topsep=2pt, itemsep=1pt]
-  \item Không gửi OTP cho bất kỳ ai qua Zalo hay tin nhắn.
-  \item Liên hệ trực tiếp Vietcombank qua số hotline chính thức 1900\,54\,54\,26.
-  \item Kiểm tra lại giao dịch trên ứng dụng ngân hàng của bạn trước khi hành động.
-\end{itemize}
-\end{quote}
+\subsection{Qwen QLoRA}
 
-The system returned two threat labels for this message --- bank impersonation and task scam --- reflecting the overlapping linguistic signals discussed in Section~IV. The grounded cues are drawn directly from spans of the input text, and the next-step recommendations reference the specific institution named in the message, showing that the output is contextualised rather than generic.
+The full Qwen run used the same genuine 4-bit NF4 configuration, three epochs, and 1{,}245 optimizer steps. Exact package identities were Python~3.13.13, PyTorch~2.12.0+cu132, Transformers~5.9.0, PEFT~0.19.1, and bitsandbytes~0.50.1. Validation checkpoints were selected under a predeclared safety gate rather than by terminal-evaluation performance. Checkpoint 200 was retained with validation accuracy 0.990868, macro F1 0.988515, zero invalid structured outputs, and zero risky-to-benign errors. The unrounded accuracy and macro F1 values are retained in Table~\ref{tab:qlora-config}.
 
-\begin{table}[H]
+An earlier full-run attempt reached useful intermediate evidence but exposed two implementation defects: the mutable output root omitted the run-ID segment, and a validation object was compared against canonical JSON in the wrong representation. It was deliberately interrupted and retained as failure evidence. No checkpoint from that attempt seeded the final run. After focused fixes, a clean request restarted from step zero and completed all 1{,}245 steps. This recovery is important because silently continuing from a structurally ambiguous work root would have made the final lineage harder to defend.
+
+\begin{figure}[H]
 \centering
-\footnotesize
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{L{0.30\textwidth} L{0.24\textwidth} L{0.36\textwidth}}
-\toprule
-\textbf{Input} & \textbf{Runtime output} & \textbf{Interpretation} \\
-\midrule
-\textit{``Truy cập qo-rg.com/BK, đăng nhập để nhận ngay 10 nghìn đồng thưởng và chơi xổ số, lô đề, game bài online.''}
-&
-\textbf{Risk tier:} Suspicious\par
-\textbf{Threat label:} Task scam\par
-\textbf{Grounded cues:} \textit{``qo-rg.com/BK''}; \textit{``nhận ngay 10 nghìn đồng thưởng''}; \textit{``chơi xổ số, lô đề, game bài online''}.\par
-\textbf{Recommendation:} Không truy cập trang web không rõ nguồn gốc như \texttt{qo-rg.com/BK}; không cung cấp thông tin cá nhân hoặc OTP cho trang đó.
-&
-This real-world-style scam case is outside the clean bank-impersonation template. The model still identifies the unknown URL, reward promise, and gambling/task-scam wording as suspicious.
-\\
-\midrule
-\textit{``235060 là mã xác thực OTP trên MyVNPT của Quý Khách, hiệu lực trong 2 phút. Để đảm bảo an toàn, vui lòng không chia sẻ mã này với bất kỳ ai.''}
-&
-\textbf{Risk tier:} Benign\par
-\textbf{Threat label:} Benign\par
-\textbf{Grounded cue:} \textit{``OTP''}.\par
-\textbf{Recommendation:} Không chia sẻ mã OTP với bất kỳ ai; nếu không yêu cầu mã này, hãy liên hệ MyVNPT qua kênh chính thức để xác minh.
-&
-This benign OTP notification checks that the runtime does not treat every OTP mention as phishing. The message contains a sensitive token, but it also gives a protective instruction rather than asking the user to send the code elsewhere.
-\\
-\bottomrule
-\end{tabular}
-\caption{Additional qualitative runtime examples.}
-\label{tab:qualitative-runtime-examples}
-\end{table}
+{\small\bfseries Qwen QLoRA training curves\par}
+\smallskip
+\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_qwen_loss_curves.png}
+\caption{Qwen QLoRA training and validation loss from the completed 1{,}245-step run. The report view replaces only the generic historical title; the embedded canonical PNG remains hash-linked to normalized points derived from the append-only event log. This is an optimization trace, not a terminal-performance estimate.}
+\label{fig:qwen-training-curves}
+\end{figure}
 
-These qualitative examples do not replace the quantitative validation result. They are included to show runtime behavior on messages that differ from the main synthetic evaluation style, especially the distinction between a malicious OTP request and a legitimate OTP notification.
+\subsection{PhoBERT Classification Baseline}
+
+The Vietnamese encoder baseline uses \texttt{vinai/phobert-base-v2} with a four-logit sequence-classification head \cite{nguyen2020phobert}. It is a full, non-quantized classifier: the encoder and head are trained directly, with no LoRA, QLoRA, PEFT target modules, or generative parser. Vietnamese word segmentation is part of its deterministic preprocessing. The final local run used seed 42, three epochs, and 312 optimizer steps; checkpoint 100 was retained with validation accuracy 0.9863013699, macro F1 0.9848929140, zero invalid outputs, and zero risky-to-benign errors.
+
+Superseded attempts exposed telemetry and finalization defects. The successful training evidence was preserved, and telemetry was recovered through a separately verified recovery path without changing predictions, metrics, or selected checkpoint identity. This distinction prevents operational evidence repair from being mistaken for model retraining or metric recomputation.
+
+\begin{figure}[H]
+\centering
+{\small\bfseries PhoBERT training curves\par}
+\smallskip
+\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_phobert_loss_curves.png}
+\caption{PhoBERT training and validation loss from the completed 312-step run. The report view replaces only the generic historical title; the embedded canonical PNG remains mechanically traceable to retained raw events and is not hand-drawn.}
+\label{fig:phobert-training-curves}
+\end{figure}
+
+\section{Artifact Export and Runtime}
+
+The selected Qwen adapter was merged with the pinned base and converted through \texttt{llama.cpp} \cite{gerganov2023llamacpp} into one Q8\_0 GGUF file. The verified artifact is 4{,}280{,}403{,}232~bytes with SHA-256
+\begin{center}
+\small\texttt{457f6f92d36a7d54da9916fd80a4028dcd055a653a015c4877370a0fea4d18ab}.
+\end{center}
+Both the original conversion environment and an independent CPU load smoke accepted the artifact before its portable receipt was registered. PhoBERT remains a Transformers sequence-classification bundle and was \emph{not} converted to GGUF.
+
+At runtime, the analyze and demo paths use \texttt{AnalysisRequest} and \texttt{AnalysisResult} for the public analysis contract. The service normalizes text, selects an explicit local profile, dispatches to a heuristic, GGUF, or accelerated-local analyzer, and returns a structured risk tier, threat labels, grounded cues, and safety recommendations. \texttt{vnphish doctor} reports selected-profile and artifact readiness through \texttt{DoctorStatus} before analysis. No provider credential is required for the offline runtime.
+
+\section{Evidence and Failure-Recovery Design}
+
+Each full run retains resolved configuration, package and CUDA identity, append-only events, system/GPU telemetry, checkpoint candidates, raw ordered validation predictions, metrics, selected-model hashes, and graph provenance. Both canonical loss plots were reproduced byte-for-byte from their retained normalized data during verification. This evidence design is what distinguishes a completed local experiment from a copied model repository: the report can bind configuration, execution, selection, conversion, and evaluation to specific artifacts.
+
+The terminal evaluation similarly produced one frozen two-model export. The metric-authority manifest and mandatory provenance correction are bound by the following identities:
+\begin{center}
+\footnotesize
+Manifest: \texttt{9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7}\\
+Erratum: \texttt{c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672}
+\end{center}
+These identities are consumed as read-only report evidence. The current refactored source tree is intentionally not claimed as the producer of the frozen metrics.
+
+\input{figures/failure_recovery_timeline}
+
+\section{Current Architecture Review Status}
+
+The refactor has measurable benefits: the active graph is acyclic, command compatibility is explicit, historical implementations have named owners, and exact bounded architecture tests passed. It is nevertheless not correct to describe the architecture work as fully clean. The latest adversarial review records six open critical issues: completeness of the guarded filesystem boundary, undeclared pre-created native handles, incomplete collection-time attestation, compound-command and callable-alias route discovery, loopback demo Host/Origin/content-type validation, and terminal control-sequence sanitization. Three warnings additionally cover shell-chain scanning, host/port binding validation, and the test runner's dependence on disabling pytest plugin autoload.
+
+These findings do not change the already frozen model metrics, but they block a claim that the maintained architecture is production-ready. They are reported here because implementation quality includes known failure boundaries as well as completed functionality.

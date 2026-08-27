@@ -1,0 +1,41 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  metric/.style={font=\small\bfseries, anchor=east},
+  value/.style={font=\scriptsize, anchor=west},
+  legend/.style={font=\small, anchor=west}
+]
+\fill[CVBLUE!80] (0,6.55) rectangle (0.35,6.82);
+\node[legend] at (0.48,6.685) {ordinary LoRA probe};
+\fill[orange!80] (4.0,6.55) rectangle (4.35,6.82);
+\node[legend] at (4.48,6.685) {NF4 QLoRA probe};
+
+\node[metric] at (-0.20,5.45) {Median step};
+\fill[CVBLUE!80] (0,5.55) rectangle (4.79,5.83);
+\fill[orange!80] (0,5.12) rectangle (0.31,5.40);
+\node[value] at (4.90,5.69) {53.274 s};
+\node[value] at (0.42,5.26) {3.462 s};
+
+\node[metric] at (-0.20,3.95) {Projected schedule};
+\fill[CVBLUE!80] (0,4.05) rectangle (5.53,4.33);
+\fill[orange!80] (0,3.62) rectangle (0.36,3.90);
+\node[value] at (5.64,4.19) {18.42 h};
+\node[value] at (0.47,3.76) {1.21 h};
+
+\node[metric] at (-0.20,2.45) {Peak VRAM};
+\fill[CVBLUE!80] (0,2.55) rectangle (5.82,2.83);
+\fill[orange!80] (0,2.12) rectangle (5.53,2.40);
+\node[value] at (5.93,2.69) {7,902 / 8,151 MiB};
+\node[value] at (5.64,2.26) {7,516 / 8,151 MiB};
+
+\node[metric] at (-0.20,0.95) {Minimum free VRAM};
+\fill[CVBLUE!80] (0,1.05) rectangle (0.14,1.33);
+\fill[orange!80] (0,0.62) rectangle (5.93,0.90);
+\node[value] at (0.25,1.19) {9 MiB};
+\node[value] at (6.04,0.76) {395 MiB};
+
+\draw[black!35] (0,0.40) -- (0,6.10);
+\end{tikzpicture}
+\caption{Bounded RTX 5050 resource probes. Step time and optimizer-schedule duration use separate visual scales; the duration values are projections, not observed end-to-end runtimes. Neither probe produced an out-of-memory event.}
+\label{fig:resource-probe-comparison}
+\end{figure}

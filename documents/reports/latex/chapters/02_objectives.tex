@@ -3,16 +3,35 @@
 
 The scientific objective of this internship was to build and evaluate a
 local-first Vietnamese financial phishing detection pipeline that preserves
-user privacy by avoiding cloud inference while providing understandable,
-evidence-linked explanations. At its core, this is a supervised multi-class
-text classification objective: each input message is assigned exactly one
-label from a fixed four-class taxonomy, and the model is trained against a
-ground-truth label on every training example (Section~\ref{sec:problem-statement}
-states this formally). The strategy combined four steps executed in
-sequence: constructing a reproducible labelled dataset from Vietnamese
-cybercrime alerts and synthetic generation; delivering a text-only local
-runtime with a stable offline inference path; adapting an open local model
-family through parameter-efficient fine-tuning and quantised deployment;
-and returning structured explainability outputs so that general users receive
-not just a risk verdict but grounded cues and actionable next-step
-recommendations.
+message privacy during normal inference while returning understandable,
+evidence-linked guidance. At its core, this is supervised four-class text
+classification: each message has one ground-truth label and the generative
+Qwen path additionally emits a risk tier, quoted suspicious cues, and safe
+recommendations (Section~\ref{sec:problem-statement}).
+
+The objective was operationalized through six verifiable deliverables:
+\begin{enumerate}
+  \item construct a reproducible corpus from Vietnamese cybercrime-alert roots,
+  with exact schema/span checks and seed-group separation across partitions;
+  \item perform targeted human review and lineage-governed admission instead of
+  treating every model-suggested relabel as an independent example;
+  \item repair systematic narrative scaffolding through controlled offline,
+  model-assisted reconstruction that preserves semantic roots and seed IDs;
+  \item measure ordinary LoRA and QLoRA on the target RTX~5050 laptop, then make
+  the adaptation choice from retained timing and memory evidence rather than an
+  assumed out-of-memory outcome;
+  \item complete fresh local Qwen QLoRA and PhoBERT training, verify the selected
+  Qwen Q8\_0 GGUF export, and compare both frozen models exactly once on the same
+  terminal cohort; and
+  \item reorganize the maintained runtime, data, integrity, modeling, and
+  evidence code around readable domain boundaries without rewriting or
+  reattributing the historical metric-producing source.
+\end{enumerate}
+
+These objectives were substantially realized. The promoted corpus contains
+2{,}097 records; the terminal cohort contains 220 records; and both model paths
+completed with zero invalid outputs in the terminal evaluation. Deployment
+fitting after that evaluation was deliberately deferred. The architecture
+reorganization improved ownership and navigation, but a later review identified
+remaining security-hardening findings, so maintainability work is reported as a
+completed structural contribution rather than a fully closed security claim.

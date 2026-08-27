@@ -13,8 +13,8 @@
 ]
 
 \node[sbox] (seed)  at ( 0.0, 0) {tinnhiemmang.vn\\Seeds};
-\node[gbox] (gen)   at ( 4.0, 0) {claude-3-5-haiku\\Class-Conditioned\\Generation};
-\node[jbox] (judge) at ( 8.0, 0) {Schema + Judge\\Human + Lineage};
+\node[gbox] (gen)   at ( 4.0, 0) {Controlled Synthetic\\Generation + Offline\\Root Repair};
+\node[jbox] (judge) at ( 8.0, 0) {Schema + Spans\\Dedup + Human Triage\\Seed-Lineage Gates};
 \node[obox] (out)   at (12.0, 0) {Promoted JSONL\\2{,}097 Rows};
 
 \draw[arr] (seed) -- (gen);
@@ -22,10 +22,10 @@
 \draw[arr] (judge) -- (out);
 
 \node[font=\scriptsize, text=black!45, below=0.15cm of seed]  {NCSC cybercrime alerts};
-\node[font=\scriptsize, text=black!45, below=0.15cm of gen, align=center]   {invoked once per\\target class};
+\node[font=\scriptsize, text=black!45, below=0.15cm of gen, align=center]   {class-conditioned; repaired\\roots preserve lineage};
 \node[font=\scriptsize, text=black!45, below=0.15cm of judge] {final quality governance};
-\node[font=\scriptsize, text=black!45, below=0.15cm of out]   {4 threat classes};
+\node[font=\scriptsize, text=black!45, below=0.15cm of out]   {4 target classes};
 \end{tikzpicture}
-\caption{Dataset construction and final quality-governance pipeline. Labels originate from class-conditioned generation; targeted human triage later approves drops or corrections without claiming full-corpus annotation (Section~\ref{sec:quality-check}).}
+\caption{Dataset construction and final quality-governance pipeline. An independent review detected narrative artifacts; the affected social-engineering subset was replaced offline from preserved semantic roots, then passed schema, span, duplicate, seed-cap, lineage, and split-integrity gates. Human triage approved bounded drops and corrections without claiming full-corpus annotation (Section~\ref{sec:quality-check}).}
 \label{fig:data-pipeline}
 \end{figure}
