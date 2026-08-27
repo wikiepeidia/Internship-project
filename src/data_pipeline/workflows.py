@@ -221,65 +221,16 @@ def _select_seed_diverse_records(
         active = next_round
     return selected
 def _recoverable_record_paths(data_dir: Path) -> list[Path]:
-    output_names = {"recovered-merged.jsonl", "recovered-balanced.jsonl"}
-    split_names = {"train.jsonl", "val.jsonl", "test.jsonl"}
-    paths: list[Path] = []
-    for path in sorted(data_dir.rglob("*.jsonl")):
-        if path.name in output_names:
-            continue
-        parts = set(path.parts)
-        if "raw" in parts or "recovered-balanced" in parts:
-            continue
-        name = path.name
-        if (
-            name in split_names
-            or name.startswith("validated")
-            or name.startswith("generated")
-            or name.startswith("checkpoint-")
-            or name.startswith(".checkpoint")
-        ):
-            paths.append(path)
-    return list(dict.fromkeys(paths))
+    from src.data_pipeline.recovery import recoverable_record_paths
+
+    return recoverable_record_paths(data_dir)
 def _load_recoverable_records(
+    data_dir: Path,
     source_paths: list[Path],
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, int]], int, int, int]:
-    loaded = invalid = conflicts = 0
-    unique_by_text: dict[str, dict[str, Any]] = {}
-    source_stats: dict[str, dict[str, int]] = {}
-    for path in source_paths:
-        stats = source_stats.setdefault(path.name, {"valid_records": 0, "invalid_items": 0})
-        with path.open("r", encoding="utf-8", errors="replace") as handle:
-            for raw_line in handle:
-                stripped = raw_line.strip()
-                if not stripped:
-                    continue
-                try:
-                    payload = json.loads(stripped)
-                except json.JSONDecodeError:
-                    stats["invalid_items"] += 1
-                    invalid += 1
-                    continue
-                candidates: list[dict[str, Any]] = []
-                if isinstance(payload, dict) and isinstance(payload.get("records"), list):
-                    candidates = [item for item in payload["records"] if isinstance(item, dict)]
-                elif isinstance(payload, dict) and payload.get("text"):
-                    candidates = [payload]
-                for candidate in candidates:
-                    try:
-                        record = DatasetRecord.model_validate(candidate).model_dump()
-                    except Exception:
-                        stats["invalid_items"] += 1
-                        invalid += 1
-                        continue
-                    loaded += 1
-                    stats["valid_records"] += 1
-                    key = record["text"].strip()
-                    existing = unique_by_text.get(key)
-                    if existing is None:
-                        unique_by_text[key] = record
-                    elif existing.get("label") != record.get("label"):
-                        conflicts += 1
-    return unique_by_text, source_stats, loaded, invalid, conflicts
+    from src.data_pipeline.recovery import load_recoverable_records
+
+    return load_recoverable_records(data_dir, source_paths)
 def _deduplicate_recovered_by_label(
     records: list[dict[str, Any]],
     lexical_threshold: float,
@@ -346,7 +297,7 @@ def optimize_recovered_records(
     if not source_paths:
         raise ValueError("No recoverable JSONL artifacts found under data/.")
     unique, source_stats, loaded, invalid, conflicts = _load_recoverable_records(
-        source_paths
+        data_dir, source_paths
     )
     exact_records = list(unique.values())
     by_label, lexical_applied = _deduplicate_recovered_by_label(
@@ -365,7 +316,7 @@ def optimize_recovered_records(
     )
     requested_per_class = max(target_count // len(THREAT_CLASSES), 0)
     return {
-        "source_files": [str(path) for path in source_paths],
+        "source_files": sorted(source_stats),
         "source_stats": source_stats,
         "loaded_records": loaded,
         "invalid_items": invalid,
