@@ -12,8 +12,11 @@ from typing import Any
 import uuid
 
 from src.core.integrity import (
+    canonical_json_bytes,
     IntegrityError,
+    read_file_bytes,
     reject_redirecting_ancestry,
+    sha256_bytes,
     strict_json_object,
     write_bytes_exclusive,
 )
@@ -22,6 +25,7 @@ from src.data_pipeline.core.records import DatasetRecord
 
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 _MARKER_SCHEMA = "vnphish-generation-run-v1"
+_CANDIDATE_SCHEMA = "vnphish-generated-candidate-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +45,17 @@ class GenerationRun:
     checkpoints: Path
     marker: Path
     ledger: Path
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedCandidate:
+    """Hash-bound generated rows accepted by the judging workflow."""
+
+    path: Path
+    run_id: str
+    sha256: str
+    row_count: int
+    raw: bytes
 
 
 def _trusted_root(data_dir: Path) -> Path:
@@ -263,16 +278,92 @@ def publish_generated_candidate(
     target = synthetic / stable_name
     reject_redirecting_ancestry(target, where="stable generated output")
     os.replace(candidate, target)
+    raw = read_file_bytes(target, where="stable generated output")
+    row_count = sum(1 for line in raw.splitlines() if line.strip())
+    marker = target.with_name(f"{target.name}.provenance.json")
+    marker_payload = {
+        "schema": _CANDIDATE_SCHEMA,
+        "kind": "synthetic_generated_candidate",
+        "run_id": run.run_id,
+        "path": target.relative_to(run.data_root).as_posix(),
+        "sha256": sha256_bytes(raw),
+        "row_count": row_count,
+    }
+    stage = run.run_root / f".candidate-provenance-{uuid.uuid4().hex}.tmp"
+    write_bytes_exclusive(
+        stage,
+        canonical_json_bytes(marker_payload),
+        where="generated candidate provenance stage",
+    )
+    reject_redirecting_ancestry(marker, where="generated candidate provenance")
+    os.replace(stage, marker)
     return target
 
 
+def resolve_generated_candidate(data_dir: Path, supplied_path: Path) -> GeneratedCandidate:
+    """Resolve only a hash-bound published synthetic candidate, never a final split."""
+
+    root = _trusted_root(data_dir)
+    supplied = Path(supplied_path)
+    candidate = supplied if supplied.is_absolute() else root / supplied
+    candidate = Path(os.path.abspath(os.path.normpath(os.fspath(candidate))))
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as error:
+        raise IntegrityError("generated candidate escaped the data root") from error
+    if not relative.parts or relative.parts[0] in {
+        "splits",
+        "processed",
+        "versions",
+        "releases",
+    }:
+        raise IntegrityError("finalized dataset trees cannot be used as generated input")
+    if relative.parts != ("synthetic", candidate.name) or candidate.name not in {
+        "generated.jsonl",
+        "generated-gap-fill-recovered.jsonl",
+    }:
+        raise IntegrityError("generated input must be a published synthetic candidate")
+
+    candidate = reject_redirecting_ancestry(candidate, where="generated candidate")
+    try:
+        marker = reject_redirecting_ancestry(
+            candidate.with_name(f"{candidate.name}.provenance.json"),
+            where="generated candidate provenance",
+        )
+        payload = strict_json_object(marker, where="generated candidate provenance")
+    except FileNotFoundError as error:
+        raise IntegrityError("generated candidate provenance is missing") from error
+    expected_fields = {"schema", "kind", "run_id", "path", "sha256", "row_count"}
+    if set(payload) != expected_fields:
+        raise IntegrityError("generated candidate provenance fields are not closed")
+    if payload["schema"] != _CANDIDATE_SCHEMA or payload["kind"] != "synthetic_generated_candidate":
+        raise IntegrityError("generated candidate provenance schema is invalid")
+    if payload["path"] != relative.as_posix():
+        raise IntegrityError("generated candidate provenance path does not match")
+    run_id = payload["run_id"]
+    if not isinstance(run_id, str) or not _RUN_ID.fullmatch(run_id):
+        raise IntegrityError("generated candidate provenance run_id is invalid")
+    raw = read_file_bytes(candidate, where="generated candidate")
+    digest = sha256_bytes(raw)
+    if payload["sha256"] != digest:
+        raise IntegrityError("generated candidate hash does not match provenance")
+    rows = [line for line in raw.splitlines() if line.strip()]
+    if isinstance(payload["row_count"], bool) or payload["row_count"] != len(rows):
+        raise IntegrityError("generated candidate row count does not match provenance")
+    for line in rows:
+        DatasetRecord.model_validate_json(line)
+    return GeneratedCandidate(candidate, run_id, digest, len(rows), raw)
+
+
 __all__ = (
+    "GeneratedCandidate",
     "GenerationRun",
     "OwnedFile",
     "cleanup_owned_files",
     "newly_owned_files",
     "prepare_generation_run",
     "publish_generated_candidate",
+    "resolve_generated_candidate",
     "snapshot_run_files",
     "stage_generated_records",
     "write_run_ledger",

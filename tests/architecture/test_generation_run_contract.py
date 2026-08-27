@@ -175,3 +175,62 @@ def test_successful_generation_publishes_candidate_then_cleans_exact_run_files(
     checkpoint_root = root / "generation-runs" / "run-a" / "checkpoints"
     assert list(checkpoint_root.iterdir()) == []
     assert (checkpoint_root.parent / "ledger.json").is_file()
+    candidate = generation_runs.resolve_generated_candidate(root, stable)
+    assert candidate.path == stable
+    assert candidate.run_id == "run-a"
+    assert candidate.row_count == 1
+
+
+def test_generated_candidate_rejects_unmarked_finalized_and_changed_inputs(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    synthetic = root / "synthetic"
+    synthetic.mkdir(parents=True)
+    unmarked = synthetic / "generated.jsonl"
+    unmarked.write_text(json.dumps(_dataset_record()) + "\n", encoding="utf-8")
+    with pytest.raises(IntegrityError):
+        generation_runs.resolve_generated_candidate(root, unmarked)
+
+    finalized = root / "splits" / "validation.jsonl"
+    finalized.parent.mkdir()
+    finalized.write_text(json.dumps(_dataset_record()) + "\n", encoding="utf-8")
+    with pytest.raises(IntegrityError, match="finalized dataset trees"):
+        generation_runs.resolve_generated_candidate(root, finalized)
+
+    run = generation_runs.prepare_generation_run(
+        root, version_tag="run-b", checkpoint_dir=Path("run-b"), resume=False
+    )
+    candidate_path = generation_runs.stage_generated_records(run, [_dataset_record()])
+    published = generation_runs.publish_generated_candidate(
+        run, candidate_path, "generated.jsonl"
+    )
+    published.write_bytes(published.read_bytes() + b"\n")
+    with pytest.raises(IntegrityError, match="hash does not match"):
+        generation_runs.resolve_generated_candidate(root, published)
+
+
+def test_judge_existing_rejects_finalized_input_before_dependencies_run(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    finalized = root / "splits" / "validation.jsonl"
+    finalized.parent.mkdir(parents=True)
+    finalized.write_text(json.dumps(_dataset_record()) + "\n", encoding="utf-8")
+    trap = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("judge dependency must not run")
+    )
+    dependencies = workflows.WorkflowDependencies(
+        get_settings=lambda: SimpleNamespace(data_dir=root, anthropic_api_key=""),
+        generator_factory=trap,
+        judge_factory=trap,
+        builder_factory=trap,
+        scraper_factory=trap,
+        anthropic_client_builder=trap,
+        optimize_records=trap,
+    )
+
+    with pytest.raises(IntegrityError, match="finalized dataset trees"):
+        workflows.judge_existing_records(
+            root, finalized, _dependencies=dependencies
+        )

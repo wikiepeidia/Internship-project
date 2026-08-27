@@ -122,7 +122,8 @@ def _add_workflow_options(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=None,
         help=(
-            "Existing generated JSONL artifact to judge. Defaults to "
+            "Hash-bound published synthetic JSONL artifact to judge; finalized "
+            "split trees are rejected. Defaults to "
             "data/synthetic/generated.jsonl."
         ),
     )

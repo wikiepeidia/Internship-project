@@ -84,16 +84,11 @@ def _save_validated_records(
     tmp_stats.write_text(rendered, encoding="utf-8")
     os.replace(tmp_stats, stats_path)
     return validated_path, stats_path
-def _load_dataset_records(dataset_path: Path) -> list[dict[str, Any]]:
-    if not dataset_path.exists():
-        raise FileNotFoundError(f"Generated input not found: {dataset_path}")
+def _load_dataset_records(candidate: Any) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    with dataset_path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if stripped := line.strip():
-                records.append(
-                    DatasetRecord.model_validate_json(stripped).model_dump()
-                )
+    for line in candidate.raw.splitlines():
+        if stripped := line.strip():
+            records.append(DatasetRecord.model_validate_json(stripped).model_dump())
     return records
 def judge_existing_records(
     data_dir: Path,
@@ -104,9 +99,12 @@ def judge_existing_records(
 ) -> dict[str, Any]:
     """Judge an existing generated artifact and build validated splits."""
 
+    from src.data_pipeline.generation_runs import resolve_generated_candidate
+
     dependencies = _dependencies or _default_dependencies()
     settings = dependencies.get_settings()
-    generated_records = _load_dataset_records(input_path)
+    candidate = resolve_generated_candidate(data_dir, input_path)
+    generated_records = _load_dataset_records(candidate)
     if not generated_records:
         raise ValueError("No generated records found to judge")
     client = dependencies.anthropic_client_builder(settings.anthropic_api_key)
@@ -129,7 +127,9 @@ def judge_existing_records(
         "generated_count": len(generated_records),
         "validated_count": len(validated_records),
         "split_counts": build_result["splits"],
-        "generated_path": str(input_path),
+        "generated_path": str(candidate.path),
+        "generated_sha256": candidate.sha256,
+        "generation_run_id": candidate.run_id,
         "validated_path": str(validated_path),
         "quality_stats_path": str(stats_path),
         "manifest_path": build_result["manifest_path"],
