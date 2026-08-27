@@ -379,7 +379,7 @@ def _load_or_scrape_seeds(
 def _generate_only_summary(
     seeds: list[SeedRecord],
     generated_count: int,
-    generated_path: Path,
+    generated_path: Path | None,
     bulk_provider: str,
     max_parallel_batches: int,
     recovered: dict[str, Any] | None,
@@ -390,7 +390,7 @@ def _generate_only_summary(
         "generated_count": generated_count,
         "validated_count": 0,
         "split_counts": {},
-        "generated_path": str(generated_path),
+        "generated_path": str(generated_path) if generated_path is not None else None,
         "validated_path": None,
         "quality_stats_path": None,
         "manifest_path": None,
@@ -506,7 +506,7 @@ def build_training_corpus(
     )
     if gap_fill_recovered and target_count <= 0:
         return _generate_only_summary(
-            [], 0, Path(recovered["merged_output_path"]), bulk_provider,
+            [], 0, None, bulk_provider,
             max_parallel_batches, recovered, targets,
         )
     run = prepare_generation_run(

@@ -477,3 +477,40 @@ def test_reviewed_dataset_failure_leaves_previous_pointer_unchanged(
         )
 
     assert pointer.read_bytes() == previous
+
+
+def test_zero_gap_generation_returns_summary_without_constructing_runtime(
+    tmp_path: Path,
+) -> None:
+    from src.data_pipeline import workflows
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError("zero-gap recovery must not construct generation dependencies")
+
+    recovered = {
+        "missing_by_label_for_target": {
+            label: 0 for label in workflows.THREAT_CLASSES
+        },
+        "generation_gap_total": 0,
+        "merged_output_path": None,
+    }
+    dependencies = workflows.WorkflowDependencies(
+        get_settings=lambda: SimpleNamespace(data_dir=tmp_path),
+        generator_factory=forbidden,
+        judge_factory=forbidden,
+        builder_factory=forbidden,
+        scraper_factory=forbidden,
+        anthropic_client_builder=forbidden,
+        optimize_records=lambda data_dir, target_count: recovered,
+    )
+
+    summary = workflows.build_training_corpus(
+        target_count=0,
+        generate_only=True,
+        gap_fill_recovered=True,
+        _dependencies=dependencies,
+    )
+
+    assert summary["generated_path"] is None
+    assert summary["generated_count"] == 0
+    assert summary["recovered_summary"] is recovered
