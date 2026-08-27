@@ -26,6 +26,7 @@ POLICY_FIELDS = {
     "historical_sccs",
     "ownership_indexes",
     "schema_version",
+    "static_policy",
 }
 
 
@@ -77,7 +78,7 @@ def _policy() -> dict[str, Any]:
     payload = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
     assert set(payload) == POLICY_FIELDS
-    assert payload["schema_version"] == "module-boundaries-v1"
+    assert payload["schema_version"] == "module-boundaries-v2"
     return payload
 
 

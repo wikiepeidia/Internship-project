@@ -179,5 +179,49 @@
     "phase40": "src.model_adaptation.legacy.phase40",
     "phase41": "src.model_adaptation.legacy.phase41"
   },
-  "schema_version": "module-boundaries-v1"
+  "schema_version": "module-boundaries-v2",
+  "static_policy": {
+    "budget_exceptions": [],
+    "budgeted_modules": [
+      "src.artifacts",
+      "src.core",
+      "src.core.integrity",
+      "src.data_pipeline.core",
+      "src.data_pipeline.core.records",
+      "src.data_pipeline.core.splits",
+      "src.data_pipeline.core.text",
+      "src.data_pipeline.migrations",
+      "src.data_pipeline.workflows",
+      "src.model_adaptation.commands",
+      "src.model_adaptation.commands.adaptation",
+      "src.model_adaptation.commands.legacy_phase40",
+      "src.model_adaptation.commands.legacy_phase41",
+      "src.model_adaptation.commands.router",
+      "src.model_adaptation.legacy.phase40",
+      "src.model_adaptation.legacy.phase41",
+      "src.modeling",
+      "src.modeling.evaluation",
+      "src.modeling.evidence",
+      "src.modeling.inference",
+      "src.modeling.legacy_adapters",
+      "src.modeling.training"
+    ],
+    "cli_owners": {
+      "src.data_pipeline.cli": "data_modules.workflows",
+      "src.model_adaptation.cli": "compatibility_adapters",
+      "src.runtime.cli": "active_modules"
+    },
+    "forbidden_active_name_pattern": "phase[0-9]+",
+    "line_limits": {
+      "model_cli": 250,
+      "new_function": 100,
+      "new_module": 600
+    },
+    "runtime_forbidden_targets": [
+      "src.data_pipeline.generation",
+      "src.data_pipeline.scraper",
+      "src.model_adaptation.training",
+      "src.modeling.training"
+    ]
+  }
 }
