@@ -2,19 +2,76 @@
 
 from datetime import datetime, timedelta
 import hashlib
-from pathlib import PurePosixPath
+import json
+from pathlib import Path, PurePosixPath
 import re
-from typing import Literal
+from typing import Any, Literal, TypeVar
 import unicodedata
 
-from pydantic import BaseModel, Field, HttpUrl, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 _HTTP_URL = TypeAdapter(HttpUrl)
+_RecordModel = TypeVar("_RecordModel", bound=BaseModel)
+
+
+def _validate_jsonl_record(
+    raw: bytes | str,
+    *,
+    source: Path | str,
+    line_number: int,
+    record_type: type[_RecordModel],
+) -> _RecordModel:
+    """Decode one closed JSON object and attach its source location to failures."""
+
+    location = f"{source}:{line_number}"
+    try:
+        text = raw.decode("utf-8", errors="strict") if isinstance(raw, bytes) else raw
+    except UnicodeDecodeError as error:
+        raise ValueError(f"{location}: record is not strict UTF-8") from error
+
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    def reject_non_finite(token: str) -> Any:
+        raise ValueError(f"non-standard JSON token {token!r}")
+
+    try:
+        value = json.loads(
+            text,
+            object_pairs_hook=reject_duplicates,
+            parse_constant=reject_non_finite,
+        )
+    except (json.JSONDecodeError, ValueError) as error:
+        raise ValueError(f"{location}: invalid strict JSON object: {error}") from error
+    if not isinstance(value, dict):
+        raise ValueError(f"{location}: JSONL record must be an object")
+    try:
+        return record_type.model_validate(value)
+    except ValidationError as error:
+        raise ValueError(
+            f"{location}: invalid {record_type.__name__}: {error}"
+        ) from error
 
 
 class SeedRecord(BaseModel):
     """Raw phishing seed collected from a trusted source."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     text: str = Field(
         min_length=10,
@@ -26,6 +83,13 @@ class SeedRecord(BaseModel):
         default=None,
         description="Optional initial threat classification hint",
     )
+
+    @field_validator("text", "source_url", "scrape_timestamp", "raw_label_hint")
+    @classmethod
+    def reject_blank_seed_facts(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("seed facts must not be blank")
+        return value
 
 
 RecordUnit = Literal[
@@ -48,6 +112,8 @@ class ProvenancedSeedRecord(SeedRecord):
     so collecting evidence cannot silently promote it into training data.
     """
 
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     data_origin: Literal["real_public"]
     record_unit: RecordUnit
     canonical_url: str = Field(min_length=8)
@@ -63,6 +129,13 @@ class ProvenancedSeedRecord(SeedRecord):
     contributing_urls: list[str] = Field(min_length=1)
     duplicate_count: int = Field(ge=0)
     provenance_confidence: Literal["high", "medium", "low"]
+
+    @field_validator("publisher", "native_id")
+    @classmethod
+    def reject_blank_provenance_facts(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("provenance facts must not be blank")
+        return value
 
     @field_validator("source_url", "canonical_url", "rights_url")
     @classmethod
@@ -101,6 +174,8 @@ class ProvenancedSeedRecord(SeedRecord):
 
 class DatasetRecord(BaseModel):
     """A processed seven-field record with explainability artifacts."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     text: str = Field(min_length=10, description="Raw message text")
     label: Literal[
@@ -166,6 +241,8 @@ class DatasetRecord(BaseModel):
 class ManifestFile(BaseModel):
     """Metadata for a single dataset file in a versioned release."""
 
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="File integrity hash")
     records: int = Field(ge=0, description="Number of records in file")
     bytes: int = Field(ge=0, description="File size in bytes")
@@ -173,6 +250,8 @@ class ManifestFile(BaseModel):
 
 class ManifestEntry(BaseModel):
     """Version manifest for a reproducible dataset release."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     version: str = Field(description="Semantic version tag (e.g., v1.0.0)")
     build_timestamp: str = Field(description="ISO 8601 build time")

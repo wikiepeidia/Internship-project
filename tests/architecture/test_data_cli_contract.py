@@ -561,3 +561,38 @@ def test_zero_gap_generation_returns_summary_without_constructing_runtime(
     assert summary["generated_path"] is None
     assert summary["generated_count"] == 0
     assert summary["recovered_summary"] is recovered
+
+
+def test_workflow_jsonl_ingress_rejects_duplicate_facts_with_source_line(
+    tmp_path: Path,
+) -> None:
+    from src.data_pipeline import workflows
+
+    seed_path = tmp_path / "seeds.jsonl"
+    seed_path.write_bytes(
+        b'\n{"text":"Synthetic seed message long enough",'
+        b'"source_url":"https://example.test/source",'
+        b'"scrape_timestamp":"2026-08-27T00:00:00Z",'
+        b'"source_url":"https://replacement.test/source"}\n'
+    )
+    with pytest.raises(ValueError) as seed_error:
+        workflows._load_seed_records(seed_path)
+    assert f"{seed_path}:2" in str(seed_error.value)
+    assert "duplicate JSON key" in str(seed_error.value)
+
+    candidate_path = tmp_path / "candidate.jsonl"
+    candidate = SimpleNamespace(
+        path=candidate_path,
+        raw=(
+            b'{"text":"Synthetic dataset message long enough",'
+            b'"label":"task_scam","risk_tier":"suspicious",'
+            b'"suspicious_spans":[],"xai_explanation":'
+            b'"Synthetic explanation long enough for validation.",'
+            b'"source":"synthetic_openai_compatible","seed_id":"seed-1",'
+            b'"label":"benign"}\n'
+        ),
+    )
+    with pytest.raises(ValueError) as dataset_error:
+        workflows._load_dataset_records(candidate)
+    assert f"{candidate_path}:1" in str(dataset_error.value)
+    assert "duplicate JSON key" in str(dataset_error.value)

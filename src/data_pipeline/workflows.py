@@ -8,7 +8,8 @@ from pathlib import Path
 import sys
 from typing import Any, Callable
 
-from src.data_pipeline.core.records import DatasetRecord, SeedRecord
+from src.core.integrity import read_file_bytes
+from src.data_pipeline.core.records import DatasetRecord, SeedRecord, _validate_jsonl_record
 from src.data_pipeline.core.text import RAPIDFUZZ_AVAILABLE, lexical_dedup
 
 
@@ -54,10 +55,17 @@ def _load_seed_records(seed_path: Path) -> list[SeedRecord]:
     if not seed_path.exists():
         raise FileNotFoundError(f"Seed input not found: {seed_path}")
     seeds: list[SeedRecord] = []
-    with seed_path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if stripped := line.strip():
-                seeds.append(SeedRecord.model_validate_json(stripped))
+    raw = read_file_bytes(seed_path, where="seed input")
+    for line_number, line in enumerate(raw.splitlines(), start=1):
+        if line.strip():
+            seeds.append(
+                _validate_jsonl_record(
+                    line,
+                    source=seed_path,
+                    line_number=line_number,
+                    record_type=SeedRecord,
+                )
+            )
     return seeds
 def _save_validated_records(
     records: list[dict[str, Any]],
@@ -77,9 +85,16 @@ def _save_validated_records(
     return publication.validated_path, publication.quality_stats_path
 def _load_dataset_records(candidate: Any) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for line in candidate.raw.splitlines():
-        if stripped := line.strip():
-            records.append(DatasetRecord.model_validate_json(stripped).model_dump())
+    for line_number, line in enumerate(candidate.raw.splitlines(), start=1):
+        if line.strip():
+            records.append(
+                _validate_jsonl_record(
+                    line,
+                    source=candidate.path,
+                    line_number=line_number,
+                    record_type=DatasetRecord,
+                ).model_dump()
+            )
     return records
 def judge_existing_records(
     data_dir: Path,

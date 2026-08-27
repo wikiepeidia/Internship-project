@@ -286,6 +286,50 @@ def test_manifest_contract_keeps_field_order_and_nested_types() -> None:
     assert isinstance(manifest.files["synthetic.jsonl"], core_records.ManifestFile)
 
 
+def test_record_ingress_models_are_closed_strict_and_nonblank() -> None:
+    seed = {
+        "text": "Synthetic seed message long enough",
+        "source_url": "https://example.test/source",
+        "scrape_timestamp": "2026-08-27T00:00:00Z",
+    }
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        core_records.SeedRecord.model_validate({**seed, "unexpected": "fact"})
+    with pytest.raises(ValidationError, match="seed facts must not be blank"):
+        core_records.SeedRecord.model_validate({**seed, "text": " " * 12})
+    with pytest.raises(ValidationError):
+        core_records.ManifestFile.model_validate(
+            {"sha256": "a" * 64, "records": True, "bytes": 1}
+        )
+    dataset = _dataset_record(core_records).model_dump()
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        core_records.DatasetRecord.model_validate({**dataset, "provenance": "hidden"})
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    (
+        (b'{"text":"Synthetic seed message long enough","text":"replacement"}', "duplicate JSON key"),
+        (b'{"text":"Synthetic seed message long enough","source_url":"x","scrape_timestamp":NaN}', "non-standard JSON token"),
+        (b"[]", "must be an object"),
+        (b"\xff", "strict UTF-8"),
+    ),
+)
+def test_strict_jsonl_decoder_rejects_ambiguous_rows_with_location(
+    raw: bytes,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError) as raised:
+        core_records._validate_jsonl_record(
+            raw,
+            source="synthetic-seeds.jsonl",
+            line_number=7,
+            record_type=core_records.SeedRecord,
+        )
+    rendered = str(raised.value)
+    assert "synthetic-seeds.jsonl:7" in rendered
+    assert message in rendered
+
+
 def test_legacy_schema_module_is_only_an_explicit_compatibility_surface() -> None:
     path = REPO_ROOT / "src/data_pipeline/schemas.py"
     source = path.read_text(encoding="utf-8")
