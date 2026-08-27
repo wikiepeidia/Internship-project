@@ -10,7 +10,12 @@ import pytest
 from pydantic import ValidationError
 
 from src.modeling.evaluation import TwoModelEvaluationResult
-from src.modeling.evidence import ReportingAuthorityError, load_reporting_authority
+from src.modeling.evidence import (
+    ReportingAuthorityError,
+    ReportingAuthorityPins,
+    _load_reporting_authority,
+    load_reporting_authority,
+)
 
 
 LABELS = (
@@ -191,15 +196,18 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
     }
     evidence_manifest = {
         "artifacts": [
-            {"name": name, "sha256": _sha256(value)}
-            for name, value in payloads.items()
-        ]
-        + [
             {"name": "evaluation-request.json", "sha256": "4" * 64},
+            {"name": "frozen-inference-protocols.json", "sha256": "9" * 64},
+            {"name": "execution-source-manifest.json", "sha256": _sha256(source_bytes)},
+            {"name": "execution-materialization-receipt.json", "sha256": _sha256(receipt_bytes)},
+            {"name": "preauthorization-receipt.json", "sha256": "8" * 64},
             {"name": "one-shot-authorization.json", "sha256": "a" * 64},
             {"name": "one-shot-claim.json", "sha256": "b" * 64},
+            {"name": "evaluation-access-receipt.json", "sha256": "7" * 64},
             {"name": "qwen-predictions.jsonl", "sha256": "e" * 64},
             {"name": "phobert-predictions.jsonl", "sha256": "2" * 64},
+            {"name": "results.json", "sha256": _sha256(result_bytes)},
+            {"name": "results.md", "sha256": "6" * 64},
         ],
         "schema_version": "phase41-evidence-manifest-v1",
         "status": "completed",
@@ -222,6 +230,22 @@ def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
     payloads["evidence-manifest.json"] = manifest_bytes
     payloads["provenance-erratum.json"] = erratum_bytes
     return export_root, erratum_path, payloads
+
+
+def _synthetic_pins(export_root: Path, erratum_path: Path) -> ReportingAuthorityPins:
+    return ReportingAuthorityPins(
+        export_manifest_sha256=_sha256((export_root / "evidence-manifest.json").read_bytes()),
+        erratum_sha256=_sha256(erratum_path.read_bytes()),
+        source_tree_sha256="7" * 64,
+    )
+
+
+def _load_synthetic(export_root: Path, erratum_path: Path):
+    return _load_reporting_authority(
+        export_root,
+        erratum_path,
+        _synthetic_pins(export_root, erratum_path),
+    )
 
 
 def _rewrite_manifest(
@@ -344,7 +368,7 @@ def test_comparison_contract_rejects_reversed_claim() -> None:
 def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: Path):
     export_root, erratum_path, payloads = _write_authority(tmp_path)
 
-    authority = load_reporting_authority(export_root, erratum_path)
+    authority = _load_synthetic(export_root, erratum_path)
 
     assert [model.role for model in authority.result.models] == ["qwen", "phobert"]
     assert authority.source_tree_sha256 == "7" * 64
@@ -385,8 +409,9 @@ def test_reporting_reader_is_read_only_and_never_opens_predictions(
             raise AssertionError("reporting reader attempted a write")
         return original_open(path, *args, **kwargs)
 
+    pins = _synthetic_pins(export_root, erratum_path)
     monkeypatch.setattr(Path, "open", guarded_open)
-    load_reporting_authority(export_root, erratum_path)
+    _load_reporting_authority(export_root, erratum_path, pins)
     after = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
 
     assert after == before
@@ -408,7 +433,11 @@ def test_reporting_authority_binds_export_directory_and_result_links(tmp_path: P
     ):
         (wrong_named_root / name).write_bytes((export_root / name).read_bytes())
     with pytest.raises(ReportingAuthorityError, match="directory identity"):
-        load_reporting_authority(wrong_named_root, erratum_path)
+        _load_reporting_authority(
+            wrong_named_root,
+            erratum_path,
+            _synthetic_pins(export_root, erratum_path),
+        )
 
     export_root, erratum_path, _ = _write_authority(tmp_path / "second")
 
@@ -421,7 +450,7 @@ def test_reporting_authority_binds_export_directory_and_result_links(tmp_path: P
 
     export_root = _rewrite_manifest(export_root, erratum_path, break_prepared_link)
     with pytest.raises(ReportingAuthorityError, match="prepared request link"):
-        load_reporting_authority(export_root, erratum_path)
+        _load_synthetic(export_root, erratum_path)
 
 
 def test_reporting_authority_binds_materialization_environment(tmp_path: Path):
@@ -437,7 +466,7 @@ def test_reporting_authority_binds_materialization_environment(tmp_path: Path):
     )
 
     with pytest.raises(ReportingAuthorityError, match="runtime import roots"):
-        load_reporting_authority(export_root, erratum_path)
+        _load_synthetic(export_root, erratum_path)
 
 
 @pytest.mark.parametrize(
@@ -453,6 +482,7 @@ def test_reporting_authority_binds_materialization_environment(tmp_path: Path):
 )
 def test_reporting_authority_fails_closed(tmp_path: Path, case: str):
     export_root, erratum_path, _ = _write_authority(tmp_path)
+    pins = _synthetic_pins(export_root, erratum_path)
 
     if case == "tampered-result":
         (export_root / "results.json").write_bytes(b"{}\n")
@@ -493,4 +523,10 @@ def test_reporting_authority_fails_closed(tmp_path: Path, case: str):
         )
 
     with pytest.raises(ReportingAuthorityError):
+        _load_reporting_authority(export_root, erratum_path, pins)
+
+
+def test_public_reporting_loader_rejects_self_signed_bundle(tmp_path: Path) -> None:
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    with pytest.raises(ReportingAuthorityError, match="canonical reporting authority"):
         load_reporting_authority(export_root, erratum_path)

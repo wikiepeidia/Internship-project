@@ -23,6 +23,36 @@ _RESULTS_NAME = "results.json"
 _SOURCE_MANIFEST_NAME = "execution-source-manifest.json"
 _MATERIALIZATION_NAME = "execution-materialization-receipt.json"
 _SHA256_CHARS = frozenset("0123456789abcdef")
+_EVIDENCE_MEMBER_NAMES = (
+    "evaluation-request.json",
+    "frozen-inference-protocols.json",
+    _SOURCE_MANIFEST_NAME,
+    _MATERIALIZATION_NAME,
+    "preauthorization-receipt.json",
+    "one-shot-authorization.json",
+    "one-shot-claim.json",
+    "evaluation-access-receipt.json",
+    "qwen-predictions.jsonl",
+    "phobert-predictions.jsonl",
+    _RESULTS_NAME,
+    "results.md",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ReportingAuthorityPins:
+    """Trusted identities stored outside any caller-supplied evidence bundle."""
+
+    export_manifest_sha256: str
+    erratum_sha256: str
+    source_tree_sha256: str
+
+
+CANONICAL_REPORTING_PINS = ReportingAuthorityPins(
+    export_manifest_sha256="9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7",
+    erratum_sha256="c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672",
+    source_tree_sha256="c3bbc8c8adaf7579fd2eb9c59a0081613be4b2cae05dfdb64472938c7e6d0434",
+)
 
 
 class ReportingAuthorityError(RuntimeError):
@@ -141,18 +171,8 @@ def _artifact_hashes(manifest: Mapping[str, Any]) -> dict[str, str]:
         result[name] = _require_sha256(
             entry.get("sha256"), where=f"artifact {name!r} sha256"
         )
-    required = {
-        _RESULTS_NAME,
-        _SOURCE_MANIFEST_NAME,
-        _MATERIALIZATION_NAME,
-        "evaluation-request.json",
-        "one-shot-authorization.json",
-        "one-shot-claim.json",
-        "qwen-predictions.jsonl",
-        "phobert-predictions.jsonl",
-    }
-    if not required.issubset(result):
-        raise ReportingAuthorityError("evidence manifest omits a reporting authority member")
+    if tuple(result) != _EVIDENCE_MEMBER_NAMES:
+        raise ReportingAuthorityError("evidence manifest must contain the exact 12 members")
     return result
 
 
@@ -372,8 +392,12 @@ def _validate_result_links(
         )
 
 
-def load_reporting_authority(export_root: Path, erratum_path: Path) -> ReportingAuthority:
-    """Verify and return immutable reporting facts from explicit bounded paths."""
+def _load_reporting_authority(
+    export_root: Path,
+    erratum_path: Path,
+    pins: ReportingAuthorityPins,
+) -> ReportingAuthority:
+    """Verify reporting facts against an independently trusted identity set."""
 
     try:
         root = reject_redirecting_ancestry(Path(export_root), where="verified export root")
@@ -388,6 +412,8 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
 
     manifest_raw, manifest_payload = _read_json(manifest_path, where="evidence manifest")
     manifest_sha256 = sha256_bytes(manifest_raw)
+    if manifest_sha256 != pins.export_manifest_sha256:
+        raise ReportingAuthorityError("evidence manifest is not the canonical reporting authority")
     if root.name != manifest_sha256:
         raise ReportingAuthorityError("verified export directory identity does not match manifest")
     hashes = _artifact_hashes(manifest_payload)
@@ -401,6 +427,8 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
         root, _MATERIALIZATION_NAME, hashes[_MATERIALIZATION_NAME]
     )
     erratum_raw, erratum_payload = _read_json(erratum, where="provenance erratum")
+    if sha256_bytes(erratum_raw) != pins.erratum_sha256:
+        raise ReportingAuthorityError("provenance erratum is not the canonical disclosure")
 
     try:
         result = TwoModelEvaluationResult.model_validate(results_payload)
@@ -411,6 +439,8 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
     source_tree_sha256 = _validate_source_chain(
         source_payload, receipt_payload, source_sha256
     )
+    if source_tree_sha256 != pins.source_tree_sha256:
+        raise ReportingAuthorityError("source tree is not the canonical producer closure")
     (
         corrected_claim,
         downstream_requirement,
@@ -439,8 +469,19 @@ def load_reporting_authority(export_root: Path, erratum_path: Path) -> Reporting
     )
 
 
+def load_reporting_authority(export_root: Path, erratum_path: Path) -> ReportingAuthority:
+    """Return facts only from the project-pinned frozen export and erratum."""
+
+    return _load_reporting_authority(
+        export_root,
+        erratum_path,
+        CANONICAL_REPORTING_PINS,
+    )
+
+
 __all__ = [
     "ReportingAuthority",
     "ReportingAuthorityError",
+    "ReportingAuthorityPins",
     "load_reporting_authority",
 ]
