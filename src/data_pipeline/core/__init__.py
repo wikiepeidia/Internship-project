@@ -1,15 +1,15 @@
-"""Compatibility imports for the phase-neutral data record contracts."""
+"""Phase-neutral deterministic data contracts and transforms."""
 
 from src.data_pipeline.core.records import (
-    SeedRecord,
-    ProvenancedSeedRecord,
-    DatasetRecord,
-    ManifestFile,
-    ManifestEntry,
-    RecordUnit,
     AccessMethod,
-    RightsStatus,
+    DatasetRecord,
+    ManifestEntry,
+    ManifestFile,
+    ProvenancedSeedRecord,
+    RecordUnit,
     RedactionState,
+    RightsStatus,
+    SeedRecord,
 )
 
 __all__ = (
