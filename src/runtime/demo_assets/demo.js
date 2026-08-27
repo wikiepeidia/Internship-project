@@ -133,10 +133,10 @@ async function analyzeMessage(event) {
   const channel = channelSelect.value;
 
   if (currentController) currentController.abort();
-  // Request-local controller reference: only the request that is still the
-  // module-level "current" one when it settles may clear shared busy state.
-  // This prevents an aborted/superseded request's `finally` block from
-  // racing ahead of a newer, still-in-flight request (Phase 31 UIQ-02 fix).
+  // Keep shared busy state owned by the newest in-flight request.
+  // Only the request still registered as current when it settles may clear it.
+  // This prevents an aborted or superseded request's `finally` block from
+  // clearing state that belongs to a newer request.
   const controller = new AbortController();
   currentController = controller;
 

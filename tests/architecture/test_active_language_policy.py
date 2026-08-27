@@ -552,3 +552,37 @@ def test_active_runtime_render_and_demo_language_is_domain_named() -> None:
         )
     ]
     assert violations == []
+
+
+def test_active_runtime_doctor_and_browser_language_is_domain_named() -> None:
+    paths = (
+        "src/runtime/doctor.py",
+        "src/runtime/demo_assets/demo.js",
+    )
+    sources = {
+        logical_path: (REPO_ROOT / logical_path).read_text(encoding="utf-8")
+        for logical_path in paths
+    }
+    violations = [
+        violation
+        for logical_path, source in sources.items()
+        for violation in _scan_text(logical_path, source)
+    ]
+    assert violations == []
+
+    legacy_artifact = [
+        row
+        for row in _active_text_fixture()["frozen_literal_owners"]
+        if row["id"] == "legacy-release-artifact-glob"
+    ]
+    assert legacy_artifact == [
+        {
+            "id": "legacy-release-artifact-glob",
+            "path": "src/runtime/doctor.py",
+            "literal": "phase5-release-eval-*.json",
+            "owner_symbol": "RELEASE_MANIFEST_PATTERNS",
+            "reason": "preserve legacy release-evaluation artifact discovery",
+            "lifecycle": "active",
+        }
+    ]
+    assert sources["src/runtime/doctor.py"].count(legacy_artifact[0]["literal"]) == 1

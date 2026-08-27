@@ -1,4 +1,4 @@
-"""Local readiness checks and guidance for the promoted Phase 4 runtime."""
+"""Local readiness checks for analysis backends and release artifacts."""
 
 import fnmatch
 import importlib
@@ -292,7 +292,7 @@ class RuntimeDoctor:
 
 
 def run_runtime_doctor() -> DoctorStatus:
-    """Run the local readiness checks for the Phase 4 runtime."""
+    """Run readiness checks for the configured phishing-analysis runtime."""
 
     return RuntimeDoctor().run()
 
