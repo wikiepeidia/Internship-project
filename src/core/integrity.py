@@ -10,7 +10,13 @@ import stat
 from typing import Any
 import uuid
 
-from src.core_binding import BoundParent, bind_parent
+from src.core_binding import (
+    BoundParent,
+    _windows_close_handle,
+    _windows_handle_identity,
+    _windows_nt_open,
+    bind_parent,
+)
 
 
 _WINDOWS_REPARSE_POINT = 0x400
@@ -295,6 +301,57 @@ def bounded_descendant(root: Path, relative: Path, *, where: str) -> Path:
     return reject_redirecting_ancestry(candidate, where=where)
 
 
+def _rmdir_bound_child(
+    parent: BoundParent,
+    name: str,
+    expected: tuple[int, int],
+) -> bool:
+    """Remove one empty child directory only through its held parent."""
+
+    if os.name != "nt":
+        try:
+            metadata = parent.lstat(name)
+            if not stat.S_ISDIR(metadata.st_mode):
+                return False
+            if (metadata.st_dev, metadata.st_ino) != expected:
+                return False
+            os.rmdir(name, dir_fd=parent.directory_fd)
+            return True
+        except FileNotFoundError:
+            return False
+
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        handle = _windows_nt_open(
+            parent.windows_handles[-1], name,
+            desired_access=0x00010000 | 0x80, disposition=1, directory=True,
+        )
+    except FileNotFoundError:
+        return False
+    try:
+        _attributes, volume, index = _windows_handle_identity(handle)
+        if (volume, index) != expected:
+            return False
+        class Disposition(ctypes.Structure):
+            _fields_ = [("delete", wintypes.BOOLEAN)]
+        class IoStatus(ctypes.Structure):
+            _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
+        disposition, io_status = Disposition(True), IoStatus()
+        function = ctypes.windll.ntdll.NtSetInformationFile
+        function.restype = ctypes.c_long
+        status = function(
+            wintypes.HANDLE(handle), ctypes.byref(io_status), ctypes.byref(disposition),
+            ctypes.sizeof(disposition), 13,
+        )
+        if status < 0:
+            raise OSError("handle-bound directory cleanup failed")
+        return True
+    finally:
+        _windows_close_handle(handle)
+
+
 def prepare_bounded_output(root: Path, relative: Path, *, where: str) -> Path:
     """Create only missing parent directories below one trusted root."""
 
@@ -338,7 +395,7 @@ def prepare_bounded_output(root: Path, relative: Path, *, where: str) -> Path:
             manager.__exit__(*__import__("sys").exc_info())
             if failed and created_identity is not None:
                 try:
-                    parent.rmdir_if_identity(name, created_identity)
+                    _rmdir_bound_child(parent, name, created_identity)
                 except OSError as cleanup_error:
                     raise IntegrityError(
                         f"cannot clean an owned {where} parent after failure"

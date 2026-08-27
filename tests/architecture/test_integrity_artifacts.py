@@ -397,6 +397,34 @@ def test_nested_output_parents_are_created_through_the_bound_root(
         assert target.parent.is_dir()
 
 
+def test_failed_nested_parent_creation_cleans_only_owned_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core_binding import BoundParent
+
+    original_assert = BoundParent.assert_still_named
+    failed = False
+
+    def fail_at_deepest_child(parent: BoundParent) -> None:
+        nonlocal failed
+        if parent.parent.name == "second" and not failed:
+            failed = True
+            raise OSError("synthetic post-create identity failure")
+        original_assert(parent)
+
+    monkeypatch.setattr(BoundParent, "assert_still_named", fail_at_deepest_child)
+    with pytest.raises(integrity.IntegrityError, match="bound root"):
+        integrity.prepare_bounded_output(
+            tmp_path,
+            Path("first") / "second" / "artifact.json",
+            where="synthetic cleanup",
+        )
+
+    assert failed is True
+    assert not (tmp_path / "first").exists()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Win32 delete-by-handle contract")
 def test_owned_cleanup_handle_blocks_post_check_name_replacement(
     tmp_path: Path,
