@@ -5,17 +5,17 @@ milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
 current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-04-PLAN.md
-last_updated: "2026-08-27T02:25:42.250Z"
+stopped_at: Completed 41.1-05-PLAN.md
+last_updated: "2026-08-27T02:57:46.384Z"
 last_activity: 2026-08-27
-last_activity_desc: Completed 41.1-04-PLAN.md
-state_head: a98cb9c759a38d5f7ed820eccc0eb680a65e7718
+last_activity_desc: Completed 41.1-05-PLAN.md
+state_head: 879d8705f7b9cf472d2781b55fdfbcef1b3bf386
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 87
-  completed_plans: 59
-  percent: 68
+  completed_plans: 60
+  percent: 13
 ---
 
 # STATE: Localized Explainable AI (XAI) Engine for Vietnamese Financial Phishing and Threat Detection
@@ -38,10 +38,10 @@ progress:
 ## Current Position
 
 Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
-Last activity: 2026-08-27 — Completed 41.1-04-PLAN.md
-Progress: [██████████████░░░░░░] 59/87 plans ([███████░░░] 68%)
+Last activity: 2026-08-27 — Completed 41.1-05-PLAN.md
+Progress: [██████████████░░░░░░] 60/87 plans ([█░░░░░░░░░] 13%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -233,8 +233,8 @@ Progress: [██████████████░░░░░░] 59/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T02:25:41.587Z
-**Stopped at:** Completed 41.1-04-PLAN.md
+**Last session:** 2026-08-27T02:57:45.732Z
+**Stopped at:** Completed 41.1-05-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -344,6 +344,10 @@ Progress: [██████████████░░░░░░] 59/87 p
 - [Phase 41.1]: Keep active modeling APIs phase-neutral while retaining phase-numbered strings only as frozen historical identities.
 - [Phase 41.1]: Bind reporting facts to exact raw export, result, source, materialization, and erratum bytes without opening prediction artifacts.
 - [Phase 41.1]: Permit only named compatibility adapters to cross into the exact historical closure; three legacy-only SCCs remain explicit and no reverse-edge allowlist exists.
+- [Phase 41.1]: Make build_training_corpus the active domain API while retaining run_phase1 only as an explicit legacy CLI compatibility seam.
+- [Phase 41.1]: Keep deterministic data-core owners free of provider, scraper, judge, CLI, migration, model, and live-path dependencies; retain old paths as explicit named shims.
+- [Phase 41.1]: Represent each preserved repair as a literal immutable migration route and reject unknown identifiers before any repair module import.
+- [Phase 41.1]: Classify every data-pipeline module exactly once as core, compatibility, workflow, or migration ownership.
 
 ## Performance Metrics
 
@@ -358,6 +362,7 @@ Progress: [██████████████░░░░░░] 59/87 p
 | Phase 41.1 P02 | 24min | 3 tasks | 8 files |
 | Phase 41.1 P03 | 23min | 3 tasks | 13 files |
 | Phase 41.1 P04 | 34min | 3 tasks | 14 files |
+| Phase 41.1 P05 | 25min | 3 tasks | 17 files |
 
 ### Blockers
 
