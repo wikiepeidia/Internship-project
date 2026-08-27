@@ -25,6 +25,20 @@ LABELS = (
     "benign",
 )
 PREDICTION_COLUMNS = (*LABELS, "invalid_output")
+EVIDENCE_NAMES = (
+    "evaluation-request.json",
+    "frozen-inference-protocols.json",
+    "execution-source-manifest.json",
+    "execution-materialization-receipt.json",
+    "preauthorization-receipt.json",
+    "one-shot-authorization.json",
+    "one-shot-claim.json",
+    "evaluation-access-receipt.json",
+    "qwen-predictions.jsonl",
+    "phobert-predictions.jsonl",
+    "results.json",
+    "results.md",
+)
 
 
 def _json_bytes(value: object) -> bytes:
@@ -186,28 +200,38 @@ def _erratum_payload(evidence_manifest_sha256: str) -> dict[str, object]:
 
 
 def _write_authority(tmp_path: Path) -> tuple[Path, Path, dict[str, bytes]]:
-    result_bytes = _json_bytes(_result_payload())
     source_bytes = _json_bytes(_source_manifest_payload())
     receipt_bytes = _json_bytes(_materialization_payload(_sha256(source_bytes)))
     payloads = {
-        "results.json": result_bytes,
+        "evaluation-request.json": _json_bytes({"synthetic": "request"}),
+        "frozen-inference-protocols.json": _json_bytes({"synthetic": "protocols"}),
         "execution-source-manifest.json": source_bytes,
         "execution-materialization-receipt.json": receipt_bytes,
+        "preauthorization-receipt.json": _json_bytes({"synthetic": "preauthorization"}),
+        "one-shot-authorization.json": _json_bytes({"synthetic": "authorization"}),
+        "one-shot-claim.json": _json_bytes({"synthetic": "claim"}),
+        "evaluation-access-receipt.json": _json_bytes({"synthetic": "access"}),
+        "qwen-predictions.jsonl": b'{"synthetic":"qwen"}\n',
+        "phobert-predictions.jsonl": b'{"synthetic":"phobert"}\n',
+        "results.md": b"# Synthetic results\n",
     }
+    result_payload = _result_payload()
+    result_payload["prepared_sha256"] = _sha256(payloads["evaluation-request.json"])
+    result_payload["authorization_sha256"] = _sha256(
+        payloads["one-shot-authorization.json"]
+    )
+    result_payload["claim_sha256"] = _sha256(payloads["one-shot-claim.json"])
+    result_payload["models"][0]["predictions_sha256"] = _sha256(
+        payloads["qwen-predictions.jsonl"]
+    )
+    result_payload["models"][1]["predictions_sha256"] = _sha256(
+        payloads["phobert-predictions.jsonl"]
+    )
+    payloads["results.json"] = _json_bytes(result_payload)
     evidence_manifest = {
         "artifacts": [
-            {"name": "evaluation-request.json", "sha256": "4" * 64},
-            {"name": "frozen-inference-protocols.json", "sha256": "9" * 64},
-            {"name": "execution-source-manifest.json", "sha256": _sha256(source_bytes)},
-            {"name": "execution-materialization-receipt.json", "sha256": _sha256(receipt_bytes)},
-            {"name": "preauthorization-receipt.json", "sha256": "8" * 64},
-            {"name": "one-shot-authorization.json", "sha256": "a" * 64},
-            {"name": "one-shot-claim.json", "sha256": "b" * 64},
-            {"name": "evaluation-access-receipt.json", "sha256": "7" * 64},
-            {"name": "qwen-predictions.jsonl", "sha256": "e" * 64},
-            {"name": "phobert-predictions.jsonl", "sha256": "2" * 64},
-            {"name": "results.json", "sha256": _sha256(result_bytes)},
-            {"name": "results.md", "sha256": "6" * 64},
+            {"name": name, "sha256": _sha256(payloads[name])}
+            for name in EVIDENCE_NAMES
         ],
         "schema_version": "phase41-evidence-manifest-v1",
         "status": "completed",
@@ -260,11 +284,7 @@ def _rewrite_manifest(
     erratum_path.write_bytes(_json_bytes(_erratum_payload(_sha256(manifest_bytes))))
     replacement = export_root.with_name(_sha256(manifest_bytes))
     replacement.mkdir()
-    for name in (
-        "results.json",
-        "execution-source-manifest.json",
-        "execution-materialization-receipt.json",
-    ):
+    for name in EVIDENCE_NAMES:
         (replacement / name).write_bytes((export_root / name).read_bytes())
     (replacement / "evidence-manifest.json").write_bytes(manifest_bytes)
     return replacement
@@ -383,6 +403,9 @@ def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: P
     )
     assert authority.erratum_sha256 == _sha256(payloads["provenance-erratum.json"])
     assert authority.results_raw == payloads["results.json"]
+    assert dict(authority.artifact_raw) == {
+        name: payloads[name] for name in EVIDENCE_NAMES
+    }
     assert authority.erratum_raw == payloads["provenance-erratum.json"]
     assert authority.retracted_claims == (
         "absolute global zero reserved-split access",
@@ -394,27 +417,15 @@ def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: P
     assert authority.automated_access_statements == ("Synthetic disclosure statement.",)
 
 
-def test_reporting_reader_is_read_only_and_never_opens_predictions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_reporting_reader_is_read_only_and_captures_prediction_bytes(tmp_path: Path):
     export_root, erratum_path, _ = _write_authority(tmp_path)
     before = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
-    original_open = Path.open
-
-    def guarded_open(path: Path, *args, **kwargs):
-        if path.name.endswith("predictions.jsonl"):
-            raise AssertionError("reporting reader opened prediction rows")
-        mode = args[0] if args else kwargs.get("mode", "r")
-        if any(flag in mode for flag in "wax+"):
-            raise AssertionError("reporting reader attempted a write")
-        return original_open(path, *args, **kwargs)
-
     pins = _synthetic_pins(export_root, erratum_path)
-    monkeypatch.setattr(Path, "open", guarded_open)
-    _load_reporting_authority(export_root, erratum_path, pins)
+    authority = _load_reporting_authority(export_root, erratum_path, pins)
     after = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
 
     assert after == before
+    assert dict(authority.artifact_raw)["qwen-predictions.jsonl"].startswith(b"{")
     assert tuple(inspect.signature(load_reporting_authority).parameters) == (
         "export_root",
         "erratum_path",
@@ -425,12 +436,7 @@ def test_reporting_authority_binds_export_directory_and_result_links(tmp_path: P
     export_root, erratum_path, _ = _write_authority(tmp_path)
     wrong_named_root = export_root.with_name("wrong-export-name")
     wrong_named_root.mkdir()
-    for name in (
-        "results.json",
-        "execution-source-manifest.json",
-        "execution-materialization-receipt.json",
-        "evidence-manifest.json",
-    ):
+    for name in (*EVIDENCE_NAMES, "evidence-manifest.json"):
         (wrong_named_root / name).write_bytes((export_root / name).read_bytes())
     with pytest.raises(ReportingAuthorityError, match="directory identity"):
         _load_reporting_authority(
@@ -441,16 +447,39 @@ def test_reporting_authority_binds_export_directory_and_result_links(tmp_path: P
 
     export_root, erratum_path, _ = _write_authority(tmp_path / "second")
 
-    def break_prepared_link(manifest: dict[str, object]) -> None:
-        next(
-            item
-            for item in manifest["artifacts"]
-            if item["name"] == "evaluation-request.json"
-        )["sha256"] = "f" * 64
-
-    export_root = _rewrite_manifest(export_root, erratum_path, break_prepared_link)
+    result = json.loads((export_root / "results.json").read_bytes())
+    result["prepared_sha256"] = "f" * 64
+    export_root = _replace_member_and_rebind(
+        export_root, erratum_path, "results.json", result
+    )
     with pytest.raises(ReportingAuthorityError, match="prepared request link"):
         _load_synthetic(export_root, erratum_path)
+
+
+@pytest.mark.parametrize("case", ("missing", "changed", "unexpected", "redirect"))
+def test_reporting_authority_requires_exact_stable_membership(
+    tmp_path: Path, case: str
+) -> None:
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    pins = _synthetic_pins(export_root, erratum_path)
+    prediction = export_root / "qwen-predictions.jsonl"
+    if case == "missing":
+        prediction.unlink()
+    elif case == "changed":
+        prediction.write_bytes(b'{"synthetic":"changed"}\n')
+    elif case == "unexpected":
+        (export_root / "unexpected.txt").write_text("unexpected", encoding="utf-8")
+    else:
+        target = tmp_path / "redirect-target.jsonl"
+        target.write_bytes(prediction.read_bytes())
+        prediction.unlink()
+        try:
+            prediction.symlink_to(target)
+        except OSError as exc:
+            pytest.skip(f"file symlink creation is unavailable: {exc}")
+
+    with pytest.raises(ReportingAuthorityError):
+        _load_reporting_authority(export_root, erratum_path, pins)
 
 
 def test_reporting_authority_binds_materialization_environment(tmp_path: Path):

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import os
 from pathlib import Path
+import stat
 from typing import Any, Literal, Mapping
 
 from pydantic import ValidationError
@@ -12,6 +14,7 @@ from pydantic import ValidationError
 from src.core.integrity import (
     IntegrityError,
     bounded_descendant,
+    read_file_bytes,
     reject_redirecting_ancestry,
     sha256_bytes,
 )
@@ -75,6 +78,7 @@ class ReportingAuthority:
     retracted_claims: tuple[str, ...]
     access_impact: tuple[tuple[str, bool], ...]
     automated_access_statements: tuple[str, ...]
+    artifact_raw: tuple[tuple[str, bytes], ...] = field(repr=False, default=())
     refactored_source_is_metric_producer: Literal[False] = False
     export_manifest_raw: bytes = field(repr=False, default=b"")
     results_raw: bytes = field(repr=False, default=b"")
@@ -108,8 +112,8 @@ def _json_object(raw: bytes, *, where: str) -> dict[str, Any]:
 
 def _read_json(path: Path, *, where: str) -> tuple[bytes, dict[str, Any]]:
     try:
-        raw = Path(path).read_bytes()
-    except OSError as exc:
+        raw = read_file_bytes(Path(path), where=where)
+    except (OSError, IntegrityError) as exc:
         raise ReportingAuthorityError(f"cannot read {where}: {path}") from exc
     return raw, _json_object(raw, where=where)
 
@@ -176,17 +180,54 @@ def _artifact_hashes(manifest: Mapping[str, Any]) -> dict[str, str]:
     return result
 
 
-def _read_export_member(
-    root: Path, name: str, expected_sha256: str
-) -> tuple[bytes, dict[str, Any]]:
+def _exact_export_paths(root: Path) -> dict[str, Path]:
+    """Bind the export to one exact, flat set of regular members."""
+
+    expected = {_MANIFEST_NAME, *_EVIDENCE_MEMBER_NAMES}
     try:
-        path = bounded_descendant(root, Path(name), where=f"reporting member {name}")
-    except IntegrityError as exc:
-        raise ReportingAuthorityError(str(exc)) from exc
-    raw, payload = _read_json(path, where=f"reporting member {name}")
-    if sha256_bytes(raw) != expected_sha256:
-        raise ReportingAuthorityError(f"reporting member {name} hash does not match manifest")
-    return raw, payload
+        names = set(os.listdir(root))
+    except OSError as exc:
+        raise ReportingAuthorityError("cannot enumerate verified export root") from exc
+    if names != expected:
+        missing = sorted(expected - names)
+        unexpected = sorted(names - expected)
+        raise ReportingAuthorityError(
+            f"verified export membership differs: missing={missing} unexpected={unexpected}"
+        )
+    result: dict[str, Path] = {}
+    for name in sorted(expected):
+        try:
+            path = bounded_descendant(root, Path(name), where=f"reporting member {name}")
+            metadata = os.lstat(path)
+        except (IntegrityError, OSError) as exc:
+            raise ReportingAuthorityError(f"unsafe reporting member {name}") from exc
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ReportingAuthorityError(
+                f"reporting member {name} must be a non-redirecting regular file"
+            )
+        result[name] = path
+    return result
+
+
+def _capture_export_members(
+    root: Path, paths: Mapping[str, Path], hashes: Mapping[str, str]
+) -> dict[str, bytes]:
+    """Capture and verify every declared member, then recheck exact membership."""
+
+    captured: dict[str, bytes] = {}
+    for name in _EVIDENCE_MEMBER_NAMES:
+        try:
+            raw = read_file_bytes(paths[name], where=f"reporting member {name}")
+        except (IntegrityError, OSError) as exc:
+            raise ReportingAuthorityError(f"cannot capture reporting member {name}") from exc
+        if sha256_bytes(raw) != hashes[name]:
+            raise ReportingAuthorityError(
+                f"reporting member {name} hash does not match manifest"
+            )
+        captured[name] = raw
+    if set(_exact_export_paths(root)) != set(paths):
+        raise ReportingAuthorityError("verified export membership changed while reading")
+    return captured
 
 
 def _source_runtime_links(
@@ -406,7 +447,8 @@ def _load_reporting_authority(
         erratum = reject_redirecting_ancestry(Path(erratum_path), where="provenance erratum")
         if not erratum.is_file():
             raise ReportingAuthorityError("provenance erratum must be an existing file")
-        manifest_path = bounded_descendant(root, Path(_MANIFEST_NAME), where="evidence manifest")
+        export_paths = _exact_export_paths(root)
+        manifest_path = export_paths[_MANIFEST_NAME]
     except IntegrityError as exc:
         raise ReportingAuthorityError(str(exc)) from exc
 
@@ -417,15 +459,13 @@ def _load_reporting_authority(
     if root.name != manifest_sha256:
         raise ReportingAuthorityError("verified export directory identity does not match manifest")
     hashes = _artifact_hashes(manifest_payload)
-    results_raw, results_payload = _read_export_member(
-        root, _RESULTS_NAME, hashes[_RESULTS_NAME]
-    )
-    source_raw, source_payload = _read_export_member(
-        root, _SOURCE_MANIFEST_NAME, hashes[_SOURCE_MANIFEST_NAME]
-    )
-    receipt_raw, receipt_payload = _read_export_member(
-        root, _MATERIALIZATION_NAME, hashes[_MATERIALIZATION_NAME]
-    )
+    artifact_raw = _capture_export_members(root, export_paths, hashes)
+    results_raw = artifact_raw[_RESULTS_NAME]
+    source_raw = artifact_raw[_SOURCE_MANIFEST_NAME]
+    receipt_raw = artifact_raw[_MATERIALIZATION_NAME]
+    results_payload = _json_object(results_raw, where=f"reporting member {_RESULTS_NAME}")
+    source_payload = _json_object(source_raw, where=f"reporting member {_SOURCE_MANIFEST_NAME}")
+    receipt_payload = _json_object(receipt_raw, where=f"reporting member {_MATERIALIZATION_NAME}")
     erratum_raw, erratum_payload = _read_json(erratum, where="provenance erratum")
     if sha256_bytes(erratum_raw) != pins.erratum_sha256:
         raise ReportingAuthorityError("provenance erratum is not the canonical disclosure")
@@ -461,6 +501,7 @@ def _load_reporting_authority(
         retracted_claims=retracted_claims,
         access_impact=access_impact,
         automated_access_statements=automated_access_statements,
+        artifact_raw=tuple((name, artifact_raw[name]) for name in _EVIDENCE_MEMBER_NAMES),
         export_manifest_raw=manifest_raw,
         results_raw=results_raw,
         source_manifest_raw=source_raw,
