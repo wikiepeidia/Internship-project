@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: "Retake Redemption (target: retake defense ~2026-10-07, Wave 2)"
 current_phase: 41.1
-current_phase_name: codebase-architecture-overhaul
+current_phase_name: Codebase Architecture Overhaul
 status: executing
-stopped_at: Completed 41.1-06-PLAN.md
-last_updated: "2026-08-27T12:40:43.312Z"
+stopped_at: Completed 41.1-07-PLAN.md
+last_updated: "2026-08-27T12:52:05.457Z"
 last_activity: 2026-08-27
-last_activity_desc: Completed 41.1-05-PLAN.md
-state_head: 36e0cb328871417ffee4656ebdb3005f03a54d9b
+last_activity_desc: Completed 41.1-07 exact architecture inventories
+state_head: 3ac9f6c2dc0b2a0c9b3738467b3cb4253130072d
 progress:
   total_phases: 23
   completed_phases: 3
   total_plans: 96
-  completed_plans: 61
+  completed_plans: 62
   percent: 13
 ---
 
@@ -37,11 +37,11 @@ progress:
 
 ## Current Position
 
-Phase: 41.1 (codebase-architecture-overhaul) — READY TO EXECUTE
-Plan: 6 of 6
+Phase: 41.1 (Codebase Architecture Overhaul) — EXECUTING
+Plan: 8 of 15
 Status: Ready to execute
-Last activity: 2026-08-27 — Completed 41.1-05-PLAN.md
-Progress: [██████████████░░░░░░] 60/87 plans ([█░░░░░░░░░] 13%)
+Last activity: 2026-08-27 — Completed 41.1-07 exact architecture inventories
+Progress: [███░░░░░░░░░░░░░░░░░] 62/96 plans ([█░░░░░░░░░] 13%)
 
 ## Performance Metrics (Baseline Targets)
 
@@ -233,8 +233,8 @@ Progress: [██████████████░░░░░░] 60/87 p
 
 ## Session Continuity
 
-**Last session:** 2026-08-27T03:26:45.398Z
-**Stopped at:** Completed 41.1-06-PLAN.md
+**Last session:** 2026-08-27T12:52:04.806Z
+**Stopped at:** Completed 41.1-07-PLAN.md
 **Resume file:** None
 
 - Last session: 2026-07-02
@@ -352,6 +352,8 @@ Progress: [██████████████░░░░░░] 60/87 p
 - [Phase 41.1]: Present the repository in a numbered 1-10 domain reading path while retaining phase-numbered names only as compatibility or provenance labels.
 - [Phase 41.1]: Require the sealed Phase 41 export and provenance erratum beside every metric claim; the refactored source is not represented as the producer.
 - [Phase 41.1]: Publish D-root retention facts only from the approved inventory, with cleanup candidates explicitly informational and non-authorized.
+- [Phase 41.1]: Phase 41.1 Plan 07 keeps script imports and project routes in an exact typed 11-tool graph outside compatibility allowed_edges.
+- [Phase 41.1]: Phase 41.1 Plan 07 treats pre-extraction asset, marker, and frozen-literal ownership as an independent test-owned authority exact-equal to policy.
 
 ## Performance Metrics
 
@@ -368,6 +370,7 @@ Progress: [██████████████░░░░░░] 60/87 p
 | Phase 41.1 P04 | 34min | 3 tasks | 14 files |
 | Phase 41.1 P05 | 25min | 3 tasks | 17 files |
 | Phase 41.1 P06 | 24min | 3 tasks | 10 files |
+| Phase 41.1 P07 | 9min | 2 tasks | 5 files |
 
 ### Blockers
 
