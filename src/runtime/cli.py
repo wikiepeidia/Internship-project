@@ -1,4 +1,4 @@
-"""CLI entry point for the Phase 2 local runtime."""
+"""Installed command interface for offline Vietnamese phishing-risk analysis."""
 
 import argparse
 import sys

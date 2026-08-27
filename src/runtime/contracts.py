@@ -1,4 +1,4 @@
-"""Typed contracts for the Phase 2 offline runtime."""
+"""Typed request, result, and readiness contracts for offline phishing-risk analysis."""
 
 from typing import Annotated, Literal
 

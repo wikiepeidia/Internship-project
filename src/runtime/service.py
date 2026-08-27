@@ -1,4 +1,4 @@
-"""Normalize-first orchestration for the Phase 2 local runtime."""
+"""Normalized orchestration for offline phishing-risk analysis backends."""
 
 from dataclasses import dataclass, field
 
