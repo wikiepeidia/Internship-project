@@ -1,24 +1,33 @@
-"""Environment-based pipeline configuration using pydantic-settings.
+"""Environment-based configuration split by domain ownership.
 
-Loads API keys and pipeline parameters from local files under .env/ or from
-OS environment variables. Never hardcode secrets or environment-specific
-values in source code.
+Each active owner loads only the fields it needs. The legacy ``Settings``
+composition remains available for historical callers with the same env-file
+order, defaults, and OS-environment precedence.
 """
 
-from pydantic_settings import BaseSettings
+from functools import lru_cache
 from pathlib import Path
+
+from pydantic_settings import BaseSettings
 
 
 ENV_FILE_CANDIDATES = (".env/APIKEY.json", ".env/.env")
+_SETTINGS_CONFIG = {
+    "env_file": list(ENV_FILE_CANDIDATES),
+    "env_file_encoding": "utf-8",
+    "extra": "ignore",
+}
 
 
-class Settings(BaseSettings):
-    """Global configuration for the Vietnamese phishing detection pipeline.
+class _OwnedSettings(BaseSettings):
+    """Shared env-file contract for every settings owner."""
 
-    Real local secret files live under .env/. OS environment variables still
-    override file-based values when they are present.
-    """
-    # API Keys - no defaults, must be provided via environment
+    model_config = _SETTINGS_CONFIG
+
+
+class ProviderSettings(_OwnedSettings):
+    """Credentials and provider-specific generation configuration."""
+
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
     google_oauth_access_token: str = ""
@@ -30,22 +39,29 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     google_cloud_project: str = ""
     gemini_use_adc: bool = False
-    
-    # Data Pipeline Paths
+
+
+class DataSettings(_OwnedSettings):
+    """Corpus, deduplication, and scraper configuration."""
+
     data_dir: Path = Path("data")
-    
-    # Dataset Split Configuration
-    split_ratios: tuple[float, float, float] = (0.8, 0.1, 0.1)  # train/val/test
-    
-    # Semantic Deduplication
-    similarity_threshold: float = 0.85  # Cosine similarity threshold for near-duplicates
-    
-    # Scraper Configuration
-    scrape_delay_min: float = 2.0  # Minimum delay between requests (seconds)
-    scrape_delay_max: float = 5.0  # Maximum delay between requests (seconds)
+    split_ratios: tuple[float, float, float] = (0.8, 0.1, 0.1)
+    similarity_threshold: float = 0.85
+    scrape_delay_min: float = 2.0
+    scrape_delay_max: float = 5.0
     ncsc_base_url: str = "https://canhbao.khonggianmang.vn"
 
-    # Phase 4 Runtime Configuration
+
+class ModelingSettings(_OwnedSettings):
+    """Local model artifact locations shared by modeling and runtime."""
+
+    model_artifact_root: Path = Path("data/models")
+    model_registry_path: Path = Path("data/manifests/model-registry.json")
+
+
+class RuntimeSettings(ModelingSettings):
+    """Secret-free installed-runtime configuration."""
+
     runtime_backend: str = "gguf"
     runtime_profile: str = "gguf-laptop"
     runtime_profile_gguf: str = "gguf-laptop"
@@ -60,17 +76,40 @@ class Settings(BaseSettings):
         "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
     )
 
-    # Phase 3 Model Adaptation Configuration
-    model_artifact_root: Path = Path("data/models")
-    model_registry_path: Path = Path("data/manifests/model-registry.json")
-    
-    model_config = {
-        "env_file": list(ENV_FILE_CANDIDATES),
-        "env_file_encoding": "utf-8",
-        "extra": "ignore",
-    }
+
+class Settings(ProviderSettings, DataSettings, RuntimeSettings):
+    """Full compatibility composition for historical pipeline callers."""
+
+
+@lru_cache(maxsize=1)
+def get_runtime_settings() -> RuntimeSettings:
+    """Return the cached secret-free settings used by installed runtime code."""
+
+    return RuntimeSettings()
+
+
+@lru_cache(maxsize=1)
+def get_provider_settings() -> ProviderSettings:
+    """Return cached provider-owned credentials and generation settings."""
+
+    return ProviderSettings()
+
+
+@lru_cache(maxsize=1)
+def get_data_settings() -> DataSettings:
+    """Return cached corpus and scraper settings."""
+
+    return DataSettings()
+
+
+@lru_cache(maxsize=1)
+def get_modeling_settings() -> ModelingSettings:
+    """Return cached local modeling artifact locations."""
+
+    return ModelingSettings()
 
 
 def get_settings() -> Settings:
-    """Build a Settings instance from .env/ files and OS environment vars."""
+    """Build a fresh full compatibility composition for legacy callers."""
+
     return Settings()

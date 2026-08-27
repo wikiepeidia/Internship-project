@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from src.config.settings import Settings, get_settings
+from src.config.settings import RuntimeSettings, get_runtime_settings as get_settings
 from src.data_pipeline.processing.normalizer import normalize_text
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.base import AnalyzerBackend
@@ -47,7 +47,7 @@ def _default_setup_steps() -> list[str]:
     return ["python -m pip install -e .[dev]", "python -m src.runtime.cli doctor"]
 
 
-def _build_backend_from_settings(settings: Settings) -> AnalyzerBackend:
+def _build_backend_from_settings(settings: RuntimeSettings) -> AnalyzerBackend:
     allowed_profiles = {
         "heuristic": {"heuristic"},
         "gguf": {
@@ -79,7 +79,7 @@ class RuntimeService:
     """Thin runtime service that normalizes input and delegates to a backend."""
 
     backend: AnalyzerBackend
-    settings: Settings = field(default_factory=get_settings)
+    settings: RuntimeSettings = field(default_factory=get_settings)
 
     def analyze_text(self, text: str, channel: ChannelName = "unknown") -> AnalysisResult:
         if self.settings.runtime_store_raw_text:

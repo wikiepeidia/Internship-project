@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.config.settings import get_settings
-from src.model_adaptation.registry import find_latest_artifact, load_model_registry
+from src.artifacts import find_latest_artifact, load_model_registry
+from src.config.settings import get_runtime_settings as get_settings
 from src.runtime.analyzers.local_model import (
     build_analysis_result,
     build_structured_analysis_prompt,

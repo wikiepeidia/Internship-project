@@ -4,8 +4,8 @@ import importlib
 from pathlib import Path
 import sys
 
-from src.config.settings import get_settings
-from src.model_adaptation.schemas import ReleaseEvaluationArtifact
+from src.artifacts import load_release_evaluation_artifact
+from src.config.settings import get_runtime_settings as get_settings
 from src.runtime.analyzers.accelerated import AcceleratedAnalyzer
 from src.runtime.analyzers.gguf import GGUFAnalyzer
 from src.runtime.analyzers.heuristic import HeuristicAnalyzer
@@ -206,7 +206,7 @@ class RuntimeDoctor:
 
         latest_path = artifacts[0]
         try:
-            artifact = ReleaseEvaluationArtifact.model_validate_json(latest_path.read_text(encoding="utf-8"))
+            artifact = load_release_evaluation_artifact(latest_path)
         except Exception as exc:
             return DoctorCheck(
                 name="release-gate-summary",

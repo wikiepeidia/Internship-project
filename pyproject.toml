@@ -8,33 +8,45 @@ version = "0.1.0"
 description = "Localized Explainable AI Engine for Vietnamese Financial Phishing Detection"
 requires-python = ">=3.13"
 dependencies = [
-    "beautifulsoup4>=4.14",
-    "requests>=2.32",
-    "playwright>=1.58",
     "pydantic>=2.12",
     "pydantic-settings>=2.0",
-    "pymupdf>=1.27,<2",
-    "polars>=1.38",
-    "anthropic>=0.93",
-    "google-auth>=2.0",
-    "httpx>=0.28",
-    "sentence-transformers>=5.2",
-    "rapidfuzz>=3.14",
-    "datasketch>=1.9",
-    "underthesea>=9.2",
     "ftfy>=6.0",
-    "scikit-learn>=1.8",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0",
 ]
+generation = [
+    "beautifulsoup4>=4.14",
+    "requests>=2.32",
+    "playwright>=1.58",
+    "anthropic>=0.93",
+    "google-auth>=2.0",
+    "httpx>=0.28",
+]
+data = [
+    "pymupdf>=1.27,<2",
+    "polars>=1.38",
+    "sentence-transformers>=5.2",
+    "rapidfuzz>=3.14",
+    "datasketch>=1.9",
+    "underthesea>=9.2",
+]
+training = [
+    "torch>=2.4",
+    "transformers>=4.45",
+    "accelerate>=0.33",
+    "peft>=0.12",
+]
 train = [
     "torch>=2.4",
     "transformers>=4.45",
     "accelerate>=0.33",
     "peft>=0.12",
+]
+evaluation = [
+    "scikit-learn>=1.8",
 ]
 runtime = [
     "llama-cpp-python==0.3.23",

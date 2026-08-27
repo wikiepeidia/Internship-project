@@ -299,6 +299,20 @@ class ReleaseEvaluationArtifact(BaseModel):
         return self
 
 
+def find_latest_artifact(
+    registry: ModelRegistry,
+    *,
+    candidate_id: str,
+    artifact_type: ArtifactType,
+) -> ModelArtifactRecord | None:
+    """Return the latest matching local artifact without trainer ownership."""
+
+    for artifact in reversed(registry.artifacts):
+        if artifact.candidate_id == candidate_id and artifact.artifact_type == artifact_type:
+            return artifact
+    return None
+
+
 def _manifest_models(payload: Mapping[str, Any]) -> list[Any]:
     models = payload.get("models", [])
     if not isinstance(models, list):
