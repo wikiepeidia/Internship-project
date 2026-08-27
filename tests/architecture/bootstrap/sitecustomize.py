@@ -1,47 +1,95 @@
-"""Install the Phase 41.1 held-out-data deny-open guard at interpreter startup."""
+"""Fail-closed Phase 41.1 authority guard installed by Python startup.
+
+Policy is derived from literal strings only. The module never probes a protected
+root, and guarded Python receives no process-launch exception.
+"""
 
 from __future__ import annotations
 
 import builtins
 import functools
+import glob as glob_module
 import io
 import ntpath
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
+from types import MappingProxyType
 from typing import Any, Callable
 
 
+PHASE411_GUARD_POLICY_VERSION = "phase411-guard-v2"
+PHASE411_PROCESS_POLICY = "deny-all"
+PHASE411_PREINSTALL_DESCRIPTOR_PROBES = 0
 PHASE411_GUARD_INSTALLED = False
+
 _REJECTED: list[dict[str, str]] = []
 _UNDERLYING_FORBIDDEN: list[dict[str, str]] = []
 _ORIGINALS: dict[str, Callable[..., Any]] = {}
+_DESCRIPTOR_CAPABILITIES: set[int] = set()
+
+_BOOTSTRAP_DIR = ntpath.abspath(ntpath.dirname(__file__))
+_REPO_ROOT = ntpath.abspath(ntpath.join(_BOOTSTRAP_DIR, "..", "..", ".."))
+_PROTECTED_ROOT_SPECS = (
+    "repo:data/splits",
+    r"C:\ProgramData\VNPhish\phase41-evaluation-evidence",
+    "repo:historical/phase41-source-closure",
+    "repo:data/models/phase41",
+    r"D:\PROJEct\AI MODELS\phase40-full-local-20260825",
+    r"D:\PROJEct\AI MODELS\base\qwen2.5-7b-instruct",
+    r"D:\PROJEct\AI MODELS\base\qwen3.5-4b",
+)
 
 
-def _startup_descriptors() -> frozenset[int]:
-    inherited: set[int] = set()
-    for descriptor in range(256):
-        try:
-            os.fstat(descriptor)
-        except OSError:
-            continue
-        inherited.add(descriptor)
-    return frozenset(inherited)
+def _root_from_spec(spec: str) -> str:
+    if spec.startswith("repo:"):
+        relative = spec.removeprefix("repo:").replace("/", "\\")
+        value = ntpath.join(_REPO_ROOT, relative)
+    else:
+        value = spec
+    return ntpath.normcase(ntpath.normpath(value))
 
 
-_INHERITED_FDS = _startup_descriptors()
+PHASE411_PROTECTED_ROOTS = tuple(_root_from_spec(spec) for spec in _PROTECTED_ROOT_SPECS)
+PHASE411_PROTECTED_PREFIX = PHASE411_PROTECTED_ROOTS[0]
+
+_PROCESS_OPERATION_NAMES = (
+    "os.system", "os.popen", "os.startfile", "os.spawnl", "os.spawnle",
+    "os.spawnv", "os.spawnve", "os.execl", "os.execle", "os.execlp",
+    "os.execlpe", "os.execv", "os.execve", "os.execvp", "os.execvpe",
+    "os.spawnlp", "os.spawnlpe", "os.spawnvp", "os.spawnvpe", "os.fork",
+    "os.forkpty", "os.posix_spawn", "os.posix_spawnp",
+    "subprocess.Popen.__init__", "subprocess.run", "subprocess.call",
+    "subprocess.check_call", "subprocess.check_output", "subprocess.getoutput",
+    "subprocess.getstatusoutput", "asyncio.create_subprocess_exec",
+    "asyncio.create_subprocess_shell", "asyncio.BaseEventLoop.subprocess_exec",
+    "asyncio.BaseEventLoop.subprocess_shell", "multiprocessing.Process",
+    "multiprocessing.Pool", "multiprocessing.process.BaseProcess.start",
+    "multiprocessing.context.BaseContext.Pool",
+    "multiprocessing.context.DefaultContext.Process",
+    "multiprocessing.context.DefaultContext.Pool",
+    "multiprocessing.context.SpawnContext.Process",
+    "multiprocessing.context.SpawnContext.Pool",
+    "multiprocessing.pool.Pool.__init__",
+    "multiprocessing.popen_spawn_win32.Popen.__init__",
+    "multiprocessing.managers.BaseManager.start",
+    "multiprocessing.resource_tracker.ResourceTracker.ensure_running",
+    "multiprocessing.forkserver.ForkServer.ensure_running",
+    "multiprocessing.util.spawnv_passfds",
+    "concurrent.futures.ProcessPoolExecutor.__init__", "_winapi.CreateProcess",
+    "_posixsubprocess.fork_exec", "subprocess._fork_exec", "pty.spawn",
+)
 
 
 def _strip_windows_namespace(value: str) -> str:
     normalized = value.replace("/", "\\")
-    lowered = normalized.lower()
+    lowered = normalized.casefold()
     if lowered.startswith("\\\\?\\unc\\"):
         return "\\\\" + normalized[8:]
     for prefix in ("\\\\?\\", "\\??\\", "\\\\.\\"):
-        if lowered.startswith(prefix.lower()):
-            return normalized[len(prefix) :]
+        if lowered.startswith(prefix.casefold()):
+            return normalized[len(prefix):]
     return normalized
 
 
@@ -53,39 +101,33 @@ def _lexical_path(value: object) -> str | None:
     except TypeError:
         return None
     raw = _strip_windows_namespace(raw)
-    return ntpath.normcase(ntpath.abspath(ntpath.normpath(raw)))
-
-
-_BOOTSTRAP_DIR = ntpath.dirname(ntpath.abspath(__file__))
-_REPO_ROOT = ntpath.abspath(ntpath.join(_BOOTSTRAP_DIR, "..", "..", ".."))
-PHASE411_PROTECTED_PREFIX = ntpath.normpath(
-    ntpath.join(_REPO_ROOT, "data", "splits")
-)
-_PROTECTED_NORMALIZED = ntpath.normcase(PHASE411_PROTECTED_PREFIX)
+    drive, tail = ntpath.splitdrive(raw)
+    if drive and tail and not tail.startswith(("\\", "/")):
+        raise PermissionError("Phase 41.1 drive-relative path spelling is forbidden")
+    return ntpath.normcase(ntpath.normpath(ntpath.abspath(raw)))
 
 
 def _is_forbidden(value: object) -> tuple[bool, str | None]:
     normalized = _lexical_path(value)
     if normalized is None:
         return False, None
-    forbidden = normalized == _PROTECTED_NORMALIZED or normalized.startswith(
-        _PROTECTED_NORMALIZED + "\\"
-    )
-    return forbidden, normalized
+    for root in PHASE411_PROTECTED_ROOTS:
+        if normalized == root or normalized.startswith(root + "\\") or normalized.startswith(root + ":"):
+            return True, normalized
+    return False, normalized
 
 
-def _reject(operation: str, value: object) -> None:
+def _reject_path(operation: str, value: object) -> None:
     forbidden, normalized = _is_forbidden(value)
     if not forbidden:
         return
-    event = {"operation": operation, "path": normalized or ""}
-    _REJECTED.append(event)
+    _REJECTED.append({"operation": operation, "path": normalized or ""})
     raise PermissionError(
-        f"Phase 41.1 forbidden path blocked before filesystem call: {operation}"
+        f"Phase 41.1 forbidden authority path blocked before filesystem call: {operation}"
     )
 
 
-def _wrapped(
+def _make_path_guard(
     name: str,
     original: Callable[..., Any],
     path_positions: tuple[int, ...] = (0,),
@@ -93,223 +135,319 @@ def _wrapped(
 ) -> Callable[..., Any]:
     @functools.wraps(original)
     def guard(*args: Any, **kwargs: Any) -> Any:
-        values: list[object] = []
-        for position in path_positions:
-            if position < len(args):
-                values.append(args[position])
+        values = [args[position] for position in path_positions if position < len(args)]
         values.extend(kwargs[key] for key in path_keywords if key in kwargs)
-        if any(
-            key.endswith("dir_fd") and value is not None
-            for key, value in kwargs.items()
-        ):
+        if any(key.endswith("dir_fd") and value is not None for key, value in kwargs.items()):
+            _REJECTED.append({"operation": name, "path": "<descriptor-relative>"})
             raise PermissionError(
                 f"Phase 41.1 descriptor-relative filesystem call blocked: {name}"
             )
-        if any(
-            isinstance(value, int) and value in _INHERITED_FDS for value in values
-        ):
-            raise PermissionError(
-                f"Phase 41.1 inherited file descriptor blocked: {name}"
-            )
         for value in values:
-            _reject(name, value)
-        for value in values:
-            forbidden, normalized = _is_forbidden(value)
-            if forbidden:  # Defensive proof hook; _reject must have raised first.
-                _UNDERLYING_FORBIDDEN.append(
-                    {"operation": name, "path": normalized or ""}
-                )
+            _reject_path(name, value)
         return original(*args, **kwargs)
 
+    setattr(guard, "__phase411_path_guard__", name)
     return guard
 
 
-def _patch(
+def _patch_path(
     target: object,
     attribute: str,
     *,
     positions: tuple[int, ...] = (0,),
     keywords: tuple[str, ...] = (),
-) -> None:
-    key = f"{getattr(target, '__name__', type(target).__name__)}.{attribute}"
+) -> str | None:
+    name = f"{getattr(target, '__name__', type(target).__name__)}.{attribute}"
     original = getattr(target, attribute, None)
-    if original is None or key in _ORIGINALS:
-        return
-    _ORIGINALS[key] = original
-    setattr(target, attribute, _wrapped(key, original, positions, keywords))
+    if original is None:
+        return None
+    _ORIGINALS[name] = original
+    setattr(target, attribute, _make_path_guard(name, original, positions, keywords))
+    return name
 
 
-def _preserve_child_bootstrap() -> None:
-    current = os.environ.get("PYTHONPATH", "")
-    entries = [item for item in current.split(os.pathsep) if item]
-    normalized = {ntpath.normcase(ntpath.abspath(item)) for item in entries}
-    if ntpath.normcase(_BOOTSTRAP_DIR) not in normalized:
-        os.environ["PYTHONPATH"] = os.pathsep.join([_BOOTSTRAP_DIR, *entries])
-
-
-def _guarded_popen_init(original: Callable[..., Any]) -> Callable[..., Any]:
-    """Permit only guarded child Python and reviewed read-only git commands."""
-
+def _make_process_deny_wrapper(name: str, original: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(original)
-    def guard(self: object, args: object, *popen_args: object, **kwargs: object) -> Any:
-        if kwargs.get("shell"):
-            raise PermissionError("Phase 41.1 subprocess shell execution is forbidden")
-        if kwargs.get("close_fds") is False or kwargs.get("pass_fds"):
-            raise PermissionError("Phase 41.1 subprocess descriptor inheritance is forbidden")
-        if not isinstance(args, (list, tuple)) or not args:
-            raise PermissionError("Phase 41.1 subprocess arguments must be a closed sequence")
-        if kwargs.get("executable") is not None:
-            raise PermissionError("Phase 41.1 subprocess executable override is forbidden")
-        argv = [os.fsdecode(os.fspath(value)) for value in args]
-        for value in argv:
-            _reject("subprocess.Popen", value)
-        executable = ntpath.normcase(ntpath.abspath(_strip_windows_namespace(argv[0])))
-        python = ntpath.normcase(ntpath.abspath(sys.executable))
-        if executable == python:
-            if any(flag in {"-S", "-I", "-E"} for flag in argv[1:]):
-                raise PermissionError(
-                    "Phase 41.1 child Python may not disable site or environment processing"
-                )
-            reviewed_python = (
-                (len(argv) >= 3 and argv[1] == "-c")
-                or (len(argv) >= 4 and argv[1:3] == ["-m", "pytest"])
-                or (
-                    len(argv) >= 2
-                    and argv[1].casefold().endswith(".py")
-                    and not argv[1].startswith("-")
-                )
-            )
-            if not reviewed_python:
-                raise PermissionError("Phase 41.1 child Python command grammar is not reviewed")
-            environment = os.environ if kwargs.get("env") is None else kwargs["env"]
-            if not hasattr(environment, "get"):
-                raise PermissionError("Phase 41.1 child Python environment must be a mapping")
-            if environment.get("PHASE411_DENY_OPEN_SENTINEL") != "1":
-                raise PermissionError("Phase 41.1 child Python must inherit the deny-open sentinel")
-            python_path = environment.get("PYTHONPATH", "")
-            entries = {
-                ntpath.normcase(ntpath.abspath(item))
-                for item in python_path.split(os.pathsep)
-                if item
-            }
-            if ntpath.normcase(_BOOTSTRAP_DIR) not in entries:
-                raise PermissionError("Phase 41.1 child Python must inherit the deny-open bootstrap")
-        elif ntpath.basename(executable) in {"git", "git.exe"}:
-            relative = (
-                r"(?!-)(?![A-Za-z]:[\\/])(?![\\/])"
-                r"(?!.*(?:^|[\\/])\.\.(?:[\\/]|$))[^\x00]+"
-            )
-            safe_git = (
-                argv[1:] == ["rev-parse", "HEAD"]
-                or (
-                    len(argv) == 3
-                    and argv[1] == "rev-parse"
-                    and re.fullmatch(rf"[0-9a-f]{{40}}:{relative}", argv[2]) is not None
-                )
-                or (
-                    len(argv) == 4
-                    and argv[1:3] == ["cat-file", "blob"]
-                    and re.fullmatch(r"[0-9a-f]{40,64}", argv[3]) is not None
-                )
-                or (
-                    len(argv) == 5
-                    and argv[1:4] == ["ls-files", "--stage", "--"]
-                    and re.fullmatch(relative, argv[4]) is not None
-                )
-            )
-            if not safe_git:
-                raise PermissionError("Phase 41.1 git subprocess is not in the read-only allowlist")
-        else:
-            raise PermissionError("Phase 41.1 non-Python subprocess is forbidden")
-        return original(self, args, *popen_args, **kwargs)
+    def deny(*_args: Any, **_kwargs: Any) -> Any:
+        _REJECTED.append({"operation": name, "path": "<process-denied>"})
+        raise PermissionError(f"Phase 41.1 process execution denied: {name}")
 
+    setattr(deny, "__phase411_process_guard__", name)
+    setattr(deny, "__phase411_original__", original)
+    return deny
+
+
+def _resolve_process_owner(name: str) -> tuple[object, str] | None:
+    parts = name.split(".")
+    module = sys.modules.get(parts[0])
+    if module is None:
+        try:
+            module = __import__(parts[0])
+        except (ImportError, OSError):
+            return None
+    owner: object = module
+    for index, part in enumerate(parts[1:-1], start=1):
+        child = getattr(owner, part, None)
+        if child is None:
+            try:
+                child = __import__(".".join(parts[:index + 1]), fromlist=[part])
+            except (ImportError, OSError):
+                return None
+        owner = child
+    attribute = parts[-1]
+    if not hasattr(owner, attribute):
+        return None
+    return owner, attribute
+
+
+def _patch_process(name: str) -> bool:
+    resolved = _resolve_process_owner(name)
+    if resolved is None:
+        return False
+    owner, attribute = resolved
+    original = getattr(owner, attribute)
+    if not callable(original):
+        return False
+    _ORIGINALS[name] = original
+    setattr(owner, attribute, _make_process_deny_wrapper(name, original))
+    return True
+
+
+def _deny_descriptor(name: str, descriptor: object) -> int:
+    if not isinstance(descriptor, int) or descriptor not in _DESCRIPTOR_CAPABILITIES:
+        _REJECTED.append({"operation": name, "path": "<unknown-descriptor>"})
+        raise PermissionError(f"Phase 41.1 descriptor capability denied: {name}")
+    return descriptor
+
+
+def _make_descriptor_consumer(
+    name: str, original: Callable[..., Any], positions: tuple[int, ...] = (0,)
+) -> Callable[..., Any]:
+    @functools.wraps(original)
+    def guard(*args: Any, **kwargs: Any) -> Any:
+        for position in positions:
+            if position < len(args):
+                _deny_descriptor(name, args[position])
+        return original(*args, **kwargs)
+
+    setattr(guard, "__phase411_descriptor_guard__", name)
     return guard
 
 
-def phase411_guard_snapshot() -> dict[str, list[dict[str, str]]]:
-    """Return recorder state without probing the protected filesystem prefix."""
+def _register_descriptor(value: object) -> None:
+    if isinstance(value, int) and value >= 0:
+        _DESCRIPTOR_CAPABILITIES.add(value)
 
+
+def _install_path_guards() -> tuple[str, ...]:
+    installed: list[str] = []
+    for target, attribute, positions, keywords in (
+        (builtins, "open", (0,), ("file",)), (io, "open", (0,), ("file",)),
+        (glob_module, "glob", (0,), ("pathname",)),
+        (glob_module, "iglob", (0,), ("pathname",)),
+    ):
+        result = _patch_path(target, attribute, positions=positions, keywords=keywords)
+        if result:
+            installed.append(result)
+    os_path_keywords = {
+        "access": ("path",), "open": ("path",), "stat": ("path",),
+        "lstat": ("path",), "listdir": ("path",), "scandir": ("path",),
+        "walk": ("top",), "chdir": ("path",), "mkdir": ("path",),
+        "makedirs": ("name",), "remove": ("path",), "unlink": ("path",),
+        "rmdir": ("path",), "readlink": ("path",), "chmod": ("path",),
+        "lchmod": ("path",), "chown": ("path",), "lchown": ("path",),
+        "truncate": ("path",), "utime": ("path",), "statvfs": ("path",),
+        "pathconf": ("path",), "mkfifo": ("path",), "mknod": ("path",),
+    }
+    for attribute, keywords in os_path_keywords.items():
+        result = _patch_path(os, attribute, keywords=keywords)
+        if result:
+            installed.append(result)
+    for attribute in ("rename", "replace", "link", "symlink"):
+        result = _patch_path(os, attribute, positions=(0, 1), keywords=("src", "dst"))
+        if result:
+            installed.append(result)
+    for attribute in (
+        "open", "read_bytes", "read_text", "write_bytes", "write_text", "stat",
+        "lstat", "exists", "is_file", "is_dir", "is_symlink", "iterdir", "glob",
+        "rglob", "resolve", "absolute", "touch", "mkdir", "unlink", "rmdir",
+        "readlink", "chmod", "lchmod", "symlink_to", "hardlink_to",
+    ):
+        result = _patch_path(Path, attribute)
+        if result:
+            installed.append(result)
+    for attribute in ("rename", "replace"):
+        result = _patch_path(Path, attribute, positions=(0, 1), keywords=("target",))
+        if result:
+            installed.append(result)
+    return tuple(installed)
+
+
+def _install_low_level_process_denial() -> dict[str, str]:
+    dispositions: dict[str, str] = {}
+    low_level = set(_PROCESS_OPERATION_NAMES[:24]) | {
+        "_winapi.CreateProcess", "_posixsubprocess.fork_exec", "subprocess._fork_exec"
+    }
+    for name in _PROCESS_OPERATION_NAMES:
+        if name in low_level:
+            dispositions[name] = "wrapped" if _patch_process(name) else "unavailable_on_platform"
+    return dispositions
+
+
+def _attest_standard_handles_after_guards() -> None:
+    if os.name != "nt":
+        return
+    try:
+        import _winapi
+        import msvcrt
+    except ImportError:
+        return
+    accepted = {_winapi.FILE_TYPE_CHAR, _winapi.FILE_TYPE_PIPE}
+    for descriptor in (0, 1, 2):
+        try:
+            handle = msvcrt.get_osfhandle(descriptor)
+            file_type = _winapi.GetFileType(handle)
+        except (OSError, ValueError):
+            continue
+        if file_type in accepted:
+            _register_descriptor(descriptor)
+
+
+def _install_descriptor_guards() -> tuple[str, ...]:
+    installed: list[str] = []
+
+    def wrap_open(target: object, attribute: str) -> None:
+        original = getattr(target, attribute)
+        name = f"{getattr(target, '__name__', type(target).__name__)}.{attribute}"
+
+        @functools.wraps(original)
+        def guarded(file: object, *args: Any, **kwargs: Any) -> Any:
+            if isinstance(file, int):
+                _deny_descriptor(name, file)
+            result = original(file, *args, **kwargs)
+            try:
+                _register_descriptor(result.fileno())
+            except (AttributeError, OSError, ValueError):
+                pass
+            return result
+
+        setattr(guarded, "__phase411_path_guard__", name)
+        setattr(target, attribute, guarded)
+        installed.append(name)
+
+    wrap_open(builtins, "open")
+    wrap_open(io, "open")
+
+    original_os_open = os.open
+
+    @functools.wraps(original_os_open)
+    def guarded_os_open(*args: Any, **kwargs: Any) -> int:
+        descriptor = original_os_open(*args, **kwargs)
+        _register_descriptor(descriptor)
+        return descriptor
+
+    setattr(guarded_os_open, "__phase411_path_guard__", "os.open")
+    os.open = guarded_os_open
+    installed.append("os.open")
+
+    if hasattr(os, "pipe"):
+        original_pipe = os.pipe
+
+        @functools.wraps(original_pipe)
+        def guarded_pipe(*args: Any, **kwargs: Any) -> tuple[int, int]:
+            pair = original_pipe(*args, **kwargs)
+            _register_descriptor(pair[0])
+            _register_descriptor(pair[1])
+            return pair
+
+        os.pipe = guarded_pipe
+        installed.append("os.pipe")
+
+    for attribute in (
+        "fdopen", "fstat", "fchmod", "ftruncate", "fsync", "read", "write",
+        "lseek", "fchdir", "pread", "readv", "preadv",
+    ):
+        original = getattr(os, attribute, None)
+        if original is None:
+            continue
+        name = f"os.{attribute}"
+        setattr(os, attribute, _make_descriptor_consumer(name, original))
+        installed.append(name)
+
+    for attribute in ("dup", "dup2"):
+        original = getattr(os, attribute, None)
+        if original is None:
+            continue
+        name = f"os.{attribute}"
+
+        @functools.wraps(original)
+        def duplicate(*args: Any, __name: str = name, __original: Callable[..., Any] = original, **kwargs: Any) -> Any:
+            if not args:
+                raise PermissionError(f"Phase 41.1 descriptor capability denied: {__name}")
+            _deny_descriptor(__name, args[0])
+            result = __original(*args, **kwargs)
+            _register_descriptor(result if isinstance(result, int) else args[1])
+            return result
+
+        setattr(duplicate, "__phase411_descriptor_guard__", name)
+        setattr(os, attribute, duplicate)
+        installed.append(name)
+
+    if hasattr(os, "close"):
+        original_close = os.close
+
+        @functools.wraps(original_close)
+        def guarded_close(descriptor: object) -> None:
+            fd = _deny_descriptor("os.close", descriptor)
+            try:
+                return original_close(fd)
+            finally:
+                _DESCRIPTOR_CAPABILITIES.discard(fd)
+
+        os.close = guarded_close
+        installed.append("os.close")
+    return tuple(installed)
+
+
+def phase411_guard_snapshot() -> dict[str, list[dict[str, str]]]:
     return {
         "rejected": [dict(item) for item in _REJECTED],
         "underlying_forbidden": [dict(item) for item in _UNDERLYING_FORBIDDEN],
     }
 
 
-def install_phase411_deny_open_guard() -> None:
-    """Patch path-taking primitives once, before pytest imports or collection."""
+def phase411_descriptor_capabilities() -> tuple[int, ...]:
+    return tuple(sorted(_DESCRIPTOR_CAPABILITIES))
 
+
+def install_phase411_deny_open_guard() -> None:
     global PHASE411_GUARD_INSTALLED
+    global PHASE411_INSTALLED_PATH_OPERATIONS
+    global PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS
+    global PHASE411_INSTALLED_PROCESS_OPERATIONS
+    global PHASE411_PROCESS_OPERATION_DISPOSITIONS
     if PHASE411_GUARD_INSTALLED:
         return
-    _preserve_child_bootstrap()
-    _patch(builtins, "open", keywords=("file",))
-    _patch(io, "open", keywords=("file",))
-    os_path_keywords = {
-        "access": ("path",),
-        "open": ("path",),
-        "stat": ("path",),
-        "lstat": ("path",),
-        "listdir": ("path",),
-        "scandir": ("path",),
-        "walk": ("top",),
-        "chdir": ("path",),
-        "mkdir": ("path",),
-        "makedirs": ("name",),
-        "remove": ("path",),
-        "unlink": ("path",),
-        "rmdir": ("path",),
-        "readlink": ("path",),
-        "chmod": ("path",),
-        "lchmod": ("path",),
-        "chown": ("path",),
-        "lchown": ("path",),
-        "truncate": ("path",),
-        "utime": ("path",),
-        "statvfs": ("path",),
-        "pathconf": ("path",),
-        "mkfifo": ("path",),
-        "mknod": ("path",),
-    }
-    for name, keywords in os_path_keywords.items():
-        _patch(os, name, keywords=keywords)
-    for name in ("rename", "replace"):
-        _patch(os, name, positions=(0, 1), keywords=("src", "dst"))
-    for name in ("link", "symlink"):
-        _patch(os, name, positions=(0, 1), keywords=("src", "dst"))
-    for name in (
-        "open",
-        "read_bytes",
-        "read_text",
-        "write_bytes",
-        "write_text",
-        "stat",
-        "lstat",
-        "exists",
-        "is_file",
-        "is_dir",
-        "is_symlink",
-        "iterdir",
-        "glob",
-        "rglob",
-        "resolve",
-        "absolute",
-        "touch",
-        "mkdir",
-        "unlink",
-        "rmdir",
-        "readlink",
-        "chmod",
-        "lchmod",
-        "symlink_to",
-        "hardlink_to",
-    ):
-        _patch(Path, name)
-    for name in ("rename", "replace"):
-        _patch(Path, name, positions=(0, 1), keywords=("target",))
-    _ORIGINALS["subprocess.Popen.__init__"] = subprocess.Popen.__init__
-    subprocess.Popen.__init__ = _guarded_popen_init(subprocess.Popen.__init__)
+    PHASE411_INSTALLED_PATH_OPERATIONS = _install_path_guards()
+    dispositions = _install_low_level_process_denial()
+    _attest_standard_handles_after_guards()
+    PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS = _install_descriptor_guards()
+    for name in _PROCESS_OPERATION_NAMES:
+        if name not in dispositions:
+            dispositions[name] = "wrapped" if _patch_process(name) else "unavailable_on_platform"
+    PHASE411_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType(
+        {name: dispositions[name] for name in _PROCESS_OPERATION_NAMES}
+    )
+    PHASE411_INSTALLED_PROCESS_OPERATIONS = tuple(
+        name for name in _PROCESS_OPERATION_NAMES if dispositions[name] == "wrapped"
+    )
     PHASE411_GUARD_INSTALLED = True
 
+
+PHASE411_INSTALLED_PATH_OPERATIONS: tuple[str, ...] = ()
+PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS: tuple[str, ...] = ()
+PHASE411_INSTALLED_PROCESS_OPERATIONS: tuple[str, ...] = ()
+PHASE411_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType({})
 
 if os.environ.get("PHASE411_DENY_OPEN_SENTINEL") == "1":
     install_phase411_deny_open_guard()

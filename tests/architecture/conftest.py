@@ -1,7 +1,8 @@
-"""Synthetic-only safety fixtures for the Phase 41.1 architecture tests."""
+"""Synthetic-only safety fixtures for Phase 41.1 architecture tests."""
 
 from __future__ import annotations
 
+import ntpath
 import os
 from pathlib import Path
 import sys
@@ -15,11 +16,36 @@ if os.environ.get("PHASE411_DENY_OPEN_SENTINEL") != "1":
 if not getattr(_bootstrap, "PHASE411_GUARD_INSTALLED", False):
     raise RuntimeError("Phase 41.1 deny-open guard was not installed before conftest")
 
+_expected_origin = ntpath.normcase(
+    ntpath.normpath(ntpath.join(ntpath.dirname(__file__), "bootstrap", "sitecustomize.py"))
+)
+_actual_file = ntpath.normcase(ntpath.normpath(str(getattr(_bootstrap, "__file__", ""))))
+_actual_origin = ntpath.normcase(
+    ntpath.normpath(str(getattr(getattr(_bootstrap, "__spec__", None), "origin", "")))
+)
+if _actual_file != _expected_origin or _actual_origin != _expected_origin:
+    raise RuntimeError("Phase 41.1 sitecustomize origin is not the exact bootstrap file")
+
+_repo_root = ntpath.normpath(ntpath.join(ntpath.dirname(__file__), "..", ".."))
+_historical_root = ntpath.normcase(
+    ntpath.normpath(ntpath.join(_repo_root, "historical", "phase41-source-closure"))
+)
+for _entry in sys.path:
+    if not _entry:
+        continue
+    _candidate = ntpath.normcase(ntpath.normpath(ntpath.abspath(_entry)))
+    if _candidate == _historical_root or _candidate.startswith(_historical_root + "\\"):
+        raise RuntimeError("protected historical archive prefix is present in sys.path")
+if any(
+    name == "historical.phase41_source_closure"
+    or name.startswith("historical.phase41_source_closure.")
+    for name in sys.modules
+):
+    raise RuntimeError("protected historical module is loaded before collection")
+
 
 @pytest.fixture(autouse=True)
 def isolated_phase411_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Force every architecture test onto per-test data and model roots."""
-
     roots = {
         "DATA_DIR": tmp_path / "data",
         "MODEL_ARTIFACT_ROOT": tmp_path / "models",
@@ -29,4 +55,3 @@ def isolated_phase411_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         monkeypatch.setenv(name, os.fspath(path))
     monkeypatch.setenv("PHASE411_DENY_OPEN_SENTINEL", "1")
     yield
-

@@ -6,6 +6,7 @@ from dataclasses import replace
 import hashlib
 import importlib.util
 import json
+import ntpath
 import os
 from pathlib import Path, PurePosixPath
 import subprocess
@@ -19,6 +20,182 @@ from scripts import archive_phase41_source_closure as archive
 
 REPO_ROOT = Path(__file__).parents[2]
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "protected_authority_baseline.json"
+GUARD_CONTRACT_PATH = Path(__file__).parent / "fixtures" / "phase411_guard_contract.json"
+
+
+def _resolve_fixed_symbol(name: str) -> object | None:
+    parts = name.split(".")
+    try:
+        owner: object = __import__(parts[0])
+    except ImportError:
+        return None
+    for index, part in enumerate(parts[1:], start=1):
+        value = getattr(owner, part, None)
+        if value is None:
+            try:
+                value = __import__(".".join(parts[: index + 1]), fromlist=[part])
+            except ImportError:
+                return None
+        owner = value
+    return owner
+
+
+def _guard_contract() -> dict[str, Any]:
+    contract = _strict_json(GUARD_CONTRACT_PATH.read_bytes())
+    assert set(contract) == {"process_symbols", "protected_roots", "schema_version"}
+    assert contract["schema_version"] == "phase411-guard-contract-v1"
+    assert len(contract["protected_roots"]) == len(set(contract["protected_roots"])) == 7
+    assert len(contract["process_symbols"]) == len(set(contract["process_symbols"])) == 53
+    return contract
+
+
+def _manifest_root(spec: str) -> str:
+    if spec.startswith("repo:"):
+        value = ntpath.join(
+            os.fspath(REPO_ROOT), spec.removeprefix("repo:").replace("/", "\\")
+        )
+    else:
+        value = spec
+    return ntpath.normcase(ntpath.normpath(value))
+
+
+def test_guard_origin_and_contract_are_exact_before_collection() -> None:
+    import sitecustomize
+
+    contract = _guard_contract()
+    expected_origin = ntpath.normcase(
+        ntpath.normpath(os.fspath(Path(__file__).parent / "bootstrap" / "sitecustomize.py"))
+    )
+    assert ntpath.normcase(ntpath.normpath(sitecustomize.__file__)) == expected_origin
+    assert ntpath.normcase(ntpath.normpath(sitecustomize.__spec__.origin)) == expected_origin
+    expected_roots = tuple(_manifest_root(item) for item in contract["protected_roots"])
+    assert sitecustomize.PHASE411_GUARD_POLICY_VERSION == "phase411-guard-v2"
+    assert sitecustomize.PHASE411_PROCESS_POLICY == "deny-all"
+    assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
+    assert sitecustomize.PHASE411_PROTECTED_ROOTS == expected_roots
+    assert tuple(sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS) == tuple(
+        contract["process_symbols"]
+    )
+    assert set(sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS.values()) <= {
+        "wrapped", "unavailable_on_platform"
+    }
+    assert sitecustomize.PHASE411_INSTALLED_PROCESS_OPERATIONS == tuple(
+        name for name in contract["process_symbols"]
+        if sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS[name] == "wrapped"
+    )
+    assert sitecustomize.PHASE411_INSTALLED_PATH_OPERATIONS
+    assert sitecustomize.PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS
+
+
+def test_guard_blocks_all_exact_authority_roots_and_alias_spellings() -> None:
+    import sitecustomize
+
+    for root in sitecustomize.PHASE411_PROTECTED_ROOTS:
+        aliases = (
+            root,
+            root + "\\synthetic-never-opened.bin",
+            root + ":synthetic-stream",
+            "\\\\?\\" + root,
+            root.replace("\\", "/").swapcase(),
+            ntpath.join(root, "synthetic", "..", "never-opened.bin"),
+        )
+        for alias in aliases:
+            with pytest.raises(PermissionError, match="forbidden authority path"):
+                os.stat(alias)
+    assert sitecustomize.phase411_guard_snapshot()["underlying_forbidden"] == []
+
+
+def test_guard_path_operation_inventory_rejects_before_underlying_calls() -> None:
+    import sitecustomize
+
+    calls = {"original": 0}
+
+    def original(*_args: object, **_kwargs: object) -> None:
+        calls["original"] += 1
+
+    guarded = sitecustomize._make_path_guard("synthetic.open", original)
+    with pytest.raises(PermissionError, match="forbidden authority path"):
+        guarded(sitecustomize.PHASE411_PROTECTED_ROOTS[0] + "\\never-opened")
+    assert calls == {"original": 0}
+    for name in sitecustomize.PHASE411_INSTALLED_PATH_OPERATIONS:
+        assert isinstance(name, str) and "." in name
+
+
+def test_guard_descriptor_operation_inventory_rejects_before_underlying_calls() -> None:
+    import sitecustomize
+
+    calls = {"original": 0}
+
+    def original(*_args: object, **_kwargs: object) -> None:
+        calls["original"] += 1
+
+    guarded = sitecustomize._make_descriptor_consumer("synthetic.fstat", original)
+    with pytest.raises(PermissionError, match="descriptor capability denied"):
+        guarded(object())
+    assert calls == {"original": 0}
+    required = {
+        "os.fstat", "os.fchmod", "os.ftruncate", "os.fsync", "os.read",
+        "os.write", "os.lseek", "os.dup", "os.dup2",
+    }
+    assert required <= set(sitecustomize.PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS)
+
+
+def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> None:
+    import sitecustomize
+
+    contract = _guard_contract()
+    calls = {"coercion": 0, "underlying": 0}
+
+    class Trap:
+        def __fspath__(self) -> str:
+            calls["coercion"] += 1
+            return "never"
+
+        def __str__(self) -> str:
+            calls["coercion"] += 1
+            return "never"
+
+    def recorder(*_args: object, **_kwargs: object) -> None:
+        calls["underlying"] += 1
+
+    synthetic = sitecustomize._make_process_deny_wrapper("synthetic.process", recorder)
+    with pytest.raises(PermissionError, match="process execution denied"):
+        synthetic(Trap())
+    assert calls == {"coercion": 0, "underlying": 0}
+
+    resolved = {name: _resolve_fixed_symbol(name) for name in contract["process_symbols"]}
+    expected = {
+        name: ("wrapped" if value is not None else "unavailable_on_platform")
+        for name, value in resolved.items()
+    }
+    assert dict(sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS) == expected
+    for name, value in resolved.items():
+        if value is None:
+            continue
+        assert getattr(value, "__phase411_process_guard__", None) == name
+        with pytest.raises(PermissionError, match="process execution denied"):
+            value(Trap())
+    assert calls == {"coercion": 0, "underlying": 0}
+
+
+def test_guard_descriptor_capabilities_are_post_install_only(tmp_path: Path) -> None:
+    import sitecustomize
+
+    assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
+    unknown = max(sitecustomize.phase411_descriptor_capabilities(), default=100) + 10000
+    with pytest.raises(PermissionError, match="descriptor capability denied"):
+        os.fstat(unknown)
+    safe = tmp_path / "post-install-capability.txt"
+    with open(safe, "w+b") as stream:
+        descriptor = stream.fileno()
+        assert descriptor in sitecustomize.phase411_descriptor_capabilities()
+        assert os.fstat(descriptor).st_size == 0
+    read_fd, write_fd = os.pipe()
+    try:
+        assert {read_fd, write_fd} <= set(sitecustomize.phase411_descriptor_capabilities())
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
 
 
 def _sha256(value: bytes) -> str:
