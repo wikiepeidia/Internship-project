@@ -323,6 +323,10 @@ def test_offline_settings_validation_error_is_translated(
 
 def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwards() -> None:
     from src.data_pipeline import workflows
+    from src.data_pipeline.generation.generator import TieredGenerator
+    from src.data_pipeline.generation.quality_judge import QualityJudge
+    from src.data_pipeline.scraper.ncsc_scraper import NCSCScraper
+    from src.data_pipeline.versioning.build import DatasetBuilder
 
     for name in (
         "judge_existing_records",
@@ -337,11 +341,23 @@ def test_canonical_workflow_functions_have_neutral_ownership_and_lazy_cli_forwar
     for seam in (
         "get_settings",
         "get_data_settings",
-        "TieredGenerator",
-        "QualityJudge",
-        "DatasetBuilder",
-        "NCSCScraper",
         "_build_anthropic_client",
         "_save_validated_records",
     ):
         assert callable(getattr(cli, seam))
+    expected_classes = {
+        "TieredGenerator": TieredGenerator,
+        "QualityJudge": QualityJudge,
+        "DatasetBuilder": DatasetBuilder,
+        "NCSCScraper": NCSCScraper,
+    }
+    for name, expected in expected_classes.items():
+        exported = getattr(cli, name)
+        assert exported is expected
+        assert isinstance(exported, type)
+
+    class CompatibleBuilder(cli.DatasetBuilder):
+        pass
+
+    assert issubclass(CompatibleBuilder, DatasetBuilder)
+    assert isinstance(object.__new__(CompatibleBuilder), DatasetBuilder)

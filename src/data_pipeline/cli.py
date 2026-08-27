@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 from pathlib import Path
 import sys
 from typing import Any
 
 from src.data_pipeline.core.records import DatasetRecord, SeedRecord
+
+
+_LAZY_CLASS_EXPORTS = {
+    "TieredGenerator": "src.data_pipeline.generation.generator",
+    "QualityJudge": "src.data_pipeline.generation.quality_judge",
+    "DatasetBuilder": "src.data_pipeline.versioning.build",
+    "NCSCScraper": "src.data_pipeline.scraper.ncsc_scraper",
+}
 
 
 def _add_input_options(parser: argparse.ArgumentParser) -> None:
@@ -161,28 +170,26 @@ def get_data_settings() -> Any:
     return load_settings()
 
 
-def TieredGenerator(*args: Any, **kwargs: Any) -> Any:
-    from src.data_pipeline.generation.generator import TieredGenerator as implementation
+def __getattr__(name: str) -> Any:
+    """Resolve legacy class exports lazily without replacing class identity."""
 
-    return implementation(*args, **kwargs)
-
-
-def QualityJudge(*args: Any, **kwargs: Any) -> Any:
-    from src.data_pipeline.generation.quality_judge import QualityJudge as implementation
-
-    return implementation(*args, **kwargs)
-
-
-def DatasetBuilder(*args: Any, **kwargs: Any) -> Any:
-    from src.data_pipeline.versioning.build import DatasetBuilder as implementation
-
-    return implementation(*args, **kwargs)
+    module_name = _LAZY_CLASS_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    implementation = getattr(importlib.import_module(module_name), name)
+    if not isinstance(implementation, type):
+        raise TypeError(f"lazy compatibility export {name!r} is not a class")
+    globals()[name] = implementation
+    return implementation
 
 
-def NCSCScraper(*args: Any, **kwargs: Any) -> Any:
-    from src.data_pipeline.scraper.ncsc_scraper import NCSCScraper as implementation
-
-    return implementation(*args, **kwargs)
+def _compatibility_class(name: str) -> type[Any]:
+    value = globals().get(name)
+    if value is None:
+        value = __getattr__(name)
+    if not isinstance(value, type):
+        raise TypeError(f"compatibility dependency {name!r} is not a class")
+    return value
 
 
 def _build_anthropic_client(api_key: str) -> Any | None:
@@ -206,10 +213,10 @@ def _workflow_dependencies() -> Any:
 
     return WorkflowDependencies(
         get_settings=get_settings,
-        generator_factory=TieredGenerator,
-        judge_factory=QualityJudge,
-        builder_factory=DatasetBuilder,
-        scraper_factory=NCSCScraper,
+        generator_factory=_compatibility_class("TieredGenerator"),
+        judge_factory=_compatibility_class("QualityJudge"),
+        builder_factory=_compatibility_class("DatasetBuilder"),
+        scraper_factory=_compatibility_class("NCSCScraper"),
         anthropic_client_builder=_build_anthropic_client,
         optimize_records=optimize_recovered_records,
     )
