@@ -40,6 +40,12 @@ _EVIDENCE_MEMBER_NAMES = (
     _RESULTS_NAME,
     "results.md",
 )
+_REPORTING_MEMBER_NAMES = (
+    _SOURCE_MANIFEST_NAME,
+    _MATERIALIZATION_NAME,
+    _RESULTS_NAME,
+    "results.md",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +70,7 @@ class ReportingAuthorityError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ReportingAuthority:
-    """Typed facts plus the exact bytes used to establish their identities."""
+    """Typed facts plus approved report-facing bytes, never prediction contents."""
 
     result: TwoModelEvaluationResult
     export_manifest_sha256: str
@@ -209,12 +215,12 @@ def _exact_export_paths(root: Path) -> dict[str, Path]:
     return result
 
 
-def _capture_export_members(
+def _verify_export_members(
     root: Path, paths: Mapping[str, Path], hashes: Mapping[str, str]
 ) -> dict[str, bytes]:
-    """Capture and verify every declared member, then recheck exact membership."""
+    """Verify every member while retaining only approved report-facing bytes."""
 
-    captured: dict[str, bytes] = {}
+    retained: dict[str, bytes] = {}
     for name in _EVIDENCE_MEMBER_NAMES:
         try:
             raw = read_file_bytes(paths[name], where=f"reporting member {name}")
@@ -224,10 +230,11 @@ def _capture_export_members(
             raise ReportingAuthorityError(
                 f"reporting member {name} hash does not match manifest"
             )
-        captured[name] = raw
+        if name in _REPORTING_MEMBER_NAMES:
+            retained[name] = raw
     if set(_exact_export_paths(root)) != set(paths):
         raise ReportingAuthorityError("verified export membership changed while reading")
-    return captured
+    return retained
 
 
 def _source_runtime_links(
@@ -459,7 +466,7 @@ def _load_reporting_authority(
     if root.name != manifest_sha256:
         raise ReportingAuthorityError("verified export directory identity does not match manifest")
     hashes = _artifact_hashes(manifest_payload)
-    artifact_raw = _capture_export_members(root, export_paths, hashes)
+    artifact_raw = _verify_export_members(root, export_paths, hashes)
     results_raw = artifact_raw[_RESULTS_NAME]
     source_raw = artifact_raw[_SOURCE_MANIFEST_NAME]
     receipt_raw = artifact_raw[_MATERIALIZATION_NAME]
@@ -501,7 +508,7 @@ def _load_reporting_authority(
         retracted_claims=retracted_claims,
         access_impact=access_impact,
         automated_access_statements=automated_access_statements,
-        artifact_raw=tuple((name, artifact_raw[name]) for name in _EVIDENCE_MEMBER_NAMES),
+        artifact_raw=tuple((name, artifact_raw[name]) for name in _REPORTING_MEMBER_NAMES),
         export_manifest_raw=manifest_raw,
         results_raw=results_raw,
         source_manifest_raw=source_raw,

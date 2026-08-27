@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import src.modeling.evidence as evidence_module
 from src.modeling.evaluation import TwoModelEvaluationResult
 from src.modeling.evidence import (
     ReportingAuthorityError,
@@ -36,6 +37,16 @@ EVIDENCE_NAMES = (
     "evaluation-access-receipt.json",
     "qwen-predictions.jsonl",
     "phobert-predictions.jsonl",
+    "results.json",
+    "results.md",
+)
+PREDICTION_NAMES = (
+    "qwen-predictions.jsonl",
+    "phobert-predictions.jsonl",
+)
+REPORTING_NAMES = (
+    "execution-source-manifest.json",
+    "execution-materialization-receipt.json",
     "results.json",
     "results.md",
 )
@@ -404,7 +415,7 @@ def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: P
     assert authority.erratum_sha256 == _sha256(payloads["provenance-erratum.json"])
     assert authority.results_raw == payloads["results.json"]
     assert dict(authority.artifact_raw) == {
-        name: payloads[name] for name in EVIDENCE_NAMES
+        name: payloads[name] for name in REPORTING_NAMES
     }
     assert authority.erratum_raw == payloads["provenance-erratum.json"]
     assert authority.retracted_claims == (
@@ -417,18 +428,67 @@ def test_reporting_authority_returns_typed_facts_and_raw_byte_hashes(tmp_path: P
     assert authority.automated_access_statements == ("Synthetic disclosure statement.",)
 
 
-def test_reporting_reader_is_read_only_and_captures_prediction_bytes(tmp_path: Path):
-    export_root, erratum_path, _ = _write_authority(tmp_path)
-    before = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+def test_reporting_reader_is_read_only_and_discards_prediction_bytes(tmp_path: Path):
+    export_root, erratum_path, payloads = _write_authority(tmp_path)
+    before = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
     pins = _synthetic_pins(export_root, erratum_path)
     authority = _load_reporting_authority(export_root, erratum_path, pins)
-    after = {path.relative_to(tmp_path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    after = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
 
     assert after == before
-    assert dict(authority.artifact_raw)["qwen-predictions.jsonl"].startswith(b"{")
+    returned_artifacts = dict(authority.artifact_raw)
+    assert set(returned_artifacts) == set(REPORTING_NAMES)
+    assert set(returned_artifacts).isdisjoint(PREDICTION_NAMES)
+    returned_bytes = [
+        value
+        for name in (
+            "export_manifest_raw",
+            "results_raw",
+            "source_manifest_raw",
+            "materialization_receipt_raw",
+            "erratum_raw",
+        )
+        if isinstance((value := getattr(authority, name)), bytes)
+    ] + list(returned_artifacts.values())
+    assert all(payloads[name] not in returned_bytes for name in PREDICTION_NAMES)
+    assert all(name not in repr(authority) for name in PREDICTION_NAMES)
     assert tuple(inspect.signature(load_reporting_authority).parameters) == (
         "export_root",
         "erratum_path",
+    )
+
+
+def test_reporting_reader_opens_only_the_bounded_export_and_erratum(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    pins = _synthetic_pins(export_root, erratum_path)
+    original_read = evidence_module.read_file_bytes
+    opened: list[Path] = []
+
+    def tracked_read(path: Path, *, where: str) -> bytes:
+        opened.append(Path(path).resolve())
+        return original_read(path, where=where)
+
+    monkeypatch.setattr(evidence_module, "read_file_bytes", tracked_read)
+    _load_reporting_authority(export_root, erratum_path, pins)
+
+    expected = {
+        *(path.resolve() for path in export_root.iterdir()),
+        erratum_path.resolve(),
+    }
+    assert set(opened) == expected
+    assert all(
+        path == erratum_path.resolve() or export_root.resolve() in path.parents
+        for path in opened
     )
 
 
@@ -479,6 +539,18 @@ def test_reporting_authority_requires_exact_stable_membership(
             pytest.skip(f"file symlink creation is unavailable: {exc}")
 
     with pytest.raises(ReportingAuthorityError):
+        _load_reporting_authority(export_root, erratum_path, pins)
+
+
+@pytest.mark.parametrize("prediction_name", PREDICTION_NAMES)
+def test_reporting_authority_hash_verifies_each_prediction_artifact(
+    tmp_path: Path, prediction_name: str
+) -> None:
+    export_root, erratum_path, _ = _write_authority(tmp_path)
+    pins = _synthetic_pins(export_root, erratum_path)
+    (export_root / prediction_name).write_bytes(b"tampered prediction bytes\n")
+
+    with pytest.raises(ReportingAuthorityError, match="hash does not match manifest"):
         _load_reporting_authority(export_root, erratum_path, pins)
 
 
