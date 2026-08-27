@@ -30,7 +30,7 @@ HISTORICAL_HASHES = {
 FORBIDDEN_ACTIVE_PREFIXES = ("src.artifacts", "src.modeling")
 
 
-def _release_artifact(module: Any) -> Any:
+def _release_artifact(module: Any, temp_root: Path) -> Any:
     metrics = [
         module.PerLabelMetricRow(
             label=label,
@@ -42,7 +42,7 @@ def _release_artifact(module: Any) -> Any:
         for label in module.LOCKED_RELEASE_LABELS
     ]
     audit = module.HeldOutSupportAudit(
-        evaluated_split_path=Path.cwd() / ".tmp" / "synthetic-heldout.jsonl",
+        evaluated_split_path=temp_root / "synthetic-heldout.jsonl",
         support_by_label={label: 1 for label in module.LOCKED_RELEASE_LABELS},
     )
     return module.ReleaseEvaluationArtifact(
@@ -60,6 +60,12 @@ def _release_artifact(module: Any) -> Any:
         ),
         readiness_audit=audit,
     )
+
+
+def _normalize_temp_root(value: str, temp_root: Path) -> str:
+    raw = os.fspath(temp_root)
+    escaped = json.dumps(raw, ensure_ascii=False)[1:-1]
+    return value.replace(escaped, "<TMP_ROOT>").replace(raw, "<TMP_ROOT>")
 
 
 def _registry_payload() -> dict[str, Any]:
@@ -156,16 +162,19 @@ def _module_name(relative: str) -> str:
     return ".".join(parts)
 
 
-def test_canonical_bytes_and_sha_match_frozen_synthetic_fixture() -> None:
+def test_canonical_bytes_and_sha_match_frozen_synthetic_fixture(tmp_path: Path) -> None:
     fixture = json.loads(SERIALIZATION_FIXTURE.read_text(encoding="utf-8"))
-    active = _release_artifact(artifacts)
-    compact = active.model_dump_json()
+    active = _release_artifact(artifacts, tmp_path)
+    compact = _normalize_temp_root(active.model_dump_json(), tmp_path)
 
     assert compact == fixture["release_evaluation_artifact"]["compact_utf8"]
-    assert active.model_dump_json(indent=2) == fixture["release_evaluation_artifact"][
+    assert _normalize_temp_root(active.model_dump_json(indent=2), tmp_path) == fixture["release_evaluation_artifact"][
         "indented_utf8"
     ]
-    canonical = integrity.canonical_json_bytes(active.model_dump(mode="json"))
+    canonical = _normalize_temp_root(
+        integrity.canonical_json_bytes(active.model_dump(mode="json")).decode("utf-8"),
+        tmp_path,
+    ).encode("utf-8")
     assert canonical.hex() == fixture["release_evaluation_artifact"][
         "canonical_lf_utf8_hex"
     ]
@@ -453,8 +462,8 @@ def test_active_release_models_match_independent_historical_contract_and_reader(
 ) -> None:
     from src.model_adaptation import schemas as historical_schemas
 
-    active = _release_artifact(artifacts)
-    historical = _release_artifact(historical_schemas)
+    active = _release_artifact(artifacts, tmp_path)
+    historical = _release_artifact(historical_schemas, tmp_path)
     assert active.model_dump(mode="json") == historical.model_dump(mode="json")
     assert active.model_dump_json() == historical.model_dump_json()
     assert artifacts.LOCKED_RELEASE_LABELS == historical_schemas.LOCKED_RELEASE_LABELS
@@ -474,8 +483,8 @@ def test_active_release_models_match_independent_historical_contract_and_reader(
         artifacts.ReleaseEvaluationArtifact.model_validate(invalid_payload)
 
 
-def test_release_artifact_rejects_fail_open_pass_states() -> None:
-    valid = _release_artifact(artifacts).model_dump(mode="json")
+def test_release_artifact_rejects_fail_open_pass_states(tmp_path: Path) -> None:
+    valid = _release_artifact(artifacts, tmp_path).model_dump(mode="json")
 
     missing_metrics = dict(valid)
     missing_metrics["per_label_metrics"] = []
@@ -508,8 +517,8 @@ def test_release_artifact_rejects_fail_open_pass_states() -> None:
         artifacts.ReleaseEvaluationArtifact.model_validate(contradictory_blocker)
 
 
-def test_release_artifact_reconciles_floor_and_metric_claims() -> None:
-    valid = _release_artifact(artifacts).model_dump(mode="json")
+def test_release_artifact_reconciles_floor_and_metric_claims(tmp_path: Path) -> None:
+    valid = _release_artifact(artifacts, tmp_path).model_dump(mode="json")
 
     contradictory_floor = json.loads(json.dumps(valid))
     contradictory_floor["risky_recall_floor"] = 1.0
