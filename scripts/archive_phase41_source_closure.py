@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import secrets
 import stat
 import sys
 from typing import Any, Mapping, Sequence
@@ -323,6 +324,26 @@ def _validate_ancestry(root: Path, target: Path, *, target_file: bool, where: st
         raise ArchiveError(f"{where} must be a directory")
 
 
+def _validate_output_destination(path: Path) -> Path:
+    supplied = Path(path)
+    if not supplied.is_absolute() or ".." in supplied.parts or "\x00" in os.fspath(supplied):
+        raise ArchiveError("archive destination must be canonical and absolute")
+    destination = _absolute(supplied)
+    parent = destination.parent
+    if os.path.lexists(destination):
+        raise ArchiveError("archive destination already exists; collision refused")
+    for component in reversed((parent, *parent.parents)):
+        try:
+            metadata = os.lstat(component)
+        except OSError as exc:
+            raise ArchiveError("archive destination parent is missing") from exc
+        if _redirecting(metadata):
+            raise ArchiveError("archive destination ancestry contains a symlink or reparse point")
+    if not stat.S_ISDIR(os.lstat(parent).st_mode):
+        raise ArchiveError("archive destination parent must be a directory")
+    return destination
+
+
 def _paths_overlap(first: Path, second: Path) -> bool:
     first_abs, second_abs = _absolute(first), _absolute(second)
     try:
@@ -382,8 +403,7 @@ def _worktree_mismatches(
 
 
 def _capture_closure(layout: _ArchiveLayout) -> _CapturedClosure:
-    if os.path.lexists(layout.destination):
-        raise ArchiveError("archive destination already exists; collision refused")
+    _validate_output_destination(layout.destination)
     if _paths_overlap(layout.source_root, layout.destination) or _paths_overlap(
         layout.evidence_root, layout.destination
     ):
@@ -411,15 +431,54 @@ def _capture_closure(layout: _ArchiveLayout) -> _CapturedClosure:
     )
 
 
-def _write_exclusive(path: Path, raw: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _ensure_archive_parent(root: Path, parent: Path) -> None:
+    root_abs, parent_abs = _absolute(root), _absolute(parent)
     try:
-        with path.open("xb") as handle:
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
+        relative = parent_abs.relative_to(root_abs)
+    except ValueError as exc:
+        raise ArchiveError("archive member escaped its staging root") from exc
+    current = root_abs
+    for part in relative.parts:
+        current /= part
+        try:
+            os.mkdir(current)
+        except FileExistsError:
+            pass
+        metadata = os.lstat(current)
+        if _redirecting(metadata) or not stat.S_ISDIR(metadata.st_mode):
+            raise ArchiveError("archive member ancestry is not a regular directory")
+
+
+def _write_exclusive(root: Path, relative: Path, raw: bytes) -> None:
+    path = _absolute(root / relative)
+    _ensure_archive_parent(root, path.parent)
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_BINARY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    try:
+        descriptor = os.open(path, flags, 0o600)
     except OSError as exc:
         raise ArchiveError(f"exclusive archive write failed: {path.name}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ArchiveError("exclusive archive target is not a regular file")
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise ArchiveError("exclusive archive write made no progress")
+            view = view[written:]
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    after = os.lstat(path)
+    if _redirecting(after) or (after.st_dev, after.st_ino) != (metadata.st_dev, metadata.st_ino):
+        raise ArchiveError("exclusive archive target changed identity")
 
 
 def _receipt_without_hash(receipt: ArchiveReceipt) -> dict[str, Any]:
@@ -429,15 +488,29 @@ def _receipt_without_hash(receipt: ArchiveReceipt) -> dict[str, Any]:
 
 
 def _publish(layout: _ArchiveLayout, captured: _CapturedClosure) -> ArchiveReceipt:
-    layout.destination.parent.mkdir(parents=True, exist_ok=True)
+    destination = _validate_output_destination(layout.destination)
+    staging = destination.with_name(
+        f".{destination.name}.staging-{secrets.token_hex(8)}"
+    )
+    _validate_output_destination(staging)
     try:
-        layout.destination.mkdir()
+        os.mkdir(staging)
     except OSError as exc:
-        raise ArchiveError("archive destination collision during publication") from exc
-    _write_exclusive(layout.destination / "execution-source-manifest.json", captured.manifest_raw)
+        raise ArchiveError("archive staging collision during publication") from exc
+    stage_layout = replace(layout, destination=staging)
+    _write_exclusive(
+        staging,
+        Path("execution-source-manifest.json"),
+        captured.manifest_raw,
+    )
     for relative, raw in captured.payloads:
-        _write_exclusive(layout.destination / "tree" / PurePosixPath(relative), raw)
-    _verify_payloads(layout, captured.records, captured.launcher_record, captured.manifest_raw)
+        _write_exclusive(staging, Path("tree") / PurePosixPath(relative), raw)
+    _verify_payloads(
+        stage_layout,
+        captured.records,
+        captured.launcher_record,
+        captured.manifest_raw,
+    )
     provisional = ArchiveReceipt(
         schema_version=RECEIPT_SCHEMA_VERSION,
         manifest_sha256=_sha256(captured.manifest_raw),
@@ -460,8 +533,20 @@ def _publish(layout: _ArchiveLayout, captured: _CapturedClosure) -> ArchiveRecei
         _canonical_json(_receipt_without_hash(provisional))
     )
     receipt = ArchiveReceipt(**receipt_payload)
-    _write_exclusive(layout.destination / "archival-receipt.json", _canonical_json(receipt.as_dict()))
-    return receipt
+    _write_exclusive(
+        staging,
+        Path("archival-receipt.json"),
+        _canonical_json(receipt.as_dict()),
+    )
+    _receipt_from_raw((staging / "archival-receipt.json").read_bytes())
+    _validate_output_destination(destination)
+    try:
+        os.rename(staging, destination)
+    except OSError as exc:
+        raise ArchiveError(
+            f"archive staging retained after failed publication: {staging}"
+        ) from exc
+    return _verify_archived_source_closure_for_test(layout)
 
 
 def _verify_payloads(
@@ -471,11 +556,12 @@ def _verify_payloads(
     manifest_raw: bytes,
 ) -> None:
     manifest_copy = layout.destination / "execution-source-manifest.json"
-    try:
-        if manifest_copy.read_bytes() != manifest_raw:
-            raise ArchiveError("archived manifest bytes drifted")
-    except OSError as exc:
-        raise ArchiveError("archived manifest is missing") from exc
+    manifest_record = {
+        "bytes": len(manifest_raw),
+        "sha256": _sha256(manifest_raw),
+    }
+    if _capture_file(manifest_copy, manifest_record, where="archived manifest") != manifest_raw:
+        raise ArchiveError("archived manifest bytes drifted")
     expected: dict[str, Mapping[str, Any]] = {
         f"tree/{record['path']}": record for record in records
     }
@@ -485,13 +571,67 @@ def _verify_payloads(
         raw = _capture_file(path, record, where=f"archived {relative}")
         if _sha256(raw) != record["sha256"]:
             raise ArchiveError(f"archived {relative} hash drifted")
-    actual = {
-        path.relative_to(layout.destination).as_posix()
-        for path in (layout.destination / "tree").rglob("*")
-        if path.is_file()
+    actual_files, actual_directories = _scan_exact_tree(layout.destination / "tree")
+    expected_files = {relative.removeprefix("tree/") for relative in expected}
+    expected_directories = {
+        parent.as_posix()
+        for relative in expected_files
+        for parent in PurePosixPath(relative).parents
+        if parent.as_posix() != "."
     }
-    if actual != set(expected):
+    if actual_files != expected_files or actual_directories != expected_directories:
         raise ArchiveError("archived tree has extra or missing membership")
+
+
+def _scan_exact_tree(root: Path) -> tuple[set[str], set[str]]:
+    root_metadata = os.lstat(root)
+    if _redirecting(root_metadata) or not stat.S_ISDIR(root_metadata.st_mode):
+        raise ArchiveError("archived tree root must be a non-redirecting directory")
+    files: set[str] = set()
+    directories: set[str] = set()
+
+    def visit(directory: Path, prefix: PurePosixPath) -> None:
+        try:
+            entries = tuple(os.scandir(directory))
+        except OSError as exc:
+            raise ArchiveError("cannot enumerate archived tree safely") from exc
+        for entry in entries:
+            metadata = entry.stat(follow_symlinks=False)
+            relative = prefix / entry.name
+            name = relative.as_posix()
+            if _redirecting(metadata):
+                raise ArchiveError("archived tree contains a link or reparse member")
+            if stat.S_ISREG(metadata.st_mode):
+                files.add(name)
+            elif stat.S_ISDIR(metadata.st_mode):
+                directories.add(name)
+                visit(Path(entry.path), relative)
+            else:
+                raise ArchiveError("archived tree contains a non-file member")
+
+    visit(root, PurePosixPath())
+    return files, directories
+
+
+def _verify_archive_root_members(destination: Path) -> None:
+    expected = {
+        "execution-source-manifest.json": "file",
+        "tree": "directory",
+        "archival-receipt.json": "file",
+    }
+    actual: dict[str, str] = {}
+    for entry in os.scandir(destination):
+        metadata = entry.stat(follow_symlinks=False)
+        if _redirecting(metadata):
+            raise ArchiveError("archive root contains a link or reparse member")
+        if stat.S_ISREG(metadata.st_mode):
+            actual[entry.name] = "file"
+        elif stat.S_ISDIR(metadata.st_mode):
+            actual[entry.name] = "directory"
+        else:
+            raise ArchiveError("archive root contains a non-file member")
+    if actual != expected:
+        raise ArchiveError("archive root membership is not exact")
 
 
 def _receipt_from_raw(raw: bytes) -> ArchiveReceipt:
@@ -500,8 +640,52 @@ def _receipt_from_raw(raw: bytes) -> ArchiveReceipt:
     if set(payload) != expected_keys:
         raise ArchiveError("archival receipt schema fields are not exact")
     mismatches = payload.get("current_worktree_mismatches")
-    if not isinstance(mismatches, list) or not all(isinstance(item, dict) for item in mismatches):
+    if not isinstance(mismatches, list) or not all(
+        isinstance(item, dict)
+        and set(item) == {"actual_sha256", "expected_sha256", "path"}
+        for item in mismatches
+    ):
         raise ArchiveError("archival receipt mismatch records are malformed")
+    for index, item in enumerate(mismatches):
+        _bounded_relative(item["path"], where=f"receipt mismatch {index} path")
+        _require_sha256(
+            item["expected_sha256"], where=f"receipt mismatch {index} expected SHA-256"
+        )
+        if item["actual_sha256"] != "missing":
+            _require_sha256(
+                item["actual_sha256"], where=f"receipt mismatch {index} actual SHA-256"
+            )
+    for field_name in (
+        "manifest_sha256",
+        "source_tree_sha256",
+        "launcher_sha256",
+        "receipt_sha256",
+    ):
+        _require_sha256(payload.get(field_name), where=f"receipt {field_name}")
+    for field_name in ("file_count", "payload_file_count"):
+        value = payload.get(field_name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ArchiveError(f"receipt {field_name} must be a non-negative integer")
+    timestamp = payload.get("archived_at_utc")
+    if not isinstance(timestamp, str):
+        raise ArchiveError("receipt timestamp must be canonical UTC text")
+    try:
+        parsed_timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as exc:
+        raise ArchiveError("receipt timestamp must be canonical UTC text") from exc
+    if parsed_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") != timestamp:
+        raise ArchiveError("receipt timestamp must be canonical UTC text")
+    for field_name in (
+        "source_manifest_origin",
+        "clean_runtime_origin",
+        "launcher_origin",
+        "archive_destination",
+        "provenance_label",
+        "schema_version",
+    ):
+        value = payload.get(field_name)
+        if not isinstance(value, str) or not value:
+            raise ArchiveError(f"receipt {field_name} must be non-empty text")
     payload["current_worktree_mismatches"] = tuple(mismatches)
     try:
         receipt = ArchiveReceipt(**payload)
@@ -514,6 +698,13 @@ def _receipt_from_raw(raw: bytes) -> ArchiveReceipt:
 
 
 def _verify_archived_source_closure_for_test(layout: _ArchiveLayout) -> ArchiveReceipt:
+    _validate_ancestry(
+        layout.destination.parent,
+        layout.destination,
+        target_file=False,
+        where="archive destination",
+    )
+    _verify_archive_root_members(layout.destination)
     manifest_copy = layout.destination / "execution-source-manifest.json"
     try:
         manifest_raw = manifest_copy.read_bytes()
@@ -541,6 +732,10 @@ def _verify_archived_source_closure_for_test(layout: _ArchiveLayout) -> ArchiveR
         != layout.expected_worktree_mismatches
     ):
         raise ArchiveError("archival receipt does not bind the fixed closure")
+    record_hashes = {record["path"]: record["sha256"] for record in records}
+    for mismatch in receipt.current_worktree_mismatches:
+        if mismatch["expected_sha256"] != record_hashes.get(mismatch["path"]):
+            raise ArchiveError("archival receipt mismatch facts do not bind the source manifest")
     return receipt
 
 

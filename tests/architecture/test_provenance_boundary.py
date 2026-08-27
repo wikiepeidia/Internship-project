@@ -97,6 +97,7 @@ def _synthetic_layout(tmp_path: Path) -> archive._ArchiveLayout:
     }
     manifest_path.parent.mkdir(parents=True)
     manifest_path.write_bytes(_canonical_json(manifest))
+    destination.parent.mkdir(parents=True)
     repo_root = tmp_path / "current-repo"
     for relative, raw in members.items():
         path = repo_root / PurePosixPath(relative)
@@ -247,6 +248,44 @@ def test_archive_rejects_overlap_and_redirecting_source_ancestry(tmp_path: Path)
     assert not layout.destination.exists()
 
 
+def test_archive_rejects_redirecting_destination_parent(tmp_path: Path) -> None:
+    layout = _synthetic_layout(tmp_path)
+    redirected_parent = layout.destination.parent
+    real_parent = redirected_parent.with_name("real-historical")
+    redirected_parent.rename(real_parent)
+    try:
+        redirected_parent.symlink_to(real_parent, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - host policy, not product behavior
+        pytest.fail(f"test host cannot create the required temp symlink: {exc}")
+    with pytest.raises(archive.ArchiveError, match="destination.*redirect|symlink|reparse"):
+        archive._archive_bound_source_closure_for_test(layout)
+
+
+def test_failed_archive_publication_keeps_final_destination_retryable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    layout = _synthetic_layout(tmp_path)
+    implementation = archive._write_exclusive
+    calls = 0
+
+    def fail_after_first_member(root: Path, relative: Path, raw: bytes) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise archive.ArchiveError("synthetic staging failure")
+        implementation(root, relative, raw)
+
+    monkeypatch.setattr(archive, "_write_exclusive", fail_after_first_member)
+    with pytest.raises(archive.ArchiveError, match="synthetic staging failure"):
+        archive._archive_bound_source_closure_for_test(layout)
+    assert not layout.destination.exists()
+    assert list(layout.destination.parent.glob(f".{layout.destination.name}.staging-*"))
+
+    monkeypatch.setattr(archive, "_write_exclusive", implementation)
+    archive._archive_bound_source_closure_for_test(layout)
+    assert layout.destination.is_dir()
+
+
 def test_archived_extra_member_and_byte_drift_fail_verification(tmp_path: Path) -> None:
     layout = _synthetic_layout(tmp_path)
     archive._archive_bound_source_closure_for_test(layout)
@@ -257,6 +296,45 @@ def test_archived_extra_member_and_byte_drift_fail_verification(tmp_path: Path) 
     extra.unlink()
     (layout.destination / "tree/src/example.py").write_text("drift\n", encoding="utf-8")
     with pytest.raises(archive.ArchiveError, match="hash|bytes"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+
+def test_archive_verification_rejects_non_file_and_root_members(tmp_path: Path) -> None:
+    layout = _synthetic_layout(tmp_path / "empty")
+    archive._archive_bound_source_closure_for_test(layout)
+    empty = layout.destination / "tree" / "unexpected-empty"
+    empty.mkdir()
+    with pytest.raises(archive.ArchiveError, match="membership"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+    layout = _synthetic_layout(tmp_path / "link")
+    archive._archive_bound_source_closure_for_test(layout)
+    link = layout.destination / "tree" / "redirect.py"
+    try:
+        link.symlink_to(layout.destination / "tree/src/example.py")
+    except OSError as exc:  # pragma: no cover - host policy, not product behavior
+        pytest.fail(f"test host cannot create the required temp symlink: {exc}")
+    with pytest.raises(archive.ArchiveError, match="link|reparse"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+    layout = _synthetic_layout(tmp_path / "root")
+    archive._archive_bound_source_closure_for_test(layout)
+    (layout.destination / "unexpected-root.txt").write_text("extra", encoding="utf-8")
+    with pytest.raises(archive.ArchiveError, match="root membership"):
+        archive._verify_archived_source_closure_for_test(layout)
+
+
+def test_receipt_self_hash_cannot_rebind_false_mismatch_facts(tmp_path: Path) -> None:
+    layout = _synthetic_layout(tmp_path)
+    archive._archive_bound_source_closure_for_test(layout)
+    receipt_path = layout.destination / "archival-receipt.json"
+    receipt = _strict_json(receipt_path.read_bytes())
+    receipt["current_worktree_mismatches"][0]["expected_sha256"] = "f" * 64
+    unsigned = dict(receipt)
+    unsigned.pop("receipt_sha256")
+    receipt["receipt_sha256"] = _sha256(_canonical_json(unsigned))
+    receipt_path.write_bytes(_canonical_json(receipt))
+    with pytest.raises(archive.ArchiveError, match="source manifest"):
         archive._verify_archived_source_closure_for_test(layout)
 
 
