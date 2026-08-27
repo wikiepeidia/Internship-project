@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 import unicodedata
 
 import pytest
@@ -311,6 +312,82 @@ def test_split_ratio_contract_fails_closed(ratios: tuple[float, ...]) -> None:
         core_splits.split_dataset([], split_ratios=ratios)
     with pytest.raises(ValueError, match="split_ratios"):
         DataSettings(split_ratios=ratios, _env_file=None)
+
+
+def test_explicit_zero_similarity_threshold_reaches_dedup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.data_pipeline.processing import dedup, splitter
+
+    captured: dict[str, float] = {}
+    monkeypatch.setattr(dedup, "lexical_dedup", lambda records: records)
+    monkeypatch.setattr(
+        splitter,
+        "split_dataset",
+        lambda records, *, split_ratios, salt: {
+            "train": list(records),
+            "val": [],
+            "test": [],
+        },
+    )
+
+    def capture_threshold(*_splits: object, threshold: float) -> dict[str, list[str]]:
+        captured["threshold"] = threshold
+        return {"val": [], "test": []}
+
+    monkeypatch.setattr(dedup, "cross_split_dedup", capture_threshold)
+
+    splitter.split_and_dedup([], similarity_threshold=0.0)
+
+    assert captured == {"threshold": 0.0}
+
+
+def test_dataset_builder_preserves_explicit_zero_similarity_threshold(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from src.data_pipeline.versioning import build as build_module
+
+    captured: dict[str, float] = {}
+    builder = object.__new__(build_module.DatasetBuilder)
+    builder.settings = SimpleNamespace(
+        data_dir=tmp_path,
+        similarity_threshold=0.85,
+    )
+    builder.version_tag = "synthetic-v1"
+    monkeypatch.setattr(builder, "load_records", lambda _path: [])
+
+    def capture_threshold(
+        _records: list[dict[str, object]], *, similarity_threshold: float
+    ) -> dict[str, list[dict[str, object]]]:
+        captured["threshold"] = similarity_threshold
+        return {}
+
+    monkeypatch.setattr(build_module, "split_and_dedup", capture_threshold)
+    monkeypatch.setattr(
+        build_module,
+        "build_manifest",
+        lambda _root, version: SimpleNamespace(version=version),
+    )
+    monkeypatch.setattr(build_module, "save_manifest", lambda _manifest, _path: None)
+
+    builder.build_splits(
+        input_path=tmp_path / "input.jsonl",
+        output_dir=tmp_path / "output",
+        similarity_threshold=0.0,
+    )
+
+    assert captured == {"threshold": 0.0}
+
+
+@pytest.mark.parametrize("threshold", (-0.1, 1.1, float("nan"), float("inf")))
+def test_similarity_threshold_contract_fails_closed(threshold: float) -> None:
+    from src.config.settings import DataSettings
+    from src.data_pipeline.processing.splitter import split_and_dedup
+
+    with pytest.raises(ValueError, match="similarity_threshold"):
+        DataSettings(similarity_threshold=threshold, _env_file=None)
+    with pytest.raises(ValueError, match="similarity_threshold"):
+        split_and_dedup([], similarity_threshold=threshold)
 
 
 def test_manifest_facade_versions_only_an_explicit_synthetic_root(tmp_path: Path) -> None:

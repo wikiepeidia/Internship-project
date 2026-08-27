@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from src.config.settings import get_data_settings
@@ -20,7 +21,7 @@ def split_dataset(
 ) -> dict[SplitName, list[dict[str, Any]]]:
     """Preserve the old optional-settings split contract."""
 
-    ratios = split_ratios or get_data_settings().split_ratios
+    ratios = get_data_settings().split_ratios if split_ratios is None else split_ratios
     return _split_dataset(records, split_ratios=ratios, salt=salt)
 
 
@@ -35,7 +36,13 @@ def split_and_dedup(
     from src.data_pipeline.processing.dedup import cross_split_dedup, lexical_dedup
 
     settings = get_data_settings()
-    threshold = similarity_threshold or settings.similarity_threshold
+    threshold = (
+        settings.similarity_threshold
+        if similarity_threshold is None
+        else similarity_threshold
+    )
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise ValueError("similarity_threshold must be a finite value in [0, 1]")
     deduped_records = lexical_dedup(records)
     splits = split_dataset(deduped_records, split_ratios=split_ratios, salt=salt)
     removals = cross_split_dedup(

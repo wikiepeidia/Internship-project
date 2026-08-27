@@ -40,7 +40,11 @@ class DatasetBuilder:
         input_file = input_path or (self.settings.data_dir / "processed" / "validated.jsonl")
         splits_dir = output_dir or (self.settings.data_dir / "splits")
         manifests_dir = self.settings.data_dir / "manifests"
-        threshold = similarity_threshold or self.settings.similarity_threshold
+        threshold = (
+            self.settings.similarity_threshold
+            if similarity_threshold is None
+            else similarity_threshold
+        )
 
         records = self.load_records(input_file)
         splits = split_and_dedup(records, similarity_threshold=threshold)

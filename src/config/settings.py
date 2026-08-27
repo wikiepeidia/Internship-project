@@ -69,6 +69,13 @@ class DataSettings(_OwnedSettings):
             raise ValueError("split_ratios must sum to one")
         return value
 
+    @field_validator("similarity_threshold")
+    @classmethod
+    def require_valid_similarity_threshold(cls, value: float) -> float:
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError("similarity_threshold must be a finite value in [0, 1]")
+        return value
+
 
 class ModelingSettings(_OwnedSettings):
     """Local model artifact locations shared by modeling and runtime."""
