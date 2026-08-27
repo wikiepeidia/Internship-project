@@ -292,6 +292,36 @@ def _model_main_contract(module, temp_root: Path) -> dict[str, object]:  # noqa:
     }
 
 
+def test_default_pilot_registry_persists_below_trusted_absolute_root(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    artifacts = importlib.import_module("src.artifacts")
+    commands = importlib.import_module("src.model_adaptation.commands.adaptation")
+    storage_root = tmp_path / "model-storage"
+    registry_path = storage_root / "manifests" / "model-registry.json"
+    storage_root.mkdir()
+    settings = argparse.Namespace(
+        resolved_model_storage_root=storage_root,
+        resolved_model_registry_path=registry_path,
+    )
+    monkeypatch.setattr(commands, "get_settings", lambda: settings)
+    args = argparse.Namespace(
+        dry_run=True,
+        version_tag="synthetic-pilot",
+        evaluated_split="pilot",
+        registry_path=None,
+    )
+
+    assert commands.handle_pilot(args) == 0
+    registry = artifacts.load_model_registry(
+        registry_path,
+        storage_root=storage_root,
+    )
+    assert registry.version_tag == "synthetic-pilot"
+    assert registry.selection is not None
+
+
 def _loaded_forbidden_modules() -> list[str]:
     return sorted(
         name

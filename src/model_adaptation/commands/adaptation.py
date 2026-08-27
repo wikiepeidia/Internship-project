@@ -223,7 +223,7 @@ def _default_split_path(split_name: str) -> Path:
 
 
 def _default_registry_path() -> Path:
-    return get_settings().model_registry_path
+    return get_settings().resolved_model_registry_path
 
 
 def _default_phase_five_split_path() -> Path:
@@ -284,9 +284,10 @@ def _resolve_candidate_alias(candidate_arg: str, selection):  # noqa: ANN001, AN
 def handle_pilot(args: argparse.Namespace) -> int:
     """Run the lightweight pilot scoring scaffold and persist selection metadata."""
 
+    from src.artifacts import ModelRegistry as ActiveModelRegistry
+    from src.artifacts import save_model_registry
     from src.model_adaptation.catalog import build_default_catalog
     from src.model_adaptation.pilot import run_pilot
-    from src.model_adaptation.registry import save_model_registry
     from src.model_adaptation.schemas import ModelRegistry
 
     if not args.dry_run:
@@ -301,8 +302,14 @@ def handle_pilot(args: argparse.Namespace) -> int:
         selection=selection,
         scorecards=scorecards,
     )
-    registry_path = args.registry_path or _default_registry_path()
-    save_model_registry(registry, registry_path)
+    settings = get_settings()
+    registry_path = args.registry_path or settings.resolved_model_registry_path
+    active_registry = ActiveModelRegistry.model_validate(registry.model_dump(mode="json"))
+    save_model_registry(
+        active_registry,
+        registry_path,
+        storage_root=settings.resolved_model_storage_root,
+    )
     print(
         f"Pilot dry-run complete: baseline={selection.baseline_winner_id} "
         f"runner-up={selection.runner_up_id} registry={registry_path}"
@@ -324,7 +331,7 @@ def handle_train(args: argparse.Namespace) -> int:
         args.train_split, args.val_split, repo_root=Path.cwd()
     )
     registry_path = args.registry_path or _default_registry_path()
-    output_root = args.output_root or get_settings().model_artifact_root
+    output_root = args.output_root or get_settings().resolved_model_artifact_root
     selection = _load_selection(registry_path)
     resolved_candidate_id = _resolve_candidate_alias(args.candidate, selection)
     transfer_authority = None
@@ -397,7 +404,7 @@ def handle_convert(args: argparse.Namespace) -> int:
     """Run the GGUF conversion flow for the selected candidate alias."""
 
     registry_path = args.registry_path or _default_registry_path()
-    output_root = args.output_root or get_settings().model_artifact_root
+    output_root = args.output_root or get_settings().resolved_model_artifact_root
     selection = _load_selection(registry_path)
     resolved_candidate_id = _resolve_candidate_alias(args.candidate, selection)
     request = build_gguf_request(
@@ -430,7 +437,7 @@ def handle_doctor(args: argparse.Namespace) -> int:
     registry_path = args.registry_path or _default_registry_path()
     train_split = args.train_split or _default_split_path("train")
     val_split = args.val_split or _default_split_path("val")
-    output_root = args.output_root or get_settings().model_artifact_root
+    output_root = args.output_root or get_settings().resolved_model_artifact_root
     status = run_training_doctor(
         candidate=args.candidate,
         adaptation_mode=AdaptationMode(args.adaptation_mode),
