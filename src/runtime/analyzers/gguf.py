@@ -1,4 +1,4 @@
-"""Laptop-baseline GGUF backend for the Phase 3 local runtime."""
+"""Laptop-friendly GGUF analysis of Vietnamese phishing risk."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, 
 
 
 GGUF_SETUP_GUIDE = (
-    "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and run the Phase 3 GGUF conversion flow to register the selected local artifact."
+    "Install GGUF runtime extras with python -m pip install -e .[dev,runtime] and register the selected local GGUF artifact."
 )
 GGUF_CONTEXT_WINDOW = 512
 GGUF_COMPLETION_MAX_TOKENS = 250

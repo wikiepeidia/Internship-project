@@ -1,4 +1,4 @@
-"""Optional accelerated local backend for stronger Phase 3 hardware."""
+"""Optional GPU-accelerated local analysis of Vietnamese phishing risk."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from src.runtime.contracts import AnalysisRequest, AnalysisResult, DoctorCheck, 
 
 
 ACCELERATED_SETUP_GUIDE = (
-    "Install local training extras with python -m pip install -e .[dev,train] and run the Phase 3 training flow for the selected runner-up model."
+    "Install local training extras with python -m pip install -e .[dev,train] and register the selected adapter and base-model artifacts."
 )
 
 
