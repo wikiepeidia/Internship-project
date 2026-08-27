@@ -416,12 +416,25 @@ def _invoke_with_streams(call) -> tuple[dict[str, object], list[dict[str, str]]]
     events: list[dict[str, str]] = []
     stdout = _StrictEventStream("stdout", events)
     stderr = _StrictEventStream("stderr", events)
+    returned: object = None
+    system_exit: int | str | None = None
+    exception: dict[str, str] | None = None
     with redirect_stdout(stdout), redirect_stderr(stderr):
-        captured = _captured_call(call)
-    captured["stdout"] = stdout.text
-    captured["stderr"] = stderr.text
-    captured["stdout_utf8_hex"] = stdout.text.encode("utf-8").hex()
-    captured["stderr_utf8_hex"] = stderr.text.encode("utf-8").hex()
+        try:
+            returned = call()
+        except SystemExit as exc:
+            system_exit = exc.code
+        except Exception as exc:  # Contract capture intentionally records uncaught behavior.
+            exception = {"type": type(exc).__name__, "message": str(exc)}
+    captured = {
+        "return_value": returned,
+        "system_exit_code": system_exit,
+        "exception": exception,
+        "stdout": stdout.text,
+        "stderr": stderr.text,
+        "stdout_utf8_hex": stdout.text.encode("utf-8").hex(),
+        "stderr_utf8_hex": stderr.text.encode("utf-8").hex(),
+    }
     return captured, events
 
 
@@ -445,7 +458,7 @@ def _model_main_contract(module: ModuleType, temp_root: Path) -> dict[str, objec
 
         module.handle_pilot = fail_handler
         result, _ = _invoke_with_streams(lambda: module.main(argv))
-        caught.append({"exception": exception_type.__name__, **result})
+        caught.append({"caught_exception": exception_type.__name__, **result})
 
     def uncaught_handler(_namespace):  # noqa: ANN001
         raise KeyError("uncaught-marker")
@@ -645,7 +658,7 @@ def _capture_serialization(temp_root: Path) -> dict[str, object]:
             )
             canonical = normalize_root(canonical_text).encode("utf-8")
             return {
-                "field_order": list(model.model_fields),
+                "field_order": list(type(model).model_fields),
                 "compact_utf8": compact.decode("utf-8"),
                 "compact_utf8_hex": compact.hex(),
                 "compact_has_final_newline": compact.endswith(b"\n"),
@@ -694,6 +707,7 @@ def _fixture_bytes(kind: str, temp_root: Path) -> bytes:
 
 
 def _run_fresh_capture(kind: str, temp_root: Path) -> bytes:
+    temp_root = Path(os.path.abspath(temp_root))
     temp_root.mkdir(parents=True, exist_ok=False)
     bootstrap = REPO_ROOT / "tests/architecture/bootstrap"
     env = dict(os.environ)
@@ -771,12 +785,21 @@ def test_model_fixture_freezes_complete_parser_and_main_contract() -> None:
     } <= case_names
     main = fixture["main_contract"]
     assert main["successful_handler"]["return_value"] == 7
-    assert [row["exception"] for row in main["caught_exceptions"]] == [
+    assert [row["caught_exception"] for row in main["caught_exceptions"]] == [
         "RuntimeError",
         "ValueError",
         "FileNotFoundError",
     ]
     assert {row["return_value"] for row in main["caught_exceptions"]} == {1}
+    assert all("\\u1ed7i" in row["stderr"] for row in main["caught_exceptions"])
+    assert [event["channel"] for event in main["successful_handler"]["events"]] == [
+        "stdout",
+        "stdout",
+        "stderr",
+        "stderr",
+        "stdout",
+        "stdout",
+    ]
     assert main["uncaught_exception"]["exception"]["type"] == "KeyError"
 
 
@@ -833,12 +856,21 @@ def test_serialization_fixture_freezes_unicode_enums_keys_and_newlines() -> None
 
 def _main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--capture", choices=tuple(FIXTURE_PATHS))
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--capture", choices=tuple(FIXTURE_PATHS))
+    mode.add_argument("--write-fixtures", action="store_true")
     parser.add_argument("--temp-root", type=Path)
     args = parser.parse_args()
-    if args.capture is None or args.temp_root is None:
-        parser.error("--capture and --temp-root are required")
-    sys.stdout.buffer.write(_fixture_bytes(args.capture, args.temp_root))
+    if args.temp_root is None:
+        parser.error("--temp-root is required")
+    if args.write_fixtures:
+        args.temp_root.mkdir(parents=True, exist_ok=False)
+        for kind, fixture_path in FIXTURE_PATHS.items():
+            fixture_path.write_bytes(
+                _run_fresh_capture(kind, args.temp_root / f"capture-{kind}")
+            )
+    else:
+        sys.stdout.buffer.write(_fixture_bytes(args.capture, args.temp_root))
     return 0
 
 

@@ -1,0 +1,149 @@
+{
+  "schema_version": "phase411-serialization-contract-v1",
+  "enums": {
+    "channel": [
+      "unknown",
+      "sms",
+      "zalo",
+      "messenger",
+      "telegram",
+      "facebook"
+    ],
+    "risk_tier": [
+      "benign",
+      "suspicious",
+      "high-risk"
+    ],
+    "threat_label": [
+      "bank_impersonation",
+      "zalo_social_engineering",
+      "task_scam",
+      "benign"
+    ],
+    "release_verdict": [
+      "PASS",
+      "BLOCK",
+      "FLAG"
+    ]
+  },
+  "release_constants": {
+    "locked_labels": [
+      "bank_impersonation",
+      "zalo_social_engineering",
+      "task_scam",
+      "benign"
+    ],
+    "risky_labels": [
+      "bank_impersonation",
+      "zalo_social_engineering",
+      "task_scam"
+    ],
+    "uniform_risky_recall_floor": 0.9,
+    "per_label_recall_floors": {
+      "bank_impersonation": 0.9,
+      "zalo_social_engineering": 0.9,
+      "task_scam": 0.8
+    }
+  },
+  "analysis_result": {
+    "field_order": [
+      "risk_tier",
+      "summary",
+      "top_cues",
+      "threat_labels",
+      "recommendations",
+      "backend_name",
+      "provisional",
+      "normalized_text"
+    ],
+    "compact_utf8": "{\"risk_tier\":\"high-risk\",\"summary\":\"Cảnh báo chuyển khoản khẩn cấp\",\"top_cues\":[{\"span\":\"chuyển ngay\",\"reason\":\"Gây áp lực\",\"cue_type\":null}],\"threat_labels\":[\"bank_impersonation\",\"task_scam\"],\"recommendations\":[\"Không bấm liên kết lạ\"],\"backend_name\":\"bộ phân tích cục bộ\",\"provisional\":true,\"normalized_text\":\"Tin nhắn tiếng Việt đã chuẩn hóa\"}",
+    "compact_utf8_hex": "7b227269736b5f74696572223a22686967682d7269736b222c2273756d6d617279223a2243e1baa36e682062c3a16f2063687579e1bb836e206b686fe1baa36e206b68e1baa96e2063e1baa570222c22746f705f63756573223a5b7b227370616e223a2263687579e1bb836e206e676179222c22726561736f6e223a2247c3a27920c3a170206ce1bbb163222c226375655f74797065223a6e756c6c7d5d2c227468726561745f6c6162656c73223a5b2262616e6b5f696d706572736f6e6174696f6e222c227461736b5f7363616d225d2c227265636f6d6d656e646174696f6e73223a5b224b68c3b46e672062e1baa56d206c69c3aa6e206be1babf74206ce1baa1225d2c226261636b656e645f6e616d65223a2262e1bb99207068c3a26e2074c3ad63682063e1bba5632062e1bb99222c2270726f766973696f6e616c223a747275652c226e6f726d616c697a65645f74657874223a2254696e206e68e1baaf6e207469e1babf6e67205669e1bb877420c491c3a320636875e1baa96e2068c3b361227d",
+    "compact_has_final_newline": false,
+    "indented_utf8": "{\n  \"risk_tier\": \"high-risk\",\n  \"summary\": \"Cảnh báo chuyển khoản khẩn cấp\",\n  \"top_cues\": [\n    {\n      \"span\": \"chuyển ngay\",\n      \"reason\": \"Gây áp lực\",\n      \"cue_type\": null\n    }\n  ],\n  \"threat_labels\": [\n    \"bank_impersonation\",\n    \"task_scam\"\n  ],\n  \"recommendations\": [\n    \"Không bấm liên kết lạ\"\n  ],\n  \"backend_name\": \"bộ phân tích cục bộ\",\n  \"provisional\": true,\n  \"normalized_text\": \"Tin nhắn tiếng Việt đã chuẩn hóa\"\n}",
+    "indented_has_final_newline": false,
+    "canonical_lf_utf8_hex": "7b227269736b5f74696572223a22686967682d7269736b222c2273756d6d617279223a2243e1baa36e682062c3a16f2063687579e1bb836e206b686fe1baa36e206b68e1baa96e2063e1baa570222c22746f705f63756573223a5b7b227370616e223a2263687579e1bb836e206e676179222c22726561736f6e223a2247c3a27920c3a170206ce1bbb163222c226375655f74797065223a6e756c6c7d5d2c227468726561745f6c6162656c73223a5b2262616e6b5f696d706572736f6e6174696f6e222c227461736b5f7363616d225d2c227265636f6d6d656e646174696f6e73223a5b224b68c3b46e672062e1baa56d206c69c3aa6e206be1babf74206ce1baa1225d2c226261636b656e645f6e616d65223a2262e1bb99207068c3a26e2074c3ad63682063e1bba5632062e1bb99222c2270726f766973696f6e616c223a747275652c226e6f726d616c697a65645f74657874223a2254696e206e68e1baaf6e207469e1babf6e67205669e1bb877420c491c3a320636875e1baa96e2068c3b361227d0a",
+    "canonical_has_one_final_newline": true
+  },
+  "dataset_record": {
+    "field_order": [
+      "text",
+      "label",
+      "risk_tier",
+      "suspicious_spans",
+      "xai_explanation",
+      "source",
+      "seed_id"
+    ],
+    "compact_utf8": "{\"text\":\"Ngân hàng yêu cầu chuyển khoản ngay hôm nay\",\"label\":\"bank_impersonation\",\"risk_tier\":\"high-risk\",\"suspicious_spans\":[\"chuyển khoản ngay\"],\"xai_explanation\":\"Yêu cầu khẩn cấp và giả danh ngân hàng là dấu hiệu đáng ngờ.\",\"source\":\"synthetic_claude\",\"seed_id\":\"synthetic-seed-001\"}",
+    "compact_utf8_hex": "7b2274657874223a224e67c3a26e2068c3a06e672079c3aa752063e1baa7752063687579e1bb836e206b686fe1baa36e206e6761792068c3b46d206e6179222c226c6162656c223a2262616e6b5f696d706572736f6e6174696f6e222c227269736b5f74696572223a22686967682d7269736b222c22737573706963696f75735f7370616e73223a5b2263687579e1bb836e206b686fe1baa36e206e676179225d2c227861695f6578706c616e6174696f6e223a2259c3aa752063e1baa775206b68e1baa96e2063e1baa5702076c3a0206769e1baa32064616e68206e67c3a26e2068c3a06e67206cc3a02064e1baa575206869e1bb877520c491c3a16e67206e67e1bb9d2e222c22736f75726365223a2273796e7468657469635f636c61756465222c22736565645f6964223a2273796e7468657469632d736565642d303031227d",
+    "compact_has_final_newline": false,
+    "indented_utf8": "{\n  \"text\": \"Ngân hàng yêu cầu chuyển khoản ngay hôm nay\",\n  \"label\": \"bank_impersonation\",\n  \"risk_tier\": \"high-risk\",\n  \"suspicious_spans\": [\n    \"chuyển khoản ngay\"\n  ],\n  \"xai_explanation\": \"Yêu cầu khẩn cấp và giả danh ngân hàng là dấu hiệu đáng ngờ.\",\n  \"source\": \"synthetic_claude\",\n  \"seed_id\": \"synthetic-seed-001\"\n}",
+    "indented_has_final_newline": false,
+    "canonical_lf_utf8_hex": "7b2274657874223a224e67c3a26e2068c3a06e672079c3aa752063e1baa7752063687579e1bb836e206b686fe1baa36e206e6761792068c3b46d206e6179222c226c6162656c223a2262616e6b5f696d706572736f6e6174696f6e222c227269736b5f74696572223a22686967682d7269736b222c22737573706963696f75735f7370616e73223a5b2263687579e1bb836e206b686fe1baa36e206e676179225d2c227861695f6578706c616e6174696f6e223a2259c3aa752063e1baa775206b68e1baa96e2063e1baa5702076c3a0206769e1baa32064616e68206e67c3a26e2068c3a06e67206cc3a02064e1baa575206869e1bb877520c491c3a16e67206e67e1bb9d2e222c22736f75726365223a2273796e7468657469635f636c61756465222c22736565645f6964223a2273796e7468657469632d736565642d303031227d0a",
+    "canonical_has_one_final_newline": true
+  },
+  "release_evaluation_artifact": {
+    "field_order": [
+      "run_id",
+      "verdict",
+      "risky_recall_floor",
+      "overall_metrics",
+      "per_label_metrics",
+      "blocker_reasons",
+      "flag_reasons",
+      "explanation_rubric_summary",
+      "readiness_audit"
+    ],
+    "compact_utf8": "{\"run_id\":\"synthetic-release\",\"verdict\":\"PASS\",\"risky_recall_floor\":0.9,\"overall_metrics\":{\"macro_f1\":0.9,\"weighted_f1\":0.9,\"evaluated_rows\":4},\"per_label_metrics\":[{\"label\":\"bank_impersonation\",\"precision\":0.9,\"recall\":0.9,\"f1\":0.9,\"support\":1,\"recall_floor_applies\":true},{\"label\":\"zalo_social_engineering\",\"precision\":0.9,\"recall\":0.9,\"f1\":0.9,\"support\":1,\"recall_floor_applies\":true},{\"label\":\"task_scam\",\"precision\":0.9,\"recall\":0.9,\"f1\":0.9,\"support\":1,\"recall_floor_applies\":true},{\"label\":\"benign\",\"precision\":0.9,\"recall\":0.9,\"f1\":0.9,\"support\":1,\"recall_floor_applies\":false}],\"blocker_reasons\":[],\"flag_reasons\":[],\"explanation_rubric_summary\":{\"evaluated_risky_predictions\":3,\"manual_reviewed_predictions\":3,\"blocker_reasons\":[],\"flag_reasons\":[]},\"readiness_audit\":{\"evaluated_split_path\":\"<TMP_ROOT>\\\\synthetic-heldout.jsonl\",\"evaluated_split_root\":null,\"locked_label_order\":[\"bank_impersonation\",\"zalo_social_engineering\",\"task_scam\",\"benign\"],\"risky_labels\":[\"bank_impersonation\",\"zalo_social_engineering\",\"task_scam\"],\"risky_recall_floor\":0.9,\"support_by_label\":{\"bank_impersonation\":1,\"zalo_social_engineering\":1,\"task_scam\":1,\"benign\":1},\"blocker_reasons\":[],\"ready\":true,\"verdict\":\"PASS\"}}",
+    "compact_utf8_hex": "7b2272756e5f6964223a2273796e7468657469632d72656c65617365222c2276657264696374223a2250415353222c227269736b795f726563616c6c5f666c6f6f72223a302e392c226f766572616c6c5f6d657472696373223a7b226d6163726f5f6631223a302e392c2277656967687465645f6631223a302e392c226576616c75617465645f726f7773223a347d2c227065725f6c6162656c5f6d657472696373223a5b7b226c6162656c223a2262616e6b5f696d706572736f6e6174696f6e222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a227a616c6f5f736f6369616c5f656e67696e656572696e67222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a227461736b5f7363616d222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a2262656e69676e222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a66616c73657d5d2c22626c6f636b65725f726561736f6e73223a5b5d2c22666c61675f726561736f6e73223a5b5d2c226578706c616e6174696f6e5f7275627269635f73756d6d617279223a7b226576616c75617465645f7269736b795f70726564696374696f6e73223a332c226d616e75616c5f72657669657765645f70726564696374696f6e73223a332c22626c6f636b65725f726561736f6e73223a5b5d2c22666c61675f726561736f6e73223a5b5d7d2c2272656164696e6573735f6175646974223a7b226576616c75617465645f73706c69745f70617468223a223c544d505f524f4f543e5c5c73796e7468657469632d68656c646f75742e6a736f6e6c222c226576616c75617465645f73706c69745f726f6f74223a6e756c6c2c226c6f636b65645f6c6162656c5f6f72646572223a5b2262616e6b5f696d706572736f6e6174696f6e222c227a616c6f5f736f6369616c5f656e67696e656572696e67222c227461736b5f7363616d222c2262656e69676e225d2c227269736b795f6c6162656c73223a5b2262616e6b5f696d706572736f6e6174696f6e222c227a616c6f5f736f6369616c5f656e67696e656572696e67222c227461736b5f7363616d225d2c227269736b795f726563616c6c5f666c6f6f72223a302e392c22737570706f72745f62795f6c6162656c223a7b2262616e6b5f696d706572736f6e6174696f6e223a312c227a616c6f5f736f6369616c5f656e67696e656572696e67223a312c227461736b5f7363616d223a312c2262656e69676e223a317d2c22626c6f636b65725f726561736f6e73223a5b5d2c227265616479223a747275652c2276657264696374223a2250415353227d7d",
+    "compact_has_final_newline": false,
+    "indented_utf8": "{\n  \"run_id\": \"synthetic-release\",\n  \"verdict\": \"PASS\",\n  \"risky_recall_floor\": 0.9,\n  \"overall_metrics\": {\n    \"macro_f1\": 0.9,\n    \"weighted_f1\": 0.9,\n    \"evaluated_rows\": 4\n  },\n  \"per_label_metrics\": [\n    {\n      \"label\": \"bank_impersonation\",\n      \"precision\": 0.9,\n      \"recall\": 0.9,\n      \"f1\": 0.9,\n      \"support\": 1,\n      \"recall_floor_applies\": true\n    },\n    {\n      \"label\": \"zalo_social_engineering\",\n      \"precision\": 0.9,\n      \"recall\": 0.9,\n      \"f1\": 0.9,\n      \"support\": 1,\n      \"recall_floor_applies\": true\n    },\n    {\n      \"label\": \"task_scam\",\n      \"precision\": 0.9,\n      \"recall\": 0.9,\n      \"f1\": 0.9,\n      \"support\": 1,\n      \"recall_floor_applies\": true\n    },\n    {\n      \"label\": \"benign\",\n      \"precision\": 0.9,\n      \"recall\": 0.9,\n      \"f1\": 0.9,\n      \"support\": 1,\n      \"recall_floor_applies\": false\n    }\n  ],\n  \"blocker_reasons\": [],\n  \"flag_reasons\": [],\n  \"explanation_rubric_summary\": {\n    \"evaluated_risky_predictions\": 3,\n    \"manual_reviewed_predictions\": 3,\n    \"blocker_reasons\": [],\n    \"flag_reasons\": []\n  },\n  \"readiness_audit\": {\n    \"evaluated_split_path\": \"<TMP_ROOT>\\\\synthetic-heldout.jsonl\",\n    \"evaluated_split_root\": null,\n    \"locked_label_order\": [\n      \"bank_impersonation\",\n      \"zalo_social_engineering\",\n      \"task_scam\",\n      \"benign\"\n    ],\n    \"risky_labels\": [\n      \"bank_impersonation\",\n      \"zalo_social_engineering\",\n      \"task_scam\"\n    ],\n    \"risky_recall_floor\": 0.9,\n    \"support_by_label\": {\n      \"bank_impersonation\": 1,\n      \"zalo_social_engineering\": 1,\n      \"task_scam\": 1,\n      \"benign\": 1\n    },\n    \"blocker_reasons\": [],\n    \"ready\": true,\n    \"verdict\": \"PASS\"\n  }\n}",
+    "indented_has_final_newline": false,
+    "canonical_lf_utf8_hex": "7b2272756e5f6964223a2273796e7468657469632d72656c65617365222c2276657264696374223a2250415353222c227269736b795f726563616c6c5f666c6f6f72223a302e392c226f766572616c6c5f6d657472696373223a7b226d6163726f5f6631223a302e392c2277656967687465645f6631223a302e392c226576616c75617465645f726f7773223a347d2c227065725f6c6162656c5f6d657472696373223a5b7b226c6162656c223a2262616e6b5f696d706572736f6e6174696f6e222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a227a616c6f5f736f6369616c5f656e67696e656572696e67222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a227461736b5f7363616d222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a747275657d2c7b226c6162656c223a2262656e69676e222c22707265636973696f6e223a302e392c22726563616c6c223a302e392c226631223a302e392c22737570706f7274223a312c22726563616c6c5f666c6f6f725f6170706c696573223a66616c73657d5d2c22626c6f636b65725f726561736f6e73223a5b5d2c22666c61675f726561736f6e73223a5b5d2c226578706c616e6174696f6e5f7275627269635f73756d6d617279223a7b226576616c75617465645f7269736b795f70726564696374696f6e73223a332c226d616e75616c5f72657669657765645f70726564696374696f6e73223a332c22626c6f636b65725f726561736f6e73223a5b5d2c22666c61675f726561736f6e73223a5b5d7d2c2272656164696e6573735f6175646974223a7b226576616c75617465645f73706c69745f70617468223a223c544d505f524f4f543e5c5c73796e7468657469632d68656c646f75742e6a736f6e6c222c226576616c75617465645f73706c69745f726f6f74223a6e756c6c2c226c6f636b65645f6c6162656c5f6f72646572223a5b2262616e6b5f696d706572736f6e6174696f6e222c227a616c6f5f736f6369616c5f656e67696e656572696e67222c227461736b5f7363616d222c2262656e69676e225d2c227269736b795f6c6162656c73223a5b2262616e6b5f696d706572736f6e6174696f6e222c227a616c6f5f736f6369616c5f656e67696e656572696e67222c227461736b5f7363616d225d2c227269736b795f726563616c6c5f666c6f6f72223a302e392c22737570706f72745f62795f6c6162656c223a7b2262616e6b5f696d706572736f6e6174696f6e223a312c227a616c6f5f736f6369616c5f656e67696e656572696e67223a312c227461736b5f7363616d223a312c2262656e69676e223a317d2c22626c6f636b65725f726561736f6e73223a5b5d2c227265616479223a747275652c2276657264696374223a2250415353227d7d0a",
+    "canonical_has_one_final_newline": true
+  },
+  "phase41_literals": {
+    "artifact_names": {
+      "PREPARED_NAME": "evaluation-request.json",
+      "AUTHORIZATION_NAME": "one-shot-authorization.json",
+      "CLAIM_NAME": "one-shot-claim.json",
+      "QWEN_PREDICTIONS_NAME": "qwen-predictions.jsonl",
+      "PHOBERT_PREDICTIONS_NAME": "phobert-predictions.jsonl",
+      "RESULTS_NAME": "results.json",
+      "REPORT_NAME": "results.md",
+      "TERMINAL_NAME": "terminal.json",
+      "PREAUTHORIZATION_NAME": "preauthorization-receipt.json",
+      "PROTOCOLS_NAME": "frozen-inference-protocols.json",
+      "SOURCE_MANIFEST_NAME": "execution-source-manifest.json",
+      "ACCESS_RECEIPT_NAME": "evaluation-access-receipt.json",
+      "EVIDENCE_MANIFEST_NAME": "evidence-manifest.json",
+      "DEPLOYMENT_DISPOSITION_NAME": "deployment-fit-disposition.json",
+      "OPERATIONAL_ROOT_NAME": "phase41-evaluation-evidence",
+      "EXPORT_RECEIPT_NAME": "verified-export-receipt.json",
+      "MATERIALIZATION_RECEIPT_NAME": "execution-materialization-receipt.json",
+      "COMPLETION_SEAL_NAME": "protected-completion-seal.json"
+    },
+    "schema_versions": [
+      "phase41-deployment-fit-disposition-v1",
+      "phase41-evaluation-access-v1",
+      "phase41-evidence-manifest-v1",
+      "phase41-execution-materialization-v1",
+      "phase41-execution-source-manifest-v1",
+      "phase41-explicit-authorization-v1",
+      "phase41-one-shot-claim-v1",
+      "phase41-one-shot-request-v1",
+      "phase41-one-shot-results-v1",
+      "phase41-preauthorization-receipt-v1",
+      "phase41-preauthorization-receipt-v2",
+      "phase41-prediction-row-v1",
+      "phase41-protected-completion-journal-v1",
+      "phase41-protected-completion-seal-v1",
+      "phase41-terminal-v1",
+      "phase41-verified-repository-export-v1"
+    ]
+  },
+  "newline_policy": {
+    "pydantic_model_dump_json": "no trailing newline",
+    "canonical_json_artifact": "exactly one LF trailing newline"
+  }
+}
