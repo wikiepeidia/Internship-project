@@ -20,6 +20,7 @@ POLICY_FIELDS = {
     "active_modules",
     "allowed_edges",
     "compatibility_adapters",
+    "data_modules",
     "forbidden_historical_targets",
     "historical_modules",
     "historical_sccs",
@@ -86,6 +87,24 @@ def _string_set(policy: Mapping[str, Any], field: str) -> set[str]:
     assert all(isinstance(value, str) and value for value in values)
     assert len(values) == len(set(values))
     return set(values)
+
+
+def _data_module_classes(policy: Mapping[str, Any]) -> dict[str, set[str]]:
+    values = policy["data_modules"]
+    assert isinstance(values, dict)
+    assert set(values) == {"compatibility", "core", "migrations", "workflows"}
+    classes: dict[str, set[str]] = {}
+    for category, modules in values.items():
+        assert isinstance(modules, list)
+        assert all(isinstance(module, str) and module for module in modules)
+        assert len(modules) == len(set(modules))
+        classes[category] = set(modules)
+    classified: set[str] = set()
+    for category, modules in classes.items():
+        overlap = classified & modules
+        assert not overlap, f"duplicate data modules in {category}: {sorted(overlap)}"
+        classified.update(modules)
+    return classes
 
 
 def _owned_modules(path: Path) -> tuple[str, ...]:
@@ -193,6 +212,36 @@ def test_policy_closes_every_relevant_module_and_ownership_index() -> None:
         _owned_modules(PHASE41_INDEX)
     ) == historical
     assert not any("phase40" in name.lower() or "phase41" in name.lower() for name in active)
+
+
+def test_data_pipeline_classification_is_closed_and_migrations_are_isolated() -> None:
+    policy = _policy()
+    modules = _module_paths()
+    edges = _import_edges(modules)
+    classes = _data_module_classes(policy)
+    classified = set().union(*classes.values())
+    data_pipeline_modules = {
+        module
+        for module in modules
+        if module == "src.data_pipeline" or module.startswith("src.data_pipeline.")
+    }
+    migration_catalog = "src.data_pipeline.migrations"
+    preserved_repairs = {
+        "src.data_pipeline.apply_mislabel_triage",
+        "src.data_pipeline.apply_task_scam_risk_tier_repair",
+        "src.data_pipeline.reconstruct_zalo_direct_catalog",
+        "src.data_pipeline.repair_corpus_split_governance",
+        "src.data_pipeline.repair_zalo_narrator_scaffold",
+    }
+
+    assert classified == data_pipeline_modules
+    assert classes["migrations"] == preserved_repairs | {migration_catalog}
+    assert not any(
+        target in classes["migrations"]
+        for source in _string_set(policy, "active_modules")
+        for target in edges[source]
+    )
+    assert not any(target == migration_catalog for source in classes["workflows"] for target in edges[source])
 
 
 def test_only_named_compatibility_adapters_cross_into_history() -> None:
