@@ -2,14 +2,301 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
-from src.core.integrity import IntegrityError, strict_json_object
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from src.core.integrity import (
+    IntegrityError,
+    atomic_replace_new_artifact,
+    strict_json_object,
+)
+
+
+LockedCandidateId = Literal[
+    "qwen3.5-4b",
+    "qwen3-4b-instruct-2507",
+    "qwen2.5-7b-instruct",
+]
+ArtifactType = Literal["adapter", "gguf"]
+EvaluatedSplit = Literal["train", "val", "test", "pilot"]
+ThreatLabel = Literal[
+    "bank_impersonation",
+    "zalo_social_engineering",
+    "task_scam",
+    "benign",
+]
+RiskyThreatLabel = Literal["bank_impersonation", "zalo_social_engineering", "task_scam"]
+ReleaseVerdict = Literal["PASS", "BLOCK", "FLAG"]
+
+LOCKED_RELEASE_LABELS: tuple[ThreatLabel, ...] = (
+    "bank_impersonation",
+    "zalo_social_engineering",
+    "task_scam",
+    "benign",
+)
+LOCKED_RISKY_LABELS: tuple[RiskyThreatLabel, ...] = (
+    "bank_impersonation",
+    "zalo_social_engineering",
+    "task_scam",
+)
+UNIFORM_RISKY_RECALL_FLOOR = 0.90
+RISKY_LABEL_RECALL_FLOORS: dict[str, float] = {
+    "bank_impersonation": 0.90,
+    "zalo_social_engineering": 0.90,
+    "task_scam": 0.80,
+}
+LAPTOP_BASELINE_CANDIDATE_IDS: tuple[LockedCandidateId, ...] = (
+    "qwen3.5-4b",
+    "qwen3-4b-instruct-2507",
+)
 
 
 class ArtifactError(RuntimeError):
     """Raised when an active artifact does not satisfy its contract."""
+
+
+class PilotScorecard(BaseModel):
+    """Deterministic pilot metrics for one candidate on one split."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: LockedCandidateId
+    hf_source: str = Field(min_length=1)
+    evaluated_split: EvaluatedSplit = "val"
+    quality_score: float = Field(ge=0.0, le=1.0)
+    recall_score: float = Field(ge=0.0, le=1.0)
+    latency_score: float = Field(ge=0.0, le=1.0)
+    memory_fit_score: float = Field(ge=0.0, le=1.0)
+    hardware_penalty: float = Field(default=0.0, ge=0.0)
+    profile_notes: str = Field(min_length=1)
+    local_output_path: Path | None = None
+
+    @field_validator("hf_source", "profile_notes")
+    @classmethod
+    def reject_blank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be blank")
+        return value
+
+    @field_validator("local_output_path", mode="before")
+    @classmethod
+    def reject_blank_path_input(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("path must not be blank")
+        return value
+
+
+class PilotSelection(BaseModel):
+    """Selected laptop baseline winner plus runner-up."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    baseline_winner_id: LockedCandidateId
+    runner_up_id: LockedCandidateId
+    selection_notes: str | None = None
+
+    @field_validator("selection_notes")
+    @classmethod
+    def reject_blank_notes(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("selection_notes must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validate_selection(self) -> "PilotSelection":
+        if self.baseline_winner_id not in LAPTOP_BASELINE_CANDIDATE_IDS:
+            raise ValueError("baseline_winner_id must be one of the locked 4B laptop candidates")
+        if self.runner_up_id == self.baseline_winner_id:
+            raise ValueError("runner_up_id must differ from baseline_winner_id")
+        return self
+
+
+class ModelArtifactRecord(BaseModel):
+    """Metadata for a local model artifact tracked outside git."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: LockedCandidateId
+    artifact_type: ArtifactType
+    version_tag: str = Field(min_length=1)
+    local_path: Path
+    sha256: str = Field(min_length=64, max_length=64)
+    tracked_in_git: bool = False
+    local_only: bool = True
+    profile_name: str | None = None
+
+    @field_validator("version_tag", "sha256", "profile_name")
+    @classmethod
+    def reject_blank_text(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("value must not be blank")
+        return value
+
+    @field_validator("local_path", mode="before")
+    @classmethod
+    def reject_blank_path_input(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("local_path must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validate_tracking_flags(self) -> "ModelArtifactRecord":
+        if self.local_only and self.tracked_in_git:
+            raise ValueError("local-only artifacts cannot be marked as tracked in git")
+        return self
+
+
+class ModelRegistry(BaseModel):
+    """Persisted selection and artifact metadata for active model work."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version_tag: str = Field(min_length=1)
+    selection: PilotSelection | None = None
+    scorecards: list[PilotScorecard] = Field(default_factory=list)
+    artifacts: list[ModelArtifactRecord] = Field(default_factory=list)
+
+    @field_validator("version_tag")
+    @classmethod
+    def reject_blank_version_tag(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("version_tag must not be blank")
+        return value
+
+
+class HeldOutSupportAudit(BaseModel):
+    """Typed fail-closed support audit for a held-out release slice."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    evaluated_split_path: Path
+    evaluated_split_root: Path | None = None
+    locked_label_order: tuple[ThreatLabel, ...] = LOCKED_RELEASE_LABELS
+    risky_labels: tuple[RiskyThreatLabel, ...] = LOCKED_RISKY_LABELS
+    risky_recall_floor: float = Field(default=UNIFORM_RISKY_RECALL_FLOOR, ge=0.0, le=1.0)
+    support_by_label: dict[ThreatLabel, int]
+    blocker_reasons: list[str] = Field(default_factory=list)
+    ready: bool = False
+    verdict: ReleaseVerdict = "BLOCK"
+
+    @field_validator("support_by_label")
+    @classmethod
+    def normalize_support_by_label(cls, value: dict[ThreatLabel, int]) -> dict[ThreatLabel, int]:
+        unknown_labels = sorted(set(value).difference(LOCKED_RELEASE_LABELS))
+        if unknown_labels:
+            raise ValueError(f"unknown labels in support_by_label: {', '.join(unknown_labels)}")
+        normalized: dict[ThreatLabel, int] = {}
+        for label in LOCKED_RELEASE_LABELS:
+            count = int(value.get(label, 0))
+            if count < 0:
+                raise ValueError("support counts must be non-negative")
+            normalized[label] = count
+        return normalized
+
+    @field_validator("blocker_reasons")
+    @classmethod
+    def reject_blank_blocker_reasons(cls, value: list[str]) -> list[str]:
+        if any(not reason.strip() for reason in value):
+            raise ValueError("blocker reasons must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def align_status_with_blockers(self) -> "HeldOutSupportAudit":
+        self.ready = not self.blocker_reasons
+        self.verdict = "PASS" if self.ready else "BLOCK"
+        return self
+
+
+class PerLabelMetricRow(BaseModel):
+    """Per-label precision, recall, and F1 for release reporting."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: ThreatLabel
+    precision: float = Field(ge=0.0, le=1.0)
+    recall: float = Field(ge=0.0, le=1.0)
+    f1: float = Field(ge=0.0, le=1.0)
+    support: int = Field(ge=0)
+    recall_floor_applies: bool = False
+
+    @model_validator(mode="after")
+    def align_risky_label_flag(self) -> "PerLabelMetricRow":
+        self.recall_floor_applies = self.label in LOCKED_RISKY_LABELS
+        return self
+
+
+class OverallMetricSummary(BaseModel):
+    """Overall held-out metric summary used by the release gate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    macro_f1: float = Field(ge=0.0, le=1.0)
+    weighted_f1: float = Field(ge=0.0, le=1.0)
+    evaluated_rows: int = Field(ge=0)
+
+
+class ExplanationRubricSummary(BaseModel):
+    """Merged deterministic and manual explanation-review findings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    evaluated_risky_predictions: int = Field(ge=0)
+    manual_reviewed_predictions: int = Field(ge=0)
+    blocker_reasons: list[str] = Field(default_factory=list)
+    flag_reasons: list[str] = Field(default_factory=list)
+
+    @field_validator("blocker_reasons", "flag_reasons")
+    @classmethod
+    def reject_blank_reasons(cls, value: list[str]) -> list[str]:
+        if any(not reason.strip() for reason in value):
+            raise ValueError("reasons must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validate_review_counts(self) -> "ExplanationRubricSummary":
+        if self.manual_reviewed_predictions > self.evaluated_risky_predictions:
+            raise ValueError("manual_reviewed_predictions cannot exceed evaluated_risky_predictions")
+        return self
+
+
+class ReleaseEvaluationArtifact(BaseModel):
+    """Canonical release-evaluation contract for active read-only consumers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str = Field(min_length=1)
+    verdict: ReleaseVerdict
+    risky_recall_floor: float = Field(default=UNIFORM_RISKY_RECALL_FLOOR, ge=0.0, le=1.0)
+    overall_metrics: OverallMetricSummary
+    per_label_metrics: list[PerLabelMetricRow] = Field(default_factory=list)
+    blocker_reasons: list[str] = Field(default_factory=list)
+    flag_reasons: list[str] = Field(default_factory=list)
+    explanation_rubric_summary: ExplanationRubricSummary
+    readiness_audit: HeldOutSupportAudit | None = None
+
+    @field_validator("run_id")
+    @classmethod
+    def reject_blank_run_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("run_id must not be blank")
+        return value
+
+    @field_validator("blocker_reasons", "flag_reasons")
+    @classmethod
+    def reject_blank_release_reasons(cls, value: list[str]) -> list[str]:
+        if any(not reason.strip() for reason in value):
+            raise ValueError("reasons must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def require_full_label_metrics(self) -> "ReleaseEvaluationArtifact":
+        metric_labels = [row.label for row in self.per_label_metrics]
+        if metric_labels and metric_labels != list(LOCKED_RELEASE_LABELS):
+            raise ValueError("per_label_metrics must follow the locked release label order")
+        return self
 
 
 def _manifest_models(payload: Mapping[str, Any]) -> list[Any]:
@@ -50,3 +337,40 @@ def load_download_manifest(output_root: Path) -> dict[str, Path]:
             )
         model_paths[candidate_id] = Path(local_path)
     return model_paths
+
+
+def load_model_registry(input_path: Path) -> ModelRegistry:
+    """Load an active model registry from strict UTF-8 JSON."""
+
+    try:
+        payload = strict_json_object(Path(input_path), where="model registry")
+        return ModelRegistry.model_validate(payload)
+    except (IntegrityError, ValidationError) as exc:
+        raise ArtifactError(str(exc)) from exc
+
+
+def save_model_registry(registry: ModelRegistry, output_path: Path) -> Path:
+    """Publish a new registry without replacing an existing artifact."""
+
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        serialized = registry.model_dump_json(indent=2).replace("\n", os.linesep)
+        atomic_replace_new_artifact(
+            target,
+            serialized.encode("utf-8"),
+            where="model registry",
+        )
+    except IntegrityError as exc:
+        raise ArtifactError(str(exc)) from exc
+    return target
+
+
+def load_release_evaluation_artifact(input_path: Path) -> ReleaseEvaluationArtifact:
+    """Load a release artifact without rewriting its source bytes."""
+
+    try:
+        payload = strict_json_object(Path(input_path), where="release evaluation artifact")
+        return ReleaseEvaluationArtifact.model_validate(payload)
+    except (IntegrityError, ValidationError) as exc:
+        raise ArtifactError(str(exc)) from exc
