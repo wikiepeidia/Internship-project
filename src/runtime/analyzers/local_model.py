@@ -85,6 +85,12 @@ LEGITIMATE_OTP_CONTEXT_MARKERS = (
     "hieu luc",
     "hiệu lực",
 )
+LEGITIMATE_OTP_NONDISCLOSURE_MARKERS = (
+    "khong chia se",
+    "không chia sẻ",
+    "giu bao mat",
+    "giữ bảo mật",
+)
 UNSAFE_OTP_ACTION_MARKERS = (
     "http://",
     "https://",
@@ -104,6 +110,32 @@ UNSAFE_OTP_ACTION_MARKERS = (
     "truy cập từ thiết bị lạ",
     "neu ko phai ban",
     "nếu không phải bạn",
+    "chuyen tien",
+    "chuyển tiền",
+    "transfer money",
+    "nap tien",
+    "nạp tiền",
+    "thanh toan",
+    "thanh toán",
+    "dat coc",
+    "đặt cọc",
+    "cai ung dung",
+    "cài ứng dụng",
+    "install app",
+    "cung cap otp",
+    "cung cấp otp",
+    "mat khau",
+    "mật khẩu",
+    "cvv",
+    "cccd",
+    "goi theo so",
+    "gọi theo số",
+    "lien he so",
+    "liên hệ số",
+    "khẩn cấp",
+    "khan cap",
+    "gap",
+    "gấp",
 )
 
 
@@ -631,16 +663,40 @@ def _apply_safety_floor(decision: ThreatDecision, helper_cues: list[HelperCue], 
     )
 
 
-def _looks_like_legitimate_bank_otp_notice(text: str) -> bool:
+def _looks_like_legitimate_bank_otp_notice(
+    text: str,
+    helper_cues: list[HelperCue],
+) -> bool:
     shadow_text = text.casefold()
     has_bank_brand = any(marker in shadow_text for marker in BANK_BRAND_MARKERS)
     has_otp_notice = any(marker in shadow_text for marker in LEGITIMATE_OTP_NOTICE_MARKERS)
     has_legitimate_context = any(marker in shadow_text for marker in LEGITIMATE_OTP_CONTEXT_MARKERS)
+    has_nondisclosure_notice = any(
+        marker in shadow_text for marker in LEGITIMATE_OTP_NONDISCLOSURE_MARKERS
+    )
     has_unsafe_action = any(marker in shadow_text for marker in UNSAFE_OTP_ACTION_MARKERS)
-    return has_bank_brand and has_otp_notice and has_legitimate_context and not has_unsafe_action
+    unsafe_cue_types = {
+        "credential_request",
+        "payment_request",
+        "urgency",
+        "url",
+        "contact_takeover",
+        "job_offer",
+    }
+    has_unsafe_helper_cue = any(cue.cue_type in unsafe_cue_types for cue in helper_cues)
+    return (
+        has_bank_brand
+        and has_otp_notice
+        and has_legitimate_context
+        and has_nondisclosure_notice
+        and not has_unsafe_action
+        and not has_unsafe_helper_cue
+    )
 
 
 def _downgrade_legitimate_otp_notice(decision: ThreatDecision, request: AnalysisRequest) -> ThreatDecision:
+    if decision.risk_tier != "suspicious":
+        return decision
     return ThreatDecision.model_validate(
         {
             "risk_tier": "benign",
@@ -710,7 +766,7 @@ def _build_threat_decision(payload: dict[str, Any], request: AnalysisRequest) ->
             "provisional": payload.get("provisional", True),
         }
     )
-    if _looks_like_legitimate_bank_otp_notice(request.text):
+    if _looks_like_legitimate_bank_otp_notice(request.text, helper_cues):
         decision = _downgrade_legitimate_otp_notice(decision, request)
     else:
         decision = _apply_safety_floor(decision, helper_cues, request)

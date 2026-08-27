@@ -509,6 +509,62 @@ def test_recommendation_filter_accepts_bounded_safe_guidance(text: str) -> None:
     assert module.is_recommendation_safe(text) is True
 
 
+def test_otp_notice_heuristic_never_erases_grounded_high_risk_payment() -> None:
+    module = importlib.import_module("src.runtime.analyzers.local_model")
+    contracts = importlib.import_module("src.runtime.contracts")
+    message = (
+        "VPBank Smart OTP: Ma OTP 847291, khong chia se cho bat ky ai. "
+        "Chuyen tien 5 trieu ngay de xac nhan giao dich."
+    )
+    result = module.build_analysis_result(
+        {
+            "risk_tier": "high-risk",
+            "threat_labels": ["bank_impersonation"],
+            "decision_summary": "Tin nhan yeu cau chuyen tien duoi danh nghia ngan hang.",
+            "evidence": [
+                {
+                    "span": "Chuyen tien 5 trieu ngay",
+                    "reason": "Yeu cau thanh toan truc tiep la dau hieu rui ro cao.",
+                    "cue_type": "payment_request",
+                    "supports_labels": ["bank_impersonation"],
+                    "severity": "high",
+                }
+            ],
+            "recommendations": ["Khong chuyen tien khi chua xac minh."],
+        },
+        contracts.AnalysisRequest(text=message, channel="sms"),
+        backend_name="synthetic-local",
+    )
+
+    assert result.risk_tier == "high-risk"
+    assert result.threat_labels == ["bank_impersonation"]
+    assert any(cue.cue_type == "payment_request" for cue in result.top_cues)
+
+
+def test_exact_nondisclosure_otp_notice_can_correct_model_suspicion() -> None:
+    module = importlib.import_module("src.runtime.analyzers.local_model")
+    contracts = importlib.import_module("src.runtime.contracts")
+    message = (
+        "Techcombank: Ma OTP la 74449637 de xac nhan giao dich. "
+        "Vui long giu bao mat va khong chia se OTP cho bat cu ai."
+    )
+    result = module.build_analysis_result(
+        {
+            "risk_tier": "suspicious",
+            "threat_labels": ["bank_impersonation"],
+            "decision_summary": "Model treated the OTP notice as suspicious.",
+            "suspicious_spans": ["Ma OTP la 74449637"],
+            "recommendations": ["Kiem tra trong ung dung ngan hang chinh thuc."],
+        },
+        contracts.AnalysisRequest(text=message, channel="sms"),
+        backend_name="synthetic-local",
+    )
+
+    assert result.risk_tier == "benign"
+    assert result.threat_labels == ["benign"]
+    assert result.top_cues == []
+
+
 def _release_payload(verdict: str) -> dict[str, object]:
     labels = (
         "bank_impersonation",
