@@ -2,43 +2,15 @@
 
 from __future__ import annotations
 
-from difflib import SequenceMatcher
 from typing import Any
 
 import numpy as np
-
-try:
-    from rapidfuzz import fuzz
-    RAPIDFUZZ_AVAILABLE = True
-except ImportError:  # pragma: no cover - exercised only when rapidfuzz is absent
-    RAPIDFUZZ_AVAILABLE = False
-
-    class _FallbackFuzz:
-        @staticmethod
-        def ratio(left: str, right: str) -> float:
-            return SequenceMatcher(None, left, right).ratio() * 100
-
-    fuzz = _FallbackFuzz()
+from src.data_pipeline.core.text import RAPIDFUZZ_AVAILABLE, fuzz, lexical_dedup
 
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:  # pragma: no cover - exercised through mocked encoder paths
     SentenceTransformer = None
-
-
-def lexical_dedup(records: list[dict[str, Any]], threshold: float = 0.95) -> list[dict[str, Any]]:
-    """Remove exact and near-exact duplicates from a record list."""
-    seen_texts: list[str] = []
-    unique_records: list[dict[str, Any]] = []
-
-    for record in records:
-        text = record["text"]
-        if any(fuzz.ratio(text, seen) / 100.0 >= threshold for seen in seen_texts):
-            continue
-        seen_texts.append(text)
-        unique_records.append(record)
-
-    return unique_records
 
 
 def cross_split_dedup(
@@ -92,3 +64,12 @@ def cross_split_dedup(
                 removals["test"].append(str(index))
 
     return removals
+
+
+__all__ = (
+    "RAPIDFUZZ_AVAILABLE",
+    "SentenceTransformer",
+    "cross_split_dedup",
+    "fuzz",
+    "lexical_dedup",
+)

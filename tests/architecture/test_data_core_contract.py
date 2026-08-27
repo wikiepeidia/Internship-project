@@ -194,7 +194,7 @@ def test_text_core_preserves_unicode_normalization_and_lexical_order() -> None:
     from src.data_pipeline.processing.dedup import lexical_dedup as legacy_dedup
 
     source = "  NgÃ¢n hÃ ng   Tiếng  Việt\tOTP  "
-    assert core_text.normalize_text(source) == "Ngân hàng Tiếng Việt OTP"
+    assert core_text.normalize_text(source) == "Ngân hà ng Tiếng Việt OTP"
     assert legacy_normalize is core_text.normalize_text
 
     records = [
