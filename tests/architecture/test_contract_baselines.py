@@ -167,6 +167,13 @@ RUNTIME_STUBS: dict[str, dict[str, object]] = {
     },
 }
 
+MODEL_PARSER_SUPPORT = (
+    "adaptation",
+    "legacy_phase40",
+    "legacy_phase41",
+    "router",
+)
+
 
 class _ClosedImportFinder(importlib.abc.MetaPathFinder):
     """Reject any internal/optional import not already supplied by the stub table."""
@@ -198,6 +205,25 @@ def _install_stub(name: str, symbols: dict[str, object], installed: list[str]) -
     installed.append(name)
 
 
+def _load_model_parser_support(installed: list[str]) -> None:
+    """Load only dependency-light parser/route modules before closing imports."""
+
+    package_name = "src.model_adaptation.commands"
+    package_path = REPO_ROOT / "src" / "model_adaptation" / "commands"
+    _install_package(package_name, package_path, installed)
+    for leaf in MODEL_PARSER_SUPPORT:
+        module_name = f"{package_name}.{leaf}"
+        spec = importlib.util.spec_from_file_location(
+            module_name, package_path / f"{leaf}.py"
+        )
+        if spec is None or spec.loader is None:
+            raise AssertionError(f"unable to load parser support module {module_name}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        installed.append(module_name)
+        spec.loader.exec_module(module)
+
+
 def _load_cli(kind: str) -> tuple[ModuleType, list[str], dict[str, object]]:
     before = _implementation_modules_loaded()
     installed: list[str] = []
@@ -211,6 +237,8 @@ def _load_cli(kind: str) -> tuple[ModuleType, list[str], dict[str, object]]:
         if parent not in sys.modules:
             _install_package(parent, REPO_ROOT / parent.replace(".", "/"), installed)
         _install_stub(name, symbols, installed)
+    if kind == "model_adaptation":
+        _load_model_parser_support(installed)
     module_name = f"{package_name}.cli"
     module_path = package_path / "cli.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
