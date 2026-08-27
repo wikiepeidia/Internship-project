@@ -267,7 +267,7 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
 ) -> None:
     attack = tmp_path / "test_collection_attack.py"
     attack.write_text(
-        """from pathlib import Path\n"
+        "from pathlib import Path\n"
         "import sitecustomize\n"
         "ATTACK = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / 'test.jsonl'\n"
         "try:\n"
@@ -278,8 +278,7 @@ def test_guard_is_active_during_adversarial_collection_and_in_child_python(
         "    raise AssertionError('collection-time forbidden open reached filesystem')\n"
         "def test_collection_guard():\n"
         "    assert COLLECTION_BLOCKED\n"
-        "    assert sitecustomize.phase411_guard_snapshot()['underlying_forbidden'] == []\n"
-        """,
+        "    assert sitecustomize.phase411_guard_snapshot()['underlying_forbidden'] == []\n",
         encoding="utf-8",
     )
     collected = subprocess.run(
@@ -374,4 +373,3 @@ def test_protected_authorities_match_fixed_baseline() -> None:
             if entry
         )
         assert importlib.util.find_spec("historical.phase41_source_closure") is None
-
