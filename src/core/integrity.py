@@ -340,6 +340,7 @@ def _rmdir_bound_child(
             _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
         disposition, io_status = Disposition(True), IoStatus()
         function = ctypes.windll.ntdll.NtSetInformationFile
+        function.argtypes = (wintypes.HANDLE, ctypes.c_void_p, ctypes.c_void_p, wintypes.ULONG, wintypes.ULONG)
         function.restype = ctypes.c_long
         status = function(
             wintypes.HANDLE(handle), ctypes.byref(io_status), ctypes.byref(disposition),
