@@ -14,6 +14,7 @@ import uuid
 from src.core.integrity import (
     canonical_json_bytes,
     IntegrityError,
+    prepare_bounded_output,
     read_file_bytes,
     reject_redirecting_ancestry,
     sha256_bytes,
@@ -96,8 +97,13 @@ def _requested_run_id(root: Path, supplied: Path | None, version_tag: str) -> st
 
 
 def _ensure_directory(path: Path, root: Path, *, where: str) -> Path:
-    path.mkdir(exist_ok=True)
-    path = reject_redirecting_ancestry(path, where=where)
+    try:
+        relative = Path(path).relative_to(root)
+    except ValueError as error:
+        raise IntegrityError(f"{where} escaped the generation data root") from error
+    path = prepare_bounded_output(
+        root, relative / ".directory-boundary", where=where
+    ).parent
     if root not in path.parents or not path.is_dir():
         raise IntegrityError(f"{where} escaped the generation data root")
     return path

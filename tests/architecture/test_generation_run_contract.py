@@ -53,6 +53,27 @@ def test_external_checkpoint_directory_is_rejected_without_mutation(tmp_path: Pa
     assert not (root / "generation-runs").exists()
 
 
+def test_generation_run_rejects_redirect_parent_before_side_effects(tmp_path: Path) -> None:
+    root = tmp_path / "corpus"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    try:
+        (root / "generation-runs").symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+
+    with pytest.raises(IntegrityError, match="symlink or reparse"):
+        generation_runs.prepare_generation_run(
+            root,
+            version_tag="redirected-run",
+            checkpoint_dir=None,
+            resume=False,
+        )
+
+    assert list(outside.iterdir()) == []
+
+
 def test_failing_generator_preserves_previous_completed_artifact_and_ledger(
     tmp_path: Path,
 ) -> None:

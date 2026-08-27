@@ -11,7 +11,11 @@ import stat
 from typing import Any
 import uuid
 
-from src.core.integrity import IntegrityError, reject_redirecting_ancestry
+from src.core.integrity import (
+    IntegrityError,
+    prepare_bounded_output,
+    reject_redirecting_ancestry,
+)
 from src.data_pipeline.core.records import DatasetRecord
 from src.data_pipeline.core.splits import (
     build_manifest,
@@ -263,9 +267,11 @@ def _read_salvage_sources(
 
 
 def _ensure_owned_directory(root: Path, relative: Path) -> Path:
-    target = root / relative
-    target.mkdir(parents=True, exist_ok=True)
-    target = reject_redirecting_ancestry(target, where="recovery-owned directory")
+    target = prepare_bounded_output(
+        root,
+        relative / ".directory-boundary",
+        where="recovery-owned directory",
+    ).parent
     if root not in target.parents or not target.is_dir():
         raise RecoveryValidationError("recovery-owned directory escaped its data root")
     return target
@@ -380,13 +386,12 @@ def publish_recovered_outputs(
     staging_root = _ensure_owned_directory(root, Path("recovery/staging"))
     versions_root = _ensure_owned_directory(root, Path("recovery/versions"))
     generation_id = uuid.uuid4().hex
-    stage = staging_root / generation_id
-    stage.mkdir()
-    stage = reject_redirecting_ancestry(stage, where="recovery generation stage")
+    stage = _ensure_owned_directory(root, Path("recovery/staging") / generation_id)
     merged = _write_generation_jsonl(stage / "merged.jsonl", exact_records)
     balanced = _write_generation_jsonl(stage / "balanced.jsonl", balanced_records)
-    split_root = stage / "splits"
-    split_root.mkdir()
+    split_root = _ensure_owned_directory(
+        root, Path("recovery/staging") / generation_id / "splits"
+    )
     split_counts: dict[str, int] = {}
     split_records = split_dataset(
         balanced_records,
