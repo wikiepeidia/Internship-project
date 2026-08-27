@@ -700,10 +700,14 @@ def test_manifest_atomic_replace_preserves_previous_bytes_on_failure(
         version="synthetic-v2",
         build_timestamp="2026-08-27T00:00:00Z",
     )
+    from src.core_binding import BoundParent
+
     monkeypatch.setattr(
-        integrity.os,
+        BoundParent,
         "replace",
-        lambda _source, _target: (_ for _ in ()).throw(OSError("synthetic failure")),
+        lambda _parent, _source, _target: (_ for _ in ()).throw(
+            OSError("synthetic failure")
+        ),
     )
 
     with pytest.raises(OSError, match="synthetic failure"):
