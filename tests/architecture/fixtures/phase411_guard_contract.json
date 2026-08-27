@@ -1,4 +1,8 @@
 {
+  "boundary": "requires-external-os-process-isolation",
+  "native_process_symbols": [
+    "nt.system", "posix.system", "ctypes.CDLL.__init__", "ctypes.PyDLL.__init__", "ctypes.WinDLL.__init__", "ctypes.OleDLL.__init__", "ctypes._dlopen", "_ctypes.dlopen", "importlib.reload"
+  ],
   "process_symbols": [
     "os.system", "os.popen", "os.startfile", "os.spawnl", "os.spawnle", "os.spawnv", "os.spawnve", "os.execl", "os.execle", "os.execlp", "os.execlpe", "os.execv", "os.execve", "os.execvp", "os.execvpe", "os.spawnlp", "os.spawnlpe", "os.spawnvp", "os.spawnvpe", "os.fork", "os.forkpty", "os.posix_spawn", "os.posix_spawnp", "subprocess.Popen.__init__", "subprocess.run", "subprocess.call", "subprocess.check_call", "subprocess.check_output", "subprocess.getoutput", "subprocess.getstatusoutput", "asyncio.create_subprocess_exec", "asyncio.create_subprocess_shell", "asyncio.BaseEventLoop.subprocess_exec", "asyncio.BaseEventLoop.subprocess_shell", "multiprocessing.Process", "multiprocessing.Pool", "multiprocessing.process.BaseProcess.start", "multiprocessing.context.BaseContext.Pool", "multiprocessing.context.DefaultContext.Process", "multiprocessing.context.DefaultContext.Pool", "multiprocessing.context.SpawnContext.Process", "multiprocessing.context.SpawnContext.Pool", "multiprocessing.pool.Pool.__init__", "multiprocessing.popen_spawn_win32.Popen.__init__", "multiprocessing.managers.BaseManager.start", "multiprocessing.resource_tracker.ResourceTracker.ensure_running", "multiprocessing.forkserver.ForkServer.ensure_running", "multiprocessing.util.spawnv_passfds", "concurrent.futures.ProcessPoolExecutor.__init__", "_winapi.CreateProcess", "_posixsubprocess.fork_exec", "subprocess._fork_exec", "pty.spawn"
   ],
@@ -11,5 +15,5 @@
     "D:\\PROJEct\\AI MODELS\\base\\qwen2.5-7b-instruct",
     "D:\\PROJEct\\AI MODELS\\base\\qwen3.5-4b"
   ],
-  "schema_version": "phase411-guard-contract-v1"
+  "schema_version": "phase411-guard-contract-v2"
 }

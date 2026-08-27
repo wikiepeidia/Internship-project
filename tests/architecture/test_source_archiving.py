@@ -161,27 +161,6 @@ POST_ACTIVE_OWNERS = (
 )
 
 
-@pytest.fixture(autouse=True)
-def _register_windows_bound_descriptors(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Expose synthetic BoundParent descriptors to the startup deny-open guard."""
-
-    if os.name != "nt":
-        return
-    import msvcrt
-    import sitecustomize
-
-    implementation = msvcrt.open_osfhandle
-
-    def registered(handle: int, flags: int) -> int:
-        descriptor = implementation(handle, flags)
-        sitecustomize._register_descriptor(descriptor)
-        return descriptor
-
-    monkeypatch.setattr(msvcrt, "open_osfhandle", registered)
-
-
 def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 

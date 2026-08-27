@@ -55,3 +55,27 @@ def isolated_phase411_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         monkeypatch.setenv(name, os.fspath(path))
     monkeypatch.setenv("PHASE411_DENY_OPEN_SENTINEL", "1")
     yield
+
+
+@pytest.fixture(autouse=True)
+def phase411_windows_bound_descriptors(monkeypatch: pytest.MonkeyPatch):
+    """Register BoundParent descriptors through the reviewed post-install seam."""
+
+    captured: list[int] = []
+    if os.name != "nt":
+        yield captured
+        return
+
+    import msvcrt
+    import sitecustomize
+
+    implementation = msvcrt.open_osfhandle
+
+    def registered(handle: int, flags: int) -> int:
+        descriptor = implementation(handle, flags)
+        sitecustomize.phase411_register_bound_descriptor(descriptor)
+        captured.append(descriptor)
+        return descriptor
+
+    monkeypatch.setattr(msvcrt, "open_osfhandle", registered)
+    yield captured

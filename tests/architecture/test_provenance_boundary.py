@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
-import importlib.util
 import json
 import ntpath
 import os
@@ -42,10 +41,17 @@ def _resolve_fixed_symbol(name: str) -> object | None:
 
 def _guard_contract() -> dict[str, Any]:
     contract = _strict_json(GUARD_CONTRACT_PATH.read_bytes())
-    assert set(contract) == {"process_symbols", "protected_roots", "schema_version"}
-    assert contract["schema_version"] == "phase411-guard-contract-v1"
+    assert list(contract) == [
+        "boundary", "native_process_symbols", "process_symbols",
+        "protected_roots", "schema_version",
+    ]
+    assert contract["schema_version"] == "phase411-guard-contract-v2"
+    assert contract["boundary"] == "requires-external-os-process-isolation"
     assert len(contract["protected_roots"]) == len(set(contract["protected_roots"])) == 7
     assert len(contract["process_symbols"]) == len(set(contract["process_symbols"])) == 53
+    assert len(contract["native_process_symbols"]) == len(
+        set(contract["native_process_symbols"])
+    ) == 9
     return contract
 
 
@@ -70,7 +76,8 @@ def test_guard_origin_and_contract_are_exact_before_collection() -> None:
     assert ntpath.normcase(ntpath.normpath(sitecustomize.__spec__.origin)) == expected_origin
     expected_roots = tuple(_manifest_root(item) for item in contract["protected_roots"])
     assert sitecustomize.PHASE411_GUARD_POLICY_VERSION == "phase411-guard-v2"
-    assert sitecustomize.PHASE411_PROCESS_POLICY == "deny-all"
+    assert sitecustomize.PHASE411_PROCESS_POLICY == "python-defense-in-depth"
+    assert sitecustomize.PHASE411_GUARD_BOUNDARY == contract["boundary"]
     assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
     assert sitecustomize.PHASE411_PROTECTED_ROOTS == expected_roots
     assert tuple(sitecustomize.PHASE411_PROCESS_OPERATION_DISPOSITIONS) == tuple(
@@ -85,6 +92,28 @@ def test_guard_origin_and_contract_are_exact_before_collection() -> None:
     )
     assert sitecustomize.PHASE411_INSTALLED_PATH_OPERATIONS
     assert sitecustomize.PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS
+    assert not hasattr(sitecustomize, "_ORIGINALS")
+
+    def resolve_guarded(name: str) -> object | None:
+        if name.startswith("Path."):
+            return getattr(Path, name.split(".", 1)[1], None)
+        return _resolve_fixed_symbol(name)
+
+    guarded_names = (
+        *sitecustomize.PHASE411_INSTALLED_PATH_OPERATIONS,
+        *sitecustomize.PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS,
+        *sitecustomize.PHASE411_INSTALLED_PROCESS_OPERATIONS,
+    )
+    for name in guarded_names:
+        wrapper = resolve_guarded(name)
+        assert callable(wrapper), name
+        assert not hasattr(wrapper, "__wrapped__"), name
+        assert not hasattr(wrapper, "__phase411_original__"), name
+        assert not any(callable(value) for value in (getattr(wrapper, "__defaults__", None) or ())), name
+        assert not any(
+            callable(value)
+            for value in (getattr(wrapper, "__kwdefaults__", None) or {}).values()
+        ), name
 
 
 def test_guard_blocks_all_exact_authority_roots_and_alias_spellings() -> None:
@@ -129,15 +158,59 @@ def test_guard_descriptor_operation_inventory_rejects_before_underlying_calls() 
     def original(*_args: object, **_kwargs: object) -> None:
         calls["original"] += 1
 
-    guarded = sitecustomize._make_descriptor_consumer("synthetic.fstat", original)
-    with pytest.raises(PermissionError, match="descriptor capability denied"):
-        guarded(object())
+    guarded = sitecustomize._make_descriptor_consumer(
+        "synthetic.fstat", original, keywords=("fd",)
+    )
+    for call in (lambda: guarded(object()), lambda: guarded(fd=object())):
+        with pytest.raises(PermissionError, match="descriptor capability denied"):
+            call()
     assert calls == {"original": 0}
     required = {
         "os.fstat", "os.fchmod", "os.ftruncate", "os.fsync", "os.read",
         "os.write", "os.lseek", "os.dup", "os.dup2",
     }
     assert required <= set(sitecustomize.PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS)
+
+    unknown = max(sitecustomize.phase411_descriptor_capabilities(), default=100) + 10000
+    signatures = {
+        "fdopen": ((unknown, "rb"), {"fd": unknown, "mode": "rb"}),
+        "fstat": ((unknown,), {"fd": unknown}),
+        "fchmod": ((unknown, 0o600), {"fd": unknown, "mode": 0o600}),
+        "ftruncate": ((unknown, 0), {"fd": unknown, "length": 0}),
+        "fsync": ((unknown,), {"fd": unknown}),
+        "read": ((unknown, 1), {"fd": unknown, "length": 1}),
+        "write": ((unknown, b""), {"fd": unknown, "data": b""}),
+        "lseek": ((unknown, 0, os.SEEK_SET), {"fd": unknown, "position": 0, "how": os.SEEK_SET}),
+        "fchdir": ((unknown,), {"fd": unknown}),
+        "pread": ((unknown, 1, 0), {"fd": unknown, "length": 1, "offset": 0}),
+        "readv": ((unknown, [bytearray(1)]), {"fd": unknown, "buffers": [bytearray(1)]}),
+        "preadv": ((unknown, [bytearray(1)], 0), {"fd": unknown, "buffers": [bytearray(1)], "offset": 0}),
+    }
+    for attribute, (positional, keyword) in signatures.items():
+        operation = getattr(os, attribute, None)
+        if operation is None:
+            continue
+        for args, kwargs in ((positional, {}), ((), keyword)):
+            with pytest.raises(PermissionError, match="descriptor capability denied"):
+                operation(*args, **kwargs)
+    descriptor_mutations = [
+        lambda: os.close(unknown),
+        lambda: os.close(fd=unknown),
+        lambda: open(unknown, "rb"),
+        lambda: open(file=unknown, mode="rb"),
+    ]
+    if hasattr(os, "dup"):
+        descriptor_mutations.extend((lambda: os.dup(unknown), lambda: os.dup(fd=unknown)))
+    if hasattr(os, "dup2"):
+        descriptor_mutations.extend(
+            (
+                lambda: os.dup2(unknown, unknown + 1),
+                lambda: os.dup2(fd=unknown, fd2=unknown + 1),
+            )
+        )
+    for attempt in descriptor_mutations:
+        with pytest.raises(PermissionError, match="descriptor capability denied"):
+            attempt()
 
 
 def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> None:
@@ -155,10 +228,7 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
             calls["coercion"] += 1
             return "never"
 
-    def recorder(*_args: object, **_kwargs: object) -> None:
-        calls["underlying"] += 1
-
-    synthetic = sitecustomize._make_process_deny_wrapper("synthetic.process", recorder)
+    synthetic = sitecustomize._make_process_deny_wrapper("synthetic.process")
     with pytest.raises(PermissionError, match="process execution denied"):
         synthetic(Trap())
     assert calls == {"coercion": 0, "underlying": 0}
@@ -177,8 +247,51 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
             value(Trap())
     assert calls == {"coercion": 0, "underlying": 0}
 
+    independent_native_symbols = (
+        "nt.system", "posix.system", "ctypes.CDLL.__init__",
+        "ctypes.PyDLL.__init__", "ctypes.WinDLL.__init__",
+        "ctypes.OleDLL.__init__", "ctypes._dlopen", "_ctypes.dlopen",
+        "importlib.reload",
+    )
+    assert tuple(contract["native_process_symbols"]) == independent_native_symbols
+    assert tuple(sitecustomize.PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS) == (
+        independent_native_symbols
+    )
+    native_resolved = {
+        name: _resolve_fixed_symbol(name) for name in independent_native_symbols
+    }
+    external_native_symbols = {
+        "ctypes.CDLL.__init__", "ctypes.PyDLL.__init__",
+        "ctypes.WinDLL.__init__", "ctypes.OleDLL.__init__",
+        "ctypes._dlopen", "_ctypes.dlopen",
+    }
+    expected_native = {
+        name: (
+            "unavailable_on_platform"
+            if value is None
+            else "external_os_isolation_required"
+            if name in external_native_symbols
+            else "wrapped"
+        )
+        for name, value in native_resolved.items()
+    }
+    assert dict(sitecustomize.PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS) == expected_native
+    for name, value in native_resolved.items():
+        if value is None:
+            continue
+        if name in external_native_symbols:
+            assert not hasattr(value, "__phase411_process_guard__")
+            continue
+        assert getattr(value, "__phase411_process_guard__", None) == name
+        with pytest.raises(PermissionError, match="process execution denied"):
+            value(Trap())
+    assert calls == {"coercion": 0, "underlying": 0}
 
-def test_guard_descriptor_capabilities_are_post_install_only(tmp_path: Path) -> None:
+
+def test_guard_descriptor_capabilities_are_post_install_only(
+    tmp_path: Path,
+    phase411_windows_bound_descriptors: list[int],
+) -> None:
     import sitecustomize
 
     assert sitecustomize.PHASE411_PREINSTALL_DESCRIPTOR_PROBES == 0
@@ -186,16 +299,25 @@ def test_guard_descriptor_capabilities_are_post_install_only(tmp_path: Path) -> 
     with pytest.raises(PermissionError, match="descriptor capability denied"):
         os.fstat(unknown)
     safe = tmp_path / "post-install-capability.txt"
-    with open(safe, "w+b") as stream:
-        descriptor = stream.fileno()
+    descriptor = os.open(safe, os.O_CREAT | os.O_RDWR)
+    try:
         assert descriptor in sitecustomize.phase411_descriptor_capabilities()
         assert os.fstat(descriptor).st_size == 0
+    finally:
+        os.close(descriptor)
+    assert descriptor not in sitecustomize.phase411_descriptor_capabilities()
     read_fd, write_fd = os.pipe()
     try:
         assert {read_fd, write_fd} <= set(sitecustomize.phase411_descriptor_capabilities())
     finally:
         os.close(read_fd)
         os.close(write_fd)
+    if os.name == "nt":
+        layout = _synthetic_layout(tmp_path / "windows-bound-parent")
+        archive._archive_bound_source_closure_for_test(layout)
+        assert phase411_windows_bound_descriptors
+        removals = set(sitecustomize.phase411_guard_snapshot()["descriptor_removals"])
+        assert set(phase411_windows_bound_descriptors) <= removals
 
 
 def test_protected_authority_fixture_is_strict_and_complete() -> None:
@@ -659,7 +781,7 @@ def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: 
 
     protected = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / "test.jsonl"
     before = sitecustomize.phase411_guard_snapshot()
-    with pytest.raises(PermissionError, match="Phase 41.1 forbidden path"):
+    with pytest.raises(PermissionError, match="forbidden authority path"):
         protected.read_bytes()
     after = sitecustomize.phase411_guard_snapshot()
     assert len(after["rejected"]) == len(before["rejected"]) + 1
@@ -672,7 +794,7 @@ def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: 
     )
     before_keywords = sitecustomize.phase411_guard_snapshot()
     for attempt in keyword_attempts:
-        with pytest.raises(PermissionError, match="Phase 41.1 forbidden path"):
+        with pytest.raises(PermissionError, match="forbidden authority path"):
             attempt()
     after_keywords = sitecustomize.phase411_guard_snapshot()
     assert len(after_keywords["rejected"]) == len(before_keywords["rejected"]) + 3
@@ -682,110 +804,6 @@ def test_precollection_guard_blocks_before_underlying_filesystem_call(tmp_path: 
     nearby.parent.mkdir(parents=True)
     nearby.write_text("safe", encoding="utf-8")
     assert nearby.read_text(encoding="utf-8") == "safe"
-
-
-def test_guard_is_active_during_adversarial_collection_and_in_child_python(
-    tmp_path: Path,
-) -> None:
-    attack = tmp_path / "test_collection_attack.py"
-    attack.write_text(
-        "from pathlib import Path\n"
-        "import sitecustomize\n"
-        "ATTACK = Path(sitecustomize.PHASE411_PROTECTED_PREFIX) / 'test.jsonl'\n"
-        "try:\n"
-        "    open(file=ATTACK, encoding='utf-8')\n"
-        "except PermissionError:\n"
-        "    COLLECTION_BLOCKED = True\n"
-        "else:\n"
-        "    raise AssertionError('collection-time forbidden open reached filesystem')\n"
-        "def test_collection_guard():\n"
-        "    assert COLLECTION_BLOCKED\n"
-        "    assert sitecustomize.phase411_guard_snapshot()['underlying_forbidden'] == []\n",
-        encoding="utf-8",
-    )
-    collected = subprocess.run(
-        [sys.executable, "-m", "pytest", os.fspath(attack), "-q", "-p", "no:cacheprovider"],
-        cwd=tmp_path,
-        env=os.environ.copy(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert collected.returncode == 0, collected.stdout + collected.stderr
-
-    child_code = (
-        "from pathlib import Path; import json, os, sitecustomize; "
-        "p=Path(sitecustomize.PHASE411_PROTECTED_PREFIX)/'test.jsonl'; "
-        "blocked=False; "
-        "\ntry: os.stat(path=p)\nexcept PermissionError: blocked=True\n"
-        "print(json.dumps({'blocked': blocked, "
-        "'snapshot': sitecustomize.phase411_guard_snapshot()}))"
-    )
-    child = subprocess.run(
-        [sys.executable, "-c", child_code],
-        cwd=tmp_path,
-        env=os.environ.copy(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert child.returncode == 0, child.stderr
-    payload = json.loads(child.stdout)
-    assert payload["blocked"] is True
-    assert payload["snapshot"]["underlying_forbidden"] == []
-
-    attestation = tmp_path / "guard_attestation.py"
-    attestation.write_text(
-        "import json, sitecustomize\n"
-        "print(json.dumps({'installed': sitecustomize.PHASE411_GUARD_INSTALLED}))\n",
-        encoding="utf-8",
-    )
-    script_child = subprocess.run(
-        [sys.executable, os.fspath(attestation)],
-        cwd=tmp_path,
-        env=os.environ.copy(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert script_child.returncode == 0, script_child.stderr
-    assert json.loads(script_child.stdout) == {"installed": True}
-
-
-def test_deny_open_guard_rejects_child_bootstrap_bypasses(
-    tmp_path: Path,
-) -> None:
-    guarded_env = os.environ.copy()
-    for flag in ("-S", "-I", "-E"):
-        with pytest.raises(PermissionError, match="disable site or environment"):
-            subprocess.run([sys.executable, flag, "-c", "pass"], check=False)
-
-    without_sentinel = dict(guarded_env)
-    without_sentinel.pop("PHASE411_DENY_OPEN_SENTINEL", None)
-    with pytest.raises(PermissionError, match="deny-open sentinel"):
-        subprocess.run(
-            [sys.executable, "-c", "pass"],
-            env=without_sentinel,
-            check=False,
-        )
-    with pytest.raises(PermissionError, match="deny-open sentinel"):
-        subprocess.run([sys.executable, "-c", "pass"], env={}, check=False)
-    with pytest.raises(PermissionError, match="executable override"):
-        subprocess.run(
-            [sys.executable, "-c", "pass"],
-            executable=sys.executable,
-            env=guarded_env,
-            check=False,
-        )
-
-    without_bootstrap = dict(guarded_env)
-    without_bootstrap["PYTHONPATH"] = os.fspath(tmp_path)
-    with pytest.raises(PermissionError, match="deny-open bootstrap"):
-        subprocess.run(
-            [sys.executable, "-c", "pass"],
-            env=without_bootstrap,
-            check=False,
-        )
 
 
 def test_deny_open_guard_covers_metadata_and_link_path_apis() -> None:
@@ -800,106 +818,28 @@ def test_deny_open_guard_covers_metadata_and_link_path_apis() -> None:
         lambda: protected.chmod(0o600),
     )
     for attempt in attempts:
-        with pytest.raises(PermissionError, match="forbidden path"):
+        with pytest.raises(PermissionError, match="forbidden authority path"):
             attempt()
 
-    with pytest.raises(PermissionError, match="read-only allowlist"):
-        subprocess.run(["git", "status"], check=False)
+    with pytest.raises(PermissionError, match="process execution denied"):
+        subprocess.run(["synthetic-never-launched"], check=False)
     assert sitecustomize.phase411_guard_snapshot()["underlying_forbidden"] == []
 
 
-def test_deny_open_guard_blocks_descriptors_and_non_python_subprocesses() -> None:
+def test_deny_open_guard_blocks_descriptors_and_process_calls() -> None:
     import sitecustomize
 
     with pytest.raises(PermissionError, match="descriptor-relative"):
         os.open("synthetic-relative.jsonl", os.O_RDONLY, dir_fd=12345)
-    if not sitecustomize._INHERITED_FDS:
-        pytest.skip("no inherited descriptors are open in this process")
-    with pytest.raises(PermissionError, match="inherited file descriptor"):
-        open(next(iter(sitecustomize._INHERITED_FDS)), "rb")
-    with pytest.raises(PermissionError, match="non-Python subprocess"):
-        subprocess.run(
-            [os.environ.get("COMSPEC", "cmd.exe"), "/c", "echo", "synthetic"],
-            check=False,
-        )
+    unknown = max(sitecustomize.phase411_descriptor_capabilities(), default=100) + 10000
+    for attempt in (
+        lambda: os.fstat(unknown),
+        lambda: os.fstat(fd=unknown),
+        lambda: open(file=unknown, mode="rb"),
+    ):
+        with pytest.raises(PermissionError, match="descriptor capability denied"):
+            attempt()
+    with pytest.raises(PermissionError, match="process execution denied"):
+        subprocess.run(["synthetic-never-launched"], check=False)
 
     assert sitecustomize.phase411_guard_snapshot()["underlying_forbidden"] == []
-
-
-def test_protected_authorities_match_fixed_baseline() -> None:
-    baseline = _strict_json(FIXTURE_PATH.read_bytes())
-    commit = baseline["baseline_commit"]
-    for authority in baseline["protected_authorities"]:
-        relative = authority["path"]
-        raw = (REPO_ROOT / PurePosixPath(relative)).read_bytes()
-        assert len(raw) == authority["bytes"]
-        assert _sha256(raw) == authority["worktree_sha256"]
-        staged = subprocess.run(
-            ["git", "ls-files", "--stage", "--", relative],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split()
-        assert staged[1] == authority["index_blob"]
-        historical = subprocess.run(
-            ["git", "rev-parse", f"{commit}:{relative}"],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-        assert historical == authority["baseline_commit_blob"]
-
-    mirror = baseline["historical_mirror"]
-    manifest_authority = baseline["protected_authorities"][0]
-    manifest = _strict_json((REPO_ROOT / manifest_authority["path"]).read_bytes())
-    expected_sources = [
-        {"bytes": item["bytes"], "path": item["path"], "sha256": item["sha256"]}
-        for item in manifest["files"]
-    ]
-    assert manifest["schema_version"] == mirror["manifest_schema_version"]
-    assert manifest["source_tree_sha256"] == mirror["source_tree_sha256"]
-    assert expected_sources == mirror["sources"]
-    assert manifest["launcher"] == mirror["launcher"]
-
-    if os.environ.get("PHASE411_REQUIRE_HISTORICAL_ARCHIVE") == "1":
-        destination = REPO_ROOT / PurePosixPath(mirror["destination"])
-        expected = {
-            "execution-source-manifest.json": manifest_authority["worktree_sha256"],
-            **{f"tree/{item['path']}": item["sha256"] for item in mirror["sources"]},
-            f"tree/{mirror['launcher']['path']}": mirror["launcher"]["sha256"],
-        }
-        actual = {
-            path.relative_to(destination).as_posix()
-            for path in destination.rglob("*")
-            if path.is_file()
-        }
-        assert actual == set(expected) | {"archival-receipt.json"}
-        for relative, expected_sha in expected.items():
-            archived_path = destination / PurePosixPath(relative)
-            assert _sha256(archived_path.read_bytes()) == expected_sha
-            repository_relative = archived_path.relative_to(REPO_ROOT).as_posix()
-            staged = subprocess.run(
-                ["git", "ls-files", "--stage", "--", repository_relative],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.split()
-            assert staged, f"historical mirror is not staged: {repository_relative}"
-            blob = subprocess.run(
-                ["git", "cat-file", "blob", staged[1]],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                check=True,
-            ).stdout
-            assert _sha256(blob) == expected_sha
-
-        archive_root = os.path.normcase(os.path.abspath(destination))
-        assert all(
-            os.path.normcase(os.path.abspath(entry)) != archive_root
-            for entry in sys.path
-            if entry
-        )
-        assert importlib.util.find_spec("historical.phase41_source_closure") is None

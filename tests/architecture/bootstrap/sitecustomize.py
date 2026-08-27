@@ -7,7 +7,6 @@ root, and guarded Python receives no process-launch exception.
 from __future__ import annotations
 
 import builtins
-import functools
 import glob as glob_module
 import io
 import ntpath
@@ -20,13 +19,14 @@ from typing import Any, Callable
 
 
 PHASE411_GUARD_POLICY_VERSION = "phase411-guard-v2"
-PHASE411_PROCESS_POLICY = "deny-all"
+PHASE411_PROCESS_POLICY = "python-defense-in-depth"
+PHASE411_GUARD_BOUNDARY = "requires-external-os-process-isolation"
 PHASE411_PREINSTALL_DESCRIPTOR_PROBES = 0
 PHASE411_GUARD_INSTALLED = False
 
 _REJECTED: list[dict[str, str]] = []
 _UNDERLYING_FORBIDDEN: list[dict[str, str]] = []
-_ORIGINALS: dict[str, Callable[..., Any]] = {}
+_DESCRIPTOR_REMOVALS: list[int] = []
 _DESCRIPTOR_CAPABILITIES: set[int] = set()
 
 _BOOTSTRAP_DIR = ntpath.abspath(ntpath.dirname(__file__))
@@ -81,6 +81,28 @@ _PROCESS_OPERATION_NAMES = (
     "_posixsubprocess.fork_exec", "subprocess._fork_exec", "pty.spawn",
 )
 
+_NATIVE_PROCESS_OPERATION_NAMES = (
+    "nt.system",
+    "posix.system",
+    "ctypes.CDLL.__init__",
+    "ctypes.PyDLL.__init__",
+    "ctypes.WinDLL.__init__",
+    "ctypes.OleDLL.__init__",
+    "ctypes._dlopen",
+    "_ctypes.dlopen",
+    "importlib.reload",
+)
+_EXTERNAL_OS_ISOLATION_NATIVE_NAMES = frozenset(
+    {
+        "ctypes.CDLL.__init__",
+        "ctypes.PyDLL.__init__",
+        "ctypes.WinDLL.__init__",
+        "ctypes.OleDLL.__init__",
+        "ctypes._dlopen",
+        "_ctypes.dlopen",
+    }
+)
+
 
 def _strip_windows_namespace(value: str) -> str:
     normalized = value.replace("/", "\\")
@@ -133,7 +155,6 @@ def _make_path_guard(
     path_positions: tuple[int, ...] = (0,),
     path_keywords: tuple[str, ...] = (),
 ) -> Callable[..., Any]:
-    @functools.wraps(original)
     def guard(*args: Any, **kwargs: Any) -> Any:
         values = [args[position] for position in path_positions if position < len(args)]
         values.extend(kwargs[key] for key in path_keywords if key in kwargs)
@@ -161,19 +182,16 @@ def _patch_path(
     original = getattr(target, attribute, None)
     if original is None:
         return None
-    _ORIGINALS[name] = original
     setattr(target, attribute, _make_path_guard(name, original, positions, keywords))
     return name
 
 
-def _make_process_deny_wrapper(name: str, original: Callable[..., Any]) -> Callable[..., Any]:
-    @functools.wraps(original)
+def _make_process_deny_wrapper(name: str) -> Callable[..., Any]:
     def deny(*_args: Any, **_kwargs: Any) -> Any:
         _REJECTED.append({"operation": name, "path": "<process-denied>"})
         raise PermissionError(f"Phase 41.1 process execution denied: {name}")
 
     setattr(deny, "__phase411_process_guard__", name)
-    setattr(deny, "__phase411_original__", original)
     return deny
 
 
@@ -208,8 +226,7 @@ def _patch_process(name: str) -> bool:
     original = getattr(owner, attribute)
     if not callable(original):
         return False
-    _ORIGINALS[name] = original
-    setattr(owner, attribute, _make_process_deny_wrapper(name, original))
+    setattr(owner, attribute, _make_process_deny_wrapper(name))
     return True
 
 
@@ -221,13 +238,18 @@ def _deny_descriptor(name: str, descriptor: object) -> int:
 
 
 def _make_descriptor_consumer(
-    name: str, original: Callable[..., Any], positions: tuple[int, ...] = (0,)
+    name: str,
+    original: Callable[..., Any],
+    positions: tuple[int, ...] = (0,),
+    keywords: tuple[str, ...] = ("fd",),
 ) -> Callable[..., Any]:
-    @functools.wraps(original)
     def guard(*args: Any, **kwargs: Any) -> Any:
         for position in positions:
             if position < len(args):
                 _deny_descriptor(name, args[position])
+        for keyword in keywords:
+            if keyword in kwargs:
+                _deny_descriptor(name, kwargs[keyword])
         return original(*args, **kwargs)
 
     setattr(guard, "__phase411_descriptor_guard__", name)
@@ -237,6 +259,14 @@ def _make_descriptor_consumer(
 def _register_descriptor(value: object) -> None:
     if isinstance(value, int) and value >= 0:
         _DESCRIPTOR_CAPABILITIES.add(value)
+
+
+def phase411_register_bound_descriptor(value: object) -> None:
+    """Register one test-fixture descriptor only after the startup guard exists."""
+
+    if not PHASE411_GUARD_INSTALLED:
+        raise RuntimeError("descriptor registration requires an installed startup guard")
+    _register_descriptor(value)
 
 
 def _install_path_guards() -> tuple[str, ...]:
@@ -294,6 +324,22 @@ def _install_low_level_process_denial() -> dict[str, str]:
     return dispositions
 
 
+def _install_native_process_denial() -> dict[str, str]:
+    dispositions: dict[str, str] = {}
+    for name in _NATIVE_PROCESS_OPERATION_NAMES:
+        if name in _EXTERNAL_OS_ISOLATION_NATIVE_NAMES:
+            dispositions[name] = (
+                "external_os_isolation_required"
+                if _resolve_process_owner(name) is not None
+                else "unavailable_on_platform"
+            )
+        else:
+            dispositions[name] = (
+                "wrapped" if _patch_process(name) else "unavailable_on_platform"
+            )
+    return dispositions
+
+
 def _attest_standard_handles_after_guards() -> None:
     if os.name != "nt":
         return
@@ -320,7 +366,6 @@ def _install_descriptor_guards() -> tuple[str, ...]:
         original = getattr(target, attribute)
         name = f"{getattr(target, '__name__', type(target).__name__)}.{attribute}"
 
-        @functools.wraps(original)
         def guarded(file: object, *args: Any, **kwargs: Any) -> Any:
             if isinstance(file, int):
                 _deny_descriptor(name, file)
@@ -340,7 +385,6 @@ def _install_descriptor_guards() -> tuple[str, ...]:
 
     original_os_open = os.open
 
-    @functools.wraps(original_os_open)
     def guarded_os_open(*args: Any, **kwargs: Any) -> int:
         descriptor = original_os_open(*args, **kwargs)
         _register_descriptor(descriptor)
@@ -353,7 +397,6 @@ def _install_descriptor_guards() -> tuple[str, ...]:
     if hasattr(os, "pipe"):
         original_pipe = os.pipe
 
-        @functools.wraps(original_pipe)
         def guarded_pipe(*args: Any, **kwargs: Any) -> tuple[int, int]:
             pair = original_pipe(*args, **kwargs)
             _register_descriptor(pair[0])
@@ -371,48 +414,66 @@ def _install_descriptor_guards() -> tuple[str, ...]:
         if original is None:
             continue
         name = f"os.{attribute}"
-        setattr(os, attribute, _make_descriptor_consumer(name, original))
+        setattr(
+            os,
+            attribute,
+            _make_descriptor_consumer(name, original, keywords=("fd",)),
+        )
         installed.append(name)
 
-    for attribute in ("dup", "dup2"):
+    def make_duplicate_guard(
+        name: str,
+        original: Callable[..., Any],
+        *,
+        target_keyword: str | None,
+    ) -> Callable[..., Any]:
+        def duplicate(*args: Any, **kwargs: Any) -> Any:
+            source = args[0] if args else kwargs.get("fd")
+            _deny_descriptor(name, source)
+            target = None
+            if target_keyword is not None:
+                target = args[1] if len(args) > 1 else kwargs.get(target_keyword)
+                _deny_descriptor(name, target)
+            result = original(*args, **kwargs)
+            _register_descriptor(result if isinstance(result, int) else target)
+            return result
+
+        setattr(duplicate, "__phase411_descriptor_guard__", name)
+        return duplicate
+
+    for attribute, target_keyword in (("dup", None), ("dup2", "fd2")):
         original = getattr(os, attribute, None)
         if original is None:
             continue
         name = f"os.{attribute}"
-
-        @functools.wraps(original)
-        def duplicate(*args: Any, __name: str = name, __original: Callable[..., Any] = original, **kwargs: Any) -> Any:
-            if not args:
-                raise PermissionError(f"Phase 41.1 descriptor capability denied: {__name}")
-            _deny_descriptor(__name, args[0])
-            result = __original(*args, **kwargs)
-            _register_descriptor(result if isinstance(result, int) else args[1])
-            return result
-
-        setattr(duplicate, "__phase411_descriptor_guard__", name)
-        setattr(os, attribute, duplicate)
+        setattr(
+            os,
+            attribute,
+            make_duplicate_guard(name, original, target_keyword=target_keyword),
+        )
         installed.append(name)
 
     if hasattr(os, "close"):
         original_close = os.close
 
-        @functools.wraps(original_close)
-        def guarded_close(descriptor: object) -> None:
-            fd = _deny_descriptor("os.close", descriptor)
+        def guarded_close(fd: object) -> None:
+            descriptor = _deny_descriptor("os.close", fd)
             try:
-                return original_close(fd)
+                return original_close(descriptor)
             finally:
-                _DESCRIPTOR_CAPABILITIES.discard(fd)
+                _DESCRIPTOR_CAPABILITIES.discard(descriptor)
+                _DESCRIPTOR_REMOVALS.append(descriptor)
 
         os.close = guarded_close
         installed.append("os.close")
     return tuple(installed)
 
 
-def phase411_guard_snapshot() -> dict[str, list[dict[str, str]]]:
+def phase411_guard_snapshot() -> dict[str, object]:
     return {
         "rejected": [dict(item) for item in _REJECTED],
         "underlying_forbidden": [dict(item) for item in _UNDERLYING_FORBIDDEN],
+        "descriptor_removals": tuple(_DESCRIPTOR_REMOVALS),
     }
 
 
@@ -426,9 +487,11 @@ def install_phase411_deny_open_guard() -> None:
     global PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS
     global PHASE411_INSTALLED_PROCESS_OPERATIONS
     global PHASE411_PROCESS_OPERATION_DISPOSITIONS
+    global PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS
     if PHASE411_GUARD_INSTALLED:
         return
     PHASE411_INSTALLED_PATH_OPERATIONS = _install_path_guards()
+    native_dispositions = _install_native_process_denial()
     dispositions = _install_low_level_process_denial()
     _attest_standard_handles_after_guards()
     PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS = _install_descriptor_guards()
@@ -437,6 +500,9 @@ def install_phase411_deny_open_guard() -> None:
             dispositions[name] = "wrapped" if _patch_process(name) else "unavailable_on_platform"
     PHASE411_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType(
         {name: dispositions[name] for name in _PROCESS_OPERATION_NAMES}
+    )
+    PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType(
+        {name: native_dispositions[name] for name in _NATIVE_PROCESS_OPERATION_NAMES}
     )
     PHASE411_INSTALLED_PROCESS_OPERATIONS = tuple(
         name for name in _PROCESS_OPERATION_NAMES if dispositions[name] == "wrapped"
@@ -448,6 +514,7 @@ PHASE411_INSTALLED_PATH_OPERATIONS: tuple[str, ...] = ()
 PHASE411_INSTALLED_DESCRIPTOR_OPERATIONS: tuple[str, ...] = ()
 PHASE411_INSTALLED_PROCESS_OPERATIONS: tuple[str, ...] = ()
 PHASE411_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType({})
+PHASE411_NATIVE_PROCESS_OPERATION_DISPOSITIONS = MappingProxyType({})
 
 if os.environ.get("PHASE411_DENY_OPEN_SENTINEL") == "1":
     install_phase411_deny_open_guard()

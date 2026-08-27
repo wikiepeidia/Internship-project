@@ -94,3 +94,8 @@ The active architecture may be described from `overview.md`; quantitative or
 selected-model claims remain bound to the frozen export. The provenance receipt may
 explain which historical bytes produced that authority, but it supplies no new
 metric and authorizes no rerun.
+
+The Python startup guard used by architecture checks is defense in depth, not an OS
+sandbox. It blocks accidental filesystem and process use inside the guarded test
+interpreter, while an externally isolated process remains mandatory for a security
+boundary because Python callables are introspectable.
