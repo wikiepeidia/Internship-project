@@ -670,12 +670,12 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 
 ### Codebase Architecture Overhaul
 
-- [x] **REFACTOR-01**: Preserve a hash-bound immutable legacy boundary for the exact Phase 40/41 source closure, verified evidence export, provenance erratum, schema strings, artifact names, and four evaluated model roots; refactored code must never be described as the code that generated the frozen metrics.
-- [x] **REFACTOR-02**: Decompose `src/model_adaptation/cli.py` into a thin lazy compatibility dispatcher and focused command modules while preserving the installed `vnphish` interface plus every supported legacy subcommand, flag, exit code, and machine-readable output contract.
-- [x] **REFACTOR-03**: Establish phase-neutral active boundaries for shared integrity primitives, Qwen/PhoBERT training, inference, evaluation, and evidence reading; eliminate active import cycles without modifying or reserializing frozen historical artifacts.
-- [x] **REFACTOR-04**: Separate reusable data-pipeline core logic from generation/review workflows and one-off corpus migrations; retain original module/command paths as tested shims or hash-recorded archive entries until all callers are proven migrated.
-- [x] **REFACTOR-05**: Add synthetic-only characterization, CLI-contract, import-boundary, dependency-cycle, and artifact-byte tests that prove compatibility without accessing or rerunning the reserved held-out evaluation.
-- [x] **REFACTOR-06**: Produce a report-ready architecture/provenance map plus an exact D-drive storage inventory identifying required models, optional deployment exports, historical evidence, and explicitly reviewed cleanup candidates; no automated deletion is authorized by this requirement.
+- [ ] **REFACTOR-01**: Preserve a hash-bound immutable legacy boundary for the exact Phase 40/41 source closure, verified evidence export, provenance erratum, schema strings, artifact names, and four evaluated model roots; refactored code must never be described as the code that generated the frozen metrics.
+- [ ] **REFACTOR-02**: Decompose `src/model_adaptation/cli.py` into a thin lazy compatibility dispatcher and focused command modules while preserving the installed `vnphish` interface plus every supported legacy subcommand, flag, exit code, and machine-readable output contract.
+- [ ] **REFACTOR-03**: Establish phase-neutral active boundaries for shared integrity primitives, Qwen/PhoBERT training, inference, evaluation, and evidence reading; eliminate active import cycles without modifying or reserializing frozen historical artifacts.
+- [ ] **REFACTOR-04**: Separate reusable data-pipeline core logic from generation/review workflows and one-off corpus migrations; retain original module/command paths as tested shims or hash-recorded archive entries until all callers are proven migrated.
+- [ ] **REFACTOR-05**: Add synthetic-only characterization, CLI-contract, import-boundary, dependency-cycle, and artifact-byte tests that prove compatibility without accessing or rerunning the reserved held-out evaluation.
+- [ ] **REFACTOR-06**: Produce a report-ready architecture/provenance map plus an exact D-drive storage inventory identifying required models, optional deployment exports, historical evidence, and explicitly reviewed cleanup candidates; no automated deletion is authorized by this requirement.
 
 ### Report Overhaul
 
