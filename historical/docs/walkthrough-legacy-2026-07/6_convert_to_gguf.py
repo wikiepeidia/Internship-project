@@ -48,7 +48,8 @@ GGUF_KEEP_MERGED_MODEL_ENV = "GGUF_KEEP_MERGED_MODEL"
 # WORTH KNOWING FOR Q&A: this convert.py module's own CLI default is
 # "q4_k_m" (see build_gguf_request below) — but the ACTUAL artifact that
 # was deployed to the laptop and is what the report's numbers are about
-# was produced by a separate one-off script, scripts/vastai_gguf_export.sh,
+# was produced by a separate one-off script retained under
+# historical/tooling/training/vastai_gguf_export.sh,
 # which calls the exact same underlying llama.cpp converter directly with
 # `--outtype q8_0` (a one-step direct conversion, no llama-quantize binary
 # needed, since q8_0 is in GGUF_DIRECT_OUTTYPES). Both paths are real and

@@ -13,7 +13,10 @@ the retained experiment history:
 - [`src/modeling/`](src/modeling/) — maintained training, inference, evaluation, and
   evidence interfaces.
 - [`src/source_archiving/`](src/source_archiving/) — provenance archiving.
-- [`walkthrough/`](walkthrough/) — ten numbered, read-only code walkthroughs.
+- [`documents/defense/CODE_WORKFLOW.md`](documents/defense/CODE_WORKFLOW.md) —
+  current scraping-to-runtime code walkthrough.
+- [`documents/defense/DEFENSE_QA_WORKSHEET.md`](documents/defense/DEFENSE_QA_WORKSHEET.md)
+  — jury-question practice and evidence rubric.
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — complete system
   map and machine-checked boundaries.
 - [`docs/architecture/training-evaluation.md`](docs/architecture/training-evaluation.md)
@@ -102,6 +105,14 @@ The repository exposes one operator command path through `python -m src.data_pip
 The installed analyzer is local-only and does not require provider credentials.
 Credentials below are required only when deliberately regenerating synthetic data
 with the retained external-provider workflows.
+
+The retained provider-generation path is not currently guaranteed to publish a
+full clean rebuild: its batch scheduler can reuse one semantic seed across labels,
+and the leakage-safe splitter correctly rejects a seed that spans labels. Treat the
+commands below as compatibility/history until class-specific independent-root
+assignment is repaired. Do not manufacture diversity by suffixing otherwise
+identical seed IDs. See the current
+[code workflow](documents/defense/CODE_WORKFLOW.md#open-generator-caveat).
 
 ### Regeneration Prerequisites
 
