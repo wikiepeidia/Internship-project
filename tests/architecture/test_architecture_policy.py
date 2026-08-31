@@ -21,6 +21,7 @@ from tests.architecture.test_import_boundaries import (
     _import_edges,
     _module_paths,
     _path_to_target,
+    _relevant_non_data_modules,
     _strong_components,
     _string_set,
 )
@@ -329,23 +330,10 @@ def test_closed_classification_and_cli_owners_have_no_auto_admission() -> None:
         for other in groups[index + 1 :]:
             assert not group & other
 
-    relevant = {
+    relevant = _relevant_non_data_modules(modules) | {
         module
         for module in modules
-        if module == "src.artifacts"
-        or module == "src.config"
-        or module.startswith("src.config.")
-        or module.startswith(
-            (
-                "src.artifacts.",
-                "src.core",
-                "src.data_pipeline",
-                "src.model_adaptation",
-                "src.modeling",
-                "src.runtime",
-                "src.source_archiving",
-            )
-        )
+        if module == "src.data_pipeline" or module.startswith("src.data_pipeline.")
     }
     assert set().union(*groups) == relevant
 

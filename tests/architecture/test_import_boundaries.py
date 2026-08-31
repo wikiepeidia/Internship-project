@@ -18,6 +18,16 @@ PHASE40_INDEX = REPO_ROOT / "src/model_adaptation/legacy/phase40/__init__.py"
 PHASE41_INDEX = REPO_ROOT / "src/model_adaptation/legacy/phase41/__init__.py"
 ADAPTATION_COMMANDS = REPO_ROOT / "src/model_adaptation/commands/adaptation.py"
 ACTIVE_TARGET_PREFIXES = ("src.artifacts", "src.modeling")
+RELEVANT_NON_DATA_SINGLETON_MODULES = ("src.artifacts", "src.config")
+RELEVANT_NON_DATA_MODULE_PREFIXES = (
+    "src.artifacts.",
+    "src.config.",
+    "src.core",
+    "src.model_adaptation",
+    "src.modeling",
+    "src.runtime",
+    "src.source_archiving",
+)
 POLICY_FIELDS = {
     "active_modules",
     "allowed_edges",
@@ -41,6 +51,15 @@ def _module_name(path: Path) -> str:
 
 def _module_paths() -> dict[str, Path]:
     return {_module_name(path): path for path in SOURCE_ROOT.rglob("*.py")}
+
+
+def _relevant_non_data_modules(modules: Mapping[str, Path]) -> set[str]:
+    return {
+        module
+        for module in modules
+        if module in RELEVANT_NON_DATA_SINGLETON_MODULES
+        or module.startswith(RELEVANT_NON_DATA_MODULE_PREFIXES)
+    }
 
 
 def _resolve_from(source: str, path: Path, node: ast.ImportFrom) -> str:
@@ -212,13 +231,7 @@ def test_policy_closes_every_relevant_module_and_ownership_index() -> None:
     }
     index_modules = set(indexes.values())
     assert not (active & adapters or active & historical or adapters & historical)
-    relevant = {
-        module
-        for module in modules
-        if module == "src.artifacts"
-        or module.startswith(("src.runtime", "src.core", "src.modeling"))
-        or module.startswith("src.model_adaptation")
-    }
+    relevant = _relevant_non_data_modules(modules)
     assert relevant == active | adapters | historical | index_modules
     assert set(_owned_modules(PHASE40_INDEX)) | set(
         _owned_modules(PHASE41_INDEX)
