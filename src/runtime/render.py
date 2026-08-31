@@ -18,11 +18,17 @@ _THREAT_LABEL_DISPLAY = {
     "benign": "Benign",
 }
 
-# C0/C1 control characters (excluding the ones already normalized out of
-# pasted text, e.g. \t \n) plus DEL. This blocks ANSI CSI/OSC escape
-# injection (\x1b[... , \x1b]...\x07) and other terminal control sequences
-# from reaching stdout via user-controlled analysis text (CR-01).
-_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+# C0/C1 control characters (excluding \t and \n, which normalize_text()'s
+# whitespace collapse already removes from grounded fields such as cue.span)
+# plus DEL. This blocks ANSI CSI/OSC escape injection (\x1b[... , \x1b]...\x07)
+# and other terminal control sequences from reaching stdout via user-controlled
+# analysis text (CR-01). \x0d (CR) is deliberately included here even though it
+# is also stripped from grounded fields by normalize_text(): `summary`, cue
+# `reason`, and `recommendations` text come directly from structured-output
+# model generation and are not substring-grounded against normalized input, so
+# an ungrounded backend can still emit a raw \r; excluding it would leave a
+# same-line cursor-return spoof vector in those fields (WR-N2).
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
 def _terminal_safe(text: str) -> str:
