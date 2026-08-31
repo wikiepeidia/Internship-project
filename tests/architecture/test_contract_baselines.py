@@ -151,7 +151,10 @@ RUNTIME_STUBS: dict[str, dict[str, object]] = {
             "unknown", "sms", "zalo", "messenger", "telegram", "facebook"
         ],
     },
-    "src.runtime.demo": {"run_demo_server": _parser_only_call},
+    "src.runtime.demo": {
+        "run_demo_server": _parser_only_call,
+        "require_loopback_host": _parser_only_call,
+    },
     "src.runtime.doctor": {
         "format_doctor_report": _parser_only_call,
         "run_runtime_doctor": _parser_only_call,
