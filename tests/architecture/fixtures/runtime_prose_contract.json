@@ -23,7 +23,7 @@
       "source_commit": "5ef59ea44d3bfc203d46a343fd8850d1e068a925",
       "git_blob_oid": "c01bc3a24fc23c8d5a9e9a879353bfb7ff80ab8b",
       "pre_edit_source_sha256": "9d679512536383fdc738ccde474dda969dd9c96ca9e7db2bbf47a03008426130",
-      "masked_ast_sha256": "09191ac8bc0bc6365a10865f4ff6657c3e9306950068e6cc9a25f660adb485d3",
+      "masked_ast_sha256": "23df8e67f94e1dce772f504685a620baebfeca6978ed600d4279e3af8e3361f3",
       "prose_slots": [{"id": "service-module-description", "kind": "module_docstring"}]
     },
     {
@@ -31,7 +31,7 @@
       "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
       "git_blob_oid": "4866bc3c2ce9a3c94007b45ef8f255f3c1a4587b",
       "pre_edit_source_sha256": "8d9ca46a0ded76c5ac01f90536c6da3af5d3826c51b2bec395821fe22c469a25",
-      "masked_ast_sha256": "0c8e796dce01c772cba150788c8bb7bbd7f004e837efc64de49b59b7f9a16491",
+      "masked_ast_sha256": "6303aea9a53f328c7cda58891123914f9251a44b7ed6797c8a6710112e3a501a",
       "prose_slots": [{"id": "render-module-description", "kind": "module_docstring"}]
     },
     {
@@ -39,7 +39,7 @@
       "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
       "git_blob_oid": "a5dcc3cf4cf61e37329801cac507c2f603964ef7",
       "pre_edit_source_sha256": "4defe80ccef4c842776ff0d05b60a6ad32dd5dd3bae7b4bbd070666864ebb93a",
-      "masked_ast_sha256": "f25e6d3d6184b9820653100b1f3101d76737b729a3a8c320b05aa1f08b8b7ce4",
+      "masked_ast_sha256": "e76af1294d460a1ec4a6415f4eb3c30ea6bb34313a159243d1ad7bf49da51d30",
       "prose_slots": [{"id": "demo-module-description", "kind": "module_docstring"}]
     },
     {
@@ -58,7 +58,7 @@
       "source_commit": "7856d7807f153f0342c402521026180dc0cb6dd0",
       "git_blob_oid": "6e8623a61b5128052f7a12eee8d96b7656266e4f",
       "pre_edit_source_sha256": "66b90eb46e599e7895fe6071cb65fd77e5cd0eb0a18fd6cb50c8f9a6bae15c32",
-      "masked_ast_sha256": "80abb5ffb085ecd67977b386e97e80e04f4ed3fd11643f37ae9de9daa20315ae",
+      "masked_ast_sha256": "7d83222bde007efb383b7b157bdab9ef7a0571e2e53efd80e0d7dcb4b4519dc8",
       "prose_slots": [
         {"id": "accelerated-module-description", "kind": "module_docstring"},
         {"id": "accelerated-setup-guidance", "kind": "assignment_string", "name": "ACCELERATED_SETUP_GUIDE"}

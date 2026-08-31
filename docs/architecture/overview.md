@@ -229,7 +229,7 @@ scan cannot silently admit it.
 
 | Path | Symbol | Measured lines | Owner | Reason |
 | --- | --- | ---: | --- | --- |
-| `src/runtime/analyzers/accelerated.py` | `AcceleratedAnalyzer.doctor` | 112 | `runtime-accelerated-backend-maintenance` | pre-existing active function exceeds the new-function budget outside the bounded extraction scope |
+| `src/runtime/analyzers/accelerated.py` | `AcceleratedAnalyzer.doctor` | 118 | `runtime-accelerated-backend-maintenance` | pre-existing active function exceeds the new-function budget outside the bounded extraction scope (grew from 112 to 118 lines in the 41.1 code-review-fix pass, WR-01: doctor-status caching) |
 | `src/runtime/analyzers/gguf.py` | `GGUFAnalyzer.doctor` | 115 | `runtime-gguf-backend-maintenance` | pre-existing active function exceeds the new-function budget outside the bounded extraction scope |
 | `src/runtime/analyzers/local_model.py` | `<module>` | 801 | `runtime-analyzer-maintenance` | pre-existing active module exceeds the new-module budget outside the bounded extraction scope |
 | `src/runtime/doctor.py` | `RuntimeDoctor.run` | 126 | `runtime-doctor-maintenance` | pre-existing active function exceeds the new-function budget outside the bounded extraction scope |

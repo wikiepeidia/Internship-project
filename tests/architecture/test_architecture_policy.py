@@ -91,11 +91,12 @@ EXPECTED_EXISTING_BUDGET_DEBT = [
     {
         "path": "src/runtime/analyzers/accelerated.py",
         "symbol": "AcceleratedAnalyzer.doctor",
-        "measured_lines": 112,
+        "measured_lines": 118,
         "owner": "runtime-accelerated-backend-maintenance",
         "reason": (
             "pre-existing active function exceeds the new-function budget outside "
-            "the bounded extraction scope"
+            "the bounded extraction scope (grew from 112 to 118 lines in the "
+            "41.1 code-review-fix pass, WR-01: doctor-status caching)"
         ),
     },
     {
