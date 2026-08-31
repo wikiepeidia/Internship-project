@@ -123,13 +123,24 @@ class DemoApp:
         return _json_response(start_response, "404 Not Found", {"error": {"message": "Not found", "steps": []}})
 
     def _handle_analyze(self, environ, start_response):
-        content_type = (environ.get("CONTENT_TYPE") or "").split(";", 1)[0].strip().lower()
-        if content_type != "application/json":
-            return _json_response(
-                start_response,
-                "400 Bad Request",
-                {"error": {"message": "Content-Type must be application/json.", "steps": []}},
-            )
+        # A PRESENT-but-wrong Content-Type (e.g. text/plain) is the CORS "simple
+        # request" bypass this check exists to close (CR-02) -- a real
+        # cross-origin fetch() attacker sends an explicit non-JSON type to avoid
+        # triggering a preflight. An ABSENT Content-Type is treated the same way
+        # the Origin/Referer check below treats an absent header: allowed through
+        # to normal processing, matching how direct/automation callers (curl,
+        # health checks, this test suite's WSGI environ fixtures) have always
+        # been permitted, and preserving the pre-existing malformed-JSON-body
+        # 400 contract for those callers.
+        raw_content_type = environ.get("CONTENT_TYPE")
+        if raw_content_type is not None:
+            content_type = raw_content_type.split(";", 1)[0].strip().lower()
+            if content_type != "application/json":
+                return _json_response(
+                    start_response,
+                    "400 Bad Request",
+                    {"error": {"message": "Content-Type must be application/json.", "steps": []}},
+                )
         if not _is_same_origin_request(environ):
             return _json_response(
                 start_response,

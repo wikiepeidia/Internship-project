@@ -39,7 +39,7 @@
       "source_commit": "3596d5b2f2ef7ddd0467390a101f68f513714034",
       "git_blob_oid": "a5dcc3cf4cf61e37329801cac507c2f603964ef7",
       "pre_edit_source_sha256": "4defe80ccef4c842776ff0d05b60a6ad32dd5dd3bae7b4bbd070666864ebb93a",
-      "masked_ast_sha256": "e76af1294d460a1ec4a6415f4eb3c30ea6bb34313a159243d1ad7bf49da51d30",
+      "masked_ast_sha256": "1075ad15cadefbb78fc2fbd1ebef982ba94111eb23b1c7d22aa0da70f7bf40a2",
       "prose_slots": [{"id": "demo-module-description", "kind": "module_docstring"}]
     },
     {
