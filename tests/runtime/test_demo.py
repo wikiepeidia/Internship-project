@@ -15,7 +15,16 @@ def _load_demo_module():
     return importlib.import_module("src.runtime.demo")
 
 
-def _call_app(app, *, method: str, path: str, body: bytes = b"", content_type: str = "application/json"):
+def _call_app(
+    app,
+    *,
+    method: str,
+    path: str,
+    body: bytes = b"",
+    content_type: str = "application/json",
+    origin: str | None = None,
+    referer: str | None = None,
+):
     status_line: dict[str, str] = {}
     headers_out: dict[str, str] = {}
 
@@ -26,6 +35,10 @@ def _call_app(app, *, method: str, path: str, body: bytes = b"", content_type: s
         "CONTENT_LENGTH": str(len(body)),
         "wsgi.input": io.BytesIO(body),
     }
+    if origin is not None:
+        environ["HTTP_ORIGIN"] = origin
+    if referer is not None:
+        environ["HTTP_REFERER"] = referer
     setup_testing_defaults(environ)
 
     def start_response(status, headers):
@@ -138,6 +151,121 @@ def test_demo_api_returns_boundary_error_payload(sample_short_message):
     assert payload["error"]["steps"] == [
         "Paste extracted text manually. OCR, screenshots, and voice messages are not supported in this demo."
     ]
+
+
+def _minimal_analyze_request_body():
+    return json.dumps({"text": "hello", "channel": "unknown"}).encode("utf-8")
+
+
+class _StubAnalyzeService:
+    """Fake service used to assert whether `_handle_analyze` reaches `analyze_text`."""
+
+    def __init__(self):
+        self.called = False
+
+    def analyze_text(self, text: str, channel: str = "unknown") -> AnalysisResult:
+        self.called = True
+        return AnalysisResult(
+            risk_tier="benign",
+            summary="OK.",
+            threat_labels=[],
+            top_cues=[],
+            recommendations=[],
+            backend_name="heuristic",
+        )
+
+
+def test_demo_api_rejects_mismatched_origin():
+    demo_module = _load_demo_module()
+    service = _StubAnalyzeService()
+    app = demo_module.build_demo_app(service=service)
+
+    status, headers, body = _call_app(
+        app,
+        method="POST",
+        path="/api/analyze",
+        body=_minimal_analyze_request_body(),
+        origin="http://evil.example",
+    )
+    payload = json.loads(body.decode("utf-8"))
+
+    assert status.startswith("403")
+    assert headers["Content-Type"].startswith("application/json")
+    assert payload["error"]["message"] == "Cross-origin requests are not allowed."
+    assert service.called is False
+
+
+def test_demo_api_rejects_mismatched_referer_when_origin_absent():
+    demo_module = _load_demo_module()
+    service = _StubAnalyzeService()
+    app = demo_module.build_demo_app(service=service)
+
+    status, headers, body = _call_app(
+        app,
+        method="POST",
+        path="/api/analyze",
+        body=_minimal_analyze_request_body(),
+        referer="http://evil.example/page",
+    )
+    payload = json.loads(body.decode("utf-8"))
+
+    assert status.startswith("403")
+    assert headers["Content-Type"].startswith("application/json")
+    assert payload["error"]["message"] == "Cross-origin requests are not allowed."
+    assert service.called is False
+
+
+def test_demo_api_rejects_non_json_content_type():
+    demo_module = _load_demo_module()
+    service = _StubAnalyzeService()
+    app = demo_module.build_demo_app(service=service)
+
+    status, headers, body = _call_app(
+        app,
+        method="POST",
+        path="/api/analyze",
+        body=_minimal_analyze_request_body(),
+        content_type="text/plain",
+    )
+    payload = json.loads(body.decode("utf-8"))
+
+    assert status.startswith("400")
+    assert headers["Content-Type"].startswith("application/json")
+    assert payload["error"]["message"] == "Content-Type must be application/json."
+    assert service.called is False
+
+
+def test_demo_api_allows_matching_origin():
+    demo_module = _load_demo_module()
+    service = _StubAnalyzeService()
+    app = demo_module.build_demo_app(service=service)
+
+    status, headers, body = _call_app(
+        app,
+        method="POST",
+        path="/api/analyze",
+        body=_minimal_analyze_request_body(),
+        origin="http://127.0.0.1",
+    )
+
+    assert status.startswith("200")
+    assert service.called is True
+
+
+def test_demo_api_allows_request_with_neither_origin_nor_referer():
+    demo_module = _load_demo_module()
+    service = _StubAnalyzeService()
+    app = demo_module.build_demo_app(service=service)
+
+    status, headers, body = _call_app(
+        app,
+        method="POST",
+        path="/api/analyze",
+        body=_minimal_analyze_request_body(),
+    )
+
+    assert status.startswith("200")
+    assert service.called is True
 
 
 def test_demo_static_assets_are_served():
