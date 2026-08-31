@@ -125,6 +125,98 @@ _AUDITED_PROCESS_EVENTS = frozenset(
     {"ctypes.dlopen", "os.system", "os.posix_spawn", "subprocess.Popen"}
 )
 
+# Narrow, deliberate carve-out (2026-08-31): several architecture tests prove
+# import isolation (REFACTOR-05) by re-launching THIS SAME trusted interpreter
+# (sys.executable) as a fresh child process -- a fresh process is required
+# because in-process sys.modules caching would give a false pass. A child
+# launched this way inherits PYTHONPATH/PHASE411_DENY_OPEN_SENTINEL from the
+# parent's env (these tests always pass env=dict(os.environ)), so it installs
+# this SAME guard on its own startup -- it is exactly as protected as the
+# parent, not an unguarded escape hatch. Only the five subprocess-module
+# entry points these tests actually call are eligible; os.system/os.popen/
+# subprocess.getoutput/getstatusoutput (shell-string based, no clean
+# executable argument to verify) and everything else in
+# _PROCESS_OPERATION_NAMES remain unconditionally denied.
+_TRUSTED_INTERPRETER_SUBPROCESS_NAMES = frozenset(
+    {
+        "subprocess.Popen.__init__",
+        "subprocess.run",
+        "subprocess.call",
+        "subprocess.check_call",
+        "subprocess.check_output",
+    }
+)
+
+# On Windows, `Popen._execute_child` collapses the argv list into a single
+# `list2cmdline`-quoted command-line STRING before `sys.audit("subprocess.Popen",
+# executable, args, cwd, env)` fires -- args[1] is no longer the structured list
+# the wrapper below already validated, so re-parsing it at the audit-hook layer
+# would mean re-implementing Windows command-line quoting rules just to recover
+# what's already known. Instead, the wrapper (the only code path that can reach
+# a real Popen.__init__ -- the lower-level _posixsubprocess.fork_exec /
+# _winapi.CreateProcess entry points are separately and unconditionally denied
+# with no carve-out) marks a short-lived trusted window around its own call to
+# `original(...)`; the audit hook only has to check it, not re-derive it.
+_TRUSTED_SUBPROCESS_CALL_DEPTH = 0
+
+
+def _resolve_subprocess_executable_candidate(
+    args: tuple[Any, ...], kwargs: dict[str, Any], *, skip_self: bool
+) -> object:
+    """Extract the would-be executable from a subprocess-style call.
+
+    Deliberately narrow: only ever returns a plain `str` (the type
+    `sys.executable` and every real call site in this codebase always use),
+    or `None`. Never returns an arbitrary object for the caller to coerce --
+    a security-boundary self-test (test_provenance_boundary.py) proves the
+    guard denies an adversarial argument without ever invoking its
+    `__fspath__`/`__str__`, so this function must not call `os.fspath()`,
+    `str()`, or any other coercion protocol on an untrusted value; a
+    non-`str` candidate (bytes, PathLike, or anything else) is simply
+    treated as untrusted rather than coerced and compared.
+
+    `skip_self` handles `Popen.__init__(self, args, ...)`, where position 0
+    is the instance, not the `args` parameter.
+    """
+    positional = args[1:] if skip_self else args
+    explicit_executable = kwargs.get("executable")
+    if explicit_executable is not None:
+        return explicit_executable if isinstance(explicit_executable, str) else None
+    popen_args = kwargs.get("args") if "args" in kwargs else (positional[0] if positional else None)
+    if isinstance(popen_args, (list, tuple)):
+        first = popen_args[0] if popen_args else None
+        return first if isinstance(first, str) else None
+    return popen_args if isinstance(popen_args, str) else None
+
+
+def _is_trusted_interpreter_subprocess_call(
+    args: tuple[Any, ...], kwargs: dict[str, Any], *, skip_self: bool
+) -> bool:
+    if kwargs.get("shell"):
+        return False
+    candidate = _resolve_subprocess_executable_candidate(args, kwargs, skip_self=skip_self)
+    if candidate is None:
+        return False
+    return os.path.normcase(candidate) == os.path.normcase(sys.executable)
+
+
+class _trusted_subprocess_window:
+    """Context manager marking that the current, already-vetted subprocess
+    wrapper call is about to invoke the real implementation -- entered only
+    after `_is_trusted_interpreter_subprocess_call` returns True. Re-entrant
+    (a nested audited call inside `Popen.__init__` stays covered) and always
+    exits via `finally`, so a raised exception from the real implementation
+    (including the deny path for a genuinely untrusted nested call) can never
+    leave the window open."""
+
+    def __enter__(self) -> None:
+        global _TRUSTED_SUBPROCESS_CALL_DEPTH
+        _TRUSTED_SUBPROCESS_CALL_DEPTH += 1
+
+    def __exit__(self, *_exc_info: object) -> None:
+        global _TRUSTED_SUBPROCESS_CALL_DEPTH
+        _TRUSTED_SUBPROCESS_CALL_DEPTH -= 1
+
 
 def _strip_windows_namespace(value: str) -> str:
     normalized = value.replace("/", "\\")
@@ -197,6 +289,15 @@ def _phase411_audit_hook(event: str, args: tuple[object, ...]) -> None:
     """Deny protected paths below wrappers through CPython's append-only hook."""
 
     if event in _AUDITED_PROCESS_EVENTS:
+        # `os.posix_spawn` stays in this allowance only because CPython's
+        # POSIX `Popen` implementation may use it internally as a fast-path
+        # primitive for the SAME already-vetted launch -- not because a
+        # direct, standalone `os.posix_spawn(...)` call is ever trusted; one
+        # made outside a trusted window (_TRUSTED_SUBPROCESS_CALL_DEPTH == 0)
+        # still hits the unconditional deny below. `ctypes.dlopen`/`os.system`
+        # are never part of that call chain and are deliberately excluded.
+        if event in ("subprocess.Popen", "os.posix_spawn") and _TRUSTED_SUBPROCESS_CALL_DEPTH > 0:
+            return
         _AUDIT_REJECTED.append({"operation": event, "path": "<process-denied>"})
         _REJECTED.append({"operation": f"audit:{event}", "path": "<process-denied>"})
         raise PermissionError(f"Phase 41.1 audited process execution denied: {event}")
@@ -250,8 +351,27 @@ def _patch_path(
     return name
 
 
-def _make_process_deny_wrapper(name: str) -> Callable[..., Any]:
-    def deny(*_args: Any, **_kwargs: Any) -> Any:
+def _make_process_deny_wrapper(
+    name: str, original: Callable[..., Any] | None = None
+) -> Callable[..., Any]:
+    trusted = original is not None and name in _TRUSTED_INTERPRETER_SUBPROCESS_NAMES
+    skip_self = trusted and name == "subprocess.Popen.__init__"
+
+    def deny(*args: Any, **kwargs: Any) -> Any:
+        if original is not None and _TRUSTED_SUBPROCESS_CALL_DEPTH > 0:
+            # Already inside a vetted trusted-interpreter subprocess call
+            # (see _TRUSTED_INTERPRETER_SUBPROCESS_NAMES above): this is the
+            # stdlib subprocess implementation's OWN internal call to a
+            # lower-level primitive (_winapi.CreateProcess on Windows,
+            # _posixsubprocess.fork_exec / os.posix_spawn on POSIX, or a
+            # nested subprocess.Popen.__init__) to complete that SAME,
+            # already-approved launch -- not an independently-decided spawn.
+            return original(*args, **kwargs)
+        if trusted and _is_trusted_interpreter_subprocess_call(
+            args, kwargs, skip_self=skip_self
+        ):
+            with _trusted_subprocess_window():
+                return original(*args, **kwargs)
         _REJECTED.append({"operation": name, "path": "<process-denied>"})
         raise PermissionError(f"Phase 41.1 process execution denied: {name}")
 
@@ -290,7 +410,7 @@ def _patch_process(name: str) -> bool:
     original = getattr(owner, attribute)
     if not callable(original):
         return False
-    setattr(owner, attribute, _make_process_deny_wrapper(name))
+    setattr(owner, attribute, _make_process_deny_wrapper(name, original))
     return True
 
 
