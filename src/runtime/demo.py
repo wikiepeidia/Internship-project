@@ -73,6 +73,28 @@ def _load_asset(name: str) -> bytes:
     return (ASSET_DIR / name).read_bytes()
 
 
+def _expected_origin(environ) -> str:
+    host = environ.get("HTTP_HOST")
+    if not host:
+        server_name = environ.get("SERVER_NAME", "")
+        server_port = environ.get("SERVER_PORT", "")
+        host = f"{server_name}:{server_port}" if server_port else server_name
+    return f"http://{host}"
+
+
+def _is_same_origin_request(environ) -> bool:
+    """Reject cross-origin requests unless neither Origin nor Referer is sent (CR-02)."""
+
+    expected = _expected_origin(environ)
+    origin = environ.get("HTTP_ORIGIN")
+    if origin is not None:
+        return origin == expected
+    referer = environ.get("HTTP_REFERER")
+    if referer is not None:
+        return referer == expected or referer.startswith(expected + "/")
+    return True
+
+
 class DemoApp:
     """Minimal WSGI app that serves the local demo page and runtime analysis endpoint."""
 
@@ -101,6 +123,20 @@ class DemoApp:
         return _json_response(start_response, "404 Not Found", {"error": {"message": "Not found", "steps": []}})
 
     def _handle_analyze(self, environ, start_response):
+        content_type = (environ.get("CONTENT_TYPE") or "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            return _json_response(
+                start_response,
+                "400 Bad Request",
+                {"error": {"message": "Content-Type must be application/json.", "steps": []}},
+            )
+        if not _is_same_origin_request(environ):
+            return _json_response(
+                start_response,
+                "403 Forbidden",
+                {"error": {"message": "Cross-origin requests are not allowed.", "steps": []}},
+            )
+
         try:
             content_length = int(environ.get("CONTENT_LENGTH") or 0)
             if content_length < 0 or content_length > MAX_REQUEST_BYTES:
