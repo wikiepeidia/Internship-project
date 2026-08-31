@@ -46,6 +46,7 @@ class AcceleratedAnalyzer:
     _cached_runtime: Any | None = field(default=None, init=False, repr=False)
     _cached_adapter: VerifiedArtifact | None = field(default=None, init=False, repr=False)
     _cached_base_model: VerifiedArtifact | None = field(default=None, init=False, repr=False)
+    _cached_doctor_status: DoctorStatus | None = field(default=None, init=False, repr=False)
 
     def _resolve_runtime_paths(self) -> tuple[str, VerifiedArtifact, VerifiedArtifact]:
         registry = load_model_registry(self.registry_path, storage_root=self.storage_root)
@@ -167,6 +168,9 @@ class AcceleratedAnalyzer:
         return extract_structured_payload(generated_text)
 
     def doctor(self) -> DoctorStatus:
+        if self._cached_doctor_status is not None:
+            return self._cached_doctor_status
+
         settings = get_settings()
         checks = [
             DoctorCheck(
@@ -272,12 +276,15 @@ class AcceleratedAnalyzer:
 
         ready = all(check.passed for check in checks)
         setup_steps = [] if ready else [ACCELERATED_SETUP_GUIDE]
-        return DoctorStatus(
+        status = DoctorStatus(
             ready=ready,
             backend_name=self.backend_name,
             checks=checks,
             setup_steps=setup_steps,
         )
+        if status.ready:
+            self._cached_doctor_status = status
+        return status
 
     def analyze(self, request: AnalysisRequest) -> AnalysisResult:
         status = self.doctor()
