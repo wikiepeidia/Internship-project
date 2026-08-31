@@ -139,11 +139,17 @@ class RuntimeService:
                 steps=_default_setup_steps(),
             ) from exc
 
-        # `AnalysisResult.top_cues` already carries a hard `max_length=3` Pydantic
-        # constraint (src/runtime/contracts.py), so trimming here was unreachable
-        # under the standard `runtime_max_cues == 3` configuration enforced by
-        # RuntimeDoctor (WR-02). The Pydantic field constraint is the single
-        # enforcement point for the cue-count invariant.
+        # `runtime_max_cues` is a real, operator-configurable setting (RUNTIME_MAX_CUES)
+        # with no Pydantic constraint tying it to 3, and `RuntimeDoctor.run()` only
+        # gates the CLI path (cli.py::handle_analyze/handle_doctor) -- it is never
+        # invoked on the demo server path (DemoApp._handle_analyze ->
+        # RuntimeService.analyze_text). So this clamp is the only enforcement point
+        # for a sub-3 override on that path (WR-N1). `AnalysisResult.top_cues` still
+        # carries a hard `max_length=3` Pydantic constraint, so `min(..., 3)` guards
+        # against a `runtime_max_cues` raised above 3 as well.
+        max_cues = max(0, min(self.settings.runtime_max_cues, 3))
+        if len(result.top_cues) > max_cues:
+            result = result.model_copy(update={"top_cues": result.top_cues[:max_cues]})
         return result
 
 
