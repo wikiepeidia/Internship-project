@@ -29,7 +29,22 @@ def _load_windows_file_capabilities() -> MappingProxyType:
     if os.name != "nt":
         return MappingProxyType({})
     names = {
-        "kernel32": ("CreateFileW", "GetFileInformationByHandle", "CloseHandle"),
+        # File-binding calls needed by the synthetic archive tests
+        # (CreateFileW/GetFileInformationByHandle/CloseHandle), plus
+        # handle-only console-management calls real third-party import
+        # chains (click's Windows console adapter, used transitively by
+        # data-pipeline's optional ML dependencies) need for terminal
+        # detection. Every name here operates on an already-open HANDLE or a
+        # well-known constant (STD_INPUT_HANDLE=-10/STD_OUTPUT_HANDLE=-11/
+        # STD_ERROR_HANDLE=-12 for GetStdHandle) -- none accepts a raw file
+        # PATH argument, so none can be used to bypass the path-based
+        # deny-open guard the way CreateFileW legitimately can (and is
+        # already trusted for, by the pre-existing archive-test allowance).
+        "kernel32": (
+            "CreateFileW", "GetFileInformationByHandle", "CloseHandle",
+            "GetStdHandle", "ReadConsoleW", "WriteConsoleW", "GetConsoleMode",
+            "SetConsoleMode", "GetLastError",
+        ),
         "ntdll": ("NtCreateFile", "RtlNtStatusToDosError", "NtSetInformationFile"),
     }
     capabilities = {

@@ -319,7 +319,9 @@ def test_guard_process_operation_inventory_rejects_before_underlying_calls() -> 
             getattr(loader, "phase411_synthetic_never_loaded")
     if os.name == "nt":
         assert set(vars(ctypes.windll.kernel32)) == {
-            "CreateFileW", "GetFileInformationByHandle", "CloseHandle"
+            "CreateFileW", "GetFileInformationByHandle", "CloseHandle",
+            "GetStdHandle", "ReadConsoleW", "WriteConsoleW", "GetConsoleMode",
+            "SetConsoleMode", "GetLastError",
         }
         assert set(vars(ctypes.windll.ntdll)) == {
             "NtCreateFile", "RtlNtStatusToDosError", "NtSetInformationFile"
