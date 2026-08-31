@@ -170,6 +170,14 @@ class RuntimeSettings(ModelingSettings):
             raise ValueError("runtime_release_manifest_root must be absolute")
         return Path(os.path.abspath(os.path.normpath(os.fspath(value))))
 
+    @model_validator(mode="after")
+    def reject_colliding_gguf_profiles(self) -> "RuntimeSettings":
+        if self.runtime_profile_gguf == self.runtime_profile_gguf_runner_up:
+            raise ValueError(
+                "runtime_profile_gguf and runtime_profile_gguf_runner_up must be distinct"
+            )
+        return self
+
 
 class Settings(ProviderSettings, DataSettings, RuntimeSettings):
     """Full compatibility composition for historical pipeline callers."""
