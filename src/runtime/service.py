@@ -139,9 +139,11 @@ class RuntimeService:
                 steps=_default_setup_steps(),
             ) from exc
 
-        if len(result.top_cues) > self.settings.runtime_max_cues:
-            result = result.model_copy(update={"top_cues": result.top_cues[: self.settings.runtime_max_cues]})
-
+        # `AnalysisResult.top_cues` already carries a hard `max_length=3` Pydantic
+        # constraint (src/runtime/contracts.py), so trimming here was unreachable
+        # under the standard `runtime_max_cues == 3` configuration enforced by
+        # RuntimeDoctor (WR-02). The Pydantic field constraint is the single
+        # enforcement point for the cue-count invariant.
         return result
 
 
