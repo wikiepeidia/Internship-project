@@ -723,7 +723,7 @@ Requirements for milestone v7.0. After an F grade, the goal is a full retake def
 | REFACTOR-01 | Phase 41.1 | Complete |
 | REFACTOR-02 | Phase 41.1 | Complete |
 | REFACTOR-03 | Phase 41.1 | Complete |
-| REFACTOR-04 | Phase 41.1 | Complete |
+| REFACTOR-04 | Phase 41.1 | In progress (data-core/recovery synthetic tests exist but 11 currently can't execute — guard denies the `git rev-parse HEAD` provenance call in `build_manifest()`; see 41.1-VERIFICATION.md) |
 | REFACTOR-05 | Phase 41.1 | Complete |
 | REFACTOR-06 | Phase 41.1 | Complete |
 | REPORT-03 | Phase 42 | Pending |
