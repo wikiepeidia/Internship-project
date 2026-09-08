@@ -1,6 +1,6 @@
 This chapter reports what the measurements showed. It keeps four questions apart, because they are different questions: how good the dataset turned out to be, whether the laptop could do the job, how the two models scored on the validation set, and how they scored on the held-out messages they had never seen.
 
-Keeping them apart matters. A high validation score does not prove the dataset is realistic, a hardware measurement says nothing about accuracy, and a single run on held-out data cannot show how much the number would move if everything were run again.
+Keeping those four questions apart matters, because a high validation score does not prove the dataset is realistic, a hardware measurement says nothing about accuracy, and a single run on held-out data cannot show how much the number would move if everything were run again.
 
 \section{Quality of the Dataset}
 
@@ -15,7 +15,7 @@ The judge model scored every message. Of those, 1{,}561 kept a score from an ear
 \label{fig:corpus-quality}
 \end{figure}
 
-Two things in that figure need saying before anyone asks. The two lowest averages are for whether a message reads like a real scam and whether its risk level fits, which are the two hardest things to get right when a model is writing the message rather than a person. And the Zalo class passes at 99.7\% while task scam passes at 47.5\%. That gap is not evidence that the Zalo messages are better. They are the ones that were rewritten, and they were rewritten by a model from the same family as the judge that then scored them. It is the clearest example in this report of why the judge is not treated as a second opinion.
+Two things in that figure need saying before anyone asks. The two lowest averages are for whether a message reads like a real scam and whether its risk level fits, which are the two hardest things to get right when a model is writing the message rather than a person. The Zalo class also passes at 99.7\% while task scam passes at 47.5\%. That gap is not evidence that the Zalo messages are better. They are the ones that were rewritten, and they were rewritten by a model from the same family as the judge that then scored them. It is the clearest example in this report of why the judge is not treated as a second opinion.
 
 A two-thirds pass rate needs reading correctly. The judge is strict: one weak score out of five fails the whole message. The messages that failed were not silently kept. They are the reason the repair work described in Chapter~IV exists.
 
@@ -25,7 +25,7 @@ The label review covered all 324 messages the judge had flagged. The reviewer dr
 
 \section{What the Hardware Measurements Showed}
 
-The two short runs answered one question: could this laptop train either way? They say nothing about accuracy.
+The two short runs answered one question, which was whether this laptop could train either way. They say nothing about accuracy, and no model from either run was kept.
 
 Ordinary LoRA left 9~MiB of video memory free at its tightest and pointed at roughly eighteen hours of computation. QLoRA peaked at 7{,}516 of 8{,}151~MiB, leaving a workable margin, at a median of 3.462389 seconds per step. Neither produced an out-of-memory error. Figure~\ref{fig:gpu-telemetry} shows the card under load during the QLoRA run.
 
@@ -80,7 +80,7 @@ Figure~\ref{fig:terminal-confusion} shows where each model went wrong. Rows are 
 
 PhoBERT came out higher on accuracy and on both F1 measures. Qwen came out higher on the benign class, where it raised no false alarms at all while PhoBERT raised one.
 
-The most important column is the last one. A message that is dangerous but gets called safe is the expensive mistake, because the user is told there is nothing to worry about. Both models made exactly one. On the measure that matters most for this system, they tied.
+The most important column is the last one. A message that is dangerous but gets called safe is the expensive mistake, because the user is told there is nothing to worry about. Both models made exactly one such mistake, so on the measure that matters most for this system they tied.
 
 Each model was trained once, so this gap describes what happened in this one run. It is not enough to prove PhoBERT is reliably the better model.
 

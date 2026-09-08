@@ -7,11 +7,11 @@ The first meaning is that the model runs on the user's own device. Analysis happ
 
 Neither meaning is enough on its own. A model that runs privately but was never trained on Vietnamese scams would miss the local patterns. A model trained on Vietnamese scams but running in the cloud would still require the user to upload the message it is supposed to protect.
 
-Three requirements shaped the whole project. The system handles text only. It runs offline, or at least locally, by default. And it prioritises catching high-risk messages, even at the cost of some false alarms, because missing a real scam is more expensive than raising one extra warning. These requirements make the project smaller than a full fraud assistant that would also handle images and voice calls, but they keep it realistic on a laptop and appropriate for private messages. They also answer a practical safety question: how to reduce dangerous misses without asking the user to trust a score they cannot check.
+Three requirements shaped the whole project. It handles text only, it runs offline or at least locally by default, and it prioritises catching high-risk messages even at the cost of some false alarms, because missing a real scam is more expensive than raising one extra warning. These requirements make the project smaller than a full fraud assistant that would also handle images and voice calls, but they keep it realistic on a laptop and appropriate for private messages. They also answer a practical safety question: how to reduce dangerous misses without asking the user to trust a score they cannot check.
 
 \section{Problem Statement}
 \label{sec:problem-statement}
-Two problems motivate the work. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. And the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and messages that mix Vietnamese and English in the same sentence, rather than assuming a general multilingual model already covers them. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare score.
+Two problems motivate this project. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. The second problem is that the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and messages that mix Vietnamese and English in the same sentence, rather than assuming a general multilingual model already covers them. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare score.
 
 The underlying task is supervised multi-class text classification. The input is one pasted message. The output is a structured record with five fields:
 
@@ -37,7 +37,7 @@ Three questions follow from that problem statement:
 \end{enumerate}
 
 \section{Project Contributions}
-The work delivers not only two fine-tuned models but also the dataset they were trained on.
+This project delivers two fine-tuned models together with the dataset they were trained on.
 
 The first contribution is a 2{,}097-message dataset across four classes. Several messages were written from each source article, so messages from one article can look very similar; all of them are kept in the same split, which stops a model from being evaluated on a message that is nearly identical to one it trained on.
 
@@ -54,7 +54,7 @@ The dataset is built from public scam-warning articles on \url{https://tinnhiemm
 
 The messages in the dataset are generated from those articles rather than collected from real victims, so the dataset is not a substitute for a benchmark built from real traffic.
 
-The final evaluation used one shared set of 220 messages, and it was run exactly once. Keeping a test set separate is standard; the stronger commitment here is that the result was not allowed to feed back into the work. It was not used to repair data, retrain, move a threshold, or pick a different checkpoint. Reporting a number from a test set that was consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed in advance.
+The final evaluation used one shared set of 220 messages, and it was run exactly once. Keeping a test set separate is standard; the stronger commitment here is that the result was not allowed to feed back into the project. It was not used to repair data, retrain, move a threshold, or pick a different checkpoint. Reporting a number from a test set that was consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed in advance.
 
 One honest qualification belongs with that. Automated file-integrity tests had opened the evaluation files before the models were run. Those tests never showed a message to a human, never ran either model, and did not change any result, but it would still be wrong to describe the evaluation set as completely untouched, so this report does not.
 

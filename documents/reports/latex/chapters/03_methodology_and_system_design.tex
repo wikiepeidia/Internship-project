@@ -4,7 +4,7 @@ The system was built in steps, and each step depends on the one before it: build
 \input{figures/system_overview}
 
 \section{Development Structure}
-The work has five stages. The first builds the dataset and decides how it is split. The second measures ordinary LoRA and QLoRA training on the target laptop before committing to either. The third trains Qwen with QLoRA and PhoBERT locally, and exports the Qwen model to GGUF. The fourth delivers a text-only runtime that always returns its answer in the same format. The fifth evaluates both finished models once on the 220-message test set.
+The five stages listed in Chapter~I have to run in that order, and the order is the part worth explaining. The dataset has to exist and be split before anything can be trained on it. The hardware has to be measured before a training method is chosen, because otherwise the choice is a guess. The runtime has to be built around whatever the model actually produces rather than around what it was hoped to produce. Finally, the held-out messages cannot be touched until both models are finished, because a set that has already been consulted is no longer held out. Each of the following sections explains one of those decisions.
 
 \section{Building and Splitting the Dataset}
 
@@ -144,7 +144,7 @@ There are two ways to get a class decision out of a fine-tuned model.
 \item \textbf{No extra layers.} QLoRA adapts the model's existing weights, so nothing classification-specific is bolted on. The model simply learns to write one of four fixed strings: \texttt{bank\_impersonation}, \texttt{zalo\_\allowbreak social\_\allowbreak engineering}, \texttt{task\_scam}, and \texttt{benign}. That is the mechanism Schick and Sch{\"u}tze call a \textit{verbalizer} \cite{schick2021pet}.
 \end{itemize}
 
-\noindent A scoring layer would still be the better choice if a label were all that was needed. Here it is not.
+\noindent A scoring layer would still be the better choice if a label were all that was needed, but this system also has to produce the risk tier, the quoted evidence, and the recommendation.
 
 The adapted forward pass combines the frozen pretrained weight matrix~$W_0$ with the low-rank product~$BA$, scaled by~$\alpha/r$:
 \begin{equation}
@@ -169,7 +169,7 @@ Table~\ref{tab:qlora-config} lists the settings the run actually used. The two q
 
 For each message the system returns four things: a risk level (benign, suspicious, or high-risk), the threat label, the suspicious phrases quoted from the message itself, and safe next steps. The explanation should be given on evidence the reader can check in the message, not on a confidence score \cite{rjoub2023surveyxai}.
 
-Two rules keep that honest. Quoted phrases must come from the message text itself, and recommendations must stay inside a safe, generic set that cannot tell a user to do something harmful.
+Two rules keep those explanations honest. Quoted phrases must come from the message text itself, and recommendations must stay inside a safe, generic set that cannot tell a user to do something harmful.
 
 \subsection*{Handling a model that writes free text}
 

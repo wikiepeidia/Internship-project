@@ -129,7 +129,7 @@ At runtime the analysis service normalises the message text, sends it to whichev
 
 \section{What Went Wrong, and What Was Done About It}
 
-Three failures shaped the work more than any of the successes, so all three are recorded here.
+Three failures shaped this project more than any of the successes, so all three are recorded here.
 
 \textbf{Generation kept dying part-way through.} The first dataset pass ran for a long time against an external API, and interruptions lost everything generated up to that point. The fix was to write checkpoint files as generation proceeded, so a failure costs the last few minutes rather than the whole run.
 
