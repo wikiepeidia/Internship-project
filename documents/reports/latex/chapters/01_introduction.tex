@@ -48,7 +48,7 @@ The third is training both models locally on exactly the same messages, keeping 
 The fourth is one evaluation of both finished models on the same 220 messages, which also counts how many answers came back unreadable and how many dangerous messages were wrongly called safe.
 
 \section{Scope and Limitations}
-This is a text-only prototype for Vietnamese financial phishing. Image-based phishing such as QR codes and forwarded screenshots, voice calls, deepfake audio, and malware analysis are all out of scope.
+The prototype handles Vietnamese text and nothing else. Image-based phishing such as QR codes and forwarded screenshots, voice calls, deepfake audio, and malware analysis are all out of scope.
 
 The dataset is built from public scam-warning articles on \url{https://tinnhiemmang.vn}, and no private user conversations were collected. That choice was made after checking the public alternatives, which are documented in the appendix. Several candidate datasets had no licence, or no clear record of where their data came from, some contained real phone numbers belonging to real people, and one had substantial overlap between its own training and test halves, which would have flattered any score measured on it. Public advisory articles avoided all three problems.
 

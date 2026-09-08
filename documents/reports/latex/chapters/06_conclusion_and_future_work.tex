@@ -6,7 +6,7 @@ The dataset was built so that no source article can appear in more than one spli
 
 Two models were trained locally on the same messages, with one seed. Qwen was trained with 4-bit QLoRA and PhoBERT as a full four-class classifier. On the 220 held-out messages, PhoBERT scored higher overall, at macro F1 0.990892 against Qwen's 0.980493. Neither model produced an unreadable answer, and each made exactly one dangerous mistake, calling a scam safe.
 
-That last point is the one worth carrying. On the measure that matters most for a phishing tool, the two models tied. And since each was trained only once, the overall gap describes this run rather than proving that PhoBERT is reliably better.
+The last point is the one that matters most. On the measure that matters most for a phishing tool, the two models tied. And since each was trained only once, the overall gap describes this run rather than proving that PhoBERT is reliably better.
 
 The two models also do different jobs. PhoBERT returns a label and nothing else. Qwen returns the label together with a risk level, the phrases it reacted to, and advice on what to do. The comparison covers only the part they share.
 
