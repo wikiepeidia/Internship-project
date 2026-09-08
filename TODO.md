@@ -177,67 +177,51 @@ like someone who actually sat through the run.
 
 ---
 
-# GRAPH / FIGURE FIXES — what still needs your hand
+# GRAPH / FIGURE FIXES --- status
 
-Status after the Chapter 3+4 de-duplication pass. Ordered by how much a juror
-would notice.
+## DONE
 
-## 1. `training_console_probe.png` — YOU edit this one (Figure 4.3)
+1. **`training_console_probe.png`** --- you cropped it. In the report.
+2. **GPU telemetry figure** --- regenerated. UTC stamp gone from the report version.
+   The data still has it, and `python scripts/report_figures/plot_gpu_telemetry.py
+   --with-timestamp` prints it back if anyone ever asks. Title now says
+   "45-step QLoRA measurement run" so nobody mistakes it for the full run.
+3. **All five figure scripts de-jargoned.** "rubric dimension", "partition",
+   "re-judge", "invalid outputs", "resource probe" are gone from every axis label
+   and title. Numbers unchanged --- checked against the anchors after regenerating.
+4. **`corpus_judge_quality.png` is now in Chapter V.** It was sitting unused on
+   disk while Chapter V listed the same five averages as a wall of text. The
+   figure carries them now and the prose says the two things worth saying:
+   the two lowest scores are realism and risk level, and the Zalo class passing
+   at 99.7% against task scam at 47.5% is the judge marking its own family's work.
+5. **Figure filenames** --- `phase40_*_loss_curves.png` renamed. No "phase 40" or
+   "phase 41" anywhere in the report source now.
 
-It is a screenshot with numbers burned into it. Nothing I can regenerate.
+## DECIDED AGAINST --- and why, in case a juror asks
 
-- Crop out any folder name that contains `phase40` / `phase41`.
-- Crop out any long hex string (run IDs, hashes). No hashes anywhere in the report.
-- Keep the `45/45 [03:42<00:00, 3.70s/it]` line visible — that is the whole point
-  of the figure, and the caption now says "45-step measurement run, about three
-  and a half minutes".
-- If the top of the frame shows the `nvidia-smi` banner, keep it. It proves the
-  card is real.
+**Table 5.1 was not turned into a bar chart.** The three rate metrics are
+0.9818, 0.9805, 0.9818 for Qwen against 0.9909, 0.9909, 0.9909 for PhoBERT. On a
+0--100% axis those bars are identical; on a zoomed axis a one-point gap looks
+like a landslide, which would overstate a single-seed result. Instead the
+duplication was removed the other way: the confusion-matrix figure no longer
+prints macro-F1 in its panel titles, so the table owns the summary numbers and
+the figure owns where the mistakes are.
 
-## 2. GPU telemetry figure (Figure 5.1) — regenerate
+If you want it as a chart anyway, say so --- but the honest version needs the
+axis to start at zero, and then it shows nothing.
 
-`scripts/report_figures/plot_gpu_telemetry.py`
+## STILL ON YOU
 
-- Drop the UTC date from the axis. Nobody needs `2026-08-25T14:03Z`; it makes the
-  panel look like a log dump. Use elapsed seconds from the start of the run.
-- Title/caption must keep saying **45-step measurement run**, not "training".
+**The VRAM question.** Two different numbers appear and both are right:
 
-Command: `python scripts/report_figures/plot_gpu_telemetry.py`
+- **7,516 MiB** (7,902 for LoRA) --- the whole card, from `nvidia-smi`, including
+  the driver and the display.
+- **5.73 GiB** --- what PyTorch itself allocated during the full run.
 
-## 3. Table 5.1 + Figure 5.2 say the same thing twice — merge
+The caption of Figure 4.5 says this. Read it once and check you can say it out
+loud, because that gap is exactly what a juror points at.
 
-Right now Chapter V prints a 5-column table of the held-out results and then a
-confusion-matrix figure. A juror reads the same numbers twice.
-
-Preferred fix: turn the table into a **5-bar chart** (accuracy, macro F1,
-weighted F1, unreadable, risky-called-safe) with Qwen and PhoBERT side by side,
-and keep the confusion matrix as the "where did it go wrong" panel.
-
-`scripts/report_figures/plot_terminal_evaluation.py` already has the numbers
-loaded — extend it with a second panel rather than writing a new script.
-
-Leave it as-is if you run out of time. It reads fine, it is just repetitive.
-
-## 4. VRAM numbers — already explained in the text, check it reads right
-
-Two different VRAM numbers appear and they are both correct:
-
-- **7,516 MiB** (and 7,902 MiB for LoRA) — whole card, from `nvidia-smi`,
-  includes the driver and the display.
-- **5.73 GiB** — what PyTorch itself allocated during the full run.
-
-The caption of Figure 4.5 now says this explicitly. Read that caption once and
-make sure you can say it out loud, because it is exactly the kind of gap a juror
-points at.
-
-## 5. Deleted — do not put it back
-
-The TikZ artifact-flow diagram that used to open Chapter 4. It duplicated
-Figure 3.1 and its labels overlapped. Gone on purpose.
-
-## 6. Filenames
-
-`figures/phase40_qwen_loss_curves.png` and `figures/phase40_phobert_loss_curves.png`
-still carry the phase number. It does **not** appear in the PDF — only in the
-source tree. Rename only if you are handing over the repository; if you do,
-update the two `\includegraphics` lines in `chapters/04_implementation.tex`.
+**The 99.7% Zalo pass rate.** It is in the report now, with the reason. If someone
+asks "why is one class near perfect", the answer is: those are the rewritten
+messages, and the model that rewrote them is from the same family as the judge
+that scored them. Do not let that one get asked before you say it.

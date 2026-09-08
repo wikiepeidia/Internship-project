@@ -62,7 +62,7 @@ Memory peaked at 7{,}516 of 8{,}151~MiB, leaving a workable margin throughout, a
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.80\linewidth]{figures/training_console_probe.png}
-\caption{Console output from the 45-step QLoRA measurement run of 25 August 2026, which took about three and a half minutes at a median of 3.46 seconds per step. This is the short measurement run, not the full training run.}
+\caption{Console output from the 45-step QLoRA measurement run. The bar reaches 45 of 45 steps at 2~minutes 43~seconds, and the 3.70~s/it it reports is its own running average across all 45, including the five warm-up steps; the 3.462389~s quoted above is the median of the 40 steps after warm-up. The run's total was 3~minutes 42~seconds, and the extra 59~seconds is the closing validation pass and checkpoint save. This is the short measurement run, not the full training run.}
 \label{fig:probe-console}
 \end{figure}
 
@@ -76,7 +76,7 @@ The model was evaluated every 50 steps, and the checkpoint that scored best on t
 \centering
 {\small\bfseries Qwen QLoRA training curves\par}
 \smallskip
-\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_qwen_loss_curves.png}
+\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/qwen_loss_curves.png}
 \caption{Qwen QLoRA training and validation loss across the completed 1{,}245-step run.}
 \label{fig:qwen-training-curves}
 \end{figure}
@@ -100,7 +100,7 @@ The result is an ordinary Transformers bundle: a 540~MB \texttt{model.safetensor
 \centering
 {\small\bfseries PhoBERT training curves\par}
 \smallskip
-\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_phobert_loss_curves.png}
+\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phobert_loss_curves.png}
 \caption{PhoBERT training and validation loss across the completed 312-step run.}
 \label{fig:phobert-training-curves}
 \end{figure}
