@@ -1,135 +1,101 @@
-This chapter separates four kinds of evidence that answer different questions: corpus quality, same-cohort development validation, bounded hardware feasibility, and one terminal two-model evaluation. This separation is necessary because a good validation score does not prove dataset realism, a resource probe does not prove accuracy, and one terminal result does not estimate run-to-run variance or production performance.
+This chapter reports what the measurements showed. It keeps four questions apart, because they are different questions: how good the dataset turned out to be, whether the laptop could do the job, how the two models scored on the validation set, and how they scored on the held-out messages they had never seen.
 
-\section{Final Corpus and Data-Quality Evidence}
+Keeping them apart matters. A high validation score does not prove the dataset is realistic, a hardware measurement says nothing about accuracy, and a single run on held-out data cannot show how much the number would move if everything were run again.
 
-The promoted corpus contains 2{,}097 records in four classes. Group-integrity splitting produced 1{,}658 training, 219 validation, and 220 terminal-evaluation rows with zero cross-split \texttt{seed\_id} overlap. The largest seed accounts for 7.9638\% of the corpus, below the predeclared 8\% concentration cap. Table~\ref{tab:dataset-stats} gives both class and partition counts.
+\section{Quality of the Dataset}
 
-The final machine-judge bundle covers all 2{,}097 promoted records by joining 1{,}561 exact-record carries with 536 freshly judged final-delta records. It records 1{,}395 passes (66.52\%). Mean rubric scores on the 1--5 scale are realism 4.020, label correctness 4.851, code-switch naturalness 4.672, risk-tier correctness 4.119, and suspicious-span accuracy 4.745. Semantic convergence ended with zero unresolved rows. These are descriptive quality indicators; the bundle is not described as a new independent judgment of every row because it mixes carried and fresh evidence.
+The final set holds 2{,}097 messages, split into 1{,}658 for training, 219 for validation, and 220 held back. Table~\ref{tab:dataset-stats} gives the counts per class. No source article appears in more than one split, and the largest single article accounts for 7.9638\% of the set, under the 8\% limit set before the split was made.
 
-The separate Vietnamese-fluent human sample contains 100 final-snapshot records: 44 PASS and 56 FAIL. Human and judge verdicts agree on 87/100. The sample is stratified across all four labels, both judge outcomes, and both judge-evidence origins; it is partial corroboration rather than complete human annotation. A further targeted review considered all 324 task-scam candidates flagged for possible mislabelling. The reviewer chose 91 drops and approved 233 relabels. Only 57 relabels were admitted; 176 human-approved Zalo semantics were excluded solely because they shared one non-independent lineage. This is evidence that lineage governance was applied even when it reduced the amount of usable reviewed data.
+The judge model scored every message. Of those, 1{,}561 kept a score from an earlier round because the message had not changed since, and 536 were scored fresh. In total 1{,}395 passed, which is 66.52\%. A message passes only if it scores at least 3 out of 5 on all five things the judge looks at, and the averages were 4.020 for how realistic the message reads, 4.851 for whether the label is right, 4.672 for how naturally Vietnamese and English are mixed, 4.119 for whether the risk level fits, and 4.745 for whether the highlighted phrases are correct.
 
-The reconstructed Zalo subset requires a separate independence limitation. The offline reconstruction and final judge share a model family, so the 296 reconstructed records remaining in the corpus are not generator-family-independent judgments. They did pass schema, span, duplicate, label-support, seed-cap, and split-disjointness checks, but those mechanical gates do not turn synthetic messages into observed real-world traffic.
+A two-thirds pass rate is worth reading correctly. The judge is strict: one weak score out of five fails the whole message. The messages that failed were not silently kept --- they are the reason the repair work described in Chapter~IV exists.
 
-\section{Bounded Resource Evidence}
+The manual review covered 100 messages, drawn evenly across all four classes and across both judge outcomes. The reviewer passed 44 and failed 56, and agreed with the judge on 87 of the 100. That 44 out of 100 is a result about this deliberately mixed sample. It is not a random sample of the whole set, and it does not mean 56\% of the dataset is bad.
 
-The same-laptop LoRA and QLoRA probes answer whether each adaptation route was practical on the RTX~5050 configuration. They do not contribute model-quality predictions. Ordinary LoRA completed optimizer work but stopped with \texttt{parent\_controller\_error} after 31 observed events. It peaked at 7{,}902/8{,}151~MiB VRAM, reached 9~MiB minimum free VRAM, and had a 53.274-second median measured step. Its 18.42-hour figure is a compute-only projection from the incomplete 26-step measurement window. No OOM occurred.
+The label review covered all 324 messages the judge had flagged. The reviewer dropped 91 and agreed that 233 needed a different label: 48 belonged to bank impersonation, 177 to Zalo social engineering, and 8 to benign. Only 57 of those corrections were added, because the other 176 all traced back to a single source article and would have made the Zalo class look far more varied than it is.
 
-The genuine NF4 QLoRA probe completed five warm-up plus 40 measured steps, retained 395~MiB minimum free VRAM, and had a 3.462389-second median. Its 72-minute-49.750-second schedule figure combines a projected 1{,}245-step optimizer schedule with one measured validation and save overhead. It is not the observed duration of the later full run. Figure~\ref{fig:resource-probe-comparison} in Chapter~IV therefore labels both duration values as projections.
+\section{What the Hardware Measurements Showed}
 
-The defensible resource conclusion is narrow: ordinary LoRA was technically runnable but had effectively no device-memory headroom and an unattractive deadline estimate, while genuine QLoRA reached its bounded target with more headroom. No full ordinary-LoRA model or accuracy row exists, and no cross-family speed conclusion is drawn from Qwen and PhoBERT execution times.
+The two short runs answered one question: could this laptop train either way? They say nothing about accuracy.
 
-\section{Same-Cohort Development Validation}
+Ordinary LoRA left 9~MiB of video memory free at its tightest and pointed at roughly eighteen hours of computation. QLoRA peaked at 7{,}516 of 8{,}151~MiB, leaving a workable margin, at a median of 3.462389 seconds per step. Neither produced an out-of-memory error. Figure~\ref{fig:gpu-telemetry} shows the card under load during the QLoRA run.
 
-Both completed models were trained with seed 42 for three epochs and selected using the same 219-row validation cohort. Qwen QLoRA completed 1{,}245 optimizer steps and selected checkpoint 200. PhoBERT completed 312 optimizer steps and selected checkpoint 100. Both safety gates passed with zero invalid outputs and zero risky-to-benign validation errors.
+The conclusion is narrow: LoRA was runnable but left no room for anything to go wrong across an eighteen-hour run, while QLoRA had margin to spare. No full LoRA model exists, so there is no accuracy figure to compare, and no speed comparison is drawn between Qwen and PhoBERT.
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\small
-\renewcommand{\arraystretch}{1.18}
-\begin{tabular}{L{3.4cm}rrrrr}
-\toprule
-\textbf{Model} & \textbf{Acc.} & \textbf{Macro F1} & \textbf{Bank R.} & \textbf{Zalo R.} & \textbf{Task R.} \\
-\midrule
-Qwen QLoRA & 0.990868 & 0.988515 & 0.9868 & 1.0000 & 1.0000 \\
-PhoBERT    & 0.986301 & 0.984893 & 1.0000 & 0.9545 & 1.0000 \\
-\bottomrule
-\end{tabular}
-\caption{Fresh development-validation results on the same 219 records. R. denotes recall. Both runs use one seed, so the numerical differences have no variance or significance estimate.}
-\label{tab:validation-comparison-current}
-\end{table}
+\includegraphics[width=0.92\linewidth]{figures/gpu_telemetry_probe.png}
+\caption{GPU usage during the 45-step QLoRA measurement run. Across 125 samples, utilisation peaked at 97 percent and video memory at 7{,}516 of 8{,}151~MiB. This is the short measurement run, not the full training run.}
+\label{fig:gpu-telemetry}
+\end{figure}
+
+\section{Validation Results}
+
+Both models were trained with the same seed and selected on the same 219 validation messages. Qwen's best checkpoint came at step 200 and PhoBERT's at step 100. Neither produced an unreadable output, and neither called a dangerous message safe.
 
 \input{figures/validation_metric_comparison}
 
-Qwen is numerically higher on both reported overall validation metrics. PhoBERT has higher recall for bank impersonation, whereas Qwen has higher Zalo recall. The gaps are small and arise from one run per model. They support checkpoint acceptance under the declared validation gates, not a claim of statistically significant or stable model superiority. Timing and throughput were explicitly excluded from the quality comparison because the models use different output mechanisms and have hardware-confounded execution paths.
+Figure~\ref{fig:validation-metric-comparison} compares them. Qwen scored higher on both overall measures. PhoBERT was better at recalling bank impersonation, and Qwen was better at recalling Zalo social engineering. Each model was trained and evaluated once, so these numbers justify accepting the selected checkpoints and nothing more.
 
-The retained qualitative queue contains 52 full-message validation rows, 26 per model. A Vietnamese-fluent reviewer assessed all rows with immutable model-run and validation-row identifiers. The result was 46 predictions supported, four unsupported, one gold-label concern, and one ambiguous case. The review was qualitative only: its publication path was verified byte-stable and did not mutate labels, predictions, checkpoint selection, or metrics.
+Speed was left out of this comparison on purpose. The two models produce their answers in completely different ways --- one writes text, the other returns four numbers --- so comparing how long they take would not be measuring the same thing.
 
-\section{Terminal Shared-Cohort Evaluation}
+\section{Results on the 220 Held-Out Messages}
 
-After training, validation acceptance, and checkpoint selection were frozen, the two selected models were evaluated once on the same 220-row terminal cohort. Exactly one model-evaluation pass completed. The full results, raw predictions, confusion matrices, safety counts, and policy disposition were exported together under one verified manifest; no partial result was used to revise either model.
+The 220 held-out messages are the ones neither model saw at any point during training or checkpoint selection. They were set aside when the dataset was first split, and both finished models were run over them exactly once.
+
+Table~\ref{tab:terminal-comparison} gives the results.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.2}
 \begin{tabular}{L{3.3cm}rrrrr}
 \toprule
-\textbf{Model} & \textbf{Accuracy} & \textbf{Macro F1} & \textbf{Weighted F1} & \textbf{Invalid} & \textbf{Risky $\rightarrow$ benign} \\
+\textbf{Model} & \textbf{Accuracy} & \textbf{Macro F1} & \textbf{Weighted F1} & \textbf{Unreadable} & \textbf{Risky called safe} \\
 \midrule
 Qwen QLoRA & 0.981818 & 0.980493 & 0.981848 & 0 & 1 \\
 PhoBERT    & 0.990909 & 0.990892 & 0.990925 & 0 & 1 \\
 \bottomrule
 \end{tabular}
-\caption{One terminal evaluation on the shared 220-row cohort. These are descriptive results from one pass, not repeated-run estimates.}
+\caption{Results on the 220 held-out messages. Both models were run once.}
 \label{tab:terminal-comparison}
 \end{table}
 
-The exact confusion matrices are shown in Table~\ref{tab:terminal-confusion-matrices}. Rows are gold labels and columns are predictions in the fixed order bank impersonation, Zalo social engineering, task scam, benign, and invalid.
+Figure~\ref{fig:terminal-confusion} shows where each model went wrong. Rows are the true label and columns are what the model predicted.
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\footnotesize
-\renewcommand{\arraystretch}{1.15}
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\textbf{Qwen QLoRA}\\[3pt]
-\begin{tabular}{lrrrrr}
-\toprule
- & B & Z & T & N & I \\
-\midrule
-B & 66 & 3 & 0 & 1 & 0 \\
-Z & 0 & 35 & 0 & 0 & 0 \\
-T & 0 & 0 & 49 & 0 & 0 \\
-N & 0 & 0 & 0 & 66 & 0 \\
-\bottomrule
-\end{tabular}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\textbf{PhoBERT}\\[3pt]
-\begin{tabular}{lrrrrr}
-\toprule
- & B & Z & T & N & I \\
-\midrule
-B & 69 & 0 & 0 & 1 & 0 \\
-Z & 0 & 35 & 0 & 0 & 0 \\
-T & 0 & 0 & 49 & 0 & 0 \\
-N & 0 & 1 & 0 & 65 & 0 \\
-\bottomrule
-\end{tabular}
-\end{minipage}
-\caption{Terminal confusion matrices. B: bank impersonation; Z: Zalo social engineering; T: task scam; N: benign; I: invalid output.}
-\label{tab:terminal-confusion-matrices}
-\end{table}
+\includegraphics[width=0.98\linewidth]{figures/terminal_evaluation_confusion.png}
+\caption{Where each model made mistakes on the 220 held-out messages. Shaded cells off the diagonal are errors: four for Qwen and two for PhoBERT.}
+\label{fig:terminal-confusion}
+\end{figure}
 
-PhoBERT is numerically higher on terminal accuracy, macro F1, weighted F1, bank-impersonation recall/F1, and Zalo precision/F1. Qwen is higher on benign precision, recall, and F1. Task-scam metrics, invalid-output count, and the risky-to-benign safety count are tied. These observations report the frozen result plainly; because there is one seed and one terminal pass, they do not establish a stable winner.
+PhoBERT came out higher on accuracy and on both F1 measures. Qwen came out higher on the benign class, where it raised no false alarms at all while PhoBERT raised one.
 
-\section{Deployment Artifact Verification}
+The most important column is the last one. A message that is dangerous but gets called safe is the expensive mistake, because the user is told there is nothing to worry about. Both models made exactly one. On the measure that matters most for this system, they tied.
 
-The selected Qwen adapter was merged and exported as Q8\_0 GGUF for \texttt{llama.cpp} inference. The portable verified artifact is 4{,}280{,}403{,}232~bytes, with SHA-256
-\begin{center}
-\small\texttt{457f6f92d36a7d54da9916fd80a4028dcd055a653a015c4877370a0fea4d18ab}.
-\end{center}
-The receipt binds the selected checkpoint, conversion identity, artifact hash, and two successful load-smoke records. This verifies artifact construction and loadability; it is not a claim that deployment fitting on all available data was completed. PhoBERT remains a standard Transformers classification bundle and has no GGUF artifact.
-
-\section{Preclaim Failures and Provenance Correction}
-
-Five superseded terminal-evaluation attempts failed before a terminal claim and before model evaluation: a repository bootstrap rejected OneDrive reparse ancestry; the staged loader lacked required source-location metadata; the launcher lacked an explicit output-root argument; captured-helper identity depended on unstable marshal reference bytes; and base leases were compared using semantic snapshot hashes instead of their bound tree hashes. Each failure was retained. The final protected authority passed its preflight, created the durable claim, evaluated both models once, and exited successfully. No terminal model-evaluation retry occurred.
-
-The absolute phrase ``zero prior filesystem access'' would nevertheless be false. At least two broad default pytest executions before the terminal model evaluation parsed, statted, and hashed the live split files; the exact number may be higher. One focused post-evaluation regression rerun also reread them. These automated integrity reads did not display row content to a human, run either model, call an external service, or influence training, validation acceptance, checkpoint selection, thresholding, dataset repair, or the terminal result. The frozen result therefore remains exactly one two-model evaluation pass, but it does not have zero prior filesystem access to the evaluation file. The verified export is accompanied by a mandatory corrective erratum rather than being silently resealed.
+Each model was trained once, so this gap describes what happened in this one run. It is not enough to prove PhoBERT is reliably the better model.
 
 \section{Limits of the Evidence}
+\label{sec:evidence-limits}
 
 \begin{enumerate}
-\item \textbf{Synthetic-derived corpus.} The messages are synthetic-derived rather than a representative sample of live Vietnamese scam traffic. Controlled generation, repair, deduplication, and span checks improve internal quality but cannot establish external validity \cite{kaddour2023synthetic}.
-\item \textbf{Bounded human corroboration.} The 100-row stratified sample and 324-candidate targeted triage are substantive manual checks, but neither is full-corpus annotation. The 44\% human sample pass rate is a warning against treating high judge rubric means as proof of uniformly natural text.
-\item \textbf{Judge-family overlap.} The 296 retained reconstructed Zalo rows share a model family with the final judge, so their judge verdicts are not generator-family-independent.
-\item \textbf{One seed and one terminal pass.} Each model has one seed-42 run. No epoch/seed sweep, variance estimate, significance test, or stable-superiority claim is supported. PhoBERT's higher terminal metrics are a descriptive result on this cohort.
-\item \textbf{Evaluation-file access disclosure.} The terminal models ran once, but automated integrity tests accessed the evaluation file before and after that run as described above. The report therefore makes no absolute prior-isolation or zero-access claim.
-\item \textbf{Terminal policy.} The terminal result was not used for retraining, repair, checkpoint reselection, threshold adjustment, or contingency activation. Deployment fitting remains deferred, so there is no claim of a final all-data fit.
-\item \textbf{Artifact scope.} Qwen GGUF construction and loadability were verified, but PhoBERT was not converted to GGUF and comparative deployment latency was not established.
-\item \textbf{Open architecture review debt.} The maintained refactor still has six critical and three warning findings concerning filesystem/native guard completeness, command-route discovery, loopback request security, terminal escaping, and test-runner controls. These findings do not alter frozen metrics, but they prevent a production-readiness claim.
-\item \textbf{Operational generalization.} Version~1 is text-only and Vietnamese-focused. Robustness to screenshots, voice calls, adversarially evolved wording, and real user traffic remains unverified. Dedicated human review of explanation quality is also future work \cite{lim2025explicate}.
+\item \textbf{The messages are generated, not collected.} They were written from real public scam warnings rather than taken from real victims. Careful generation, repair, and checking improve the quality of the set, but they cannot show that it matches real scam traffic \cite{kaddour2023synthetic}.
+
+\item \textbf{The manual checking covers a sample.} 100 messages reviewed by hand and 324 labels corrected is real work, but it is not the whole dataset. The 44-out-of-100 pass rate is a warning against reading the judge's high averages as proof that every message sounds natural.
+
+\item \textbf{The judge is not fully independent.} The 296 rewritten Zalo messages were written by a model from the same family as the judge that scored them. For those messages, the judge is checking work related to its own, so its verdict is not a second opinion.
+
+\item \textbf{Everything was run once.} Each model was trained one time with one seed. There is no repeat run to compare against, so there is no way to say how much these numbers would move, and no basis for calling one model reliably better.
+
+\item \textbf{The held-out messages were used once and not reused.} The result was not used to retrain, to repair data, to move a threshold, or to pick a different checkpoint.
+
+\item \textbf{No deployment version was built.} The exported model runs locally, but no version was fitted on all the data afterwards, and no operating threshold was calibrated.
+
+\item \textbf{PhoBERT was not exported to GGUF.} It was kept as a standard Transformers model because it is the comparison baseline rather than the model the system ships, and converting it would not have changed any result reported here.
+
+\item \textbf{Security work is unfinished.} A review of the reorganised code recorded six critical and three warning findings. None of them changes any number in this report, but they do rule out calling the system production-ready.
+
+\item \textbf{Text only.} The system reads pasted text. Screenshots, QR codes, voice calls, and real user traffic are untested.
 \end{enumerate}
 
-Within those limits, the project demonstrates a complete evidence chain: seed-governed data construction, same-laptop resource probes, two fresh full local models, mechanically derived training graphs, verified Qwen GGUF export, one terminal shared-cohort evaluation, and an explicit record of failures and corrective disclosures.
+Within those limits, the project does show a complete chain: a dataset built so that reworded messages cannot leak between splits, hardware measured before committing to a training method, two models trained on the same laptop, training graphs drawn from the run logs, a working exported model, and one evaluation on messages neither model had seen.

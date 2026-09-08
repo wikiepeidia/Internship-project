@@ -152,6 +152,28 @@ Stating these *first*, in our own voice, is what removes their power as jury amb
 
 ---
 
+## 6b. Direct jury instruction: less code
+
+The jury told us explicitly: **don't put too much code in the report — you lose points for it.**
+
+This lines up with the reference report, which contains only **9 snippets, each 5–10 lines**, and never
+a full file. Every snippet there is the *smallest fragment that proves a specific claim* — a five-line
+PowerShell block showing a Defender status check, a four-line JavaScript condition showing a policy
+evaluation. Never a class, never an import block, never a whole function.
+
+Rules for us:
+- A snippet must be **under ~10 lines**. If it needs more, it belongs in the repo, not the report.
+- One sentence of setup before it, one sentence of interpretation after it. Never a bare code block.
+- Show the *decision*, not the plumbing: the actual rule/threshold/condition, not the file I/O around it.
+- Prefer a **screenshot of code running** over a listing of the code itself. A terminal showing output is
+  evidence; a code listing is just text the jury has to trust.
+- Target: **at most 5–6 snippets in the whole report.**
+
+Where we would previously have pasted a function, do one of these instead:
+- a screenshot of its output,
+- a one-line description in prose ("the splitter assigns every row sharing a seed to a single split"),
+- a small diagram or table.
+
 ## 7. Register and tone
 
 - Plain declarative sentences. "The system detects…", "The agent verifies…", "Experimental

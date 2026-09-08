@@ -4,21 +4,21 @@
 \renewcommand{\arraystretch}{1.12}
 \begin{tabular}{L{3.4cm}L{5.2cm}L{4.7cm}}
 \toprule
-\textbf{Evidence item} & \textbf{Measured result} & \textbf{Interpretation boundary} \\
+\textbf{What was measured} & \textbf{Result} & \textbf{What it does not say} \\
 \midrule
-Final corpus & 2{,}097 rows; 1{,}658 / 219 / 220; zero seed overlap; 7.9638\% max seed share & Promoted seed-governed snapshot \\
-Joined machine judge & 1{,}395/2{,}097 pass (66.52\%); 1{,}561 carries + 536 fresh delta & Descriptive; not an all-new independent rerun \\
-Human quality sample & 44/100 pass; 87/100 judge agreement & Stratified partial audit, not full annotation \\
-Targeted mislabel triage & 324 reviewed; 91 drops; 233 relabel approvals; 57 admitted & 176 approved Zalo rows excluded for shared lineage \\
-Ordinary LoRA probe & 31 events; 53.274 s median; 7{,}902/8{,}151 MiB; no OOM & 18.42 h is an incomplete-window compute projection \\
-NF4 QLoRA probe & 40 measured steps; 3.462389 s median; 7{,}516/8{,}151 MiB; no OOM & 72m49.750s is a projected schedule, not observed full duration \\
-Qwen validation & $N=219$; accuracy 0.990868; macro F1 0.988515 & Seed 42; checkpoint 200; development evidence \\
-PhoBERT validation & $N=219$; accuracy 0.986301; macro F1 0.984893 & Seed 42; checkpoint 100; development evidence \\
-Qwen terminal result & $N=220$; 0.981818 / 0.980493 / 0.981848; invalid 0; risky-to-benign 1 & One terminal shared-cohort pass \\
-PhoBERT terminal result & $N=220$; 0.990909 / 0.990892 / 0.990925; invalid 0; risky-to-benign 1 & Descriptively higher overall; no stable-winner claim \\
-Qwen deployment artifact & Q8\_0 GGUF, 4{,}280{,}403{,}232 bytes; verified load smokes & PhoBERT has no GGUF; deployment fitting deferred \\
+The dataset & 2{,}097 messages; 1{,}658 / 219 / 220; no source article in two splits; largest article 7.9638\% & Nothing about how close it is to real scam traffic \\
+Judge model & 1{,}395 of 2{,}097 passed (66.52\%); 1{,}561 scores reused, 536 scored fresh & Not a fresh independent scoring of the whole set \\
+Manual review & 44 of 100 passed; agreed with the judge on 87 & A deliberately mixed sample, not a random one \\
+Label corrections & 324 reviewed; 91 dropped; 233 agreed; 57 used & 176 agreed Zalo corrections were left out because they came from one article \\
+Ordinary LoRA measurement & 31 steps; 53.274~s median; 7{,}902 of 8{,}151~MiB; no out-of-memory error & The 18.42~h figure is a projection from a part-run, not an observed time \\
+QLoRA measurement & 40 measured steps; 3.462389~s median; 7{,}516 of 8{,}151~MiB; no out-of-memory error & Its 72-minute estimate is a projection, not an observed run \\
+Qwen on validation & $N=219$; accuracy 0.990868; macro F1 0.988515 & Seed 42, checkpoint 200; used to select a checkpoint \\
+PhoBERT on validation & $N=219$; accuracy 0.986301; macro F1 0.984893 & Seed 42, checkpoint 100; used to select a checkpoint \\
+Qwen on held-out messages & $N=220$; 0.981818 / 0.980493 / 0.981848; 0 unreadable; 1 risky called safe & One run, run once \\
+PhoBERT on held-out messages & $N=220$; 0.990909 / 0.990892 / 0.990925; 0 unreadable; 1 risky called safe & Higher here, but one run is not proof of a better model \\
+Exported model & Q8\_0 GGUF, 4{,}280{,}403{,}232 bytes; loaded twice to confirm it works & PhoBERT was not exported; no deployment version was fitted \\
 \bottomrule
 \end{tabular}
-\caption{Compact evidence snapshot. Terminal metric triplets are accuracy / macro F1 / weighted F1. Observations, projections, validation results, and terminal results are deliberately separated.}
+\caption{All the main numbers in one place. The three figures for the held-out messages are accuracy, macro F1, and weighted F1. Measurements, projections, validation results, and final results are kept apart on purpose.}
 \label{tab:evaluation-snapshot}
 \end{table}

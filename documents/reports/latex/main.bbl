@@ -1,5 +1,15 @@
 \begin{thebibliography}{10}
 
+\bibitem{hu2022lora}
+E.~J. Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and
+  W.~Chen, ``{LoRA}: Low-rank adaptation of large language models,'' in {\em
+  International Conference on Learning Representations}, 2022.
+
+\bibitem{dettmers2023qlora}
+T.~Dettmers, A.~Pagnoni, A.~Holtzman, and L.~Zettlemoyer, ``{QLoRA}: Efficient
+  finetuning of quantized {LLM}s,'' in {\em Advances in Neural Information
+  Processing Systems}, vol.~36, 2023.
+
 \bibitem{groupib2022laser}
 {Group-IB}, ``Laser targeted: massive phishing campaign singles out clients of
   major vietnamese banks.''
@@ -129,16 +139,6 @@ N.~Houlsby, A.~Giurgiu, S.~Jastrzebski, B.~Morrone, Q.~de~Laroussilhe,
   A.~Gesmundo, M.~Attariyan, and S.~Gelly, ``Parameter-efficient transfer
   learning for {NLP},'' in {\em Proceedings of ICML 2019}, 2019.
 
-\bibitem{hu2022lora}
-E.~J. Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and
-  W.~Chen, ``{LoRA}: Low-rank adaptation of large language models,'' in {\em
-  International Conference on Learning Representations}, 2022.
-
-\bibitem{dettmers2023qlora}
-T.~Dettmers, A.~Pagnoni, A.~Holtzman, and L.~Zettlemoyer, ``{QLoRA}: Efficient
-  finetuning of quantized {LLM}s,'' in {\em Advances in Neural Information
-  Processing Systems}, vol.~36, 2023.
-
 \bibitem{han2024peft}
 Z.~Han, C.~Gao, J.~Liu, J.~Zhang, and S.~Q. Zhang, ``Parameter-efficient
   fine-tuning for large models: A comprehensive survey,'' {\em arXiv preprint
@@ -169,6 +169,12 @@ S.~Narang, C.~Raffel, K.~Lee, A.~Roberts, N.~Fiedel, and K.~Malkan, ``{WT5}?!
 A.~Yousefiramandi and C.~Cooney, ``Fine-tuning causal {LLMs} for text
   classification: Embedding-based vs. instruction-based approaches,'' {\em
   arXiv preprint arXiv:2512.12677}, 2025.
+
+\bibitem{zheng2023judging}
+L.~Zheng, W.-L. Chiang, Y.~Sheng, S.~Zhuang, Z.~Wu, Y.~Zhuang, Z.~Lin, Z.~Li,
+  D.~Li, E.~P. Xing, H.~Zhang, J.~E. Gonzalez, and I.~Stoica, ``Judging
+  {LLM}-as-a-judge with {MT}-bench and chatbot arena,'' in {\em Advances in
+  Neural Information Processing Systems}, vol.~36, 2023.
 
 \bibitem{kaddour2023synthetic}
 J.~Kaddour and Q.~Liu, ``Synthetic data generation in low-resource settings via

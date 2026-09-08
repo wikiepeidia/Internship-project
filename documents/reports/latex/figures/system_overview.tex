@@ -22,9 +22,9 @@
 \node[rhdr] at (0, -3.10) {(2)\enspace Runtime Analysis};
 
 %% ── Offline row (3cm centre spacing) ────────────────────────────────────────
-\node[obox] (dc)  at (-6.0, -0.95) {Retained Seeds +\\Controlled Gen.};
+\node[obox] (dc)  at (-6.0, -0.95) {Crawled Seeds +\\Generated Messages};
 \node[obox] (qrv) at (-3.0, -0.95) {Schema +\\Quality Review};
-\node[obox] (spl) at ( 0.0, -0.95) {Group-Safe\\Splits};
+\node[obox] (spl) at ( 0.0, -0.95) {Split by\\Source Article};
 \node[obox] (qlo) at ( 3.0, -0.95) {QLoRA + PhoBERT\\Training};
 \node[obox] (gex) at ( 6.0, -0.95) {Model\\Packaging};
 
@@ -41,11 +41,11 @@
   -- (0.0,-3.64);
 
 %% ── Runtime row ──────────────────────────────────────────────────────────────
-\node[rbox] (inp) at (-6.0, -4.00) {Text Input\\(local)};
+\node[rbox, minimum height=1.0cm] (inp) at (-6.0, -4.00) {\textbf{Input}\\one pasted\\message};
 \node[rbox] (rif) at (-3.0, -4.00) {Runtime\\Interface};
 \node[rbox] (mod) at ( 0.0, -4.00) {Local Model\\Backend};
 \node[rbox] (dly) at ( 3.0, -4.00) {Decision\\Layer};
-\node[rbox, minimum width=2.25cm] (out) at ( 6.0, -4.00) {Risk\,·\,Labels\\Cues\,·\,Guidance};
+\node[rbox, minimum width=2.5cm, minimum height=1.0cm] (out) at ( 6.0, -4.00) {\textbf{Output} (JSON)\\Risk\,·\,Label\\Cues\,·\,Guidance};
 
 \draw[arr] (inp)--(rif);
 \draw[arr] (rif)--(mod);
@@ -53,6 +53,6 @@
 \draw[arr] (dly)--(out);
 
 \end{tikzpicture}
-\caption{End-to-end system overview: governed dataset construction, two local model families, model packaging, and the explainable local decision layer.}
+\caption{How the system fits together. The top row is the offline work done once: crawling the source articles, generating and checking messages, splitting them by source article, training both models, and packaging the result. The bottom row is what happens each time a user checks a message: one pasted message goes in on the left, and a JSON result comes out on the right.}
 \label{fig:system-overview}
 \end{figure}

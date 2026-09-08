@@ -4,7 +4,7 @@
 \renewcommand{\arraystretch}{1.12}
 \begin{tabular}{L{5.0cm}L{8.0cm}}
 \toprule
-\textbf{Configuration / Result} & \textbf{Verified value} \\
+\textbf{Configuration / Result} & \textbf{Value} \\
 \midrule
 Base model & \texttt{Qwen3-4B-Instruct-2507} \\
 Adaptation & Genuine 4-bit QLoRA; NF4 with double quantization \\
@@ -14,14 +14,13 @@ Trainable adapter tensors & 504; base weights frozen \\
 Random seed & 42 \\
 Training / validation rows & 1{,}658 / 219 \\
 Epochs / optimizer steps & 3 / 1{,}245 \\
-Selected checkpoint & Step 200 under the frozen validation safety gate \\
+Selected checkpoint & Step 200, chosen on the validation set \\
 Validation accuracy / macro F1 & 0.9908675799 / 0.9885153110 \\
-Invalid / risky-to-benign outputs & 0 / 0 on validation \\
-Exact training stack & Python 3.13.13; PyTorch 2.12.0+cu132; Transformers 5.9.0; PEFT 0.19.1; bitsandbytes 0.50.1 \\
+Unreadable outputs / risky called safe & 0 / 0 on validation \\
+Software versions & Python 3.13.13; PyTorch 2.12.0+cu132; Transformers 5.9.0; PEFT 0.19.1; bitsandbytes 0.50.1 \\
 Export & GGUF Q8\_0, 4{,}280{,}403{,}232 bytes \\
-GGUF SHA-256 & \texttt{457f6f92d36a7d54da9916fd80a4028d}\allowbreak\texttt{cd055a653a015c4877370a0fea4d18ab} \\
 \bottomrule
 \end{tabular}
-\caption{Final local Qwen QLoRA configuration and selected validation result. The 220-row terminal cohort was not used for checkpoint selection.}
+\caption{The settings used for the Qwen QLoRA training run, and the score of the checkpoint that was selected. The 220 held-out messages played no part in choosing it.}
 \label{tab:qlora-config}
 \end{table}

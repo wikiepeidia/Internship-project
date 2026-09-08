@@ -1,37 +1,51 @@
 % Section II — Objectives
 % Standalone prose form for department template (v2.2 STRUCT-02)
 
-The scientific objective of this internship was to build and evaluate a
-local-first Vietnamese financial phishing detection pipeline that preserves
-message privacy during normal inference while returning understandable,
-evidence-linked guidance. At its core, this is supervised four-class text
-classification: each message has one ground-truth label and the generative
-Qwen path additionally emits a risk tier, quoted suspicious cues, and safe
-recommendations (Section~\ref{sec:problem-statement}).
+The scientific objective of this thesis was to build and evaluate a
+local-first Vietnamese financial phishing detection system that keeps a
+user's messages private while still explaining its answers well enough to
+act on. Underneath, the task is supervised four-class text classification:
+every message has one correct label, and the Qwen path also produces a risk
+tier, the suspicious phrases quoted from the message, and safe next steps
+(Section~\ref{sec:problem-statement}).
 
-The objective was operationalized through six verifiable deliverables:
+That objective has five parts, each one checkable:
+
 \begin{enumerate}
-  \item construct a reproducible corpus from Vietnamese cybercrime-alert roots,
-  with exact schema/span checks and seed-group separation across partitions;
-  \item perform targeted human review and lineage-governed admission instead of
-  treating every model-suggested relabel as an independent example;
-  \item repair systematic narrative scaffolding through controlled offline,
-  model-assisted reconstruction that preserves semantic roots and seed IDs;
-  \item measure ordinary LoRA and QLoRA on the target RTX~5050 laptop, then make
-  the adaptation choice from retained timing and memory evidence rather than an
-  assumed out-of-memory outcome;
-  \item complete fresh local Qwen QLoRA and PhoBERT training, verify the selected
-  Qwen Q8\_0 GGUF export, and compare both frozen models exactly once on the same
-  terminal cohort; and
-  \item reorganize the maintained runtime, data, integrity, modeling, and
-  evidence code around readable domain boundaries without rewriting or
-  reattributing the historical metric-producing source.
+  \item Build a Vietnamese phishing dataset from real scam-warning
+  articles. Every message is checked automatically for three things: that
+  all the required fields are present, that the label is one of the four
+  allowed classes, and that the highlighted suspicious phrases can be found
+  in the message text. Messages written from the same article never end up
+  in different sets.
+
+  \item Review part of the dataset by hand rather than trusting the judge
+  model completely. The sample covers all four classes and both judge
+  verdicts evenly, so it is not only the easy messages, and a label
+  correction is accepted only when it comes from an independent article.
+
+  \item Fix the messages that came out badly. One whole class had been
+  written as third-person narration instead of as real chat messages, and
+  other classes carried leftover template text, so those were written again
+  offline from their original scenarios.
+
+  \item Measure ordinary LoRA and QLoRA on the actual RTX~5050 laptop, and
+  choose between them from the recorded time and memory numbers rather than
+  from an assumption that one of them would run out of memory.
+
+  \item Train Qwen QLoRA and PhoBERT locally, export the chosen Qwen model
+  as a Q8\_0 GGUF file and confirm it loads, then evaluate both finished
+  models once on the same held-out messages.
 \end{enumerate}
 
-These objectives were substantially realized. The promoted corpus contains
-2{,}097 records; the terminal cohort contains 220 records; and both model paths
-completed with zero invalid outputs in the terminal evaluation. Deployment
-fitting after that evaluation was deliberately deferred. The architecture
-reorganization improved ownership and navigation, but a later review identified
-remaining security-hardening findings, so maintainability work is reported as a
-completed structural contribution rather than a fully closed security claim.
+Most of this was completed. The dataset was built and split, both models were
+trained on the laptop, the Qwen model was exported, and both finished the final
+evaluation without producing a single unreadable answer. The numbers are in
+Chapter~V.
+
+Two things were not finished. No deployment version of the model was fitted
+after the evaluation, and that was left for later on purpose: the point of a
+single final evaluation is lost if training continues on the same data
+afterwards. The code was also reorganised to be easier to read and navigate,
+but a later review found security problems that are still open, so that part
+is not complete either.

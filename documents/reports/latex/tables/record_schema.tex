@@ -6,14 +6,14 @@
 \textbf{Field} & \textbf{Role} \\
 \midrule
 \texttt{text}              & Raw message text, natural Vietnamese with common code-switching. \\
-\texttt{label}             & \textbf{Ground-truth class} for the classification task: one of \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Set during generation (see below), not added afterward. \\
-\texttt{risk\_tier}        & Severity judgment (\texttt{benign}, \texttt{suspicious}, \texttt{high-risk}), produced independently of \texttt{label} rather than derived from it. \\
-\texttt{suspicious\_spans} & Exact substrings of \texttt{text} that support the label (URLs, phone numbers, urgency phrases). \\
-\texttt{xai\_explanation}  & Free-text justification for the label, used as training signal for the explanation output. \\
-\texttt{source}            & Provenance tag (e.g.\ \texttt{ncsc\_seed}, \texttt{synthetic\_claude}). \\
-\texttt{seed\_id}          & Link back to the originating seed record, used for split governance. \\
+\texttt{label}             & \textbf{Ground-truth class} for the classification task: one of \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Set during generation. \\
+\texttt{risk\_tier}        & How dangerous the message is: \texttt{benign}, \texttt{suspicious}, or \texttt{high-risk}. Decided separately from the label, not calculated from it. \\
+\texttt{suspicious\_spans} & The exact phrases inside \texttt{text} that justify the label: fake links, phone numbers, pressure wording. \\
+\texttt{xai\_explanation}  & A short written reason for the label, which is what teaches the model to explain itself. \\
+\texttt{source}            & Which model wrote the message, so every message can be traced to its generator. \\
+\texttt{seed\_id}          & Links the message back to the \textit{tinnhiemmang.vn} article it was written from. Messages sharing this value always go into the same split. \\
 \bottomrule
 \end{tabular}
-\caption{Fields of a single dataset record, enforced by the Pydantic schema gate described above.}
+\caption{The seven fields every message in the dataset carries. Pydantic checks all of them before a message is accepted.}
 \label{tab:record-schema}
 \end{table}

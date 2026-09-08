@@ -4,28 +4,16 @@
 \renewcommand{\arraystretch}{1.16}
 \begin{tabular}{L{3.4cm}rrrrr}
 \toprule
-\textbf{Partition} & \textbf{Bank} & \textbf{Benign} & \textbf{Task} & \textbf{Zalo} & \textbf{Total} \\
+\textbf{Data split} & \textbf{Bank} & \textbf{Benign} & \textbf{Task} & \textbf{Zalo} & \textbf{Total} \\
 \midrule
 Training            & 595 & 517 & 306 & 240 & 1{,}658 \\
 Validation          &  76 &  72 &  49 &  22 &   219 \\
-Terminal evaluation &  70 &  66 &  49 &  35 &   220 \\
+Evaluation (test) &  70 &  66 &  49 &  35 &   220 \\
 \midrule
-\textbf{Promoted corpus} & \textbf{741} & \textbf{655} & \textbf{404} & \textbf{297} & \textbf{2{,}097} \\
+\textbf{Total} & \textbf{741} & \textbf{655} & \textbf{404} & \textbf{297} & \textbf{2{,}097} \\
 \bottomrule
 \end{tabular}
 
-\vspace{0.8em}
-
-\begin{tabular}{L{5.0cm}L{8.3cm}}
-\toprule
-\textbf{Integrity control} & \textbf{Final result} \\
-\midrule
-Group key & All variants of one semantic root retain the same \texttt{seed\_id}. \\
-Cross-partition seed overlap & Zero; group-integrity split passed. \\
-Maximum seed concentration & 7.9638\%, below the declared 8\% cap. \\
-Semantic convergence & Zero unresolved records. \\
-\bottomrule
-\end{tabular}
-\caption{Final corpus composition and seed-governance results. Counts sum across the promoted 2{,}097-row snapshot; the terminal partition is named by its use without asserting absolute prior isolation.}
+\caption{How the 2{,}097 messages are divided between the three splits, and how many of each class each split holds.}
 \label{tab:dataset-stats}
 \end{table}

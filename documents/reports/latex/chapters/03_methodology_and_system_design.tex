@@ -1,16 +1,33 @@
-The system is organized as a sequence of connected layers: governed data construction, local resource measurement and model training, offline runtime delivery, explainable decisioning, one terminal two-model evaluation, and evidence-preserving maintenance. Each layer produces hash-bound artifacts or documented contracts that can be checked against the project files.
+The system was built in steps, and each step depends on the one before it: building the dataset, measuring what the laptop could handle, training the two models, delivering an offline runtime, explaining each decision, and finally evaluating both models once. Every step wrote its own settings, logs, and outputs to disk while it ran. That is what makes the numbers in this report checkable: each one can be traced back to the file that produced it, rather than resting on the claim that the work was done. Table~\ref{tab:milestone-summary} lists those steps and what each one produced, and Figure~\ref{fig:system-overview} shows how the parts fit together.
 
 \input{tables/milestone_summary}
 \input{figures/system_overview}
 
 \section{Development Structure}
-The implementation covers five empirical stages and one maintainability stage. The first produces the governed corpus and seed-group split lineage. The second measures ordinary LoRA and QLoRA on the target laptop before committing to the feasible adaptation route. The third completes local Qwen QLoRA and PhoBERT training and verifies the Qwen GGUF export. The fourth provides a text-only runtime with stable structured-output contracts. The fifth freezes both models and evaluates them once on the same 220-row terminal cohort. The final maintainability stage separates active application domains from historical experiment and evidence-production source; it does not alter or regenerate the frozen metrics.
+The work has five stages. The first builds the dataset and decides how it is split. The second measures ordinary LoRA and QLoRA training on the target laptop before committing to either. The third trains Qwen with QLoRA and PhoBERT locally, and exports the Qwen model to GGUF. The fourth delivers a text-only runtime that always returns its answer in the same format. The fifth evaluates both finished models once on the 220-message test set.
 
-\section{Data Construction and Split Governance}
+\section{Building and Splitting the Dataset}
 
-The dataset was assembled from seed records collected by the retained \texttt{tinnhiemmang.vn} crawler and expanded into a controlled synthetic development corpus. After quality repair and lineage governance, the promoted corpus contains 2{,}097 rows across four classes: bank impersonation, Zalo social engineering, task scam, and benign. Each generated record first passes a Pydantic schema gate that checks types, required fields, permitted labels, score ranges, and evidence-span structure. A separate model-based judge assesses semantic quality (Section~\ref{sec:quality-check}), while targeted decisions are made by a Vietnamese-fluent reviewer. Pydantic is therefore used for structural validation, not as a semantic judge, and model judgments are not presented as human ground truth. Figure~\ref{fig:data-pipeline} shows the governed pipeline; two representative message forms are shown below.
+\subsection*{Where the messages come from}
+
+Everything starts with \textit{tinnhiemmang.vn}, a Vietnamese site that publishes public warnings about current scams. A crawler collected those articles. Each article describes a scam in general terms --- a fake bank SMS, a Zalo message pretending to be a relative, a fake part-time job offer --- but an article is not itself a scam message, so it cannot be used as training data directly.
+
+Each collected article becomes a \textbf{seed}, and each seed gets an ID. Several messages are then written from each seed, all sharing that ID. This matters for one reason: messages written from the same article naturally resemble each other, so if one went into training and its near-twin into the test set, the model would appear to score better than it does. Because every message carries the ID of the article it came from, the splitter can keep all of them together in one split. That is what the \texttt{seed\_id} field in Table~\ref{tab:record-schema} is for. Figure~\ref{fig:seed-sample} shows two of the collected articles as they are stored.
+
+After the generation, repair, and checking described below, the final set holds 2{,}097 messages across four classes: bank impersonation, Zalo social engineering, task scam, and benign.
+
+\subsection*{What a message looks like}
+
+Every message is checked the moment it is produced, then scored for quality and partly reviewed by hand; those three checks are set out in Section~\ref{sec:quality-check}. Figure~\ref{fig:data-pipeline} shows the whole pipeline.
 
 \input{figures/data_pipeline}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/seed_data_sample.png}
+\caption{Two rows from the retained seed file collected on 24 April 2026. Each row keeps its source advisory URL and scrape timestamp. These are public advisory texts rather than messages received by a victim; the model corpus was generated from seeds like these.}
+\label{fig:seed-sample}
+\end{figure}
 
 \smallskip
 \noindent\textbf{Bank impersonation (high-risk):}
@@ -24,65 +41,110 @@ The dataset was assembled from seed records collected by the retained \texttt{ti
 \end{quote}
 \smallskip
 
-\noindent This corpus supports model development and internal validation; it is not presented as a substitute for a real-world, human-labeled benchmark. Each build is tied to versioned manifests with SHA-256 content hashes so that evaluation results can be traced to the exact dataset snapshot used.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/corpus_sample.png}
+\caption{One message from the training set, showing all seven fields it carries.}
+\label{fig:corpus-sample}
+\end{figure}
 
-\noindent\textbf{Record schema:} Table~\ref{tab:record-schema} lists the seven fields of a single dataset record. The \texttt{label} field is the ground-truth class for the classification task defined in Section~\ref{sec:problem-statement}. It is present on every one of the 2{,}097 promoted rows and supplies the supervised target used by both completed model-training paths.
+\noindent Figure~\ref{fig:corpus-sample} shows one finished message with all of its fields filled in. The dataset was built with proper validation, but it is still not a substitute for a benchmark of real messages collected from real victims.
+
+\noindent\textbf{Record fields:} Table~\ref{tab:record-schema} lists the seven fields every message carries. The \texttt{label} field is the one the model is graded on, it is present on every message, and it is the training target for both models.
 
 \input{tables/record_schema}
 
-The initial label is set at generation time. The generation scheduler creates repeated class-conditioned batches across its configured complex and bulk modes until each target is filled. Every batch explicitly requests examples of its target class, and each resulting record's \texttt{label} initially matches that requested class. This is the same label-conditioned synthetic-generation approach used for controllable dataset construction elsewhere in the literature \cite{li2024datageneration}. The later targeted review described below either drops a flagged record or approves a corrected label; it is not a claim that every corpus row received new human annotation.
+The label is decided when the message is written, not added afterwards. Generation runs one class at a time: the system prompt asks for messages of a specific class, so every message produced in that batch starts with that class as its label. This is the standard way to build a labelled set with a generative model \cite{li2024datageneration}. The review described later can drop a message or correct its label, but it does not mean every message was labelled by a person.
 
-\noindent\textbf{Worked example:} a representative record form assembled from retained generation templates:
+\noindent\textbf{Worked example:}
 \begin{quote}\small\itshape
 ``Em đã được chọn vào suất học bổng bổ sung của trường. Để phòng tài vụ xác minh tài khoản nhận tiền, em cần chuyển phí xử lý hồ sơ học bổng hôm nay, nếu trễ suất sẽ chuyển cho bạn kế tiếp.''
 \end{quote}
-Its \texttt{label} is \texttt{zalo\_social\_engineering} and its \texttt{risk\_tier} is \texttt{high-risk}. Its single suspicious span is the exact substring ``chuyển phí xử lý hồ sơ học bổng''. The stored explanation states that the message creates urgent pressure and requests a scholarship-processing payment that could lead to loss of money and disclosure of student information. The example illustrates the report's record contract; it is not used here to make a claim about partition membership.
+Its \texttt{label} is \texttt{zalo\_social\_engineering} and its \texttt{risk\_tier} is \texttt{high-risk}. Its one suspicious phrase is the exact substring ``chuyển phí xử lý hồ sơ học bổng''. The stored explanation says the message applies urgent pressure and asks for a scholarship-processing payment, which could cost the student money and expose their information.
 
-The training role of \texttt{label} differs from its role at validation and terminal evaluation. For Qwen training, the label is part of the serialized target together with risk and evidence fields; for PhoBERT, it is the target of the four-class classification head. At scoring time, the ground-truth label is withheld from model input and joined back only after prediction. Thus the same row identities support a fair shared-cohort comparison even though one model generates structured text and the other returns a class logit vector.
+The label is used differently by the two models. For Qwen, the label is written into the text the model has to produce, alongside the risk tier and the evidence. For PhoBERT, the label is the target of a normal four-class classification head. At scoring time the correct label is hidden from both models and only joined back afterwards to score them.
 
 \label{sec:quality-check}
-The final joined quality-judge bundle covers all 2{,}097 promoted records. It combines 1{,}561 exact-record verdict carries with 536 newly judged final-delta records; the carries are reusable evidence for byte-equivalent records, not a claim that every record received a new judgment. In this bundle, 1{,}395 records pass all five rubric dimensions (66.52\%). The descriptive mean scores, each on a 1--5 scale, are 4.020 for realism, 4.851 for label correctness, 4.672 for code-switch naturalness, 4.119 for risk-tier correctness, and 4.745 for suspicious-span accuracy. Semantic convergence ended with zero unresolved rows. These are descriptive data-quality results rather than inferential claims.
+\subsection*{How quality was judged}
 
-An independent post-generation review identified systematic scenario-framing and narrative artifacts in the synthetic Zalo subset. The affected 240 retained records were replaced, not recovered as originals. A controlled offline, model-assisted reconstruction used 60 preserved semantic roots and seed lineages to create 300 new direct-message realizations; seed-to-split assignments and every non-Zalo record were preserved, the static reconstruction made zero external API calls, and the schema/span, label-support, seed-disjointness, duplicate, and seed-cap gates passed. Four reconstructed rows were later semantically quarantined, leaving 296 in the final corpus. The final judge differs in model family from the original generator lineage, but these 296 reconstructed rows share the judge's model family, so their judgments are not generator-family-independent.
+Three separate things check the messages, and they are not interchangeable.
 
-A separate manifest-bound, stratified human sample contains 100 final-snapshot rows, including 9 Zalo rows. The Vietnamese-fluent reviewer marked 44 PASS and 56 FAIL, and the human and judge verdicts agreed on 87 of 100 rows. This is partial human corroboration only: it describes the sampled rows and does not make the whole reconstructed Zalo subset generator-family-independent. The sample includes all four labels, judge PASS and FAIL outcomes, and both exact-carry and fresh-delta judge origins.
+The Pydantic schema check is mechanical. It confirms the required fields exist, the types are right, the label is one of the four allowed values, and the highlighted phrases are properly formed. It has no opinion about whether a message reads like a real scam.
 
-The targeted human triage examined 324 judge-flagged task-scam candidates. It produced 91 drops and 233 relabel approvals: 48 bank impersonation, 177 Zalo social engineering, and 8 benign. Admission was a separate lineage-governance decision: 57 relabels were admitted, while 176 human-approved Zalo semantics were excluded solely because they shared one non-independent lineage, not because their semantics were judged wrong. The initial global seed cap removed 33 rows; final semantic convergence quarantined 4 unrepairable-label rows and removed 2 further cap rows. The promoted corpus therefore contains 2{,}097 records: 1{,}658 training, 219 validation, and 220 test, with 741 bank-impersonation, 655 benign, 404 task-scam, and 297 Zalo-social-engineering records.
+The judge model scores meaning: how realistic the message reads, whether the label fits, how naturally Vietnamese and English are mixed, whether the risk level is right, and whether the highlighted phrases actually support the label. A message passes only if it scores at least 3 out of 5 on all five. The judge is still a model, so its verdicts are not treated as ground truth.
 
-The completed model runs use the promoted corpus identities: 1{,}658 training rows and 219 validation rows, followed by one terminal comparison on the remaining 220-row cohort. Earlier development-snapshot results are not the evaluation evidence used for the thesis conclusions. Table~\ref{tab:dataset-stats} reports the promoted split counts that bind the completed runs.
+The human review is the only human opinion in the process. It covers a sample drawn evenly across all four classes and across both judge outcomes, so it is not just the easy messages, and it exists to check the judge rather than to replace it.
+
+One limitation belongs with that. The first-pass messages were written by Claude 3.5 Haiku and the judge was a GPT-family model, so for most of the set the writer and the checker are genuinely different. The Zalo replacements, however, were written by that same GPT-family model, so for those messages the judge is checking work from its own family and its verdicts are not an independent second opinion. What all of this found is reported in Chapter~V.
+
+\subsection*{When a correction is accepted}
+
+The judge flagged messages whose labels looked wrong, and every one of them was reviewed by hand. Agreeing that a label is wrong is not by itself enough for the correction to be used.
+
+The rule is that corrections tracing back to a single source article are not accepted in bulk. Messages written from one article are not independent examples of anything, so admitting a large group of them would make a class look far more varied than it really is. Applying that rule cost a substantial amount of reviewed work, which is the point: the alternative was a dataset that looked better than it was. The counts are in Chapter~V, and Figure~ef{fig:human-review} shows one record from the review sheet.
 
 \input{tables/dataset_statistics}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/human_review_sheet.png}
+\caption{One record from the manual review. The judge model passed it on all five scores; the reviewer disagreed, marked it FAIL, and wrote down why.}
+\label{fig:human-review}
+\end{figure}
+
 \section{Offline Text Runtime Baseline}
 
-The runtime is built around a stable text-only analysis interface. Messages are submitted as text, normalized locally, and dispatched to the configured backend. This design means that changing the backend does not affect the command-line interface or the output format. The backend returns a structured result that the rendering layer converts into a readable terminal report.
+The runtime has one text-only interface. A message comes in as text, is cleaned up locally, and is passed to whichever backend is configured. The backend returns a structured result, and a rendering layer turns it into a readable report.
 
-Privacy is treated as a first-class design requirement, consistent with the risk-management principles of the NIST Privacy Framework \cite{nist2026privacyframework}. In this implementation, raw message text does not leave the local device. The version~1 boundary is strictly text-only; OCR, image, audio, and mobile input channels are explicitly out of scope.
+Privacy is a design requirement rather than an afterthought, in line with the NIST Privacy Framework \cite{nist2026privacyframework}: the message text never leaves the device.
 
-A readiness check verifies that the selected profile is loaded correctly before analysis begins. If the profile is not ready, the system stops with a diagnostic message instead of silently using an unintended configuration.
+Before any analysis runs, the system checks that the model it is supposed to use has actually loaded. If it has not, it stops and says so rather than continuing with something else and returning an answer the user would have no reason to distrust.
 
 \section{Local Model Selection and Deployment Paths}
 
-The selection pilot evaluated three open-weight candidates from the Qwen family \cite{qwen2025} on 33 fixed balanced examples under recall-first scoring: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The evaluation used a three-tier outcome structure covering benign, suspicious, and high-risk inputs and was run locally on the target laptop hardware so that hardware fit was in scope from the start. All three candidates recorded 0.5000 overall risky-class recall in this small screen. The selected 4B candidate used approximately 2.8~GB peak VRAM and 0.35~seconds per sample, compared with 3.3~GB and 0.94~seconds for the other 4B candidate; the 7B candidate used approximately 5.6~GB. The selected 4B path therefore matched the observed recall with the best measured fit among the pilot candidates. Table~\ref{tab:pilot-comparison} shows the full screening results.
+To pick a Qwen model, three models from the Qwen family \cite{qwen2025} were tested on the same 33 example messages: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The test scored them on catching risky messages first. It used three risk levels rather than four classes --- benign, suspicious, and high-risk --- and it ran on the same laptop the real training would use, so hardware limits were part of the decision from the start.
+
+All three caught risky messages at the same rate on this small test, so the difference came down to what each one cost in memory and time. Table~\ref{tab:pilot-comparison} gives the numbers. This was a quick screening test on 33 examples, not a measurement of which model is better in general.
 
 \input{tables/pilot_comparison}
 
-\texttt{Qwen3-4B-Instruct-2507} was selected for the generative path because it met the pilot's recall and hardware-fit constraints and could emit the complete structured response. PhoBERT \cite{nguyen2020phobert} was added as a complementary Vietnamese encoder baseline rather than adapting a second Qwen candidate. This produced a more useful engineering comparison: a generative 4B model that returns label, evidence, and guidance versus a compact four-class classifier optimized for the label itself.
+\texttt{Qwen3-4B-Instruct-2507} was chosen because it matched the others on catching risky messages, fit the laptop most comfortably, and could produce the whole structured answer.
 
 \label{sec:qwen-vs-phobert}
-PhoBERT is a RoBERTa-style Vietnamese encoder trained with a masked-language-modeling objective. Its classification head is efficient for a closed label set but does not natively generate quoted evidence or recommendations. Qwen is a decoder and can generate those fields together in one JSON object. The two models therefore answer different deployment needs: PhoBERT supplies a strong and compact classification reference, while Qwen supplies the richer user-facing response. The evaluation compares their common four-class output only; it does not imply that PhoBERT produces Qwen's explanatory fields.
+PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of model rather than a second Qwen. The distinction matters and is worth stating plainly:
 
-\subsection{Measured LoRA--QLoRA Decision}
-The adaptation choice was made from bounded same-machine evidence. An ordinary full-precision LoRA probe retained 31 optimizer-step events, including 26 measured steps. Its median measured step took 53.274~seconds, giving an incomplete-window compute extrapolation of 18.42--18.88~hours for 1{,}245 steps before evaluation and checkpoint overhead. Device-memory use peaked at 7{,}902 of 8{,}151~MiB, with a minimum of 9~MiB free. The run ended with a controller error before its target window; it did not record a CUDA or system out-of-memory exception. The correct conclusion is therefore that ordinary LoRA was technically runnable but operationally unattractive under the deadline and available memory headroom, not that LoRA was impossible.
+\begin{itemize}\itemsep2pt
+\item \textbf{Qwen} produces everything the system needs in one answer: the class label, the risk level, the suspicious phrases quoted from the message, and the recommendation.
+\item \textbf{PhoBERT} produces the class label only. It is a Vietnamese encoder with a four-class head, and it has no way to generate quoted evidence or advice.
+\end{itemize}
 
-A separately dated genuine QLoRA probe activated NF4 with double quantization, verified 252 four-bit linear modules, froze the base model, and retained exactly five warm-up plus 40 measured steps. Median step time was 3.462389~seconds, corresponding to a 72-minute-49.750-second optimizer-plus-one-validation/save projection under the bounded probe assumptions. Peak device-memory use was 7{,}516/8{,}151~MiB, and no OOM or thermal stop was recorded. Because the projection excludes the full cadence of checkpoint generation and validation, it is used only as feasibility evidence. These measurements motivated the completed QLoRA route without converting a resource comparison into an accuracy claim.
+\noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because the classification is only one of four fields it has to produce. The comparison in this thesis covers the one thing both models do.
 
-\subsection{Completed Qwen QLoRA and PhoBERT Training}
-The fresh Qwen run used the promoted 1{,}658-row training and 219-row validation identities, genuine NF4 QLoRA \cite{dettmers2023qlora}, and a deterministic structured-output parser. It completed 1{,}245 optimizer steps from step zero. The selected step-200 checkpoint recorded validation macro F1 0.988515 and accuracy 0.990868, zero invalid outputs, and passed the declared safety gates. These are development-validation measurements used for checkpoint selection, not the terminal model comparison.
+\subsection{The Choice Between LoRA and QLoRA}
+Both options were measured on the target laptop before either was committed to, and the measurements are reported in Chapter~IV.
 
-Each Pydantic-validated dataset record is converted into an instruction and a JSON response containing the class label, risk tier, suspicious spans, and explanation. The two parts are serialized under \texttt{Instruction} and \texttt{Response} headings, tokenized to a maximum sequence length of 1{,}024, and used with a causal language-model objective over the serialized sequence. During evaluation, the generated class value is decoded to one of the four labels for the confusion matrix. The user-facing runtime can subsequently present one or more threat labels after applying its structured decision contract; this runtime presentation is distinct from the single-label experimental metric.
+The decision came down to memory rather than quality. Ordinary LoRA ran, but it left almost no video memory free and pointed at a schedule of roughly eighteen hours. No out-of-memory error occurred, and this report does not claim one did. The problem is that an eighteen-hour run with almost no memory to spare is a bad bet: any brief extra allocation would end it, and the cost of that is most of a day.
 
-This is a deliberate architectural choice and not the only way to reach a classification decision from a fine-tuned LLM. An alternative, also used in practice, is to attach a small classification head to the decoder's final hidden state and train that head directly, leaving text generation out of the loop entirely \cite{yousefiramandi2025finetuning}. That head-based route can reach a well-calibrated single label with fewer trainable parameters. It has no native mechanism, however, for the other two fields this system also has to produce: an evidence span copied from the input text and a short recommendation. Adding those would mean training a second, separate generation component alongside the head, with the two outputs reconciled after the fact rather than produced together. This project instead trains the decoder to emit the label as part of one generated JSON object, alongside the evidence and recommendation fields, in a single forward pass. The class label functions as a \textit{verbalizer} \cite{schick2021pet}: a fixed, closed vocabulary of literal strings (\texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}) that the fine-tuned model is trained to reproduce, following the classification-as-generation framing introduced with T5 \cite{raffel2020t5}. QLoRA itself adds no classification-specific layers; it adapts the existing attention and projection weights, and the classification signal comes entirely from the next-token training objective applied to the label field. Narang et al.\ report that generating a label and its explanation together, in one pass, produces a more consistent label--explanation relationship than predicting the label first and explaining it afterward with a separate mechanism \cite{narang2020wt5}, which is the same reasoning behind generating the label, the evidence spans, and the recommendation together here. A classification head remains the better choice when a single label is the only required output; this project needed the other two fields as well, produced from the same generation context as the label rather than reconciled after the fact.
+QLoRA keeps the base model frozen in 4-bit, which leaves a workable margin and cuts the step time to a few seconds. It costs little in quality, because the authors of QLoRA report that 4-bit fine-tuning reaches the quality of 16-bit fine-tuning \cite{dettmers2023qlora}. The choice was therefore about memory and risk, not about accepting a worse model.
+
+\subsection{How Qwen Is Trained}
+Each message is turned into an instruction and a JSON answer holding the label, risk tier, suspicious phrases, and explanation. Both parts are written under \texttt{Instruction} and \texttt{Response} headings, cut to at most 1{,}024 tokens, and the model is trained to produce the whole thing. The run itself is described in Chapter~IV.
+
+\subsubsection*{Why the label is generated as text}
+
+There are two ways to get a class decision out of a fine-tuned model.
+
+\textbf{The traditional way} is to attach a small scoring layer to the end of the model. That layer outputs a label and nothing else. It is accurate and uses very few extra parameters \cite{yousefiramandi2025finetuning}. The problem is that it cannot write text. This project needs three outputs --- a label, a quoted piece of evidence, and a recommendation --- so a scoring layer would mean building a separate text generator as well and then trying to stitch the two outputs together afterwards.
+
+\textbf{The approach used here} treats classification as text generation, an idea introduced with T5 \cite{raffel2020t5}. The model is trained to produce one JSON object containing all three fields at once. Three things follow from that:
+
+\begin{itemize}\itemsep2pt
+\item \textbf{One answer, one pass.} The label, evidence, and recommendation are produced together rather than assembled from separate components.
+\item \textbf{Better agreement between them.} Narang et al.\ found that generating a label together with its explanation makes the explanation match the label more closely than producing the label first and explaining it afterwards \cite{narang2020wt5}.
+\item \textbf{No extra layers.} QLoRA adapts the model's existing weights, so nothing classification-specific is bolted on. The model simply learns to write one of four fixed strings: \texttt{bank\_impersonation}, \texttt{zalo\_\allowbreak social\_\allowbreak engineering}, \texttt{task\_scam}, and \texttt{benign}. That is the mechanism Schick and Sch{\"u}tze call a \textit{verbalizer} \cite{schick2021pet}.
+\end{itemize}
+
+\noindent A scoring layer would still be the better choice if a label were all that was needed. Here it is not.
 
 The adapted forward pass combines the frozen pretrained weight matrix~$W_0$ with the low-rank product~$BA$, scaled by~$\alpha/r$:
 \begin{equation}
@@ -91,37 +153,49 @@ The adapted forward pass combines the frozen pretrained weight matrix~$W_0$ with
 \end{equation}
 where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \ll \min(d, k)$.
 
-\noindent\textbf{Qwen training procedure:} only the low-rank matrices $A$ and $B$ in Equation~\ref{eq:qlora-forward} were updated; the base weights $W_0$ remained frozen in 4-bit NF4. Each micro-batch contained one serialized instruction--response pair, and four micro-batches were accumulated for each optimizer update (effective batch size 4). The standard causal language-modeling cross-entropy covered the complete response, including the literal class label. A wrong label therefore contributed directly to the token loss. Validation predictions, checkpoint selection, raw events, resolved configuration, hardware identity, and graph inputs were retained and hash-verified. Table~\ref{tab:qlora-config} summarizes the frozen run configuration.
+\noindent\textbf{How the training run was set up:}
+
+\begin{itemize}\itemsep2pt
+\item \textbf{Memory.} The model's original weights $W_0$ stay frozen in 4-bit NF4. Only the two small added matrices $A$ and $B$ from Equation~\ref{eq:qlora-forward} are updated. This is what lets a 4B model train on a laptop.
+\item \textbf{Batch size.} The model reads one instruction-and-answer pair at a time, and the weights are updated after every four of them, giving an effective batch size of 4.
+\item \textbf{How it learns.} The usual next-word training loss is applied across the whole answer, including the label text itself. If the model writes the wrong label, that mistake is penalised directly, the same as any other wrong word.
+\end{itemize}
 
 \input{tables/qlora_config}
 
-PhoBERT was trained separately as a full, non-quantized four-label sequence classifier on the same train and validation identities. It completed 312 optimizer steps, and the selected step-100 checkpoint recorded validation macro F1 0.984893 and accuracy 0.986301 with zero invalid outputs. No LoRA targets, PEFT adapter, or GGUF conversion is claimed for PhoBERT.
-
-After Qwen training, the adapter was merged into the base weights and exported with Q8\_0 quantization to a 4{,}280{,}403{,}232-byte GGUF artifact. The artifact identity and original plus independent load smokes were verified. NF4 and Q8\_0 serve different purposes: NF4 reduces training memory for QLoRA, whereas Q8\_0 is the portable \texttt{llama.cpp} \cite{gerganov2023llamacpp} inference artifact. This establishes a local runtime path; post-evaluation deployment fitting remains deferred.
-
-\subsection{Terminal Shared-Cohort Evaluation}
-Both frozen models were invoked in one terminal evaluation over the same 220-row cohort. Qwen QLoRA achieved accuracy 0.981818, macro F1 0.980493, and weighted F1 0.981848. PhoBERT achieved accuracy 0.990909, macro F1 0.990892, and weighted F1 0.990925. Each produced zero invalid outputs and one risky-to-benign error. PhoBERT was higher on the recorded aggregate metrics, while Qwen was higher on benign precision, recall, and F1. These are descriptive results from one cohort and do not establish statistical significance or stable superiority.
-
-The run created its durable claim before model access and was not retried. Five earlier launch attempts failed before that claim and before terminal row access; their failures were preserved as infrastructure evidence rather than erased. A later provenance audit established that broad automated integrity tests had parsed, statted, and hashed the split files before the terminal model evaluation, and one focused regression reread them afterward. Those reads displayed no row content to a human, called no model or external service, and did not affect training, selection, thresholds, repair, inference, or retry. Accordingly, the result is one terminal two-model evaluation, but the split is not described as having zero prior filesystem access.
+Table~\ref{tab:qlora-config} lists the settings the run actually used. The two quantization settings do different jobs, and it is worth being clear about why they differ. NF4 is used during \textit{training}, where the goal is to fit the model into 8~GiB at all. Q8\_0 is used for the \textit{exported} file, where the goal is to run well on a CPU through \texttt{llama.cpp} \cite{gerganov2023llamacpp}. Q4 would have made the file smaller still, but a comparison of every \texttt{llama.cpp} quantization format found that Q8\_0 keeps almost all of the original quality while lower settings lose more of it \cite{kurt2026quantization}. Since the Q8\_0 file already fits comfortably on an ordinary laptop, there was nothing to gain by compressing further and accepting the extra loss.
 
 \section{Explainable Threat Decisioning}
 
-The decision layer returns four elements for each message: a risk tier (benign, suspicious, or high-risk), one or more in-scope threat labels for risky inputs, grounded suspicious cues taken from spans of the analyzed text, and safe next-step recommendations. This structure follows the principle that explainability should be grounded in observable evidence rather than in opaque model confidence scores alone \cite{rjoub2023surveyxai}.
+For each message the system returns four things: a risk level (benign, suspicious, or high-risk), the threat label, the suspicious phrases quoted from the message itself, and safe next steps. The explanation should be given on evidence the reader can check in the message, not on a confidence score \cite{rjoub2023surveyxai}.
 
-The decision layer follows two design rules. Cues must be drawn from the message text itself rather than inferred from model confidence scores alone. Recommendations must stay within a safe, generic set and must not instruct users to take actions that could cause harm. Together these rules help keep the output useful and grounded rather than misleading.
+Two rules keep that honest. Quoted phrases must come from the message text itself, and recommendations must stay inside a safe, generic set that cannot tell a user to do something harmful.
 
-The generative-classification design in Section~\ref{sec:qwen-vs-phobert} raises a practical question a fixed-size classification head does not have: a decoder generates free-form text, so the raw output is not guaranteed to be a single, well-formed JSON object even when the model is well-trained. The runtime does not assume clean output. It scans the raw generation for every candidate JSON object (every position where an opening brace could start one), decodes each candidate independently, and applies the implemented weighted heuristic over recognized field aliases and nested-structure penalties, keeping the best-scoring match. If no candidate parses as a JSON object at all, the analyzer raises an explicit error rather than guessing a label or silently defaulting to benign. This is the same fail-closed principle applied at the model-output boundary that the profile-readiness check below applies at the deployment boundary.
+\subsection*{Handling a model that writes free text}
 
-A parsed payload is not automatically trusted either. The decision object is validated against four cross-field consistency rules before it can reach the user: \texttt{benign} cannot appear alongside another threat label in the same decision; a \texttt{benign} risk tier must map to exactly the \texttt{benign} label and nothing else; a non-\texttt{benign} tier must not include the \texttt{benign} label; and a \texttt{high-risk} tier must be backed by at least one evidence item, not an empty list. A decision that violates any of these rules is rejected before rendering, rather than displayed as-is. These rules exist because a decoder that generates a full JSON object one token at a time can produce an internally inconsistent object --- for example, a high-confidence-sounding summary paired with an empty evidence list --- in a way a fixed-size classification head, which only ever emits one label field, structurally cannot.
+A classification head always returns a clean result. A generative model does not: it writes free text, and nothing guarantees the JSON is well formed. The system therefore never trusts the model's raw output. It handles this in two steps.
 
-A safety rule applies at the runtime boundary: if the configured profile is not ready, the system stops and reports the reason instead of silently switching to a fallback. This applies to both the laptop GGUF profile and the accelerated local profile.
+\textbf{Step one: find and read the JSON.} The runtime scans the whole raw output for anything that could be a JSON object, scores each candidate on how well its fields match what is expected, and keeps the best one. If nothing can be read as JSON at all, it raises an error rather than guessing a label or quietly falling back to \texttt{benign}.
 
-\section{Maintainability and Provenance Separation}
+\textbf{Step two: check the answer makes sense.} Even valid JSON can contradict itself, because the model writes it one word at a time. Four rules are applied before anything is shown:
 
-The maintained application is organized around named runtime, integrity/artifact, data, modeling, and evidence domains. The installed \texttt{vnphish} entry point exposes \texttt{analyze}, \texttt{doctor}, and \texttt{demo}; older model-adaptation commands and data paths are retained behind explicit compatibility adapters. Historical experiment implementations remain available for provenance, but they are not presented as the forward-facing domain model.
+\begin{itemize}\itemsep2pt
+\item \texttt{benign} cannot appear alongside any other threat label.
+\item If the risk level is \texttt{benign}, the label must be \texttt{benign} too.
+\item If the risk level is not \texttt{benign}, the label must not be \texttt{benign}.
+\item If the risk level is \texttt{high-risk}, there must be at least one piece of evidence, not an empty list.
+\end{itemize}
 
-This separation is important for scientific traceability. The frozen metrics above belong to the hash-identified historical producer source and verified result export, accompanied by the mandatory provenance correction. The refactored worktree did not generate, recompute, or improve those metrics. An adversarial review of the reorganized architecture passed its bounded 128-test gate but still reported six critical and three warning findings, including guard-boundary, route-discovery, local-demo, and terminal-rendering issues. These findings are retained as open hardening work rather than hidden behind a claim that the architecture or security review is fully closed.
+\noindent An answer that breaks any of these is rejected instead of displayed. A classification head never needs these checks, because it only ever emits one label and so cannot disagree with itself.
 
 \section{Design Principles}
 
-Three design principles run through the whole system. First, later layers do not relax the local-first privacy posture established at the runtime boundary. Second, data admission is governed by semantic lineage as well as record-level quality, so paraphrases cannot manufacture independent seeds. Third, claims are tied to stable contracts, manifests, and explicit limitations: failed attempts, incomplete probes, prior-access corrections, and unresolved review findings remain part of the evidence rather than being rewritten as success.
+Four principles run through the whole system.
+
+\textbf{Privacy first.} The message never leaves the device. Every later decision in the design had to keep that true.
+
+\textbf{Honest data.} Messages written from the same article are kept together and counted as one source, so rewording a single scam cannot quietly inflate the dataset into looking more varied than it is.
+
+\textbf{Explanations that can be checked.} The system quotes the phrases it reacted to, so a user can judge the answer instead of trusting a number.
+
+\textbf{Missing a scam is worse than a false alarm.} A false alarm costs the user a moment of checking. A missed scam can cost them their money, so the system is tuned to prefer the first mistake over the second.

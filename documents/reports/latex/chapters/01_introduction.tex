@@ -1,33 +1,76 @@
-Vietnamese financial phishing increasingly appears through SMS and chat platforms such as Zalo, Messenger, Telegram, and Facebook \cite{groupib2022laser,ais2024biometricwarning}. In that setting, suspicious messages often contain sensitive banking details, phone numbers, one-time passwords, or account recovery prompts. This project studies a local-first pipeline for fine-tuning a local LLM to detect such threats without sending raw content to cloud services by default.
+Vietnamese financial phishing arrives mostly through SMS and chat apps such as Zalo, Messenger, Telegram, and Facebook \cite{groupib2022laser,ais2024biometricwarning}. The messages people most want checked are exactly the ones they should not be forwarding anywhere: they contain bank details, phone numbers, one-time passwords, and account-recovery links. This thesis studies a local-first pipeline that fine-tunes a local LLM to detect those threats without sending the message to a cloud service.
 
 \section{Background and Motivation}
-The term \textit{Localized} in the project title carries two meanings. First, the model runs entirely on-device --- local inference on consumer laptop hardware with no cloud API calls during analysis, preserving the privacy of the user's financial messages. Second, the LLM is adapted specifically to Vietnamese financial threat patterns through domain fine-tuning on a Vietnamese-language corpus, localizing its knowledge to the cultural and linguistic context of Vietnamese phishing. Both dimensions are required: privacy-preserving deployment alone would not address Vietnamese-specific scam patterns, and domain adaptation alone would not protect user data.
+The word \textit{Localized} in the title means two things at once, and the project needs both of them.
 
-Three design constraints apply throughout: the pipeline is text-only, inference is offline or local by default, and detection prioritizes recall on high-harm scam classes. These choices narrow the scope compared to a full multimodal fraud assistant, but keep the system realistic for consumer hardware and well-suited for privacy-sensitive message analysis. They also address a practical safety question: how to reduce dangerous false negatives without relying on black-box predictions.
+The first meaning is that the model runs on the user's own device. Analysis happens on a consumer laptop with no cloud API call, so a message full of banking details never leaves the machine. The second meaning is that the model is trained on Vietnamese scam messages specifically, so that it learns Vietnamese banking vocabulary, local scam tactics, and the way Vietnamese and English get mixed together in one message.
+
+Neither meaning is enough on its own. A model that runs privately but was never trained on Vietnamese scams would miss the local patterns. A model trained on Vietnamese scams but running in the cloud would still require the user to upload the message it is supposed to protect.
+
+Three requirements shaped the whole project. The system handles text only. It runs offline, or at least locally, by default. And it prioritises catching high-risk messages, even at the cost of some false alarms, because missing a real scam is more expensive than raising one extra warning. These requirements make the project smaller than a full fraud assistant that would also handle images and voice calls, but they keep it realistic on a laptop and appropriate for private messages. They also answer a practical safety question: how to reduce dangerous misses without asking the user to trust a score they cannot check.
 
 \section{Problem Statement}
 \label{sec:problem-statement}
-Two practical problems motivate this work. First, cloud-based fraud checking workflows require users to upload suspicious financial messages to remote services, creating avoidable privacy exposure. Second, the project requires explicit coverage of Vietnamese financial vocabulary, local social-engineering tactics, and mixed Vietnamese--English code-switching rather than assuming that a generic multilingual model already covers them. This project therefore targets a local fine-tuning pipeline that classifies suspicious text on-device and returns clear, grounded guidance instead of vague alerts.
+Two problems motivate the work. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. And the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and messages that mix Vietnamese and English in the same sentence, rather than assuming a general multilingual model already covers them. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare score.
 
-Formally, the core learning problem is supervised multi-class text classification. The input is a single pasted message; the output is one primary label drawn from four mutually exclusive classes --- bank impersonation, Zalo social engineering, task scam, and benign --- together with a derived risk tier and evidence spans that support the assigned label. Every training example carries a ground-truth label for exactly this task, assigned during dataset construction (Section~\ref{sec:quality-check}) rather than added afterward. The explainability and recommendation outputs described later in this chapter are additional structured fields produced alongside the classification decision, not a replacement for it.
+The underlying task is supervised multi-class text classification. The input is one pasted message. The output is a structured record with five fields:
+
+\begin{itemize}\itemsep2pt
+\item \texttt{label} --- one of four classes: bank impersonation, Zalo social engineering, task scam, or benign;
+\item \texttt{risk\_tier} --- benign, suspicious, or high-risk;
+\item \texttt{suspicious\_spans} --- the exact pieces of text the decision was based on, quoted from the message itself;
+\item \texttt{xai\_explanation} --- a short explanation in Vietnamese of why the message is or is not a scam;
+\item \texttt{recommendations} --- safe next steps for the user.
+\end{itemize}
+
+\noindent The \texttt{label} field is what the model is graded on, and every training example carries one, assigned when the dataset was built (Section~\ref{sec:quality-check}) rather than added afterwards. The other four fields are produced at the same time, in the same answer. They are extra information for the user; they are not a substitute for the classification.
 
 \section{Research Questions}
-Based on the problem statement, this project addresses three questions:
+Three questions follow from that problem statement:
 
 \begin{enumerate}
-\item \textbf{RQ1:} What four-class Vietnamese financial-threat performance do locally trained Qwen QLoRA and PhoBERT classifiers achieve under one shared, terminal evaluation protocol?
+\item \textbf{RQ1:} How well do the locally trained Qwen QLoRA and PhoBERT models classify the four Vietnamese threat types, when both are given the same final evaluation?
 
-\item \textbf{RQ2:} Is parameter-efficient adaptation and local inference feasible on consumer laptop hardware, and what resource trade-off motivates QLoRA over ordinary LoRA on an 8~GiB laptop GPU?
+\item \textbf{RQ2:} Is parameter-efficient fine-tuning and local inference practical on a consumer laptop, and what resource trade-off justifies QLoRA over ordinary LoRA on a GPU with 8~GiB of video memory?
 
-\item \textbf{RQ3:} Can the detection pipeline return structured, evidence-grounded explanations --- risk tier, threat labels, suspicious cues drawn from the message text, and safe next-step recommendations --- rather than opaque confidence scores alone?
+\item \textbf{RQ3:} Can the pipeline return a structured, evidence-based explanation --- risk tier, threat label, suspicious phrases quoted from the message, and safe next steps --- rather than only a confidence score?
 \end{enumerate}
 
 \section{Project Contributions}
-The work contributes more than a model checkpoint. First, it establishes a 2{,}097-row governed corpus whose train, validation, and terminal-evaluation partitions are separated by seed lineage rather than by individual paraphrase. Second, it documents and repairs a systematic synthetic-data failure: 240 retained Zalo messages used narrative scaffolding instead of direct-message language. Their controlled offline reconstruction preserved 60 semantic roots and produced five variants per root without external API calls or manufactured seed diversity. Third, it completes local Qwen QLoRA and PhoBERT training on the same corpus identities, retains raw training and validation evidence, and verifies a Q8\_0 GGUF export for the selected Qwen checkpoint. Fourth, it records one terminal two-model evaluation over the same 220-row cohort, including invalid-output and risky-to-benign safety counts. Finally, it separates maintained runtime, data, integrity, modeling, and evidence domains from historical experiment machinery so that the implementation can be explained and audited without attributing frozen metrics to rewritten source.
+The work delivers not only two fine-tuned models but also the dataset they were trained on.
+
+The first contribution is a 2{,}097-message dataset across four classes. Several messages were written from each source article, so messages from one article can look very similar; all of them are kept in the same split, which stops a model from being evaluated on a message that is nearly identical to one it trained on.
+
+The second is that the dataset's own faults were found and repaired rather than shipped. A review found one whole group of Zalo messages written as third-person narration instead of as real chat messages, and leftover template text spread across the other classes. Those messages were rewritten, dropped, or corrected, and every decision was written down. Chapter~IV describes what was wrong and what was done about it.
+
+The third is training both models locally on exactly the same messages, keeping the full training and validation logs, and exporting the selected Qwen model as a Q8\_0 GGUF file.
+
+The fourth is one evaluation of both finished models on the same 220 messages, which also counts how many answers came back unreadable and how many dangerous messages were wrongly called safe.
 
 \section{Scope and Limitations}
-The project is scoped as a text-only detection prototype for Vietnamese financial phishing. Image-based phishing (QR codes, forwarded screenshots), voice calls, deepfake audio, and malware analysis are out of scope. The implemented collection path targets retained alert pages from \url{https://tinnhiemmang.vn}; it does not implement ingestion of private user conversations. The resulting corpus remains synthetic-derived and is not a substitute for a real-traffic benchmark. The completed comparison uses one shared 220-row terminal cohort from the promoted corpus and cannot be reused for repair, retraining, threshold changes, or checkpoint reselection. Automated integrity regressions accessed the split files before the terminal model run; consequently, this report does not describe the partition as literally untouched. Those accesses did not display row content to a human, invoke either model, or influence the terminal result. The system is designed for single-message analysis, and multi-turn conversation tracking remains outside the current scope.
+This is a text-only prototype for Vietnamese financial phishing. Image-based phishing such as QR codes and forwarded screenshots, voice calls, deepfake audio, and malware analysis are all out of scope.
+
+The dataset is built from public scam-warning articles on \url{https://tinnhiemmang.vn}, and no private user conversations were collected. That choice was made after checking the public alternatives, which are documented in the appendix. Several candidate datasets had no licence, or no clear record of where their data came from, some contained real phone numbers belonging to real people, and one had substantial overlap between its own training and test halves, which would have flattered any score measured on it. Public advisory articles avoided all three problems.
+
+The messages in the dataset are generated from those articles rather than collected from real victims, so the dataset is not a substitute for a benchmark built from real traffic.
+
+The final evaluation used one shared set of 220 messages, and it was run exactly once. Keeping a test set separate is standard; the stronger commitment here is that the result was not allowed to feed back into the work. It was not used to repair data, retrain, move a threshold, or pick a different checkpoint. Reporting a number from a test set that was consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed in advance.
+
+One honest qualification belongs with that. Automated file-integrity tests had opened the evaluation files before the models were run. Those tests never showed a message to a human, never ran either model, and did not change any result, but it would still be wrong to describe the evaluation set as completely untouched, so this report does not.
+
+The system also analyses one message at a time; following a conversation across several messages is outside the current scope.
 
 \section{Methodology Overview}
-The project follows five connected stages. First, retained Vietnamese cybercrime-alert roots are expanded into a labelled development corpus and passed through schema/span validation, joined model-judge evidence, targeted human review, seed-lineage governance, and semantic convergence. The review of 324 flagged task-scam candidates produced 91 drops and 233 approved relabels, but only 57 relabels were admitted; 176 were excluded because they shared one non-independent lineage. A separate review replaced 240 retained narrator-framed Zalo records through controlled offline, model-assisted reconstruction from 60 preserved roots, generating five variants per root while keeping every variant within its original seed group. Second, bounded LoRA and QLoRA probes measure the hardware trade-off directly; ordinary LoRA is treated as resource-intensive, not as an OOM failure. Third, Qwen3-4B-Instruct-2507 is trained locally with genuine NF4 QLoRA while PhoBERT is trained locally as a full, non-quantized sequence classifier on the same train and validation identities. Fourth, the selected Qwen checkpoint is exported and independently load-smoked as a Q8\_0 GGUF artifact, while the text-only runtime preserves a stable structured-output contract. Fifth, both frozen models are evaluated exactly once on the same 220-row terminal cohort. The maintained architecture was subsequently reorganized for readability and provenance separation; this refactor did not produce or change the frozen metrics, and broader architecture hardening remains open.
+The project runs in five stages.
 
+First, scam-warning articles from \textit{tinnhiemmang.vn} were crawled and kept as source material, and Vietnamese phishing messages were generated from them one class at a time. Every message was then checked automatically, scored by a separate model acting as a quality judge, and reviewed by hand where it mattered.
+
+Second, short LoRA and QLoRA test runs measured what the laptop could do. Ordinary LoRA is reported as too demanding in practice, not as something that crashed.
+
+Third, Qwen3-4B-Instruct-2507 was trained locally with NF4 QLoRA, and PhoBERT was trained locally as a full, non-quantized classifier, both on the same messages.
+
+Fourth, the chosen Qwen checkpoint was exported as a Q8\_0 GGUF file and load-tested to confirm it works.
+
+Fifth, both finished models were evaluated once on the held-out messages.
+
+Chapter~III explains why each of these steps was designed the way it was, Chapter~IV describes what was actually run, and Chapter~V reports what the runs produced.

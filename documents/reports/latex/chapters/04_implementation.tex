@@ -1,139 +1,144 @@
-This chapter describes the implementation that produced the final dataset, the two locally trained models, and the offline analysis runtime. The implementation was designed around three constraints: seed-level data integrity, an 8~GiB laptop GPU, and evidence that could be checked after each long-running experiment. The current repository architecture was refactored after the terminal evaluation; consequently, the frozen experiment bundle remains the authority for the reported metrics, while the refactored source tree is the maintained implementation.
+This chapter covers what was actually built and run: the installed application, how the dataset was produced in practice, the two training runs, the exported model, and the things that went wrong along the way. The design reasoning behind these choices is in Chapter~III; the results they produced are in Chapter~V.
 
-\section{Implemented System Boundary}
+\section{The Installed Application}
 
-The installed application is \texttt{vnphish}. Its public commands are \texttt{analyze}, \texttt{doctor}, and \texttt{demo}. The analyze and demo paths share the \texttt{AnalysisRequest}/\texttt{AnalysisResult} contract, while doctor reports profile readiness separately through \texttt{DoctorStatus}. The maintained source tree is organized by domain rather than by experiment date:
+The application installs as \texttt{vnphish} and has three commands. The one that matters is:
+
+\begin{quote}
+\texttt{vnphish analyze --text "<message>"}
+\end{quote}
+
+\noindent This takes one Vietnamese message and prints the result. The other two are support commands: \texttt{vnphish doctor} checks that the model and settings loaded correctly before anything is analysed, and \texttt{vnphish demo} opens the same analysis in a local browser page for demonstration.
+
+The source tree is organised by what each part does:
 
 \begin{quote}
 \begin{verbatim}
 src/
-+-- core/                 # strict JSON, hashing and safe writes
-+-- artifacts/            # model and result artifact readers
-+-- config/               # local settings and profile selection
-+-- data_pipeline/
-|   +-- core/             # records, text, seed-safe splitting
-|   +-- workflows/        # scraping, generation and judging
-|   `-- migrations/       # reviewed one-off corpus repairs
-+-- modeling/             # training, inference, evaluation ports
-+-- runtime/              # CLI, service, analyzers, demo, rendering
-+-- source_archiving/     # immutable source-closure operations
-`-- model_adaptation/     # retained experiment compatibility layer
+  core/             strict JSON validation and safe file writes
+  artifacts/        reading model and result files
+  config/           local settings
+  data_pipeline/    building the dataset: records, text handling,
+                    splitting, generation, judging, one-off repairs
+  modeling/         training, inference and evaluation
+  runtime/          the CLI, the analysis service, the demo page
+  source_archiving/ keeping a fixed copy of the source
+  model_adaptation/ the older experiment code, kept for reference
 \end{verbatim}
 \end{quote}
 
-The active dependency graph contains 29 modules and 83 declared import edges and is acyclic. New code enters model training, inference, evaluation, and evidence handling through the domain-neutral \texttt{src.modeling} ports. The older model-adaptation modules remain behind explicit compatibility adapters because they are still needed to explain and verify the completed experiments. This separation avoids pretending that a later refactor generated earlier measurements.
+\noindent New work goes through \texttt{modeling}. The older \texttt{model\_adaptation} code is kept because the completed experiments were run with it, and it is what the recorded results actually came from. Keeping the two apart avoids implying that later tidying produced earlier numbers.
 
-The main model-adaptation command facade was reduced from 1{,}329 physical lines to 232 lines while preserving its 23-command compatibility contract. Similarly, an 886-line source-archiving utility was reduced to a 160-line facade over bounded contract, filesystem, and service modules. The refactor therefore improves navigation for maintenance and defence without rewriting the frozen producer source or metric artifacts.
+\section{Building the Dataset}
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-  block/.style={draw=black!65, rectangle, rounded corners=3pt, fill=white,
-                text width=2.55cm, minimum height=0.9cm,
-                align=center, font=\small},
-  arr/.style={->, >=stealth, semithick}
-]
-  \node[block] (data) at (0,0) {Seeded data\\and provenance};
-  \node[block] (train) at (3.35,0) {Local training\\Qwen / PhoBERT};
-  \node[block] (evidence) at (6.70,0) {Hash-bound\\evidence bundles};
-  \node[block] (eval) at (10.05,0) {Terminal shared-\\cohort evaluation};
-  \node[block] (runtime) at (6.70,-2.05) {Offline runtime\\\texttt{vnphish}};
+Every message carries the \texttt{seed\_id} of the article it was written from, and the splitter sends all messages sharing an ID into one split. That rule is stricter than splitting message by message, and it is what stops a reworded message from appearing on both sides of the evaluation.
 
-  \draw[arr] (data) -- node[above,font=\scriptsize] {seed-safe splits} (train);
-  \draw[arr] (train) -- node[above,font=\scriptsize] {checkpoints + logs} (evidence);
-  \draw[arr] (evidence) -- node[above,font=\scriptsize] {frozen models} (eval);
-  \draw[arr] (evidence) -- node[right,font=\scriptsize] {registered artifact} (runtime);
-\end{tikzpicture}
-\caption{Implemented artifact flow. The terminal evaluation consumes frozen model authorities once; its results cannot trigger repair, retraining, threshold changes, or checkpoint reselection.}
-\label{fig:implemented-artifact-flow}
-\end{figure}
+The first pass was generated by Claude 3.5 Haiku, one class at a time. Reviewing it showed that a large part was not usable. One whole group of Zalo messages had been written as third-person narration, describing a scam rather than being one. Other classes carried leftover template text: bracketed placeholders such as \texttt{[CCCDUpdateApp]}, unresolved URLs such as \texttt{[http://xyz-bank-update.com]}, and obviously fake domains such as \texttt{fake-bank.vn}.
 
-\section{Dataset Construction and Repair}
+Those messages were rewritten rather than patched. The replacements were produced offline from a fixed local catalogue built from the original article scenarios, so no external API call was made during the repair. They then went through the same automatic checks as everything else.
 
-Every record carries a \texttt{seed\_id}. Variants derived from one semantic scenario retain that identifier, and group-integrity splitting assigns the entire seed group to one partition. This is more restrictive than row-level random splitting, but it prevents paraphrases of one root scenario from appearing on both sides of an evaluation boundary. The promoted corpus contains 2{,}097 rows: 1{,}658 for training, 219 for validation, and 220 for terminal evaluation. The three seed sets are disjoint, and the largest seed contributes 7.9638\% of the corpus, below the declared 8\% cap.
+A judge model scored every message, and a Vietnamese-speaking reviewer checked a sample by hand and worked through the messages whose labels looked wrong. What the checks found is reported in Chapter~V.
 
-The data work also retained failures rather than hiding them. Independent review detected systematic third-person narrative and scenario-framing artifacts in a synthetic Zalo social-engineering subset. The affected 240 retained records were replaced rather than relabelled as authentic messages. A controlled offline, model-assisted reconstruction started from 60 preserved semantic roots and produced five direct-message realizations per root. The root's \texttt{seed\_id} and its pre-existing split assignment were retained; non-Zalo records were unchanged. Schema, character-span, lexical and normalized-duplicate, label-support, seed-cap, and cross-split lineage checks all passed. Four reconstructed records were later quarantined by semantic convergence, leaving 296 reconstructed rows in the 297-row final Zalo class. This procedure made no external API call, but it remains synthetic reconstruction and is not presented as independently observed traffic.
+\section{Measuring LoRA Against QLoRA}
 
-The quality pipeline then joined 2{,}097 machine-judge verdicts: 1{,}561 exact-record carries and 536 newly judged final-delta records. A Vietnamese-fluent reviewer separately completed a 100-row stratified audit and a targeted 324-candidate mislabel triage. These artifacts are kept distinct because a partial human review cannot be described as complete manual annotation of the corpus.
+Both training methods were run briefly on the target laptop before either was committed to. These were short measurement runs, not attempts to train a usable model, and the adapters they produced were deleted afterwards.
 
-\section{Resource-Gated Adaptation Strategy}
+\subsection{Ordinary LoRA}
 
-The selected generative model was \texttt{Qwen3-4B-Instruct-2507} \cite{qwen2025}. Ordinary LoRA \cite{hu2022lora} and 4-bit QLoRA \cite{dettmers2023qlora} were first measured in bounded probes on the same NVIDIA GeForce RTX~5050 Laptop GPU, which reports 8{,}151~MiB of device memory. The probes were feasibility experiments, not accuracy experiments, and their disposable adapters were deleted after verification.
+The LoRA run recorded 31 optimizer steps, 26 of them measured. It ran for 1{,}782.206~seconds, just under thirty minutes, with a median step of 53.274~seconds. Multiplying that median across the planned 1{,}245-step schedule gives roughly 18.42~hours of computation, and the mean-step version gives 18.88~hours. Neither figure includes the time spent on validation and saving checkpoints, so neither is a prediction of how long the run would actually take.
 
-\subsection{Ordinary-LoRA Probe}
+Memory was the deciding factor. The card holds 8{,}151~MiB, and at its tightest moment \texttt{nvidia-smi} reported only 9~MiB of it still free.
 
-The ordinary-LoRA retry retained 31 optimizer events: five excluded warm-up events and 26 measured events. It ran for 1{,}782.206~seconds (29~minutes 42.206~seconds), with a median measured step time of 53.274~seconds. Multiplying this incomplete-window median by the planned 1{,}245-step schedule gives an 18.42-hour compute-only estimate; the corresponding mean-step estimate is 18.88~hours. Neither value includes the full evaluation and checkpoint cadence, so neither is an observed training duration or a completion guarantee.
+The run did real optimizer work with sensible losses and did \emph{not} produce an out-of-memory error, and this report does not claim it did. It stopped early for an unrelated controller fault. The problem is the combination: an eighteen-hour run with almost no memory to spare is a bad bet, because any brief extra allocation would end it and cost most of a day.
 
-The run peaked at 7{,}902/8{,}151~MiB device VRAM and reached only 9~MiB minimum free VRAM. Peak system RAM used was 22{,}479{,}200{,}256~bytes on a 33{,}943{,}490{,}560-byte host. It completed optimizer work with finite losses and did \emph{not} produce a CUDA or system out-of-memory exception. The controller stopped with \texttt{parent\_controller\_error} before the 40-step evidence target, so the honest conclusion is practical resource pressure and insufficient headroom on this laptop, not that LoRA is impossible or that it OOMed. A 32~GB-class system-RAM host with more than 8~GB VRAM is therefore a practical recommendation for a reliable full run with headroom, not a benchmarked minimum specification.
+\subsection{NF4 QLoRA}
 
-\subsection{Genuine NF4 QLoRA Probe}
+The QLoRA run confirmed that 4-bit NF4 was genuinely active: 252 four-bit layers, a frozen base model, and 504 trainable adapter tensors. It completed five warm-up steps plus 40 measured ones, with a median step of 3.462389~seconds.
 
-The separate QLoRA probe verified NF4 with double quantization, 252 \texttt{Linear4bit} modules, a frozen base model, and 504 trainable adapter tensors. It completed exactly five warm-up plus 40 measured optimizer steps. The measured median was 3.462389~seconds per step. Combining that median with one observed validation pass and one observed checkpoint save produced a projected 4{,}369.750-second schedule (72~minutes 49.750~seconds). This is an extrapolation from the bounded probe, not the wall-clock duration later observed for full training.
-
-The QLoRA probe peaked at 7{,}516/8{,}151~MiB VRAM, retained 395~MiB minimum free VRAM, and used 22{,}136{,}381{,}440~bytes peak system RAM. It reached the exact evidence target without an OOM. Figure~\ref{fig:resource-probe-comparison} summarizes the measured resource evidence while keeping the projected durations visibly separate from observed execution.
+Memory peaked at 7{,}516 of 8{,}151~MiB, leaving a workable margin throughout, and no out-of-memory error or thermal stop occurred. Figure~\ref{fig:resource-probe-comparison} compares the two runs, and Figure~\ref{fig:probe-console} is the console output as it appeared while this one was running.
 
 \input{figures/resource_probe_comparison}
 
-\section{Full Local Model Training}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\linewidth]{figures/training_console_probe.png}
+\caption{Console output from the 45-step QLoRA measurement run of 25 August 2026, which took about three and a half minutes at a median of 3.46 seconds per step. This is the short measurement run, not the full training run.}
+\label{fig:probe-console}
+\end{figure}
 
-Both final models were trained locally from step zero with random seed 42 on the same 1{,}658-row training and 219-row validation identities. The 220-row terminal partition was not an input to training or checkpoint selection. The two validation runs are comparable for predictive quality because they use the same ordered validation cohort; their timing is not used for a speed claim because Qwen is a generative structured-output model whereas PhoBERT is a classification-head model.
+\section{Training Qwen}
 
-\subsection{Qwen QLoRA}
+The full Qwen run used the 1{,}658 training and 219 validation messages, three epochs, and 1{,}245 optimizer steps from a fresh start. The package versions were Python~3.13.13, PyTorch~2.12.0+cu132, Transformers~5.9.0, PEFT~0.19.1, and bitsandbytes~0.50.1.
 
-The full Qwen run used the same genuine 4-bit NF4 configuration, three epochs, and 1{,}245 optimizer steps. Exact package identities were Python~3.13.13, PyTorch~2.12.0+cu132, Transformers~5.9.0, PEFT~0.19.1, and bitsandbytes~0.50.1. Validation checkpoints were selected under a predeclared safety gate rather than by terminal-evaluation performance. Checkpoint 200 was retained with validation accuracy 0.990868, macro F1 0.988515, zero invalid structured outputs, and zero risky-to-benign errors. The unrounded accuracy and macro F1 values are retained in Table~\ref{tab:qlora-config}.
-
-An earlier full-run attempt reached useful intermediate evidence but exposed two implementation defects: the mutable output root omitted the run-ID segment, and a validation object was compared against canonical JSON in the wrong representation. It was deliberately interrupted and retained as failure evidence. No checkpoint from that attempt seeded the final run. After focused fixes, a clean request restarted from step zero and completed all 1{,}245 steps. This recovery is important because silently continuing from a structurally ambiguous work root would have made the final lineage harder to defend.
+The model was evaluated every 50 steps, and the checkpoint that scored best on the validation messages was kept. That turned out to be step 200. Later checkpoints trained longer but did not score better, which is what the evaluation sweep in Figure~\ref{fig:checkpoint-sweep} shows. The loss curves for the run are in Figure~\ref{fig:qwen-training-curves}.
 
 \begin{figure}[H]
 \centering
 {\small\bfseries Qwen QLoRA training curves\par}
 \smallskip
 \includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_qwen_loss_curves.png}
-\caption{Qwen QLoRA training and validation loss from the completed 1{,}245-step run. The report view replaces only the generic historical title; the embedded canonical PNG remains hash-linked to normalized points derived from the append-only event log. This is an optimization trace, not a terminal-performance estimate.}
+\caption{Qwen QLoRA training and validation loss across the completed 1{,}245-step run.}
 \label{fig:qwen-training-curves}
 \end{figure}
 
-\subsection{PhoBERT Classification Baseline}
+The run took 14.87 hours from start to finish, but most of that was not training. The 1{,}245 optimizer steps account for only 1.36 hours. The rest is validation: at each of the 25 checkpoints the model had to write a full structured answer for all 219 validation messages, which is 5{,}475 generated answers on a laptop GPU. Figure~\ref{fig:run-timeline} shows this as a staircase, where each flat section is one validation pass.
 
-The Vietnamese encoder baseline uses \texttt{vinai/phobert-base-v2} with a four-logit sequence-classification head \cite{nguyen2020phobert}. It is a full, non-quantized classifier: the encoder and head are trained directly, with no LoRA, QLoRA, PEFT target modules, or generative parser. Vietnamese word segmentation is part of its deterministic preprocessing. The final local run used seed 42, three epochs, and 312 optimizer steps; checkpoint 100 was retained with validation accuracy 0.9863013699, macro F1 0.9848929140, zero invalid outputs, and zero risky-to-benign errors.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/full_run_timeline.png}
+\caption{Where the 14.87 hours went, and how much memory PyTorch itself held during the run. The lower panel reports PyTorch's own allocation, which is smaller than the whole-card figure of 7{,}516~MiB quoted for the measurement runs above: that figure came from \texttt{nvidia-smi} and includes memory held by the driver and the display as well as by training.}
+\label{fig:run-timeline}
+\end{figure}
 
-Superseded attempts exposed telemetry and finalization defects. The successful training evidence was preserved, and telemetry was recovered through a separately verified recovery path without changing predictions, metrics, or selected checkpoint identity. This distinction prevents operational evidence repair from being mistaken for model retraining or metric recomputation.
+\section{Training PhoBERT}
+
+PhoBERT was trained separately on the same messages as a full four-class classifier, with nothing quantized and no adapter. The run took 312 steps, and the checkpoint at step 100 was kept. Its loss curves are in Figure~\ref{fig:phobert-training-curves}.
+
+The result is an ordinary Transformers bundle: a 540~MB \texttt{model.safetensors} weights file with its tokenizer and configuration files, and a 1.03~GB optimizer state saved alongside it. PhoBERT was not converted to GGUF.
 
 \begin{figure}[H]
 \centering
 {\small\bfseries PhoBERT training curves\par}
 \smallskip
 \includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phase40_phobert_loss_curves.png}
-\caption{PhoBERT training and validation loss from the completed 312-step run. The report view replaces only the generic historical title; the embedded canonical PNG remains mechanically traceable to retained raw events and is not hand-drawn.}
+\caption{PhoBERT training and validation loss across the completed 312-step run.}
 \label{fig:phobert-training-curves}
 \end{figure}
 
-\section{Artifact Export and Runtime}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/checkpoint_selection_sweep.png}
+\caption{Validation score at every checkpoint of both runs, with the selected checkpoint marked. Qwen was evaluated 25 times across its 1{,}245 steps and PhoBERT 7 times across its 312.}
+\label{fig:checkpoint-sweep}
+\end{figure}
 
-The selected Qwen adapter was merged with the pinned base and converted through \texttt{llama.cpp} \cite{gerganov2023llamacpp} into one Q8\_0 GGUF file. The verified artifact is 4{,}280{,}403{,}232~bytes with SHA-256
-\begin{center}
-\small\texttt{457f6f92d36a7d54da9916fd80a4028dcd055a653a015c4877370a0fea4d18ab}.
-\end{center}
-Both the original conversion environment and an independent CPU load smoke accepted the artifact before its portable receipt was registered. PhoBERT remains a Transformers sequence-classification bundle and was \emph{not} converted to GGUF.
+\section{Exporting the Model}
 
-At runtime, the analyze and demo paths use \texttt{AnalysisRequest} and \texttt{AnalysisResult} for the public analysis contract. The service normalizes text, selects an explicit local profile, dispatches to a heuristic, GGUF, or accelerated-local analyzer, and returns a structured risk tier, threat labels, grounded cues, and safety recommendations. \texttt{vnphish doctor} reports selected-profile and artifact readiness through \texttt{DoctorStatus} before analysis. No provider credential is required for the offline runtime.
+The trained Qwen adapter was merged back into its base model and converted through \texttt{llama.cpp} \cite{gerganov2023llamacpp} into one Q8\_0 GGUF file of 4{,}280{,}403{,}232 bytes. It was then loaded twice, once independently, to confirm the exported file works.
 
-\section{Evidence and Failure-Recovery Design}
+Figure~\ref{fig:artifacts-on-disk} shows everything the two runs left on disk, the export included.
 
-Each full run retains resolved configuration, package and CUDA identity, append-only events, system/GPU telemetry, checkpoint candidates, raw ordered validation predictions, metrics, selected-model hashes, and graph provenance. Both canonical loss plots were reproduced byte-for-byte from their retained normalized data during verification. This evidence design is what distinguishes a completed local experiment from a copied model repository: the report can bind configuration, execution, selection, conversion, and evaluation to specific artifacts.
+At runtime the analysis service normalises the message text, sends it to whichever model is configured, and returns the risk tier, threat label, quoted evidence, and recommendations. Nothing in this path needs an API key or an internet connection.
 
-The terminal evaluation similarly produced one frozen two-model export. The metric-authority manifest and mandatory provenance correction are bound by the following identities:
-\begin{center}
-\footnotesize
-Manifest: \texttt{9ac54d58c273ab0a8c2f2b4b61e472a51ca94231a94b6847637ecad6ceee49f7}\\
-Erratum: \texttt{c7be74346f0e217c382e556fbf0a730cb33be50356d4155356a5b024871a1672}
-\end{center}
-These identities are consumed as read-only report evidence. The current refactored source tree is intentionally not claimed as the producer of the frozen metrics.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/model_files_on_disk.png}
+\caption{Everything the two training runs left on disk, with the exported model: 21 files, 6{,}051{,}634{,}269 bytes in total. The GGUF export alone accounts for 4{,}280{,}403{,}232 of them.}
+\label{fig:artifacts-on-disk}
+\end{figure}
+
+\section{What Went Wrong, and What Was Done About It}
+
+Three failures shaped the work more than any of the successes, and all three are worth recording.
+
+\textbf{Generation kept dying part-way through.} The first dataset pass ran for a long time against an external API, and interruptions lost everything generated up to that point. The fix was to write checkpoint files as generation proceeded, so a failure costs the last few minutes rather than the whole run.
+
+\textbf{A large part of the generated data was unusable.} As described above, one class had been written as narration and others carried template leftovers. These were found by reviewing the output rather than by any automatic check, which is the argument for reading generated data rather than trusting it.
+
+\textbf{Ordinary LoRA was not practical on this hardware.} The measurement run left almost no spare memory and pointed at an eighteen-hour schedule. Rather than start it and hope, the project switched to QLoRA, which finished in a fraction of the time with room to spare.
+
+Figure~\ref{fig:failure-recovery-timeline} puts all of them in the order they happened.
+
+One more failure is worth naming because it affected the results directly. An early attempt at the full Qwen run was stopped deliberately after two defects appeared in how output folders and validation files were named. Nothing from that attempt was carried into the final run, which restarted from the beginning.
 
 \input{figures/failure_recovery_timeline}
-
-\section{Current Architecture Review Status}
-
-The refactor has measurable benefits: the active graph is acyclic, command compatibility is explicit, historical implementations have named owners, and exact bounded architecture tests passed. It is nevertheless not correct to describe the architecture work as fully clean. The latest adversarial review records six open critical issues: completeness of the guarded filesystem boundary, undeclared pre-created native handles, incomplete collection-time attestation, compound-command and callable-alias route discovery, loopback demo Host/Origin/content-type validation, and terminal control-sequence sanitization. Three warnings additionally cover shell-chain scanning, host/port binding validation, and the test runner's dependence on disabling pytest plugin autoload.
-
-These findings do not change the already frozen model metrics, but they block a claim that the maintained architecture is production-ready. They are reported here because implementation quality includes known failure boundaries as well as completed functionality.
