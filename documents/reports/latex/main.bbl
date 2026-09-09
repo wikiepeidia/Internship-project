@@ -118,6 +118,11 @@ H.~Kim and M.~Gurman, ``{Samsung Bans Employee Use of {AI} Tools Like {ChatGPT}
   2023.
 \newblock Bloomberg, published 2023-05-02, accessed 2026-06-09.
 
+\bibitem{openai2026temporarychat}
+{OpenAI}, ``{Temporary Chat FAQ}.''
+  \url{https://help.openai.com/en/articles/8914046-temporary-chat-faq}.
+\newblock OpenAI Help Center, accessed 2026-09-09.
+
 \bibitem{cyberinsider2026geminanano}
 {CyberInsider}, ``Google chrome silently installs 4{GB} {Gemini Nano AI} model
   on user devices.''
