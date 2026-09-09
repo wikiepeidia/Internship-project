@@ -155,7 +155,7 @@ The two messages below are the fixed pair used to check the installed applicatio
 ``VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.''
 \end{quote}
 
-\noindent Each message was analysed five times in a row. Table~\ref{tab:worked-example} records what came back.
+\noindent Each message was analysed five times in a row, in a check made while the system was still being assembled. Table~\ref{tab:worked-example} records what came back. The finished exported model was run over the same pair later and does not agree on the second message; that is reported below rather than left out.
 
 \begin{table}[H]
 \centering
@@ -169,7 +169,7 @@ The two messages below are the fixed pair used to check the installed applicatio
 2 --- real OTP notice & benign    & benign              & yes, 5 of 5 & 16.3~s \\
 \bottomrule
 \end{tabular}
-\caption{The fixed check pair, each message analysed five times. Both answers were identical on every run. The first run of each was the slowest, at 22.7~s and 20.6~s, because the model file has to be read into memory before the first answer.}
+\caption{The fixed check pair, each message analysed five times during an early readiness check. Both answers were identical on every run. The first run of each was the slowest, at 22.7~s and 20.6~s, because the model file has to be read into memory before the first answer. The finished model gives a different answer for the second message, which is discussed after this table.}
 \label{tab:worked-example}
 \end{table}
 
@@ -200,9 +200,12 @@ user ever sees it.
 \subsection*{Where it gets the second message wrong}
 \label{sec:false-alarm}
 
-Running the same pair again on the finished model gave a different answer for the
-genuine OTP notice. Instead of benign, it came back \textbf{suspicious}, labelled
-\texttt{bank\_impersonation}. The cues it quoted were ``Smart OTP'', ``đăng
+Running the same pair through the finished exported model gave a different answer
+for the genuine OTP notice. Where the earlier check in Table~\ref{tab:worked-example}
+recorded benign on all five runs, the exported model returned \textbf{suspicious},
+labelled \texttt{bank\_impersonation}. These are two different builds of the model
+rather than two runs of one, so the disagreement is a change between them and not a
+model contradicting itself. The cues it quoted were ``Smart OTP'', ``đăng
 nhập'', and ``Internet Banking'', and the advice it gave was:
 
 \begin{quote}\small\itshape
