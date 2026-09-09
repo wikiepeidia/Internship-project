@@ -114,11 +114,11 @@ All three caught risky messages at the same rate on this small test, so the diff
 PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of model rather than a second Qwen. The difference between them is the reason both are here:
 
 \begin{itemize}\itemsep2pt
-\item \textbf{Qwen} produces everything the system needs in one answer: the class label, the risk level, the suspicious phrases quoted from the message, and the recommendation.
+\item \textbf{Qwen} produces everything the system needs in one answer: the class label, the risk level, the suspicious phrases quoted from the message, and the written explanation.
 \item \textbf{PhoBERT} produces the class label only. It is a Vietnamese encoder with a four-class head, and it has no way to generate quoted evidence or advice.
 \end{itemize}
 
-\noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because the classification is only one of four fields it has to produce. The comparison in this thesis covers the one thing both models do.
+\noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because the classification is only one of the four things it has to produce. The comparison in this thesis covers the one thing both models do.
 
 \subsection{Whether Fine-Tuning Was Needed at All}
 \label{sec:why-finetune}
@@ -147,17 +147,17 @@ Each message is turned into an instruction and a JSON answer holding the label, 
 
 There are two ways to get a class decision out of a fine-tuned model.
 
-\textbf{The traditional way} is to attach a small scoring layer to the end of the model. That layer outputs a label and nothing else. It is accurate and uses very few extra parameters \cite{yousefiramandi2025finetuning}. The problem is that it cannot write text. This project needs three outputs --- a label, a quoted piece of evidence, and a recommendation --- so a scoring layer would mean building a separate text generator as well and then trying to stitch the two outputs together afterwards.
+\textbf{The traditional way} is to attach a small scoring layer to the end of the model. That layer outputs a label and nothing else. It is accurate and uses very few extra parameters \cite{yousefiramandi2025finetuning}. The problem is that it cannot write text. This project needs three outputs --- a label, a quoted piece of evidence, and a written explanation --- so a scoring layer would mean building a separate text generator as well and then trying to stitch the two outputs together afterwards.
 
 \textbf{The approach used here} treats classification as text generation, an idea introduced with T5 \cite{raffel2020t5}. The model is trained to produce one JSON object containing all three fields at once. Three things follow from that:
 
 \begin{itemize}\itemsep2pt
-\item \textbf{One answer, one pass.} The label, evidence, and recommendation are produced together rather than assembled from separate components.
+\item \textbf{One answer, one pass.} The label, the evidence, and the explanation are produced together rather than assembled from separate components.
 \item \textbf{Better agreement between them.} Narang et al.\ found that generating a label together with its explanation makes the explanation match the label more closely than producing the label first and explaining it afterwards \cite{narang2020wt5}.
 \item \textbf{No extra layers.} QLoRA adapts the model's existing weights, so nothing classification-specific is bolted on. The model simply learns to write one of four fixed strings: \texttt{bank\_impersonation}, \texttt{zalo\_\allowbreak social\_\allowbreak engineering}, \texttt{task\_scam}, and \texttt{benign}. That is the mechanism Schick and Sch{\"u}tze call a \textit{verbalizer} \cite{schick2021pet}.
 \end{itemize}
 
-\noindent A scoring layer would still be the better choice if a label were all that was needed, but this system also has to produce the risk tier, the quoted evidence, and the recommendation.
+\noindent A scoring layer would still be the better choice if a label were all that was needed, but this system also has to produce the risk tier, the quoted evidence, and the written explanation.
 
 The adapted forward pass combines the frozen pretrained weight matrix~$W_0$ with the low-rank product~$BA$, scaled by~$\alpha/r$:
 \begin{equation}
@@ -179,10 +179,13 @@ where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \
 Table~\ref{tab:qlora-config} lists the settings the run actually used. The two quantization settings do different jobs, and they are chosen for different reasons. NF4 is used during \textit{training}, where the goal is to fit the model into 8~GiB at all. Q8\_0 is used for the \textit{exported} file, where the goal is to run well on a CPU through \texttt{llama.cpp} \cite{gerganov2023llamacpp}. Q4 would have made the file smaller still, but a comparison of every \texttt{llama.cpp} quantization format found that Q8\_0 keeps almost all of the original quality while lower settings lose more of it \cite{kurt2026quantization}. Since the Q8\_0 file already fits comfortably on an ordinary laptop, there was nothing to gain by compressing further and accepting the extra loss.
 
 \section{Explainable Threat Decisioning}
+\label{sec:explainable-decisioning}
 
-For each message the system returns four things: a risk level (benign, suspicious, or high-risk), the threat label, the suspicious phrases quoted from the message itself, and safe next steps. The explanation should be given on evidence the reader can check in the message, not on a confidence score \cite{rjoub2023surveyxai}.
+For each message the system returns a risk level (benign, suspicious, or high-risk), the threat label, the suspicious phrases quoted from the message itself, and a short written explanation. The explanation should be given on evidence the reader can check in the message, not on a confidence score \cite{rjoub2023surveyxai}.
 
-Two rules keep those explanations honest. Quoted phrases must come from the message text itself, and recommendations must stay inside a safe, generic set that cannot tell a user to do something harmful.
+Alongside those four, the runtime asks the model for a short list of safe next steps. This is the one part of the answer that the training data does not contain, because the dataset stores no such field (Table~\ref{tab:record-schema}); the model is prompted for it and the result is filtered afterwards. It is therefore reported as a runtime feature rather than as something the model learned, and no claim is made about its accuracy.
+
+Two rules keep the whole answer honest. Quoted phrases must appear in the message text itself, and every suggested next step must stay inside a safe, generic set, so the system cannot tell a user to click a link, reply, or share a code.
 
 \subsection*{Handling a model that writes free text}
 

@@ -13,17 +13,18 @@ Three requirements shaped the whole project. It handles text only, it runs offli
 \label{sec:problem-statement}
 Two problems motivate this project. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. The second problem is that the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and the way the messages are really written: Vietnamese and English mixed in one sentence, chat abbreviations, missing diacritics, and emoji. Assuming that a general multilingual model already covers all of that is exactly the assumption this project does not make. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare confidence score.
 
-The underlying task is supervised multi-class text classification. The input is one pasted message. The output is a structured record with five fields:
+The underlying task is supervised multi-class text classification. The input is one pasted message. The dataset stores four things for every message, and those are the four the model is trained to produce:
 
 \begin{itemize}\itemsep2pt
 \item \texttt{label} --- one of four classes: bank impersonation, Zalo social engineering, task scam, or benign;
 \item \texttt{risk\_tier} --- benign, suspicious, or high-risk;
 \item \texttt{suspicious\_spans} --- the exact pieces of text the decision was based on, quoted from the message itself;
-\item \texttt{xai\_explanation} --- a short explanation in Vietnamese of why the message is or is not a scam;
-\item \texttt{recommendations} --- safe next steps for the user.
+\item \texttt{xai\_explanation} --- a short explanation in Vietnamese of why the message is or is not a scam.
 \end{itemize}
 
-\noindent The \texttt{label} field is what the model is graded on, and every training example carries one, assigned when the dataset was built (Section~\ref{sec:quality-check}) rather than added afterwards. The other four fields are produced at the same time, in the same answer. They are extra information for the user; they are not a substitute for the classification.
+\noindent The \texttt{label} field is what the model is graded on, and every training example carries one, assigned when the dataset was built (Section~\ref{sec:quality-check}) rather than added afterwards. The other three are produced at the same time, in the same answer. They are extra information for the user; they are not a substitute for the classification.
+
+The finished system adds one more thing on top of those four: a short list of safe next steps. That list is not in the training data. The model is asked for it in the same answer at runtime and every suggestion is checked against a fixed safety rule before the user sees it, which is why it is described separately in Section~\ref{sec:explainable-decisioning} rather than counted as something the model learned. Table~\ref{tab:record-schema} lists everything the dataset itself stores.
 
 \section{Research Questions}
 Three questions follow from that problem statement:
