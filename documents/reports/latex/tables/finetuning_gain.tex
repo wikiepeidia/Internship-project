@@ -1,0 +1,22 @@
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{L{3.5cm}rrr@{\hskip 14pt}rrr}
+\toprule
+& \multicolumn{3}{c}{\textbf{Prompting only}} & \multicolumn{3}{c}{\textbf{After QLoRA}} \\
+\cmidrule(r){2-4}\cmidrule(l){5-7}
+\textbf{Class} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+Bank impersonation      & 0.5045 & 1.0000 & 0.6707 & 0.8615 & 1.0000 & 0.9256 \\
+Zalo social engineering & 0.8806 & 0.7867 & 0.8310 & 1.0000 & 0.9867 & 0.9933 \\
+Task scam               & 0.7091 & 0.6290 & 0.6667 & 1.0000 & 0.8710 & 0.9310 \\
+Benign                  & 1.0000 & 0.3443 & 0.5122 & 1.0000 & 1.0000 & 1.0000 \\
+\midrule
+\textbf{Macro F1}       & \multicolumn{3}{c}{\textbf{0.6702}} & \multicolumn{3}{c}{\textbf{0.9625}} \\
+\textbf{Accuracy}       & \multicolumn{3}{c}{\textbf{0.6890}} & \multicolumn{3}{c}{\textbf{0.9646}} \\
+\bottomrule
+\end{tabular}
+\caption{The same base model, \texttt{Qwen3-4B-Instruct-2507}, on the same 254 messages before and after QLoRA fine-tuning. This is the earlier validation set, not the final dataset, and each column is one run.}
+\label{tab:finetuning-gain}
+\end{table}

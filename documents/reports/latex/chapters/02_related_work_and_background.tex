@@ -45,7 +45,7 @@ Fully retraining a model with billions of parameters needs hardware that most pe
 
 Han et al.~\cite{han2024peft} surveyed the family of these methods. Nwaiwu~\cite{nwaiwu2025peft} compared three of them on text classification with little training data and found LoRA the most accurate, at 0.909 F1, while a lighter method reached 98\% of that score using 3\% of the parameters. QLoRA was chosen for this project because it keeps LoRA's accuracy while cutting the memory enough to train on a laptop.
 
-An early check in this project measured how much the fine-tuning is worth. The same base model, Qwen3-4B-Instruct-2507, was scored on the same 254 messages twice: once with prompting alone and no fine-tuning, and once after QLoRA. Prompting alone reached a macro F1 of 0.6702; after fine-tuning the same model reached 0.9625 on those messages. That was an early measurement on a smaller validation set than the one used later, and it is not one of this thesis's results, but it is the project's own reason for fine-tuning at all rather than simply prompting a general model.
+The work above argues that this kind of fine-tuning earns its cost. This project measured that on its own data rather than taking it on trust, scoring the same base model on the same messages with prompting alone and again after QLoRA. What that showed, and why the difference is larger than the headline numbers suggest, is in Section~\ref{sec:why-finetune}.
 
 \section{Generative Classification with Decoder-Only Models}
 

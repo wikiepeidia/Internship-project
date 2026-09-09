@@ -120,6 +120,19 @@ PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of m
 
 \noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because the classification is only one of four fields it has to produce. The comparison in this thesis covers the one thing both models do.
 
+\subsection{Whether Fine-Tuning Was Needed at All}
+\label{sec:why-finetune}
+
+Choosing a model does not answer a more basic question: whether the model needed to be trained at all, or whether a careful prompt would have been enough. That was measured rather than assumed. The chosen model was scored on the same 254 messages twice, once with prompting alone and once after QLoRA. Table~\ref{tab:finetuning-gain} gives both.
+
+\input{tables/finetuning_gain}
+
+\noindent Macro F1 went from 0.6702 to 0.9625. The interesting part is not the size of that gap but where it comes from. Reading down the first three columns, the model without training has perfect recall on bank impersonation and a precision of 0.5045, and on benign messages the reverse: perfect precision and a recall of 0.3443. It labelled 111 of the 254 messages as bank impersonation when only 56 of them were, and it accepted only 21 of the 61 safe messages as safe.
+
+In other words, the untrained model was not detecting scams; it was calling almost everything a scam. That produces respectable-looking recall on the dangerous classes while making the tool useless, because a warning that fires on every message tells the user nothing. Fine-tuning is what taught the model where the boundaries are, and the largest single gain in the table is on the benign class, which is exactly the class an alarmed model gets wrong.
+
+This measurement used the earlier 254-message validation set rather than the final dataset, and each column is a single run. It is reported as the reason this project fine-tunes rather than prompts, not as one of its results; the results are in Chapter~V.
+
 \subsection{The Choice Between LoRA and QLoRA}
 Both options were measured on the target laptop before either was committed to, and the measurements are reported in Chapter~IV.
 
