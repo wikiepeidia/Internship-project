@@ -6,14 +6,14 @@
 \toprule
 \textbf{Implemented component} & \textbf{Contribution} & \textbf{Verified outcome} \\
 \midrule
-Dataset construction & Repairing broken messages without losing which article they came from, removing duplicates, checking that every highlighted phrase appears in the text, limiting how much any one article contributes, and keeping messages from the same article in one set & 2{,}097 messages; 1{,}658/219/220; no article appears in two sets \\
+Dataset construction & Messages generated from public scam-warning articles, the badly formed ones rewritten, duplicates removed, every highlighted phrase checked against its own message, a cap on how much any single article may contribute, and all messages from one article kept in the same set & 2{,}097 messages; 1{,}658/219/220; no article appears in two sets \\
 Quality checking & Automatic scoring of every message by a judge model, 100 messages checked by hand across all four classes, and 324 doubtful labels reviewed and corrected one by one & 66.52\% pass the judge; 44/100 pass the manual check; the two agree on 87/100 \\
 Hardware decision & Short LoRA and NF4-QLoRA test runs on the same laptop, before committing to either & QLoRA chosen: 395~MiB of video memory left free against 9~MiB for LoRA, and neither ran out of memory \\
 Qwen adaptation & Three epochs, 1{,}245 steps, trained locally with QLoRA, with a strict required output format the model had to follow & Validation macro F1 0.988515; checkpoint 200 \\
 PhoBERT baseline & Fresh three-epoch, 312-step full Vietnamese classification-head training & Validation macro F1 0.984893; checkpoint 100 \\
 Portable model file & The trained Qwen adapter merged into its base model and converted to Q8\_0 & A 4{,}280{,}403{,}232-byte GGUF file, loaded and checked twice \\
 Final evaluation & Both finished models run once, on the same 220 held-out messages & Macro F1: Qwen 0.980493, PhoBERT 0.990892 \\
-Records kept & Full training logs, loss curves, raw predictions, the exported model, a record of what failed along the way, and a correction about file access & Every number in this report can be traced back to the file that produced it \\
+Qwen decision output & A required answer format the model must follow: threat label, risk tier, the quoted cues, and a written explanation, with safe next steps added and safety-checked at runtime & Zero unreadable answers from either model on the final evaluation \\
 \bottomrule
 \end{tabular}
 \caption{Implemented project contributions and the strongest verified outcome for each.}

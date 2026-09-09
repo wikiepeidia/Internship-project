@@ -1,10 +1,21 @@
-The system was built in steps, and each step depends on the one before it: building the dataset, measuring what the laptop could handle, training the two models, delivering an offline runtime, explaining each decision, and finally evaluating both models once. Every step wrote its own settings, logs, and outputs to disk while it ran. Every number in this report can therefore be traced back to the file that produced it, rather than resting on the claim that the work was done. Table~\ref{tab:milestone-summary} lists those steps and what each one produced, and Figure~\ref{fig:system-overview} shows how the parts fit together.
+The system was built in steps, and each step depends on the one before it: building the dataset, measuring what the laptop could handle, choosing and training the models, delivering an offline runtime, and finally evaluating both models once. Table~\ref{tab:milestone-summary} lists those steps and what each one produced, and Figure~\ref{fig:system-overview} shows how the parts fit together.
 
 \input{tables/milestone_summary}
 \input{figures/system_overview}
 
 \section{Development Structure}
-The five stages listed in Chapter~I have to run in that order, and the order is the part worth explaining. The dataset has to exist and be split before anything can be trained on it. The hardware has to be measured before a training method is chosen, because otherwise the choice is a guess. The runtime has to be built around whatever the model actually produces rather than around what it was hoped to produce. Finally, the held-out messages cannot be touched until both models are finished, because a set that has already been consulted is no longer held out. Each of the following sections explains one of those decisions.
+The stages listed in Chapter~I have to run in this order, because each one needs the result of the one before it.
+
+\begin{enumerate}\itemsep2pt
+\item \textbf{The dataset has to exist.} There is no public Vietnamese financial phishing set with threat labels and marked evidence, so one had to be built before anything could be trained.
+\item \textbf{The dataset has to be clean.} Badly formed messages have to be found and repaired, and the split has to be made so that no message can appear in training and testing at once. A model trained on a leaking split produces a score that means nothing.
+\item \textbf{The model has to be chosen.} Three candidates were compared on the same messages, and a further check confirmed that fine-tuning was needed at all rather than prompting.
+\item \textbf{The hardware has to be measured.} Ordinary LoRA and QLoRA were both run briefly on the target laptop, so the training method was chosen from recorded time and memory rather than from a guess.
+\item \textbf{The finished model has to run on ordinary hardware.} The selected model is converted to a single file that runs without a discrete GPU, because a model that only runs on the training machine is not a usable tool.
+\item \textbf{The held-out messages are evaluated last.} They stand in for messages the system has never seen, so they can only be used once everything else is finished.
+\end{enumerate}
+
+\noindent Each of the following sections explains one of those decisions.
 
 \section{Building and Splitting the Dataset}
 
@@ -12,7 +23,9 @@ The five stages listed in Chapter~I have to run in that order, and the order is 
 
 Everything starts with \textit{tinnhiemmang.vn}, a Vietnamese site that publishes public warnings about current scams. A crawler collected those articles. Each article describes a scam in general terms --- a fake bank SMS, a Zalo message pretending to be a relative, a fake part-time job offer --- but an article is not itself a scam message, so it cannot be used as training data directly.
 
-Each collected article becomes a \textbf{seed}, and each seed gets an ID. Several messages are then written from each seed, all sharing that ID. This matters for one reason: messages written from the same article naturally resemble each other, so if one went into training and its near-twin into the test set, the model would appear to score better than it does. Because every message carries the ID of the article it came from, the splitter can keep all of them together in one split. That is what the \texttt{seed\_id} field in Table~\ref{tab:record-schema} is for. Figure~\ref{fig:seed-sample} shows two of the collected articles as they are stored.
+Each collected article becomes a \textbf{seed}, and each seed gets an ID. Several messages are then written from each seed, all sharing that ID. This matters for one reason. Messages written from the same article resemble each other closely, and if near-twin messages end up on both sides of the split, the model scores better than it deserves because it is being tested on something it has effectively already seen.
+
+The fix is mechanical. Every message stores the ID of the article it was written from, in the \texttt{seed\_id} field of Table~\ref{tab:record-schema}, and the splitter moves messages by article rather than one at a time. An article and all of its messages go into training, or all into validation, or all into the held-out set, and never across two of them. Figure~\ref{fig:seed-sample} shows two of the collected articles as they are stored.
 
 After the generation, repair, and checking described below, the final set holds 2{,}097 messages across four classes: bank impersonation, Zalo social engineering, task scam, and benign.
 
@@ -25,7 +38,7 @@ Every message is checked the moment it is produced, then scored for quality and 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\linewidth]{figures/seed_data_sample.png}
-\caption{Two rows from the retained seed file collected on 24 April 2026. Each row keeps its source advisory URL and scrape timestamp. These are public advisory texts rather than messages received by a victim; the model corpus was generated from seeds like these.}
+\caption{Two rows from the retained seed file. Each row keeps the address of the advisory it came from and the time it was collected. These are public advisory texts rather than messages received by a victim; the model corpus was generated from seeds like these.}
 \label{fig:seed-sample}
 \end{figure}
 
@@ -54,7 +67,7 @@ Every message is checked the moment it is produced, then scored for quality and 
 
 \input{tables/record_schema}
 
-The label is decided when the message is written, not added afterwards. Generation runs one class at a time: the system prompt asks for messages of a specific class, so every message produced in that batch starts with that class as its label. Building a labelled set this way is standard practice with a generative model \cite{li2024datageneration}. The review described later can drop a message or correct its label, but it does not mean every message was labelled by a person.
+The label is decided when the message is written, not added afterwards. Generation runs one class at a time: the prompt names the target class and states the exact JSON fields to return, so every message produced in that batch starts with that class as its label. The full prompt is in Appendix~6, together with the prompt used by the judge model and the one the finished system sends to Qwen. Building a labelled set this way is standard practice with a generative model \cite{li2024datageneration}. The review described later can drop a message or correct its label, but it does not mean every message was labelled by a person.
 
 \noindent\textbf{Worked example:}
 \begin{quote}\small\itshape
@@ -62,7 +75,7 @@ The label is decided when the message is written, not added afterwards. Generati
 \end{quote}
 Its \texttt{label} is \texttt{zalo\_social\_engineering} and its \texttt{risk\_tier} is \texttt{high-risk}. Its one suspicious phrase is the exact substring ``chuyển phí xử lý hồ sơ học bổng''. The stored explanation says the message applies urgent pressure and asks for a scholarship-processing payment, which could cost the student money and expose their information.
 
-The label is used differently by the two models. For Qwen, the label is written into the text the model has to produce, alongside the risk tier and the evidence. For PhoBERT, the label is the target of a normal four-class classification head. At scoring time the correct label is hidden from both models and only joined back afterwards to score them.
+The label is used differently by the two models. For Qwen, the label is written into the text the model has to produce, alongside the risk tier and the evidence. For PhoBERT, the label is the target of a normal four-class classification head. When a model is being scored it is given the message text only. Its answer is recorded first, and the correct label is looked up afterwards to mark that answer right or wrong, so the model can never see what it is supposed to say.
 
 \label{sec:quality-check}
 \subsection*{How quality was judged}
@@ -75,13 +88,17 @@ The judge model scores meaning: how realistic the message reads, whether the lab
 
 The human review is the only human opinion in the process. It covers a sample drawn evenly across all four classes and across both judge outcomes, so it is not just the easy messages, and it exists to check the judge rather than to replace it.
 
-One limitation belongs with that. The first-pass messages were written by Claude 3.5 Haiku and the judge was a GPT-family model, so for most of the set the writer and the checker are genuinely different. The Zalo replacements, however, were written by that same GPT-family model, so for those messages the judge is checking work from its own family and its verdicts are not an independent second opinion. What all of this found is reported in Chapter~V.
+One limitation belongs with that, and it is worth following carefully because three different models are involved.
+
+The first pass of messages was written by Claude 3.5 Haiku. The judge that scored them was a GPT-family model. For most of the set, then, the writer and the checker come from different families, which is the arrangement the check depends on.
+
+The Zalo replacements are the exception. When that class had to be rewritten, the replacement wording was authored by a GPT-family model in a separate session, under a different prompt and a different task: rewriting a scenario into a real chat message rather than inventing one from an article. That wording was then saved into the project as fixed text and applied offline, so no API call was made during the repair itself. The result is still that, for those messages, the writer and the judge come from the same family, and the judge's verdict on them is not an independent second opinion. What all of this found is reported in Chapter~V.
 
 \subsection*{When a correction is accepted}
 
 The judge flagged messages whose labels looked wrong, and every one of them was reviewed by hand. Agreeing that a label is wrong is not by itself enough for the correction to be used.
 
-The rule is that corrections tracing back to a single source article are not accepted in bulk. Messages written from one article are not independent examples of anything, so admitting a large group of them would make a class look far more varied than it really is. Applying that rule cost a substantial amount of reviewed work, which is the point: the alternative was a dataset that looked better than it was. The counts are in Chapter~V, and Figure~\ref{fig:human-review} shows one record from the review sheet.
+The reason is the same one behind the split rule. If a hundred flagged messages all came from a single article, they are a hundred rewordings of one scenario, not a hundred separate examples of it. Accepting them together would swell one class with near-copies and make it look far more varied than it really is, which would show up as a better score without a better dataset. Corrections were therefore accepted only where they did not all trace back to one article. Applying that rule threw away a large amount of reviewed work on purpose. The counts are in Chapter~V, and Figure~\ref{fig:human-review} shows one record from the review sheet.
 
 \input{tables/dataset_statistics}
 
@@ -98,13 +115,13 @@ The runtime has one text-only interface. A message comes in as text, is cleaned 
 
 Privacy is a design requirement rather than an afterthought, in line with the NIST Privacy Framework \cite{nist2026privacyframework}: the message text never leaves the device.
 
-Before any analysis runs, the system checks that the model it is supposed to use has actually loaded. If it has not, it stops and says so rather than continuing with something else and returning an answer the user would have no reason to distrust.
+Before any analysis runs, the system checks that the model it is supposed to use has actually loaded. If it has not, it stops and says so rather than quietly continuing with something else. This matters more than it sounds: the project holds several models and several versions of the same model, and an answer produced by the wrong one would look exactly like a correct answer. The check names the model and the version it loaded, so a result can always be attributed to the model that produced it.
 
 \section{Local Model Selection and Deployment Paths}
 
 To pick a Qwen model, three models from the Qwen family \cite{qwen2025} were tested on the same 33 example messages: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The test scored them on catching risky messages first. It used three risk levels rather than four classes --- benign, suspicious, and high-risk --- and it ran on the same laptop the real training would use, so hardware limits were part of the decision from the start.
 
-All three caught risky messages at the same rate on this small test, so the difference came down to what each one cost in memory and time. Table~\ref{tab:pilot-comparison} gives the numbers. This was a quick screening test on 33 examples, not a measurement of which model is better in general.
+All three caught risky messages at the same rate on this small test, so the difference came down to what each one cost in memory and time. Table~\ref{tab:pilot-comparison} gives the numbers. This was a quick screening test on 33 examples run before any fine-tuning; it picked a model that fits the laptop, and it is not a measurement of which model is better in general.
 
 \input{tables/pilot_comparison}
 
@@ -118,7 +135,7 @@ PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of m
 \item \textbf{PhoBERT} produces the class label only. It is a Vietnamese encoder with a four-class head, and it has no way to generate quoted evidence or advice.
 \end{itemize}
 
-\noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because the classification is only one of the four things it has to produce. The comparison in this thesis covers the one thing both models do.
+\noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because it can also write the explanation, and the classification is only one of the four things the answer has to contain. The comparison in this thesis covers the one thing both models do.
 
 \subsection{Whether Fine-Tuning Was Needed at All}
 \label{sec:why-finetune}
@@ -134,7 +151,7 @@ In other words, the untrained model was not detecting scams; it was calling almo
 This measurement used the earlier 254-message validation set rather than the final dataset, and each column is a single run. It is reported as the reason this project fine-tunes rather than prompts, not as one of its results; the results are in Chapter~V.
 
 \subsection{The Choice Between LoRA and QLoRA}
-Both options were measured on the target laptop before either was committed to, and the measurements are reported in Chapter~IV.
+Both options were measured on the target laptop, and those measurements are reported in Chapter~IV.
 
 The decision came down to memory rather than quality. Ordinary LoRA ran, but it left almost no video memory free and pointed at a schedule of roughly eighteen hours. No out-of-memory error occurred, and this report does not claim one did. The problem is that an eighteen-hour run with almost no memory to spare is a bad bet: any brief extra allocation would end it, and the cost of that is most of a day.
 

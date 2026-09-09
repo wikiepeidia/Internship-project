@@ -1,0 +1,109 @@
+\section*{Appendix 6: The Prompts}
+\addcontentsline{toc}{section}{Appendix 6: The Prompts}
+
+Three prompts decide what this system produces, and all three are quoted here in
+full because none of the JSON fields in this report would exist without them. They
+are reproduced from the source files named beside each one, with only the Python
+formatting removed.
+
+% full text width, ragged right, so a long instruction line cannot run off the page
+\newcommand{\promptblock}[1]{%
+  \smallskip
+  \begingroup\footnotesize\ttfamily\raggedright\setlength{\parindent}{0pt}%
+  \setlength{\parskip}{0pt}%
+  #1\par\endgroup\medskip}
+
+\subsection*{6.1 Generating the dataset}
+
+Sent to Claude 3.5 Haiku, one class at a time. Source:\\
+\path{src/data_pipeline/generation/prompts.py} --- \texttt{build\_complex\_prompt}.
+
+\promptblock{
+You are generating realistic Vietnamese financial messaging examples for a phishing detection dataset.\\[2pt]
+Seed text anchor: \{seed\_text\}\\
+Target threat class: \{threat\_class\}\\
+Variants required: \{num\_variants\}\\[2pt]
+Requirements:\\
+- Generate \{num\_variants\} realistic Vietnamese message variants as a JSON array.\\
+- Preserve natural Vietnamese code-switching with OTP, Internet Banking,\\
+\hspace*{2em}Smart OTP, link, login, app, and account.\\
+- Use Vietnamese teencode or SMS shorthand only when natural, including k, ko, dc, nha, ak.\\
+- Vary URLs, phone numbers, urgency level, sender persona, and channel style.\\
+- Produce a mix of short SMS-like messages and longer Zalo or Messenger-like messages.\\
+- Do not copy the seed URL, sender, or phone number directly.\\
+- risk\_tier is contextual and MUST be assigned from semantic severity,\\
+\hspace*{2em}not derived from label.\\
+- suspicious\_spans must contain up to 3 exact substrings from the generated text;\\
+\hspace*{2em}use [] when none apply.\\
+- xai\_explanation must be one concise Vietnamese sentence, specific and actionable,\\
+\hspace*{2em}with at least 20 characters.\\[2pt]
+Return ONLY a JSON array with text, label, risk\_tier, suspicious\_spans,\\
+\hspace*{2em}and xai\_explanation.
+}
+
+\noindent Three things in that prompt do real work later. Naming the target class is what gives every message its label without a person assigning one. Asking for teencode and code-switching by name is why the finished set contains the informal writing counted in Section~1.1. The instruction that \texttt{risk\_tier} must not be derived from the label is what stops the risk tier becoming a copy of the class.
+
+The \texttt{task\_scam} class receives an extra block, because it is the class that most resembles a real job offer. It names five scenario types --- engagement farms, review-bombing with promised cashback, crypto referral schemes, order-boosting, and livestream engagement tasks --- and requires each message to follow either a trust-then-disappear or an advance-payment structure.
+
+\subsection*{6.2 Judging the dataset}
+
+Sent to the GPT-family judge, once per message. Source:\\
+\path{src/data_pipeline/generation/prompts.py} --- \texttt{build\_judge\_prompt}.
+
+\promptblock{
+Validate this synthetic Vietnamese financial messaging sample.\\[2pt]
+Text: \{record\_text\}\\
+Label: \{record\_label\}\\
+Risk tier: \{record\_risk\_tier\}\\
+Suspicious spans: \{record\_suspicious\_spans\}\\
+Explanation: \{record\_explanation\}\\[2pt]
+Score these dimensions from 1 to 5:\\
+- realism\\
+- label\_correctness\\
+- code\_switch\_naturalness\\
+- risk\_tier\_correctness\\
+- suspicious\_span\_accuracy\\[2pt]
+For suspicious\_span\_accuracy, score whether the spans are exact substrings from\\
+\hspace*{2em}the text and whether they point to genuinely suspicious cues.\\
+Mark pass true only if all five scores are at least 3.\\[2pt]
+Return ONLY this JSON object:\\
+\{ "realism": 1, "label\_correctness": 1, "code\_switch\_naturalness": 1,\\
+\hspace*{2em}"risk\_tier\_correctness": 1, "suspicious\_span\_accuracy": 1,\\
+\hspace*{2em}"pass": false, "reason": "very short reason, max 18 words" \}
+}
+
+\noindent This is the prompt behind every judge number in Chapter~V. The pass rule sits inside the prompt rather than being applied afterwards, which is why a message with four good scores and one weak one fails outright, and why the pass rate is lower than the individual averages would suggest.
+
+\subsection*{6.3 Asking the finished model for an answer}
+
+Sent to the fine-tuned Qwen model at runtime, once per message the user checks. Source:\\
+\path{src/runtime/analyzers/local_model.py}.
+
+\promptblock{
+You are a local Vietnamese phishing detector.\\
+Analyze the message text and return JSON only.\\
+Choose risk\_tier from: benign, suspicious, high-risk.\\
+Choose threat\_labels only from: bank\_impersonation, zalo\_social\_engineering,\\
+\hspace*{2em}task\_scam, benign.\\[2pt]
+\{\\
+\hspace*{1em}"risk\_tier": "benign | suspicious | high-risk",\\
+\hspace*{1em}"threat\_labels": [ ... ],\\
+\hspace*{1em}"decision\_summary": "short Vietnamese explanation grounded in\\
+\hspace*{3em}the message text",\\
+\hspace*{1em}"evidence": [ \{\\
+\hspace*{3em}"span": "exact suspicious substring from the message",\\
+\hspace*{3em}"reason": "why that cue matters",\\
+\hspace*{3em}"cue\_type": "otp\_request | url | spoofed\_brand | urgency |\\
+\hspace*{4em}credential\_request | payment\_request | contact\_takeover |\\
+\hspace*{4em}job\_offer | generic",\\
+\hspace*{3em}"supports\_labels": [ ... ],\\
+\hspace*{3em}"severity": "low | medium | high" \} ],\\
+\hspace*{1em}"recommendations": [ \{\\
+\hspace*{3em}"text": "short safe next step that does not tell the user to\\
+\hspace*{4em}click, reply, or share secrets",\\
+\hspace*{3em}"priority": "low | medium | high",\\
+\hspace*{3em}"offline\_safe": true \} ]\\
+\}
+}
+
+\noindent The \texttt{recommendations} block is the part discussed in Section~\ref{sec:explainable-decisioning}: the model is asked for it here, but the dataset contains no such field, so it was never trained on it. The wording of the request carries the safety rule as well --- a next step that tells the user to click, reply, or share a code is refused by the prompt before the separate safety check ever sees it.
