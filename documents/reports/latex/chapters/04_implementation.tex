@@ -142,22 +142,24 @@ At runtime the analysis service normalises the message text, sends it to whichev
 \section{The Analysis}
 \label{sec:worked-example}
 
-The two messages below were both put through the installed application. One is a
-bank-impersonation scam, the other a genuine one-time-password notice, and they
-are similar on purpose: both mention a bank, both are urgent, both arrive by SMS.
-A system that only reacts to the word \textit{bank} cannot tell them apart.
+Three messages were put through the installed application: a bank-impersonation
+scam, a genuine transaction notice, and a genuine one-time-password notice. The
+first two come out right. The third does not, and it is reported here because it
+shows the shape of the system's weakness better than the first two show its
+strength.
 
-\smallskip
-\noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics,
-in the way a real SMS often is.
+\subsection*{Input 1 --- a scam}
+
+Typed without diacritics, in the way a real SMS often is.
+
 \begin{quote}\small\itshape
 ``{[}VIETCOMBANK{]} Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: \textup{\texttt{http://vcb-secure-alert.net/lock?id=9182736}} hoac goi 1800.9999 (mien phi).''
 \end{quote}
 
-\noindent The system returned \texttt{high-risk} and the label
-\texttt{bank\_impersonation}, which is correct. It quoted three cues: the link
-\texttt{http://vcb-secure-alert.net/lock?id=9182736}, the claim that the account
-was accessed at 03:47, and the free-phone number. The advice it produced was:
+\noindent The system returned \texttt{high-risk} with the label
+\texttt{bank\_impersonation}, which is correct. It quoted three cues: the link,
+the claim that the account was accessed at 03:47, and the free-phone number. Its
+advice was:
 
 \begin{quote}\small\itshape
 ``Không truy cập link hoặc gọi số điện thoại trong tin nhắn này.''\\
@@ -165,58 +167,76 @@ was accessed at 03:47, and the free-phone number. The advice it produced was:
 ``Liên hệ trực tiếp với Vietcombank qua số hotline chính thức để xác minh.''
 \end{quote}
 
-\noindent This is what the project is for. The classification alone would tell the
-user very little; the quoted phrases show which part of the message caused the
-warning, and every one of the three suggestions sends the user to a channel they
-choose themselves. None of them tells the user to tap the link, reply, or read out
-a code, which is the rule the runtime applies to this field before anything is
-shown.
+\noindent This is what the project is for. The label alone would tell the user
+little; the quoted phrases show which part of the message caused the warning, and
+each suggestion sends the user to a channel they choose themselves. None tells
+them to tap the link, reply, or read out a code, which is the rule the runtime
+applies to this field before anything is displayed.
 
-\smallskip
-\noindent\textbf{Input 2 --- not a scam.} A real Smart OTP message, which even
-warns the reader not to share the code.
+\subsection*{Input 2 --- a genuine transaction notice}
+
+A real payment confirmation, also without diacritics.
+
+\begin{quote}\small\itshape
+``VCB: TK 0123456789 -250,000 VND luc 09:15 12/09. Noi dung: THANH TOAN HOA DON DIEN EVN HANOI. So du: 8,420,000 VND.''
+\end{quote}
+
+\noindent The system returned \texttt{benign}, which is correct. It quoted the
+debit line, the payment description, and the closing balance, and its advice was
+ordinary and harmless: check the electricity bill, contact EVN if anything looks
+wrong, and share neither account details nor an OTP with anyone. The message
+mentions a bank, an account number and an amount, and the system still does not
+flag it.
+
+\subsection*{Input 3 --- a genuine notice the system gets wrong}
+\label{sec:false-alarm}
+
+A real Smart OTP message, which even warns the reader not to share the code.
+
 \begin{quote}\small\itshape
 ``VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.''
 \end{quote}
 
 \noindent Here the system was wrong. It returned \texttt{suspicious} rather than
-benign, and the threat label it attached was \texttt{bank\_impersonation}.
-The cues it quoted
-were ``Smart OTP'', ``đăng nhập'', and ``Internet Banking'', and it produced:
+benign. The label it attached was \texttt{bank\_\hspace{0pt}impersonation}, and the cues it
+quoted were ``Smart OTP'', ``đăng nhập'', and ``Internet Banking''. Its advice
+was to check the official VPBank app, share the code with nobody, and call the
+bank directly.
 
-\begin{quote}\small\itshape
-``Kiểm tra lại thông tin đăng nhập của bạn trên ứng dụng Internet Banking chính thức của VPBank.''\\
-``Không chia sẻ mã OTP với bất kỳ ai, kể cả người thân hoặc nhân viên ngân hàng.''\\
-``Nếu bạn không nhớ đăng nhập vào Internet Banking, hãy liên hệ trực tiếp VPBank qua số hotline chính thức để xác minh.''
-\end{quote}
+\subsection*{What the third result means}
 
-\subsection*{What the second result means}
-\label{sec:false-alarm}
+Six ordinary bank messages were tried in total: transaction confirmations, a
+balance notice, a maintenance notice, a statement notice, and the OTP message
+above. Four were returned as benign. The two that were flagged have one thing in
+common, and it is not that they mention a bank, because all six do. They are the
+only two that ask the reader to log in.
 
-This is a false positive, and it is reported rather than left out. Three things
-follow from it.
+That makes the weakness describable rather than mysterious. Nearly every scam in
+the training data works by getting someone to log in or hand over a code, so the
+model has learned to treat authentication language as the signal it is looking
+for. A genuine message that uses the same words falls on the wrong side of that
+line. Three things follow.
 
-\textbf{It is a limitation, and probably not the only one.} The message contains
-exactly the vocabulary the model was trained to treat as dangerous: an OTP code, a
-login reference, and a warning about sharing. Those words appear far more often in
-scams than in genuine notices, so the model has learned to distrust them. One
-test is not a measurement, and there is no reason to assume this is the only
-message of its kind that the system would get wrong. The scores in Chapter~V were
-measured on generated messages, and this is what it looks like when the system
-meets something written outside that set.
+\textbf{It is a limitation, and this is not the only message it would affect.}
+Two of six is not a measurement, but it is enough to say the behaviour is
+systematic rather than accidental. Genuine login alerts, OTP notices, and
+statement reminders are common messages, and the system will over-flag them. The
+scores in Chapter~V were measured on generated messages, and this is what the
+system does when it meets writing from outside that set.
 
 \textbf{The mistake is in the safer direction.} The system is built to prefer a
 false alarm over a missed scam, because the costs are not equal: a false alarm
-wastes a minute of the user's time, while a scam that is called safe can cost them
-their savings. A wrongly flagged genuine message is the acceptable failure. A
-scam that the system called benign would be the serious one, and that is the
-error this design is arranged to avoid.
+wastes a minute of the user's time, while a scam called safe can cost them their
+savings. A wrongly flagged genuine message is the acceptable failure. A scam the
+system called benign would be the serious one, and that is the error this design
+is arranged to avoid.
 
 \textbf{The advice was still safe.} Even with the label wrong, every suggestion
 protects the user: check the official app, do not share the code, call the bank
-yourself. A wrong label attached to harmful advice would be a real defect. A wrong
-label attached to advice that is safe to follow is a much smaller one, and it is
-the direct result of the rule that keeps recommendations inside a fixed safe set.
+yourself. A wrong label attached to harmful advice would be a real defect. A
+wrong label attached to advice that is safe to follow is a much smaller one, and
+it is the direct result of the rule that keeps recommendations inside a fixed
+safe set.
 
 \section{Error Analysis and Adjustments}
 

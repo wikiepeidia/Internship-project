@@ -1,0 +1,160 @@
+{
+  "techcombank_credit": {
+    "input": "Techcombank: Giao dịch thành công! Tài khoản của bạn vừa nhận được 5,000,000 VND từ NGUYEN VAN AN lúc 14:32. Số dư hiện tại: 12,350,000 VND.",
+    "seconds": 37.5,
+    "result": {
+      "risk_tier": "benign",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "Giao dịch thành công",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Tài khoản của bạn vừa nhận được 5,000,000 VND từ NGUYEN VAN AN lúc 14:32",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Số dư hiện tại: 12,350,000 VND",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "benign"
+      ],
+      "recommendations": [
+        "Kiểm tra lại giao dịch để đảm bảo tính chính xác.",
+        "Xem lại lịch sử giao dịch trên ứng dụng ngân hàng chính thức.",
+        "Không chia sẻ thông tin tài khoản với bất kỳ ai."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "Techcombank: Giao dịch thành công! Tài khoản của bạn vừa nhận được 5,000,000 VND từ NGUYEN VAN AN lúc 14:32. Số dư hiện tại: 12,350,000 VND."
+    }
+  },
+  "vcb_debit": {
+    "input": "VCB: TK 0123456789 -250,000 VND luc 09:15 12/09. Noi dung: THANH TOAN HOA DON DIEN EVN HANOI. So du: 8,420,000 VND.",
+    "seconds": 26.6,
+    "result": {
+      "risk_tier": "benign",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "TK 0123456789 -250,000 VND",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Noi dung: THANH TOAN HOA DON DIEN EVN HANOI",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "So du: 8,420,000 VND",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "benign"
+      ],
+      "recommendations": [
+        "Kiểm tra lại hóa đơn điện của bạn để đảm bảo tính chính xác của giao dịch.",
+        "Liên hệ trực tiếp với EVN nếu bạn nghi ngờ bất thường về hóa đơn.",
+        "Không chia sẻ thông tin tài khoản hoặc OTP với bất kỳ ai."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "VCB: TK 0123456789 -250,000 VND luc 09:15 12/09. Noi dung: THANH TOAN HOA DON DIEN EVN HANOI. So du: 8,420,000 VND."
+    }
+  },
+  "bidv_statement": {
+    "input": "BIDV thong bao: Sao ke thang 8/2026 cua the tin dung da san sang. Vui long dang nhap ung dung BIDV SmartBanking de xem chi tiet.",
+    "seconds": 26.0,
+    "result": {
+      "risk_tier": "suspicious",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "Sao ke thang 8/2026 cua the tin dung da san sang",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "dang nhap ung dung BIDV SmartBanking",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "bank_impersonation"
+      ],
+      "recommendations": [
+        "Kiểm tra lại thông tin thẻ tín dụng của bạn trên ứng dụng chính thức của ngân hàng.",
+        "Không đăng nhập vào các ứng dụng hoặc trang web lạ để xem thông báo tài khoản.",
+        "Liên hệ trực tiếp với ngân hàng nếu bạn nghi ngờ thông báo này là giả mạo."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "BIDV thong bao: Sao ke thang 8/2026 cua the tin dung da san sang. Vui long dang nhap ung dung BIDV SmartBanking de xem chi tiet."
+    }
+  },
+  "acb_balance": {
+    "input": "ACB: So du tai khoan 0987654321 cuoi ngay 12/09/2026 la 3,150,000 VND. Cam on quy khach da su dung dich vu.",
+    "seconds": 28.9,
+    "result": {
+      "risk_tier": "benign",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "So du tai khoan 0987654321 cuoi ngay 12/09/2026 la 3,150,000 VND",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Cam on quy khach da su dung dich vu",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "benign"
+      ],
+      "recommendations": [
+        "Kiểm tra lại số dư tài khoản của bạn trên ứng dụng ngân hàng chính thức.",
+        "Không chia sẻ thông tin tài khoản hoặc mật khẩu với bất kỳ ai.",
+        "Lưu ý đến các thông báo tài chính từ ngân hàng và xác minh thông tin trước khi thực hiện giao dịch."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "ACB: So du tai khoan 0987654321 cuoi ngay 12/09/2026 la 3,150,000 VND. Cam on quy khach da su dung dich vu."
+    }
+  },
+  "mb_maintenance": {
+    "input": "MB Bank: He thong se bao tri tu 23:00 ngay 14/09 den 02:00 ngay 15/09. Trong thoi gian nay quy khach tam thoi khong thuc hien duoc giao dich chuyen khoan.",
+    "seconds": 27.7,
+    "result": {
+      "risk_tier": "benign",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "MB Bank: He thong se bao tri tu 23:00 ngay 14/09 den 02:00 ngay 15/09. Trong thoi gian nay quy khach tam thoi khong thuc hien duoc giao dich chuyen khoan.",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "benign"
+      ],
+      "recommendations": [
+        "Kiểm tra lại thông báo từ MB Bank qua kênh chính thức như website hoặc ứng dụng ngân hàng để xác nhận thông tin về bảo trì hệ thống."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "MB Bank: He thong se bao tri tu 23:00 ngay 14/09 den 02:00 ngay 15/09. Trong thoi gian nay quy khach tam thoi khong thuc hien duoc giao dich chuyen khoan."
+    }
+  }
+}
