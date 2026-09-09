@@ -1,11 +1,13 @@
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
+  % every box gets the SAME fixed width and height, so a box with three lines of
+  % text cannot grow upwards into the header band above it
   obox/.style={draw=CVBLUE!70!black, fill=CVBLUE!10, rectangle, rounded corners=3pt,
-    minimum width=2.1cm, minimum height=0.80cm,
+    text width=2.0cm, minimum height=1.60cm,
     align=center, font=\small, inner sep=4pt},
   rbox/.style={draw=black!55, fill=black!5, rectangle, rounded corners=3pt,
-    minimum width=2.1cm, minimum height=0.80cm,
+    text width=2.0cm, minimum height=1.60cm,
     align=center, font=\small, inner sep=4pt},
   ohdr/.style={draw=CVBLUE!80!black, fill=CVBLUE, rectangle, rounded corners=4pt,
     minimum width=14.6cm, minimum height=0.52cm,
@@ -13,39 +15,43 @@
   rhdr/.style={draw=black!70, fill=black!70, rectangle, rounded corners=4pt,
     minimum width=14.6cm, minimum height=0.52cm,
     align=left, font=\small\bfseries, text=white, inner sep=6pt},
-  arr/.style={->, >=stealth, thick, CVBLUE!70!black},
-  darr/.style={->, >=stealth, thick, dashed, black!40}
+  arr/.style={-{Stealth[length=2.7mm,width=2.1mm]}, line width=0.9pt,
+    CVBLUE!70!black, shorten >=1pt, shorten <=1pt},
+  darr/.style={-{Stealth[length=2.7mm,width=2.1mm]}, line width=0.9pt, dashed,
+    dash pattern=on 3pt off 2.5pt, black!50},
 ]
 
-%% ── Section headers ──────────────────────────────────────────────────────────
-\node[ohdr] at (0,  0.00) {(1)\enspace Offline Preparation};
-\node[rhdr] at (0, -3.10) {(2)\enspace Runtime Analysis};
+%% ── Handoff drawn FIRST, so the runtime header band paints over the middle of
+%%    it and the line reads as passing behind the band rather than through the
+%%    title text. It re-emerges just above the box it feeds. ─────────────────
+\draw[darr]
+  (6.10,-2.05) -- (6.10,-2.50)
+  -- node[above, pos=0.62, font=\scriptsize, text=black!60] {trained model files}
+  (0.00,-2.50)
+  -- (0.00,-3.60);
 
-%% ── Offline row (3cm centre spacing) ────────────────────────────────────────
-\node[obox] (dc)  at (-6.0, -0.95) {Crawled Seeds +\\Generated Messages};
-\node[obox] (qrv) at (-3.0, -0.95) {Schema +\\Quality Review};
-\node[obox] (spl) at ( 0.0, -0.95) {Split by\\Source Article};
-\node[obox] (qlo) at ( 3.0, -0.95) {QLoRA + PhoBERT\\Training};
-\node[obox] (gex) at ( 6.0, -0.95) {Model\\Packaging};
+%% ── Section headers ──────────────────────────────────────────────────────────
+\node[ohdr] at (0,  0.00) {(1)\enspace Offline Preparation --- done once};
+\node[rhdr] at (0, -3.00) {(2)\enspace Runtime Analysis --- every message the user checks};
+
+%% ── Offline row ──────────────────────────────────────────────────────────────
+\node[obox] (dc)  at (-6.10, -1.25) {Seed articles\\+ generated\\messages};
+\node[obox] (qrv) at (-3.05, -1.25) {Schema +\\quality\\review};
+\node[obox] (spl) at ( 0.00, -1.25) {Split by\\source\\article};
+\node[obox] (qlo) at ( 3.05, -1.25) {QLoRA +\\PhoBERT\\training};
+\node[obox] (gex) at ( 6.10, -1.25) {Model\\packaging};
 
 \draw[arr] (dc)--(qrv);
 \draw[arr] (qrv)--(spl);
 \draw[arr] (spl)--(qlo);
 \draw[arr] (qlo)--(gex);
 
-%% ── Dashed handoff: GGUF Export → Local Model Backend ───────────────────────
-\draw[darr]
-  (6.0,-1.35) -- (6.0,-2.26)
-  -- node[above, font=\scriptsize, text=black!40] {model artifacts}
-  (0.0,-2.26)
-  -- (0.0,-3.64);
-
 %% ── Runtime row ──────────────────────────────────────────────────────────────
-\node[rbox, minimum height=1.0cm] (inp) at (-6.0, -4.00) {\textbf{Input}\\one pasted\\message};
-\node[rbox] (rif) at (-3.0, -4.00) {Runtime\\Interface};
-\node[rbox] (mod) at ( 0.0, -4.00) {Local Model\\Backend};
-\node[rbox] (dly) at ( 3.0, -4.00) {Decision\\Layer};
-\node[rbox, minimum width=2.5cm, minimum height=1.0cm] (out) at ( 6.0, -4.00) {\textbf{Output} (JSON)\\Risk\,·\,Label\\Cues\,·\,Guidance};
+\node[rbox] (inp) at (-6.10, -4.40) {\textbf{Input}\\one pasted\\message};
+\node[rbox] (rif) at (-3.05, -4.40) {Runtime\\interface};
+\node[rbox] (mod) at ( 0.00, -4.40) {Local model\\backend};
+\node[rbox] (dly) at ( 3.05, -4.40) {Decision\\layer};
+\node[rbox] (out) at ( 6.10, -4.40) {\textbf{Output}\\risk, label,\\cues, advice};
 
 \draw[arr] (inp)--(rif);
 \draw[arr] (rif)--(mod);
@@ -53,6 +59,6 @@
 \draw[arr] (dly)--(out);
 
 \end{tikzpicture}
-\caption{How the system fits together. The top row is the offline work done once: crawling the source articles, generating and checking messages, splitting them by source article, training both models, and packaging the result. The bottom row is what happens each time a user checks a message: one pasted message goes in on the left, and a JSON result comes out on the right.}
+\caption{How the system fits together. The top row is the offline work, done once: crawling the source articles, generating and checking messages, splitting them by source article, training both models, and packaging the result. The dashed line is the only thing that crosses between the two rows --- the trained model files. The bottom row is what happens each time a user checks a message: one pasted message goes in on the left, and a JSON result with the risk tier, the label, the quoted cues, and the advice comes out on the right.}
 \label{fig:system-overview}
 \end{figure}
