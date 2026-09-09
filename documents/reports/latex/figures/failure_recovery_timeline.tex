@@ -2,32 +2,39 @@
 \centering
 \begin{tikzpicture}[
   event/.style={draw=orange!70!black, fill=orange!8, rounded corners=3pt,
-    text width=3.65cm, minimum height=1.15cm, align=center, font=\scriptsize},
-  recovery/.style={draw=green!55!black, fill=green!7, rounded corners=3pt,
-    text width=3.65cm, minimum height=1.15cm, align=center, font=\scriptsize},
-  arr/.style={->, >=stealth, thick, black!45}
+    text width=2.55cm, minimum height=1.45cm, align=center, font=\scriptsize,
+    inner sep=4pt},
+  fix/.style={draw=green!55!black, fill=green!7, rounded corners=3pt,
+    text width=2.55cm, minimum height=1.45cm, align=center, font=\scriptsize,
+    inner sep=4pt},
+  arr/.style={-{Stealth[length=2.4mm,width=1.8mm]}, line width=0.8pt, black!45,
+    shorten >=1pt, shorten <=1pt},
 ]
-\node[event] (d1) at (-4.4,2.3) {One group of Zalo messages was written as narration, not as messages};
-\node[recovery] (d2) at (0,2.3) {Rewritten offline from the same articles, then re-checked};
-\node[event] (l1) at (4.4,2.3) {Ordinary LoRA left 9~MiB of memory free and stopped on a driver fault};
 
-\node[recovery] (l2) at (-4.4,0) {QLoRA measured instead: room to spare and a workable step time};
-\node[event] (q1) at (0,0) {First full Qwen run had a bad output folder name and one broken save path};
-\node[recovery] (q2) at (4.4,0) {Restarted clean: 1{,}245 steps, checkpoint chosen, model exported};
+%% row 1 --- building the dataset
+\node[event] (a1) at (-5.55, 0)     {Generation run against an external API};
+\node[event] (a2) at (-1.85, 0)     {Provider stopped accepting requests};
+\node[event] (a3) at ( 1.85, 0)     {Results written only at the end, so the run was lost};
+\node[fix]   (a4) at ( 5.55, 0)     {Retry with backoff, and results saved as they are produced};
 
-\node[event] (p1) at (-4.4,-2.3) {PhoBERT attempts exposed logging and finish-up defects};
-\node[recovery] (p2) at (0,-2.3) {Training completed; the logs were recovered without touching the results};
-\node[event] (a1) at (4.4,-2.3) {Code reorganised, but the review findings are still open};
+%% row 2 --- repairing the dataset, then choosing the training method
+\node[event] (b1) at (-5.55, -2.20) {One group of Zalo messages written as narration};
+\node[fix]   (b2) at (-1.85, -2.20) {Rewritten offline from the stored scenarios};
+\node[event] (b3) at ( 1.85, -2.20) {Ordinary LoRA left 9~MiB free and pointed at 18 hours};
+\node[fix]   (b4) at ( 5.55, -2.20) {QLoRA fits the card with room to spare};
 
-\draw[arr] (d1)--(d2);
-\draw[arr] (d2)--(l1);
-\draw[arr] (l1) -- ++(0,-1.15) -| (l2);
-\draw[arr] (l2)--(q1);
-\draw[arr] (q1)--(q2);
-\draw[arr] (q2) -- ++(0,-1.15) -| (p1);
-\draw[arr] (p1)--(p2);
-\draw[arr] (p2)--(a1);
+%% row 3 --- the training run itself
+\node[event] (c1) at (-5.55, -4.40) {Output folder name left out the run ID};
+\node[fix]   (c2) at (-1.85, -4.40) {Stopped on purpose and restarted from step zero};
+\node[fix]   (c3) at ( 1.85, -4.40) {Both models trained to completion};
+
+\draw[arr] (a1)--(a2);  \draw[arr] (a2)--(a3);  \draw[arr] (a3)--(a4);
+\draw[arr] (a4) -- ++(0,-0.42) -| (b1);
+\draw[arr] (b1)--(b2);  \draw[arr] (b2)--(b3);  \draw[arr] (b3)--(b4);
+\draw[arr] (b4) -- ++(0,-0.42) -| (c1);
+\draw[arr] (c1)--(c2);  \draw[arr] (c2)--(c3);
+
 \end{tikzpicture}
-\caption{The order in which things went wrong and what was done about each one. Orange is a failure, green is the fix. The last box is not green because those findings are still open.}
+\caption{The order in which things went wrong, and what was changed after each one. Orange is a failure, green is the fix that followed it. Each row is one stage of the work: building the dataset, repairing it and choosing a training method, and the training run itself.}
 \label{fig:failure-recovery-timeline}
 \end{figure}

@@ -88,7 +88,7 @@ axes[1].set_xlabel("optimizer step", color=INK_SECONDARY, fontsize=10)
 
 titles(
     fig,
-    "Which checkpoint was kept, and why",
+    "Validation macro F1 at every checkpoint",
     "Scored on the same 219 validation messages  ·  seed 42  ·  no unreadable "
     "answers at any checkpoint",
 )

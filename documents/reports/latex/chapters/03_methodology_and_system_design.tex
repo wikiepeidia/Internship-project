@@ -153,7 +153,7 @@ This measurement used the earlier 254-message validation set rather than the fin
 \subsection{The Choice Between LoRA and QLoRA}
 Both options were measured on the target laptop, and those measurements are reported in Chapter~IV.
 
-The decision came down to memory rather than quality. Ordinary LoRA ran, but it left almost no video memory free and pointed at a schedule of roughly eighteen hours. No out-of-memory error occurred, and this report does not claim one did. The problem is that an eighteen-hour run with almost no memory to spare is a bad bet: any brief extra allocation would end it, and the cost of that is most of a day.
+The decision came down to memory rather than quality. Ordinary LoRA ran, but it left almost no video memory free and pointed at a schedule of roughly eighteen hours. No out-of-memory error occurred. The problem is that an eighteen-hour run with almost no memory to spare is a bad bet: any brief extra allocation would end it, and the cost of that is most of a day.
 
 QLoRA keeps the base model frozen in 4-bit, which leaves a workable margin and cuts the step time to a few seconds. It costs little in quality, because the authors of QLoRA report that 4-bit fine-tuning reaches the quality of 16-bit fine-tuning \cite{dettmers2023qlora}. The choice was therefore about memory and risk, not about accepting a worse model.
 
