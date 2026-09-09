@@ -3,7 +3,7 @@ Vietnamese financial phishing arrives mostly through SMS and chat apps such as Z
 \section{Background and Motivation}
 The word \textit{Localized} in the title means two things at once, and the project needs both of them.
 
-The first meaning is that the model runs on the user's own device. Analysis happens on a consumer laptop with no cloud API call, so a message full of banking details never leaves the machine. The second meaning is that the model is trained on Vietnamese scam messages specifically, so that it learns Vietnamese banking vocabulary, local scam tactics, and the way Vietnamese and English get mixed together in one message.
+The first meaning is that the model runs on the user's own device. Analysis happens on a consumer laptop with no cloud API call, so a message full of banking details never leaves the machine. The second meaning is that the model is trained on Vietnamese scam messages specifically, so that it learns Vietnamese banking vocabulary, local scam tactics, and the way real Vietnamese chat messages are actually written. That last point is not decoration. In the training messages, 31.4\% carry chat abbreviations such as \textit{ko}, \textit{tk}, or \textit{acc}, 12.9\% are typed without diacritics at all, so that \textit{tài khoản} appears as \textit{tai khoan}, and 6.3\% contain emoji. A general multilingual model is not trained on any of that.
 
 Neither meaning is enough on its own. A model that runs privately but was never trained on Vietnamese scams would miss the local patterns. A model trained on Vietnamese scams but running in the cloud would still require the user to upload the message it is supposed to protect.
 
@@ -11,7 +11,7 @@ Three requirements shaped the whole project. It handles text only, it runs offli
 
 \section{Problem Statement}
 \label{sec:problem-statement}
-Two problems motivate this project. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. The second problem is that the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and messages that mix Vietnamese and English in the same sentence, rather than assuming a general multilingual model already covers them. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare score.
+Two problems motivate this project. Cloud-based fraud checking asks the user to upload a suspicious financial message to a remote service, which creates a privacy risk that does not need to exist. The second problem is that the system has to handle Vietnamese banking vocabulary, local social-engineering tactics, and the way the messages are really written: Vietnamese and English mixed in one sentence, chat abbreviations, missing diacritics, and emoji. Assuming that a general multilingual model already covers all of that is exactly the assumption this project does not make. The target is therefore a local fine-tuning pipeline that classifies a suspicious message on the device and explains its answer, instead of returning a bare confidence score.
 
 The underlying task is supervised multi-class text classification. The input is one pasted message. The output is a structured record with five fields:
 
@@ -39,22 +39,24 @@ Three questions follow from that problem statement:
 \section{Project Contributions}
 This project delivers two fine-tuned models together with the dataset they were trained on.
 
-The first contribution is a 2{,}097-message dataset across four classes. Several messages were written from each source article, so messages from one article can look very similar; all of them are kept in the same split, which stops a model from being evaluated on a message that is nearly identical to one it trained on.
+The first contribution is a 2{,}097-message dataset across four classes. Several messages were written from each source article, so two messages built from the same article can differ by little more than a bank name or an amount. All messages from one article are therefore kept together in the same split, so a model is never tested on a message that is a near-copy of one it was trained on.
 
-The second is that the dataset's own faults were found and repaired rather than shipped. A review found one whole group of Zalo messages written as third-person narration instead of as real chat messages, and leftover template text spread across the other classes. Those messages were rewritten, dropped, or corrected, and every decision was written down. Chapter~IV describes what was wrong and what was done about it.
+The second is that the dataset's own faults were found and repaired before any model was trained on it. A review found one whole group of Zalo messages written as third-person narration instead of as real chat messages, and leftover template text spread across the other classes. Those messages were rewritten, dropped, or corrected, and every decision was written down. Chapter~IV describes what was wrong and what was done about it.
 
 The third is training both models locally on exactly the same messages, keeping the full training and validation logs, and exporting the selected Qwen model as a Q8\_0 GGUF file.
 
-The fourth is one evaluation of both finished models on the same 220 messages, which also counts how many answers came back unreadable and how many dangerous messages were wrongly called safe.
+The fourth is a single final evaluation of both finished models on the same 220 messages, which also counts how many answers came back unreadable and how many dangerous messages were wrongly called safe.
 
 \section{Scope and Limitations}
-The prototype handles Vietnamese text and nothing else. Image-based phishing such as QR codes and forwarded screenshots, voice calls, deepfake audio, and malware analysis are all out of scope.
+The project handles Vietnamese text only. Image-based phishing such as QR codes and forwarded screenshots, voice calls, deepfake audio, and malware analysis are all outside what was built here, although reading text out of a screenshot is proposed as future work in Section~\ref{sec:future-work}.
 
-The dataset is built from public scam-warning articles on \url{https://tinnhiemmang.vn}, and no private user conversations were collected. That choice was made after checking the public alternatives, which are documented in the appendix. Several candidate datasets had no licence, or no clear record of where their data came from, some contained real phone numbers belonging to real people, and one had substantial overlap between its own training and test halves, which would have flattered any score measured on it. Public advisory articles avoided all three problems.
+The dataset is built from public scam-warning articles on \url{https://tinnhiemmang.vn}, and no private user conversations were collected. That choice was made after checking the public alternatives, which are documented in the appendix. Several candidate datasets had no licence, or no clear record of where their data came from, some contained real phone numbers belonging to real people, and one had substantial overlap between its own training and test halves, so any score measured on it would not have been accurate. Public advisory articles avoided all three problems.
 
 The messages in the dataset are generated from those articles rather than collected from real victims, so the dataset is not a substitute for a benchmark built from real traffic.
 
-The final evaluation used one shared set of 220 messages, and it was run exactly once. Keeping a test set separate is standard; the stronger commitment here is that the result was not allowed to feed back into the project. It was not used to repair data, retrain, move a threshold, or pick a different checkpoint. Reporting a number from a test set that was consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed in advance.
+The dataset was cut into three parts before any training began. The models learn from the \textbf{training} messages. The \textbf{validation} messages are looked at repeatedly during training, to decide which saved version of the model to keep. The third part is \textbf{held out}, which means it was locked away at the moment of the split and neither model, nor any decision in this project, was allowed to see it until everything was finished. It stands in for messages the system has never met, which is the closest a project of this size can get to a real user pasting in a real scam.
+
+Both finished models were then run over the same 220 held-out messages, once. That result was not used to repair data, retrain, move a threshold, or pick a different saved version. Reporting a number from a test set that has been consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed before the models were trained rather than defended afterwards.
 
 One honest qualification belongs with that. Automated file-integrity tests had opened the evaluation files before the models were run. Those tests never showed a message to a human, never ran either model, and did not change any result, but it would still be wrong to describe the evaluation set as completely untouched, so this report does not.
 
@@ -65,9 +67,9 @@ The project runs in five stages.
 
 First, scam-warning articles from \textit{tinnhiemmang.vn} were crawled and kept as source material, and Vietnamese phishing messages were generated from them one class at a time. Every message was then checked automatically, scored by a separate model acting as a quality judge, and reviewed by hand where it mattered.
 
-Second, short LoRA and QLoRA test runs measured what the laptop could do. Ordinary LoRA is reported as too demanding in practice, not as something that crashed.
+Second, short LoRA and QLoRA test runs measured what the laptop could do. Ordinary LoRA did not crash; it is reported as too demanding on the hardware to be practical.
 
-Third, Qwen3-4B-Instruct-2507 was trained locally with NF4 QLoRA, and PhoBERT was trained locally as a full, non-quantized classifier, both on the same messages.
+Third, Qwen3-4B-Instruct-2507 was trained locally with NF4 QLoRA, and PhoBERT was trained locally as a full, non-quantized classifier, both on exactly the same training and validation messages.
 
 Fourth, the chosen Qwen checkpoint was exported as a Q8\_0 GGUF file and load-tested to confirm it works.
 

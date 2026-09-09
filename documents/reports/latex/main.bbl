@@ -10,6 +10,11 @@ T.~Dettmers, A.~Pagnoni, A.~Holtzman, and L.~Zettlemoyer, ``{QLoRA}: Efficient
   finetuning of quantized {LLM}s,'' in {\em Advances in Neural Information
   Processing Systems}, vol.~36, 2023.
 
+\bibitem{narang2020wt5}
+S.~Narang, C.~Raffel, K.~Lee, A.~Roberts, N.~Fiedel, and K.~Malkan, ``{WT5}?!
+  training {Text-to-Text} models to explain their predictions,'' {\em arXiv
+  preprint arXiv:2004.14546}, 2020.
+
 \bibitem{groupib2022laser}
 {Group-IB}, ``Laser targeted: massive phishing campaign singles out clients of
   major vietnamese banks.''
@@ -159,11 +164,6 @@ C.~Raffel, N.~Shazeer, A.~Roberts, K.~Lee, S.~Narang, M.~Matena, Y.~Zhou,
 T.~Schick and H.~Sch{\"u}tze, ``Exploiting cloze questions for few-shot text
   classification and natural language inference,'' in {\em Proceedings of EACL
   2021}, 2021.
-
-\bibitem{narang2020wt5}
-S.~Narang, C.~Raffel, K.~Lee, A.~Roberts, N.~Fiedel, and K.~Malkan, ``{WT5}?!
-  training {Text-to-Text} models to explain their predictions,'' {\em arXiv
-  preprint arXiv:2004.14546}, 2020.
 
 \bibitem{yousefiramandi2025finetuning}
 A.~Yousefiramandi and C.~Cooney, ``Fine-tuning causal {LLMs} for text
