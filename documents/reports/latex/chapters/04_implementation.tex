@@ -139,52 +139,25 @@ At runtime the analysis service normalises the message text, sends it to whichev
 \label{fig:artifacts-on-disk}
 \end{figure}
 
-\section{What One Analysis Looks Like}
+\section{The Analysis}
 \label{sec:worked-example}
 
-The two messages below are the fixed pair used to check the installed application after any change. One is a bank-impersonation scam, the other a genuine one-time-password notice, and they are similar on purpose: both mention a bank, both are urgent, both are SMS. A system that only reacts to the word \textit{bank} would fail this pair.
+The two messages below were both put through the installed application. One is a
+bank-impersonation scam, the other a genuine one-time-password notice, and they
+are similar on purpose: both mention a bank, both are urgent, both arrive by SMS.
+A system that only reacts to the word \textit{bank} cannot tell them apart.
 
 \smallskip
-\noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics, in the way a real SMS often is.
+\noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics,
+in the way a real SMS often is.
 \begin{quote}\small\itshape
 ``{[}VIETCOMBANK{]} Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: \textup{\texttt{http://vcb-secure-alert.net/lock?id=9182736}} hoac goi 1800.9999 (mien phi).''
 \end{quote}
 
-\noindent\textbf{Input 2 --- not a scam.} A real Smart OTP message, which even warns the reader not to share the code.
-\begin{quote}\small\itshape
-``VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.''
-\end{quote}
-
-\noindent Each message was analysed five times in a row, in a check made while the system was still being assembled. Table~\ref{tab:worked-example} records what came back. The finished exported model was run over the same pair later and does not agree on the second message; that is reported below rather than left out.
-
-\begin{table}[H]
-\centering
-\small
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{L{3.0cm}L{2.4cm}L{3.6cm}rr}
-\toprule
-\textbf{Input} & \textbf{Risk tier} & \textbf{Threat label} & \textbf{Same every run?} & \textbf{Median time} \\
-\midrule
-1 --- scam SMS       & high-risk & bank\_impersonation & yes, 5 of 5 & 16.8~s \\
-2 --- real OTP notice & benign    & benign              & yes, 5 of 5 & 16.3~s \\
-\bottomrule
-\end{tabular}
-\caption{The fixed check pair, each message analysed five times during an early readiness check. Both answers were identical on every run. The first run of each was the slowest, at 22.7~s and 20.6~s, because the model file has to be read into memory before the first answer. The finished model gives a different answer for the second message, which is discussed after this table.}
-\label{tab:worked-example}
-\end{table}
-
-\noindent Two things in that table matter more than the labels. The answers did not change between runs, which is what makes the tool usable at all: a detector that gives a different verdict each time cannot be trusted with a decision. The timing is also worth being honest about. Roughly sixteen seconds per message is slow next to a cloud service, and it is the price of running a four-billion-parameter model on a laptop with no discrete GPU. The first call is slower still because the model file has to be loaded.
-
-The full answer carries more than the two fields in the table: the risk tier, the threat label, a written explanation in Vietnamese, the exact phrases the decision was based on, and the safe next steps. The exact shape is the JSON format in Appendix~6.
-
-\subsection*{What the answer actually contains}
-
-Classifying the message is only half of what the system is for. Running the scam
-message through the exported model returns the risk tier and the label together
-with the phrases it reacted to and the advice it gives the user. The three cues it
-quoted were the link \texttt{http://vcb-secure-alert.net/lock?id=9182736}, the
-claim that the account was accessed at 03:47, and the free-phone number. The
-advice came back as:
+\noindent The system returned \texttt{high-risk} and the label
+\texttt{bank\_impersonation}, which is correct. It quoted three cues: the link
+\texttt{http://vcb-secure-alert.net/lock?id=9182736}, the claim that the account
+was accessed at 03:47, and the free-phone number. The advice it produced was:
 
 \begin{quote}\small\itshape
 ``Không truy cập link hoặc gọi số điện thoại trong tin nhắn này.''\\
@@ -192,21 +165,24 @@ advice came back as:
 ``Liên hệ trực tiếp với Vietcombank qua số hotline chính thức để xác minh.''
 \end{quote}
 
-\noindent Every one of those tells the user to stop and verify through a channel
-they choose themselves. None of them tells the user to tap the link, reply, or
-read out a code, which is the rule the runtime enforces on this field before the
-user ever sees it.
+\noindent This is what the project is for. The classification alone would tell the
+user very little; the quoted phrases show which part of the message caused the
+warning, and every one of the three suggestions sends the user to a channel they
+choose themselves. None of them tells the user to tap the link, reply, or read out
+a code, which is the rule the runtime applies to this field before anything is
+shown.
 
-\subsection*{Where it gets the second message wrong}
-\label{sec:false-alarm}
+\smallskip
+\noindent\textbf{Input 2 --- not a scam.} A real Smart OTP message, which even
+warns the reader not to share the code.
+\begin{quote}\small\itshape
+``VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.''
+\end{quote}
 
-Running the same pair through the finished exported model gave a different answer
-for the genuine OTP notice. Where the earlier check in Table~\ref{tab:worked-example}
-recorded benign on all five runs, the exported model returned \textbf{suspicious},
-labelled \texttt{bank\_impersonation}. These are two different builds of the model
-rather than two runs of one, so the disagreement is a change between them and not a
-model contradicting itself. The cues it quoted were ``Smart OTP'', ``đăng
-nhập'', and ``Internet Banking'', and the advice it gave was:
+\noindent Here the system was wrong. It returned \texttt{suspicious} rather than
+benign, and the threat label it attached was \texttt{bank\_impersonation}.
+The cues it quoted
+were ``Smart OTP'', ``đăng nhập'', and ``Internet Banking'', and it produced:
 
 \begin{quote}\small\itshape
 ``Kiểm tra lại thông tin đăng nhập của bạn trên ứng dụng Internet Banking chính thức của VPBank.''\\
@@ -214,26 +190,33 @@ nhập'', and ``Internet Banking'', and the advice it gave was:
 ``Nếu bạn không nhớ đăng nhập vào Internet Banking, hãy liên hệ trực tiếp VPBank qua số hotline chính thức để xác minh.''
 \end{quote}
 
-\noindent This is a false alarm, and it is reported rather than dropped. Three
-things are worth taking from it.
+\subsection*{What the second result means}
+\label{sec:false-alarm}
 
-The message is genuinely hard. It contains the exact vocabulary the model was
-trained to treat as dangerous --- an OTP code, a login reference, a warning about
-sharing --- and those words appear in scam messages far more often than in real
-ones. A model that never flags this message is a model that has learned to trust
-anything mentioning a bank.
+This is a false positive, and it is reported rather than left out. Three things
+follow from it.
 
-The mistake is in the safer direction. The system is built to prefer a false
-alarm over a missed scam, because a false alarm costs the user a minute and a
-missed scam can cost them their savings. This is that trade-off happening, not a
-failure of it, and the same preference is what produced the single
-dangerous-message miss reported in Chapter~V for each model.
+\textbf{It is a limitation, and probably not the only one.} The message contains
+exactly the vocabulary the model was trained to treat as dangerous: an OTP code, a
+login reference, and a warning about sharing. Those words appear far more often in
+scams than in genuine notices, so the model has learned to distrust them. One
+test is not a measurement, and there is no reason to assume this is the only
+message of its kind that the system would get wrong. The scores in Chapter~V were
+measured on generated messages, and this is what it looks like when the system
+meets something written outside that set.
 
-The advice it gave is still correct. Even while the label is wrong, every
-suggestion is safe to follow: check the official app, do not share the code,
-call the bank yourself. A wrong label attached to harmful advice would be a
-serious defect; a wrong label attached to advice that protects the user anyway is
-a much smaller one.
+\textbf{The mistake is in the safer direction.} The system is built to prefer a
+false alarm over a missed scam, because the costs are not equal: a false alarm
+wastes a minute of the user's time, while a scam that is called safe can cost them
+their savings. A wrongly flagged genuine message is the acceptable failure. A
+scam that the system called benign would be the serious one, and that is the
+error this design is arranged to avoid.
+
+\textbf{The advice was still safe.} Even with the label wrong, every suggestion
+protects the user: check the official app, do not share the code, call the bank
+yourself. A wrong label attached to harmful advice would be a real defect. A wrong
+label attached to advice that is safe to follow is a much smaller one, and it is
+the direct result of the rule that keeps recommendations inside a fixed safe set.
 
 \section{Error Analysis and Adjustments}
 
