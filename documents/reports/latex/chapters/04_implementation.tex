@@ -139,6 +139,59 @@ At runtime the analysis service normalises the message text, sends it to whichev
 \label{fig:artifacts-on-disk}
 \end{figure}
 
+\section{What One Analysis Looks Like}
+\label{sec:worked-example}
+
+The two messages below are the fixed pair used to check the installed application after any change. One is a bank-impersonation scam, the other a genuine one-time-password notice, and they are deliberately similar: both mention a bank, both are urgent, both are SMS. A system that only reacts to the word \textit{bank} would fail this pair.
+
+\smallskip
+\noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics, in the way a real SMS often is.
+\begin{quote}\small\itshape
+``【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: \textup{\texttt{http://vcb-secure-alert.net/lock?id=9182736}} hoac goi 1800.9999 (mien phi).''
+\end{quote}
+
+\noindent\textbf{Input 2 --- not a scam.} A real Smart OTP message, which even warns the reader not to share the code.
+\begin{quote}\small\itshape
+``VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.''
+\end{quote}
+
+\noindent Each message was analysed five times in a row. Table~\ref{tab:worked-example} records what came back.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{L{3.0cm}L{2.4cm}L{3.6cm}rr}
+\toprule
+\textbf{Input} & \textbf{Risk tier} & \textbf{Threat label} & \textbf{Same every run?} & \textbf{Median time} \\
+\midrule
+1 --- scam SMS       & high-risk & bank\_impersonation & yes, 5 of 5 & 16.8~s \\
+2 --- real OTP notice & benign    & benign              & yes, 5 of 5 & 16.3~s \\
+\bottomrule
+\end{tabular}
+\caption{The fixed check pair, each message analysed five times. Both answers were identical on every run. The first run of each was the slowest, at 22.7~s and 20.6~s, because the model file has to be read into memory before the first answer.}
+\label{tab:worked-example}
+\end{table}
+
+\noindent Two things in that table matter more than the labels. The answers did not change between runs, which is what makes the tool usable at all: a detector that gives a different verdict each time cannot be trusted with a decision. And the timing is honest about where it goes. Roughly sixteen seconds per message is slow next to a cloud service, and it is the price of running a four-billion-parameter model on a laptop with no discrete GPU. The first call is slower still because the model file has to be loaded.
+
+The full answer carries more than the two fields in the table: the risk tier, the threat label, a written explanation in Vietnamese, the exact phrases the decision was based on, and the safe next steps. The exact shape is the JSON format in Appendix~6.
+
+\subsection*{Why the quoted phrases can be trusted}
+
+The quoted phrases are the part a reader is most likely to doubt, because a language model can invent a quotation as easily as it can invent anything else. This is handled in code rather than by trusting the model. Every phrase the model claims to have found is checked against the message before the user sees it:
+
+\begin{quote}
+\begin{verbatim}
+def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
+    normalized_span = span.strip()
+    return bool(normalized_span) and \
+           normalized_span.casefold() in normalized_text.casefold()
+\end{verbatim}
+\end{quote}
+
+\noindent If the phrase does not literally appear in the message, it is dropped rather than displayed. The user therefore never sees a quoted cue that is not in their own message. The same idea guards the recommendations: each suggested next step is checked against a safety rule, so the system cannot end up telling a user to click the link or reply with a code.
+
 \section{Error Analysis and Adjustments}
 
 Four problems shaped this project more than any of the successes, and each one changed how the next stage was built.

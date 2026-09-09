@@ -1,10 +1,10 @@
 {
   "schema": "vnphish.report-build-receipt.v1",
-  "generated_at": "2026-09-09T11:17:52.9315889+07:00",
+  "generated_at": "2026-09-09T12:01:36.8013464+07:00",
   "source": "documents/reports/latex/main.tex",
   "output": "documents/reports/latex/main.pdf",
-  "bytes": 1131687,
-  "sha256": "c063144ff270465f707f1f54be3d323c2b31795f68766807a7c82f0c07354bf0",
+  "bytes": 1137052,
+  "sha256": "02fdbdab72b6533e5aad4a1b05d0271f04202035b9ff88ae69692385736bf970",
   "compiler": "MiKTeX-XeTeX 4.18 (MiKTeX 26.5)",
   "status": "passed"
 }
