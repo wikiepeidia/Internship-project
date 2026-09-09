@@ -25,7 +25,7 @@ Everything starts with \textit{tinnhiemmang.vn}, a Vietnamese site that publishe
 
 Each collected article becomes a \textbf{seed}, and each seed gets an ID. Several messages are then written from each seed, all sharing that ID. This matters for one reason. Messages written from the same article resemble each other closely, and if near-twin messages end up on both sides of the split, the model scores better than it deserves because it is being tested on something it has effectively already seen.
 
-The fix is mechanical. Every message stores the ID of the article it was written from, in the \texttt{seed\_id} field of Table~\ref{tab:record-schema}, and the splitter moves messages by article rather than one at a time. An article and all of its messages go into training, or all into validation, or all into the held-out set, and never across two of them. Figure~\ref{fig:seed-sample} shows two of the collected articles as they are stored.
+The fix is mechanical. Every message stores the ID of the article it was written from, in the \texttt{seed\_id} field of Table~\ref{tab:record-schema}, and the splitter moves messages by article rather than one at a time. An article and all of its messages go into training, or all into validation, or all into the set kept aside for the end, and never across two of them. Figure~\ref{fig:seed-sample} shows two of the collected articles as they are stored.
 
 After the generation, repair, and checking described below, the final set holds 2{,}097 messages across four classes: bank impersonation, Zalo social engineering, task scam, and benign.
 

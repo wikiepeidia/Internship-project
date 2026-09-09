@@ -4,7 +4,7 @@ This thesis built and evaluated a local, text-only system for detecting Vietname
 
 The dataset was built so that no source article can appear in more than one split. Its quality was checked automatically and by hand, and the checks found real problems that were repaired rather than shipped.
 
-Two models were trained locally on the same messages, with one seed. Qwen was trained with 4-bit QLoRA and PhoBERT as a full four-class classifier. On the 220 held-out messages, PhoBERT scored higher overall, at macro F1 0.990892 against Qwen's 0.980493. Neither model produced an unreadable answer, and each made exactly one dangerous mistake, calling a scam safe.
+Two models were trained locally on the same messages, with one seed. Qwen was trained with 4-bit QLoRA and PhoBERT as a full four-class classifier. On the 220 messages set aside at the start, PhoBERT scored higher overall, at macro F1 0.990892 against Qwen's 0.980493. Neither model produced an unreadable answer, and each made exactly one dangerous mistake, calling a scam safe.
 
 The last of those points is the one that carries the most weight, because on the measure that matters most for a phishing tool the two models tied. Since each was trained only once, the overall gap describes this particular run rather than proving that PhoBERT is reliably better.
 
@@ -27,8 +27,12 @@ The system is tuned to prefer a false alarm over a missed scam, because the cost
 \section{Future Work}
 \label{sec:future-work}
 
-Two pieces of work would matter most next.
+Four pieces of work would matter most next.
 
 The first is reviewing the whole dataset by hand rather than a sample. The manual checking done here covered 100 messages and the flagged labels, which was enough to find real problems but not enough to guarantee the rest.
 
-The second is adding OCR so that a user can point the tool at a screenshot instead of copying text out of a message. That is not only a convenience: copying text out of a suspicious message means opening it and selecting text next to a malicious link, and one mistaken tap is all it takes. Reading the text from an image removes that risk. It would need its own evaluation, since OCR on Vietnamese brings its own errors with diacritics and layout.
+The second is using the two models together rather than choosing between them. PhoBERT classified slightly better on the messages set aside at the start, and Qwen is the only one that can write an explanation, so a system that took the label from PhoBERT and the explanation from Qwen would use each for what it is actually good at. It would cost more memory, and it would need its own evaluation, because nothing measured here shows what happens when two models disagree.
+
+A related option is to replace PhoBERT with ViSoBERT \cite{nguyen2023visobert}, which was trained on Vietnamese social-media text and reported better results than PhoBERT on informal Vietnamese tasks including spam detection. The messages this system handles are informal in exactly that way, as the counts in Section~1.1 show, so it is the more natural starting point than the one used here.
+
+The third is adding OCR so that a user can point the tool at a screenshot instead of copying text out of a message. That is not only a convenience: copying text out of a suspicious message means opening it and selecting text next to a malicious link, and one mistaken tap is all it takes. Reading the text from an image removes that risk. It would need its own evaluation, since OCR on Vietnamese brings its own errors with diacritics and layout.

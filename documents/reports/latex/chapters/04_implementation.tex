@@ -142,7 +142,7 @@ At runtime the analysis service normalises the message text, sends it to whichev
 \section{What One Analysis Looks Like}
 \label{sec:worked-example}
 
-The two messages below are the fixed pair used to check the installed application after any change. One is a bank-impersonation scam, the other a genuine one-time-password notice, and they are deliberately similar: both mention a bank, both are urgent, both are SMS. A system that only reacts to the word \textit{bank} would fail this pair.
+The two messages below are the fixed pair used to check the installed application after any change. One is a bank-impersonation scam, the other a genuine one-time-password notice, and they are similar on purpose: both mention a bank, both are urgent, both are SMS. A system that only reacts to the word \textit{bank} would fail this pair.
 
 \smallskip
 \noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics, in the way a real SMS often is.
@@ -173,7 +173,7 @@ The two messages below are the fixed pair used to check the installed applicatio
 \label{tab:worked-example}
 \end{table}
 
-\noindent Two things in that table matter more than the labels. The answers did not change between runs, which is what makes the tool usable at all: a detector that gives a different verdict each time cannot be trusted with a decision. And the timing is honest about where it goes. Roughly sixteen seconds per message is slow next to a cloud service, and it is the price of running a four-billion-parameter model on a laptop with no discrete GPU. The first call is slower still because the model file has to be loaded.
+\noindent Two things in that table matter more than the labels. The answers did not change between runs, which is what makes the tool usable at all: a detector that gives a different verdict each time cannot be trusted with a decision. The timing is also worth being honest about. Roughly sixteen seconds per message is slow next to a cloud service, and it is the price of running a four-billion-parameter model on a laptop with no discrete GPU. The first call is slower still because the model file has to be loaded.
 
 The full answer carries more than the two fields in the table: the risk tier, the threat label, a written explanation in Vietnamese, the exact phrases the decision was based on, and the safe next steps. The exact shape is the JSON format in Appendix~6.
 
