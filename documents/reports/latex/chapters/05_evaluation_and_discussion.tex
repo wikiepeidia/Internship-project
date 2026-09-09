@@ -101,6 +101,8 @@ Each model was trained once, so that difference is a result about this one run a
 
 \item \textbf{PhoBERT was not exported to GGUF.} It was kept as a standard Transformers model. GGUF conversion exists to make a large generative model runnable on an ordinary CPU \cite{kristiani2026deploying}, and PhoBERT is a small encoder that already runs on a CPU without it. It is also the comparison baseline rather than the model the system ships, so converting it would not have changed any result reported here.
 
+\item \textbf{Real messages outside the dataset can still be misread.} A genuine one-time-password notice, run through the finished model after training, was labelled suspicious rather than benign (Section~\ref{sec:false-alarm}). It carries the same vocabulary as the scams the model learned from. It is a false alarm rather than a missed scam, and the advice it produced was still safe, but it shows that the scores above were measured on generated messages and do not transfer automatically to messages written by someone else.
+
 \item \textbf{Text only.} The system reads pasted text. Screenshot and QR-code reading do not exist, and the system has never been tested against real scam messages arriving on a real phone.
 \end{enumerate}
 

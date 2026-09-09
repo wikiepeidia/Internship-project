@@ -29,9 +29,9 @@
 \node[fix]   (c3) at ( 1.85, -4.40) {Both models trained to completion};
 
 \draw[arr] (a1)--(a2);  \draw[arr] (a2)--(a3);  \draw[arr] (a3)--(a4);
-\draw[arr] (a4) -- ++(0,-0.42) -| (b1);
+\draw[arr] (a4.south) -- ++(0,-0.55) -| (b1.north);
 \draw[arr] (b1)--(b2);  \draw[arr] (b2)--(b3);  \draw[arr] (b3)--(b4);
-\draw[arr] (b4) -- ++(0,-0.42) -| (c1);
+\draw[arr] (b4.south) -- ++(0,-0.55) -| (c1.north);
 \draw[arr] (c1)--(c2);  \draw[arr] (c2)--(c3);
 
 \end{tikzpicture}

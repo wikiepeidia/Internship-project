@@ -147,7 +147,7 @@ The two messages below are the fixed pair used to check the installed applicatio
 \smallskip
 \noindent\textbf{Input 1 --- a scam.} Note that it is typed without diacritics, in the way a real SMS often is.
 \begin{quote}\small\itshape
-``【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: \textup{\texttt{http://vcb-secure-alert.net/lock?id=9182736}} hoac goi 1800.9999 (mien phi).''
+``{[}VIETCOMBANK{]} Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: \textup{\texttt{http://vcb-secure-alert.net/lock?id=9182736}} hoac goi 1800.9999 (mien phi).''
 \end{quote}
 
 \noindent\textbf{Input 2 --- not a scam.} A real Smart OTP message, which even warns the reader not to share the code.
@@ -177,20 +177,60 @@ The two messages below are the fixed pair used to check the installed applicatio
 
 The full answer carries more than the two fields in the table: the risk tier, the threat label, a written explanation in Vietnamese, the exact phrases the decision was based on, and the safe next steps. The exact shape is the JSON format in Appendix~6.
 
-\subsection*{Why the quoted phrases can be trusted}
+\subsection*{What the answer actually contains}
 
-The quoted phrases are the part a reader is most likely to doubt, because a language model can invent a quotation as easily as it can invent anything else. This is handled in code rather than by trusting the model. Every phrase the model claims to have found is checked against the message before the user sees it:
+Classifying the message is only half of what the system is for. Running the scam
+message through the exported model returns the risk tier and the label together
+with the phrases it reacted to and the advice it gives the user. The three cues it
+quoted were the link \texttt{http://vcb-secure-alert.net/lock?id=9182736}, the
+claim that the account was accessed at 03:47, and the free-phone number. The
+advice came back as:
 
-\begin{quote}
-\begin{verbatim}
-def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
-    normalized_span = span.strip()
-    return bool(normalized_span) and \
-           normalized_span.casefold() in normalized_text.casefold()
-\end{verbatim}
+\begin{quote}\small\itshape
+``Không truy cập link hoặc gọi số điện thoại trong tin nhắn này.''\\
+``Kiểm tra lại thông tin đăng nhập trên thiết bị của bạn.''\\
+``Liên hệ trực tiếp với Vietcombank qua số hotline chính thức để xác minh.''
 \end{quote}
 
-\noindent If the phrase does not literally appear in the message, it is dropped rather than displayed. The user therefore never sees a quoted cue that is not in their own message. The same idea guards the recommendations: each suggested next step is checked against a safety rule, so the system cannot end up telling a user to click the link or reply with a code.
+\noindent Every one of those tells the user to stop and verify through a channel
+they choose themselves. None of them tells the user to tap the link, reply, or
+read out a code, which is the rule the runtime enforces on this field before the
+user ever sees it.
+
+\subsection*{Where it gets the second message wrong}
+\label{sec:false-alarm}
+
+Running the same pair again on the finished model gave a different answer for the
+genuine OTP notice. Instead of benign, it came back \textbf{suspicious}, labelled
+\texttt{bank\_impersonation}. The cues it quoted were ``Smart OTP'', ``đăng
+nhập'', and ``Internet Banking'', and the advice it gave was:
+
+\begin{quote}\small\itshape
+``Kiểm tra lại thông tin đăng nhập của bạn trên ứng dụng Internet Banking chính thức của VPBank.''\\
+``Không chia sẻ mã OTP với bất kỳ ai, kể cả người thân hoặc nhân viên ngân hàng.''\\
+``Nếu bạn không nhớ đăng nhập vào Internet Banking, hãy liên hệ trực tiếp VPBank qua số hotline chính thức để xác minh.''
+\end{quote}
+
+\noindent This is a false alarm, and it is reported rather than dropped. Three
+things are worth taking from it.
+
+The message is genuinely hard. It contains the exact vocabulary the model was
+trained to treat as dangerous --- an OTP code, a login reference, a warning about
+sharing --- and those words appear in scam messages far more often than in real
+ones. A model that never flags this message is a model that has learned to trust
+anything mentioning a bank.
+
+The mistake is in the safer direction. The system is built to prefer a false
+alarm over a missed scam, because a false alarm costs the user a minute and a
+missed scam can cost them their savings. This is that trade-off happening, not a
+failure of it, and the same preference is what produced the single
+dangerous-message miss reported in Chapter~V for each model.
+
+The advice it gave is still correct. Even while the label is wrong, every
+suggestion is safe to follow: check the official app, do not share the code,
+call the bank yourself. A wrong label attached to harmful advice would be a
+serious defect; a wrong label attached to advice that protects the user anyway is
+a much smaller one.
 
 \section{Error Analysis and Adjustments}
 

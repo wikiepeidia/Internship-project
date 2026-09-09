@@ -1,0 +1,74 @@
+{
+  "scam": {
+    "input": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi).",
+    "seconds": 37.6,
+    "result": {
+      "risk_tier": "high-risk",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "http://vcb-secure-alert.net/lock?id=9182736",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "goi 1800.9999 (mien phi)",
+          "reason": "Structured decision from sms local runtime.",
+          "cue_type": "generic"
+        }
+      ],
+      "threat_labels": [
+        "bank_impersonation"
+      ],
+      "recommendations": [
+        "Không truy cập link hoặc gọi số điện thoại trong tin nhắn này.",
+        "Kiểm tra lại thông tin đăng nhập trên thiết bị của bạn.",
+        "Liên hệ trực tiếp với Vietcombank qua số hotline chính thức để xác minh."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "【VIETCOMBANK】 Tai khoan cua ban vua bi truy cap tu thiet bi la luc 03:47 SA. Neu ko phai ban, bam vao link de khoa ngay: http://vcb-secure-alert.net/lock?id=9182736 hoac goi 1800.9999 (mien phi)."
+    }
+  },
+  "benign": {
+    "input": "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.",
+    "seconds": 28.65,
+    "result": {
+      "risk_tier": "suspicious",
+      "summary": "Structured decision from sms local runtime.",
+      "top_cues": [
+        {
+          "span": "Smart OTP",
+          "reason": "Yêu cầu mã xác thực hoặc thông tin đăng nhập nhạy cảm.",
+          "cue_type": "otp_request"
+        },
+        {
+          "span": "đăng nhập",
+          "reason": "Dẫn người dùng tới thao tác xác minh hoặc liên kết đăng nhập.",
+          "cue_type": "generic"
+        },
+        {
+          "span": "Internet Banking",
+          "reason": "Yêu cầu mã xác thực hoặc thông tin đăng nhập nhạy cảm.",
+          "cue_type": "credential_request"
+        }
+      ],
+      "threat_labels": [
+        "bank_impersonation"
+      ],
+      "recommendations": [
+        "Kiểm tra lại thông tin đăng nhập của bạn trên ứng dụng Internet Banking chính thức của VPBank.",
+        "Không chia sẻ mã OTP với bất kỳ ai, kể cả người thân hoặc nhân viên ngân hàng.",
+        "Nếu bạn không nhớ đăng nhập vào Internet Banking, hãy liên hệ trực tiếp VPBank qua số hotline chính thức để xác minh."
+      ],
+      "backend_name": "gguf",
+      "provisional": true,
+      "normalized_text": "VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng."
+    }
+  }
+}
