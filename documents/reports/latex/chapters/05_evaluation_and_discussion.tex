@@ -29,7 +29,7 @@ The manual review covered 100 messages, drawn evenly across all four classes and
 
 The label review covered all 324 messages the judge had flagged. The reviewer dropped 91 and agreed that 233 needed a different label: 48 belonged to bank impersonation, 177 to Zalo social engineering, and 8 to benign. Only 57 of those corrections were added, because the other 176 all traced back to a single source article and would have made the Zalo class look more varied than it really is, when in fact those messages are near-copies of one another.
 
-\section{What the Hardware Measurements Showed}
+\section{Hardware Measurement Results}
 
 The two short runs answered one question, which was whether this laptop could train either way. They say nothing about accuracy, and no model from either run was kept.
 
@@ -57,7 +57,7 @@ Both models were trained with the same seed and selected on the same 219 validat
 
 \noindent Qwen scored slightly higher on both overall measures. The per-class panel matters more: PhoBERT caught every bank-impersonation message and missed some Zalo messages, while Qwen did the reverse. Neither is uniformly better, and each model was trained and evaluated once, so these numbers justify accepting the two selected checkpoints and nothing more.
 
-\section{Results on the 220 Messages Set Aside at the Start}
+\section{Final Evaluation Results}
 
 These 220 messages were separated from the rest when the dataset was first split, and neither model, nor any decision taken during the project, saw them until everything else was finished. Both finished models were then run over them exactly once. Figure~\ref{fig:terminal-comparison} gives the results.
 

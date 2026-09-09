@@ -19,7 +19,7 @@ The stages listed in Chapter~I have to run in this order, because each one needs
 
 \section{Building and Splitting the Dataset}
 
-\subsection*{Where the messages come from}
+\subsection*{Sources of the Messages}
 
 Everything starts with \textit{tinnhiemmang.vn}, a Vietnamese site that publishes public warnings about current scams. A crawler collected those articles. Each article describes a scam in general terms --- a fake bank SMS, a Zalo message pretending to be a relative, a fake part-time job offer --- but an article is not itself a scam message, so it cannot be used as training data directly.
 
@@ -29,7 +29,7 @@ The fix is mechanical. Every message stores the ID of the article it was written
 
 After the generation, repair, and checking described below, the final set holds 2{,}097 messages across four classes: bank impersonation, Zalo social engineering, task scam, and benign.
 
-\subsection*{What a message looks like}
+\subsection*{Structure of a Record}
 
 Every message is checked the moment it is produced, then scored for quality and partly reviewed by hand; those three checks are set out in Section~\ref{sec:quality-check}. Figure~\ref{fig:data-pipeline} shows the whole pipeline.
 
@@ -78,7 +78,7 @@ Its \texttt{label} is \texttt{zalo\_social\_engineering} and its \texttt{risk\_t
 The label is used differently by the two models. For Qwen, the label is written into the text the model has to produce, alongside the risk tier and the evidence. For PhoBERT, the label is the target of a normal four-class classification head. When a model is being scored it is given the message text only. Its answer is recorded first, and the correct label is looked up afterwards to mark that answer right or wrong, so the model can never see what it is supposed to say.
 
 \label{sec:quality-check}
-\subsection*{How quality was judged}
+\subsection*{Quality Assessment}
 
 Three separate things check the messages, and they are not interchangeable.
 
@@ -94,7 +94,7 @@ The first pass of messages was written by Claude 3.5 Haiku. The judge that score
 
 The Zalo replacements are the exception. When that class had to be rewritten, the replacement wording was authored by a GPT-family model in a separate session, under a different prompt and a different task: rewriting a scenario into a real chat message rather than inventing one from an article. That wording was then saved into the project as fixed text and applied offline, so no API call was made during the repair itself. The result is still that, for those messages, the writer and the judge come from the same family, and the judge's verdict on them is not an independent second opinion. What all of this found is reported in Chapter~V.
 
-\subsection*{When a correction is accepted}
+\subsection*{Acceptance of Label Corrections}
 
 The judge flagged messages whose labels looked wrong, and every one of them was reviewed by hand. Agreeing that a label is wrong is not by itself enough for the correction to be used.
 
@@ -137,7 +137,7 @@ PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of m
 
 \noindent So the two models are not interchangeable. PhoBERT is a strong, compact reference point for the classification part alone, and as reported later it scores higher on that part. Qwen is the model the system actually needs, because it can also write the explanation, and the classification is only one of the four things the answer has to contain. The comparison in this thesis covers the one thing both models do.
 
-\subsection{Whether Fine-Tuning Was Needed at All}
+\subsection{Fine-Tuning Against Prompting}
 \label{sec:why-finetune}
 
 Choosing a model does not answer a more basic question: whether the model needed to be trained at all, or whether a careful prompt would have been enough. That was measured rather than assumed. The chosen model was scored on the same 254 messages twice, once with prompting alone and once after QLoRA. Table~\ref{tab:finetuning-gain} gives both.
@@ -204,7 +204,7 @@ Alongside those four, the runtime asks the model for a short list of safe next s
 
 Two rules keep the whole answer honest. Quoted phrases must appear in the message text itself, and every suggested next step must stay inside a safe, generic set, so the system cannot tell a user to click a link, reply, or share a code.
 
-\subsection*{Handling a model that writes free text}
+\subsection*{Handling Free-Text Output}
 
 A classification head always returns a clean result. A generative model does not: it writes free text, and nothing guarantees the JSON is well formed. The system therefore never trusts the model's raw output. It handles this in two steps.
 
