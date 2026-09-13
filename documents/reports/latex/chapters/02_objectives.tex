@@ -23,15 +23,16 @@ The objective has seven parts, as follows:
   all of them in the same set. No article ever has some of its messages
   used for training and others kept for testing.
 
-  \item Review part of the dataset by hand instead of trusting the judge
-  model. This project draws the sample evenly across all four classes and
-  across both judge verdicts, so it contains the messages the judge passed
-  as well as the ones it failed, not only the easy ones. Where the reviewer
-  disagreed with a label, this project applied the correction only if those
-  messages did not all trace back to one source article. A large group of
-  near-identical messages is not a large group of examples, and accepting
-  them together would make one class look far more varied than it really
-  is.
+  \item Score every message with a judge model, then review part of the
+  dataset by hand instead of trusting the judge alone. This project draws
+  the human sample evenly across all four classes and across both judge
+  verdicts, so it contains the messages the judge passed as well as the
+  ones it failed, not only the easy ones. Where the Vietnamese-speaking
+  reviewer disagreed with a label, this project applied the correction only
+  if those messages did not all trace back to one source article. A large
+  group of near-identical messages is not a large group of examples, and
+  accepting them together would make one class look far more varied than it
+  really is.
 
   \item Fix the messages that came out badly. A review found that one whole
   class had been written as third-person narration instead of as real chat
@@ -52,12 +53,14 @@ The objective has seven parts, as follows:
   choose between them from the recorded time and memory numbers rather than
   from an assumption that one of them would run out of memory.
 
-  \item Train Qwen QLoRA and PhoBERT locally, export the chosen Qwen model
-  as a Q8\_0 GGUF file and confirm it loads, then evaluate both finished
-  models exactly once on the same 220 held-out messages. This project
-  separated those messages from the rest at the start, and neither model,
-  nor any decision taken during the project, was allowed to see them until
-  the training was over.
+  \item Train Qwen QLoRA and PhoBERT locally, checking progress on 219
+  validation messages to pick each model's best checkpoint, then export the
+  chosen Qwen checkpoint as a Q8\_0 GGUF file and confirm it loads. After
+  that, evaluate both finished models exactly once on a separate set of 220
+  held-out messages neither model had seen during training or checkpoint
+  selection. This project set those 220 messages aside from the rest at the
+  start, and neither model, nor any decision taken during the project, was
+  allowed to see them until the training was over.
 \end{enumerate}
 
 This project met most of these objectives. It built and split the dataset,
