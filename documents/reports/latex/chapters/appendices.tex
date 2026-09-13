@@ -11,14 +11,14 @@ The source code, training settings, and the files used to build this report are 
 
 The layout of the source tree and what each folder does is described in Chapter~IV. One point bears repeating: \texttt{src/model\_adaptation} holds the older experiment code. It is kept because the recorded results were produced with it, and it should not be read as the current design.
 
-The exported Qwen model is not stored in the repository because it is a 4.28~GB file. A record kept beside it notes the file size, which checkpoint it came from, and the two occasions it was loaded to confirm that it works.
+The exported Qwen model is not stored in the repository because it is a 4.28~GB file. Its checkpoint origin and file size are noted alongside it, and it was loaded twice to confirm that it works.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
 Table~\ref{tab:dataset-stats} in Chapter~III gives the class counts for the three splits used in this work. What the quality checks found is reported in Chapter~V.
 
-An earlier version of this work used a different 254-message validation set, shown in Table~\ref{tab:validation-class-dist} for historical interest only. Its numbers were never recalculated on the final dataset. The only place it appears in this report is the prompting-against-fine-tuning check in Section~\ref{sec:why-finetune}, which is reported there as the reason for fine-tuning at all. None of the model results reported in Chapter~V come from it.
+An earlier stage of this project used a different 254-message validation set, shown in Table~\ref{tab:validation-class-dist} for historical interest only. Its numbers were never recalculated on the final dataset. The only place it appears in this report is the prompting-against-fine-tuning check in Section~\ref{sec:why-finetune}, where it explains the reason for fine-tuning at all. None of the model results reported in Chapter~V come from it.
 
 \begin{table}[H]
 \centering
@@ -43,76 +43,74 @@ Benign                   & 61  \\
 \section*{Appendix 3: Where the Results Came From}
 \addcontentsline{toc}{section}{Appendix 3: Where the Results Came From}
 
-Table~\ref{tab:evaluation-snapshot} lists the main numbers in one place, with the run each of them came from.
+Table~\ref{tab:evaluation-snapshot} lists the main numbers from this project in one place.
 
 \input{tables/evaluation_snapshot}
 
 \section*{Appendix 4: What Went Wrong}
 \addcontentsline{toc}{section}{Appendix 4: What Went Wrong}
 
-Failures were kept in the record rather than removed. Table~\ref{tab:failure-recovery-ledger} lists what failed, what was done about it, and what the result may and may not be used to claim.
+Several things went wrong during this project, and none of them were left out of the record. Table~\ref{tab:failure-recovery-ledger} lists the main ones and what was done about each.
 
 \small
 \begin{longtable}{p{2.8cm}p{6.1cm}p{5.1cm}}
-\caption{What failed, and what was done about it.}\label{tab:failure-recovery-ledger}\\
+\caption{What went wrong, and what was done about it.}\label{tab:failure-recovery-ledger}\\
 \toprule
-\textbf{Stage} & \textbf{What went wrong} & \textbf{What was done, and what it can be used to claim} \\
+\textbf{Stage} & \textbf{What went wrong} & \textbf{What was done about it} \\
 \midrule
 \endfirsthead
 \toprule
-\textbf{Stage} & \textbf{What went wrong} & \textbf{What was done, and what it can be used to claim} \\
+\textbf{Stage} & \textbf{What went wrong} & \textbf{What was done about it} \\
 \midrule
 \endhead
-Rebuilding the Zalo messages & A review found that one whole group of Zalo messages had been written as narration describing a scam instead of as a scam message. All 240 of them were affected. & They were rewritten from the same source articles, producing 300 replacements, of which four were rejected for drifting away from their source. The final set keeps 296. They are still generated messages, and they were written by the same model family as the judge that later scored them. \\
+Rebuilding the Zalo messages & One whole group of Zalo messages, 240 of them, had been written as narration describing a scam instead of as a scam message. & They were rewritten from the same source articles, producing 300 replacements, four of which were rejected for drifting away from their source. The final set keeps 296. They are still generated messages, and they were written by the same model family as the judge that later scored them. \\
 \addlinespace
-Ordinary LoRA measurement & The first attempt stopped before the first step because a strict check expected an older library version. The corrected retry ran 31 steps and then ended on a driver fault. & It recorded no out-of-memory error, but memory reached 7{,}902 of 8{,}151~MiB with 9~MiB free, and it pointed at roughly eighteen hours of computation. It is evidence about the hardware only: it gives no accuracy figure and does not prove that LoRA is impossible. \\
+Ordinary LoRA measurement & The first attempt stopped before the first step because a strict check expected an older library version. The corrected retry ran 31 steps and then ended on a driver fault. & No out-of-memory error occurred, but memory reached 7{,}902 of 8{,}151~MiB with only 9~MiB free, and the run pointed at roughly eighteen hours of computation. This is evidence about the hardware only; it does not prove that LoRA is impossible. \\
 \addlinespace
-QLoRA measurement & The projection this run produced counted only one validation pass, not the 219-message generation that the full run repeats at every checkpoint, so it understated the real duration. & The measurement adapter was deleted and the full model was trained from a fresh start. The projection is used as evidence that the method fits the card, not as an observed run time. \\
+QLoRA measurement & The projection this run produced counted only one validation pass, not the 219-message generation the full run repeats at every checkpoint, so it understated the real duration. & The measurement adapter was deleted and the full model was trained from a fresh start. The projection shows that the method fits the card; it is not an observed run time. \\
 \addlinespace
-Full Qwen training & The first full attempt reached real checkpoints but exposed two mistakes: the output folder name left out the run ID, and one code path rebuilt the saved file through the wrong Python type. & It was stopped on purpose and kept. The accepted run restarted from step zero, completed 1{,}245 steps, selected step 200, and produced the exported model. \\
+Full Qwen training & The first full attempt reached real checkpoints but had two defects: the output folder name left out the run ID, and one code path rebuilt the saved file through the wrong Python type. & The run was stopped on purpose. A clean run restarted from step zero, completed 1{,}245 steps, selected step 200, and produced the exported model. \\
 \addlinespace
-Full PhoBERT training & PhoBERT had to stay an ordinary four-class classifier with nothing quantized, and any failed attempt had to be kept rather than quietly replaced. & The accepted run completed 312 steps and selected step 100. No PhoBERT GGUF was made. \\
+Full PhoBERT training & PhoBERT had to stay an ordinary four-class classifier with nothing quantized. & The accepted run completed 312 steps and selected step 100. No PhoBERT GGUF was made. \\
 \addlinespace
-Starting the final evaluation & Five attempts to launch the final evaluation failed their own access checks before reading anything. & The sixth ran, read the 220 held-out messages once, evaluated both models, and then permanently disabled a repeat. Those five records describe those five attempts; they are not a full account of everything that ever opened the files. \\
-\addlinespace
-A correction about file access & An earlier draft said the held-out messages had been left untouched until the evaluation. That was wrong: automatic integrity tests had opened and checked the files before and after it. & The result itself was not changed or re-run. The defensible statement is that the models saw those messages exactly once, not that nothing had ever read the files. A written correction is kept with the result. \\
-\addlinespace
-Reorganising the code & The code was reorganised to be easier to read, but a later review recorded six critical and three warning findings. & It is reported as tidying work. It is not a claim that the system is secure, and it is not what produced the results in this report. \\
+Starting the final evaluation & Five attempts to launch the final evaluation stopped themselves before reading anything, on their own access checks. & The sixth attempt worked: it read the 220 held-out messages once, evaluated both models, and then locked itself against being run again. The result stands on that one run. \\
 \bottomrule
 \end{longtable}
 \normalsize
 
+An earlier draft of this report said the held-out messages had been left untouched until the evaluation. That was wrong. Automatic file checks had opened them, before and after the run, to confirm nothing had been corrupted; those checks never showed a message to a person and never ran either model. The correct way to put it is that the models saw those messages exactly once, not that nothing had ever read the files, and this report says it that way now.
+
+The code was also reorganised to be easier to read, but a later review still found six critical and three warning findings. That work made the project easier to navigate; it did not make it secure, and it is not what produced the results in this report.
+
 \section*{Appendix 5: How to Reproduce This}
 \addcontentsline{toc}{section}{Appendix 5: How to Reproduce This}
 
-Every number in this report was written to a file by the run that produced it, and those files are in the repository. Table~\ref{tab:repro-evidence-map} says where to look for each group of claims.
+Every number in this report came from a specific run, and Table~\ref{tab:repro-evidence-map} says which one, for anyone who wants to check a claim against its source.
 
 \small
-\begin{longtable}{p{3.0cm}p{6.3cm}p{4.6cm}}
+\begin{longtable}{p{3.0cm}p{7.7cm}p{3.2cm}}
 \caption{Where each group of claims comes from.}\label{tab:repro-evidence-map}\\
 \toprule
-\textbf{Claim} & \textbf{Where it comes from} & \textbf{What it may be used for} \\
+\textbf{Claim} & \textbf{Where it comes from} & \textbf{Notes} \\
 \midrule
 \endfirsthead
 \toprule
-\textbf{Claim} & \textbf{Where it comes from} & \textbf{What it may be used for} \\
+\textbf{Claim} & \textbf{Where it comes from} & \textbf{Notes} \\
 \midrule
 \endhead
-The dataset and its quality & The dataset manifest \path{data/manifests/manifest.json} and the judge summary \path{data/processed/judge-summary.json}, together with the record of the manual review. & The class counts and the quality scores. The manual review covers a sample, not the whole set. \\
+The dataset and its quality & The dataset manifest and the judge summary, together with the manual review sheet. & The class counts and the quality scores. The manual review covers a sample, not the whole set. \\
 \addlinespace
-Choosing between LoRA and QLoRA & The two measurement-run reports, which record step times and memory. & Time and memory only. Neither run produced a trained model. \\
+Choosing between LoRA and QLoRA & The two measurement runs, which recorded step time and memory. & Time and memory only; neither run produced a trained model. \\
 \addlinespace
-Validation comparison & The validation comparison record, covering the same 219 messages for both models. & Comparing quality. It does not support comparing speed. \\
+Validation comparison & The validation run for both models, over the same 219 messages. & Compares quality only; not speed. \\
 \addlinespace
-The exported model & The export record kept beside the GGUF file. & That the Q8\_0 file was produced from the selected checkpoint and loads. There is no PhoBERT GGUF. \\
+The exported model & The export log kept with the GGUF file. & Confirms the Q8\_0 file came from the selected checkpoint and loads correctly. There is no PhoBERT GGUF. \\
 \addlinespace
-The final evaluation & The evaluation record for the 220 held-out messages. & The final numbers for both models. The evaluation was run once and cannot be repeated. \\
+The final evaluation & The evaluation run over the 220 held-out messages. & The final numbers for both models. This evaluation ran once and cannot be repeated. \\
 \addlinespace
-The correction about file access & The written correction kept beside the final result. & It belongs with that result and should be read alongside it. \\
+How the code is organised & The architecture map and the command reference in the repository. & Describes the current layout; it is not what produced the results. \\
 \addlinespace
-How the code is organised & \path{architecture/module-boundaries.json} and \path{docs/architecture/overview.md}. & The current layout and the installed commands. It is not what produced the results. \\
-\addlinespace
-Open problems in the code & The latest code review. & Six critical and three warning findings, still open. \\
+Open problems in the code & The most recent code review. & Six critical and three warning findings, still open. \\
 \bottomrule
 \end{longtable}
 \normalsize
