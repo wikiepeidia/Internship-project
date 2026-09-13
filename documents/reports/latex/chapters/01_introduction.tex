@@ -56,9 +56,9 @@ This project builds the dataset from public scam-warning articles on \url{https:
 
 The messages in the dataset are generated from those articles rather than collected from real victims, so the dataset is not a substitute for a benchmark built from real traffic.
 
-This project cut the dataset into three parts before training began. The models learn from the \textbf{training} messages. The \textbf{validation} messages are looked at repeatedly during training, to decide which saved version of the model to keep. The third part is \textbf{held out}, which means it was locked away at the moment of the split and neither model, nor any decision in this project, was allowed to see it until everything was finished. It stands in for messages the system has never met, which is the closest a project of this size can get to a real user pasting in a real scam.
+This project cut the dataset into three parts before training began. The models learn from the \textbf{training} messages. The \textbf{validation} messages are looked at repeatedly during training, to decide which saved version of the model to keep. The third part is \textbf{set aside}, which means it was locked away at the moment of the split and neither model, nor any decision in this project, was allowed to see it until everything was finished. It stands in for messages the system has never met, which is the closest a project of this size can get to a real user pasting in a real scam.
 
-This project then ran both finished models over the same 220 held-out messages, once, and did not use that result to repair data, retrain, move a threshold, or pick a different saved version. Reporting a number from a test set that has been consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed before the models were trained rather than defended afterwards.
+This project then ran both finished models over the same 220 set-aside messages, once, and did not use that result to repair data, retrain, move a threshold, or pick a different saved version. Reporting a number from a test set that has been consulted repeatedly is one of the easiest ways to overstate a result, so the single-use rule was fixed before the models were trained rather than defended afterwards.
 
 One honest qualification belongs with that. Automated file-integrity tests had opened the evaluation files before the models were run. Those tests never showed a message to a human, never ran either model, and did not change any result, but it would still be wrong to describe the evaluation set as completely untouched, so this report does not.
 
@@ -75,6 +75,6 @@ Third, this project trains Qwen3-4B-Instruct-2507 locally with NF4 QLoRA and tra
 
 Fourth, this project exports the chosen Qwen checkpoint as a Q8\_0 GGUF file and load-tests it to confirm it works. This step is the rest of the RQ2 answer: the exported file is what makes local inference practical rather than only trainable.
 
-Fifth, this project evaluates both finished models once on the held-out messages, which is where RQ1 and RQ3 are answered directly.
+Fifth, this project evaluates both finished models once on those set-aside messages, which is where RQ1 and RQ3 are answered directly.
 
 Chapter~III explains why each of these steps was designed the way it was, Chapter~IV describes what was actually run, and Chapter~V reports what the runs produced.

@@ -73,12 +73,12 @@ Full Qwen training & The first full attempt reached real checkpoints but had two
 \addlinespace
 Full PhoBERT training & PhoBERT had to stay an ordinary four-class classifier with nothing quantized. & The accepted run completed 312 steps and selected step 100. No PhoBERT GGUF was made. \\
 \addlinespace
-Starting the final evaluation & Five attempts to launch the final evaluation stopped themselves before reading anything, on their own access checks. & The sixth attempt worked: it read the 220 held-out messages once, evaluated both models, and then locked itself against being run again. The result stands on that one run. \\
+Starting the final evaluation & Five attempts to launch the final evaluation stopped themselves before reading anything, on their own access checks. & The sixth attempt worked: it read the 220 set-aside messages once, evaluated both models, and then locked itself against being run again. The result stands on that one run. \\
 \bottomrule
 \end{longtable}
 \normalsize
 
-An earlier draft of this report said the held-out messages had been left untouched until the evaluation. That was wrong. Automatic file checks had opened them, before and after the run, to confirm nothing had been corrupted; those checks never showed a message to a person and never ran either model. The correct way to put it is that the models saw those messages exactly once, not that nothing had ever read the files, and this report says it that way now.
+An earlier draft of this report said the set-aside messages had been left untouched until the evaluation. That was wrong. Automatic file checks had opened them, before and after the run, to confirm nothing had been corrupted; those checks never showed a message to a person and never ran either model. The correct way to put it is that the models saw those messages exactly once, not that nothing had ever read the files, and this report says it that way now.
 
 The code was also reorganised to be easier to read, but a later review still found six critical and three warning findings. That work made the project easier to navigate; it did not make it secure, and it is not what produced the results in this report.
 
@@ -106,7 +106,7 @@ Validation comparison & The validation run for both models, over the same 219 me
 \addlinespace
 The exported model & The export log kept with the GGUF file. & Confirms the Q8\_0 file came from the selected checkpoint and loads correctly. There is no PhoBERT GGUF. \\
 \addlinespace
-The final evaluation & The evaluation run over the 220 held-out messages. & The final numbers for both models. This evaluation ran once and cannot be repeated. \\
+The final evaluation & The evaluation run over the 220 set-aside messages. & The final numbers for both models. This evaluation ran once and cannot be repeated. \\
 \addlinespace
 How the code is organised & The architecture map and the command reference in the repository. & Describes the current layout; it is not what produced the results. \\
 \addlinespace

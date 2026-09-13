@@ -57,7 +57,7 @@ The objective has seven parts, as follows:
   validation messages to pick each model's best checkpoint, then export the
   chosen Qwen checkpoint as a Q8\_0 GGUF file and confirm it loads. After
   that, evaluate both finished models exactly once on a separate set of 220
-  held-out messages neither model had seen during training or checkpoint
+  messages that neither model had seen during training or checkpoint
   selection. This project set those 220 messages aside from the rest at the
   start, and neither model, nor any decision taken during the project, was
   allowed to see them until the training was over.
@@ -69,9 +69,7 @@ both models on the laptop, exported the Qwen model, and finished the final
 evaluation on both without producing a single unreadable answer. The
 numbers are in Chapter~V.
 
-This project left two further pieces of work unfinished, on purpose in one
-case. It did not fit a deployment version of the model after the
-evaluation, because the point of a single final evaluation is lost if
-training continues on the same data afterwards. It also reorganised the
-code to be easier to read and navigate, but a later review found security
-problems that are still open, so that part is not complete either.
+This project left one further piece of work unfinished, on purpose. It did
+not fit a deployment version of the model after the evaluation, because
+the point of a single final evaluation is lost if training continues on
+the same data afterwards.

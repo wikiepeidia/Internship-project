@@ -12,7 +12,7 @@ The stages listed in Chapter~I have to run in this order, because each one needs
 \item \textbf{The model has to be chosen.} Three candidates were compared on the same messages, and a further check confirmed that fine-tuning was needed at all rather than prompting.
 \item \textbf{The hardware has to be measured.} Ordinary LoRA and QLoRA were both run briefly on the target laptop, so the training method was chosen from recorded time and memory rather than from a guess.
 \item \textbf{The finished model has to run on ordinary hardware.} The selected model is converted to a single file that runs without a discrete GPU, because a model that only runs on the training machine is not a usable tool.
-\item \textbf{The held-out messages are evaluated last.} They stand in for messages the system has never seen, so they can only be used once everything else is finished.
+\item \textbf{The set-aside messages are evaluated last.} They stand in for messages the system has never seen, so they can only be used once everything else is finished.
 \end{enumerate}
 
 \noindent Each of the following sections explains one of those decisions.
