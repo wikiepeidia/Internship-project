@@ -109,14 +109,6 @@ The reason is the same one behind the split rule. If a hundred flagged messages 
 \label{fig:human-review}
 \end{figure}
 
-\section{Offline Text Runtime Baseline}
-
-The runtime has one text-only interface. It accepts a message as text, cleans it up locally, and passes it to whichever backend is configured. The backend returns a structured result, and a rendering layer turns that into a readable report.
-
-Privacy is a design requirement rather than an afterthought, in line with the NIST Privacy Framework \cite{nist2026privacyframework}: the message text never leaves the device.
-
-Before any analysis runs, the system checks that the model it is supposed to use has actually loaded. If it has not, it stops and says so rather than quietly continuing with something else. This matters more than it sounds: the project holds several models and several versions of the same model, and an answer produced by the wrong one would look exactly like a correct answer. The check names the model and the version it loaded, so a result can always be attributed to the model that produced it.
-
 \section{Local Model Selection and Deployment Paths}
 
 To pick a Qwen model, three models from the Qwen family \cite{qwen2025} were tested on the same 33 example messages: \texttt{qwen3-4b-instruct-2507}, \texttt{qwen3.5-4b}, and \texttt{qwen2.5-7b-instruct}. The test scored them on catching risky messages first. It used three risk levels rather than four classes --- benign, suspicious, and high-risk --- and it ran on the same laptop the real training would use, so hardware limits were part of the decision from the start.
@@ -149,6 +141,8 @@ Choosing a model does not answer a more basic question: whether the model needed
 In other words, the untrained model was not detecting scams; it was calling almost everything a scam. That produces respectable-looking recall on the dangerous classes while making the tool useless, because a warning that fires on every message tells the user nothing. Fine-tuning is what taught the model where the boundaries are, and the largest single gain in the table is on the benign class, which is exactly the class an alarmed model gets wrong.
 
 This measurement used the earlier 254-message validation set rather than the final dataset, and each column is a single run. It is reported as the reason this project fine-tunes rather than prompts, not as one of its results; the results are in Chapter~V.
+
+PhoBERT has no equivalent stock-versus-trained check, and the reason is structural rather than an oversight. Qwen is a general-purpose model that can attempt a task from a prompt alone, so prompting it with no fine-tuning is a real, measurable thing to try. PhoBERT is an encoder with a four-class head added on top, and an untrained head only outputs random weights; there is nothing meaningful to prompt or to measure before that head is trained. So Chapter~V compares two \emph{trained} models against each other, and this section separately checks, for Qwen only, whether training was worth doing in the first place.
 
 \subsection{The Choice Between LoRA and QLoRA}
 Both options were measured on the target laptop, and those measurements are reported in Chapter~IV.
@@ -194,6 +188,14 @@ where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \
 \input{tables/qlora_config}
 
 Table~\ref{tab:qlora-config} lists the settings the run actually used. The two quantization settings do different jobs, and they are chosen for different reasons. NF4 is used during \textit{training}, where the goal is to fit the model into 8~GiB at all. Q8\_0 is used for the \textit{exported} file, where the goal is to run well on a CPU through \texttt{llama.cpp} \cite{gerganov2023llamacpp}. Q4 would have made the file smaller still, but a comparison of every \texttt{llama.cpp} quantization format found that Q8\_0 keeps almost all of the original quality while lower settings lose more of it \cite{kurt2026quantization}. Since the Q8\_0 file already fits comfortably on an ordinary laptop, there was nothing to gain by compressing further and accepting the extra loss.
+
+\section{Offline Text Runtime Baseline}
+
+The runtime has one text-only interface. It accepts a message as text, cleans it up locally, and passes it to whichever backend is configured. The backend returns a structured result, and a rendering layer turns that into a readable report.
+
+Privacy is a design requirement rather than an afterthought, in line with the NIST Privacy Framework \cite{nist2026privacyframework}: the message text never leaves the device.
+
+Before any analysis runs, the system checks that the model it is supposed to use has actually loaded. If it has not, it stops and says so rather than quietly continuing with something else. This matters more than it sounds: the project holds several models and several versions of the same model, and an answer produced by the wrong one would look exactly like a correct answer. The check names the model and the version it loaded, so a result can always be attributed to the model that produced it.
 
 \section{Explainable Threat Decisioning}
 \label{sec:explainable-decisioning}

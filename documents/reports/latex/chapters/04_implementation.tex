@@ -28,6 +28,7 @@ src/
 \end{quote}
 
 \section{Building the Dataset}
+\label{sec:building-dataset}
 
 Every message carries the \texttt{seed\_id} of the article it was written from, and the splitter sends all messages sharing an ID into one split. That rule is stricter than splitting message by message, and it is what stops a reworded message from appearing on both sides of the evaluation.
 
@@ -250,7 +251,7 @@ Four problems shaped this project more than any of the successes, and each one c
 
 \textbf{Generation kept dying part-way through.} The first dataset pass ran for hours against an external API. When the provider stopped accepting requests mid-run, the job ended and took everything generated up to that point with it, because results were only written at the end. Two changes fixed it: the generator now backs off and retries instead of giving up on a refused request, and it writes results to disk as it goes. A failure now costs the last few minutes rather than the whole run.
 
-\textbf{A large part of the generated data was unusable.} One class had been written as narration and others carried template leftovers. These were found by reading the output, not by any automatic check, which is the argument for reading generated data rather than trusting it.
+\textbf{A large part of the generated data was unusable.} Section~\ref{sec:building-dataset} describes what was wrong with it. The reason it is repeated here is how it was found: by reading the output by hand, not by any automatic check. That is the argument for reading generated data rather than trusting it.
 
 \textbf{Neither ordinary LoRA nor a larger model was practical on this hardware.} The measurement run left almost no spare memory and pointed at an eighteen-hour schedule, and the 7B candidate needed roughly twice the memory of the 4B one before training was even considered. Rather than start an eighteen-hour run and hope, the project switched to QLoRA, which fits the card with room to spare.
 
