@@ -63,7 +63,7 @@ Every message is checked the moment it is produced, then scored for quality and 
 
 \noindent Figure~\ref{fig:corpus-sample} shows one finished message with all of its fields filled in. The dataset was built with proper validation, but it is still not a substitute for a benchmark of real messages collected from real victims.
 
-\noindent\textbf{Record fields:} Table~\ref{tab:record-schema} lists the seven fields every message carries. The \texttt{label} field is the one the model is graded on, it is present on every message, and it is the training target for both models.
+\noindent\textbf{Record fields:} Table~\ref{tab:record-schema} lists the seven fields every message carries. Four of them are the fields described in Chapter~I that the model is trained to produce; the other three, \texttt{text}, \texttt{source}, and \texttt{seed\_id}, are the input itself and the provenance information used to build and split the dataset, not something the model learns. The \texttt{label} field is the one the model is graded on, it is present on every message, and it is the training target for both models.
 
 \input{tables/record_schema}
 
@@ -189,7 +189,7 @@ where $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$, and $r \
 
 Table~\ref{tab:qlora-config} lists the settings the run actually used. The two quantization settings do different jobs, and they are chosen for different reasons. NF4 is used during \textit{training}, where the goal is to fit the model into 8~GiB at all. Q8\_0 is used for the \textit{exported} file, where the goal is to run well on a CPU through \texttt{llama.cpp} \cite{gerganov2023llamacpp}. Q4 would have made the file smaller still, but a comparison of every \texttt{llama.cpp} quantization format found that Q8\_0 keeps almost all of the original quality while lower settings lose more of it \cite{kurt2026quantization}. Since the Q8\_0 file already fits comfortably on an ordinary laptop, there was nothing to gain by compressing further and accepting the extra loss.
 
-\section{Offline Text Runtime Baseline}
+\section{How the Runtime Serves an Answer}
 
 The runtime has one text-only interface. It accepts a message as text, cleans it up locally, and passes it to whichever backend is configured. The backend returns a structured result, and a rendering layer turns that into a readable report.
 

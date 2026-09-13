@@ -46,7 +46,7 @@ The conclusion is narrow: LoRA was runnable but left no room for anything to go 
 
 \section{Validation Results}
 
-Both models were trained with the same seed and selected on the same 219 validation messages. Qwen's best checkpoint came at step 200 and PhoBERT's at step 100. Neither produced an unreadable output, and neither called a dangerous message safe.
+Both models were trained with the same seed and selected on the same 219 validation messages. Qwen's best checkpoint came at step 200 and PhoBERT's at step 100. Neither produced an unreadable output, and recall on every risky class stayed high for both models. Whether either model called a specific dangerous message safe was not tracked at this stage; that count is measured only on the final evaluation below, which is why it is reported there and not here.
 
 \begin{figure}[H]
 \centering
