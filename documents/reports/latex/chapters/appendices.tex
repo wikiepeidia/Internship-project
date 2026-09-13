@@ -11,14 +11,14 @@ The source code, training settings, and the files used to build this report are 
 
 The layout of the source tree and what each folder does is described in Chapter~IV. One point bears repeating: \texttt{src/model\_adaptation} holds the older experiment code. It is kept because the recorded results were produced with it, and it should not be read as the current design.
 
-The exported Qwen model is not stored in the repository because it is a 4.28~GB file. Its checkpoint origin and file size are noted alongside it, and it was loaded twice to confirm that it works.
+Neither trained model is stored in the repository: the exported Qwen file is 4.28~GB, and PhoBERT's weights and optimizer state together are close to 1.6~GB. Both are too large for git. The Qwen export's checkpoint origin and file size are noted alongside it, and it was loaded twice to confirm that it works.
 
 \section*{Appendix 2: Dataset Class Distribution}
 \addcontentsline{toc}{section}{Appendix 2: Dataset Class Distribution}
 
 Table~\ref{tab:dataset-stats} in Chapter~III gives the class counts for the three splits used in this work. What the quality checks found is reported in Chapter~V.
 
-An earlier stage of this project used a different 254-message validation set, shown in Table~\ref{tab:validation-class-dist} for historical interest only. Its numbers were never recalculated on the final dataset. The only place it appears in this report is the prompting-against-fine-tuning check in Section~\ref{sec:why-finetune}, where it explains the reason for fine-tuning at all. None of the model results reported in Chapter~V come from it.
+Table~\ref{tab:validation-class-dist} gives the class counts for the older 254-message set used in the fine-tuning check in Section~\ref{sec:why-finetune}.
 
 \begin{table}[H]
 \centering
