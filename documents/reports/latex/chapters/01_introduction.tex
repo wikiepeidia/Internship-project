@@ -39,7 +39,7 @@ Three questions drive every decision in this thesis, from the dataset design thr
 
 \section{Project Contributions}
 \label{sec:contributions-map}
-This project makes four contributions. Each one below is tied explicitly to the research question it answers or makes possible to answer, because a contribution that does not trace back to one of the three questions above has no place in this thesis.
+This project makes four contributions. Each one below states which research question it answers or makes possible to answer.
 
 \textbf{Contribution 1 --- a governed Vietnamese phishing dataset (the foundation RQ1 and RQ3 are evaluated against).} No public dataset combines Vietnamese financial phishing messages with threat-type labels and marked evidence, so this project built one instead of adopting an existing one: none of the 2{,}097 messages come from an existing corpus. This project generated them across four classes from public scam-warning articles, then checked and repaired them, which is Contribution 2 below. Because several messages come from each source article, two messages built from the same article can differ by little more than a bank name or an amount, so this project keeps all messages from one article in the same split; a model is therefore never tested on a message that is a near-copy of one it trained on. Without this dataset, RQ1 has nothing to evaluate the models on and RQ3 has no evidence for an explanation to quote.
 
