@@ -225,7 +225,7 @@ The result is an ordinary Transformers bundle: a 540~MB \texttt{model.safetensor
 
 \subsection*{PhoBERT's Answer on the Same Message}
 
-Qwen writes a full JSON answer for every message. PhoBERT does not: its raw output is four numbers, one per class, always in the same fixed order --- \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Whichever number is largest decides the label, a rule called \textit{argmax}. For illustration only, not a value recorded from an actual run, a pass over the scam message in Input 1 above might return \texttt{[4.82, -1.03, 0.61, -2.14]}; the largest value sits at the first position, so the label is \texttt{bank\_impersonation}.
+Qwen writes a full JSON answer for every message. PhoBERT does not: its raw output is four numbers, one per class, always in the same fixed order --- \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. This is for illustration only; it is not a value recorded from an actual run. For instance, a pass over the scam message in Input 1 above might return an array such as \texttt{[4.82, -1.03, 0.61, -2.14]}. Whichever number is largest sets the label: here the first number is largest, so the label is \texttt{bank\_impersonation}.
 
 Those four numbers are never shown to the user, and PhoBERT never produces the quoted evidence, the written explanation, or the recommendations that Qwen's answer carries. It returns the label and nothing else, which is why the comparison in Chapter~V covers only the one thing both models do.
 

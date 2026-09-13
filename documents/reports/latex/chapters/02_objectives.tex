@@ -7,45 +7,46 @@ user's messages private while still explaining its answers well enough to
 act on. Underneath, the task is supervised four-class text classification:
 every message has one correct label, and the Qwen path also produces a risk
 tier, the suspicious phrases quoted from the message, and a short written
-explanation. The finished system adds safe next steps on top of those, checked
-against a fixed safety rule (Section~\ref{sec:problem-statement}).
+explanation. The finished system adds safe next steps on top of those, and
+checks each one against a fixed safety rule (Section~\ref{sec:problem-statement}).
 
 The objective has seven parts, as follows:
 
 \begin{enumerate}
   \item Build a Vietnamese phishing dataset from real scam-warning
-  articles. Every message is checked automatically for three things: that
-  all the required fields are present, that the label is one of the four
-  allowed classes, and that the highlighted suspicious phrases can be found
-  in the message text. Several messages are written from each source
-  article, and two messages from the same article can differ by little more
-  than a bank name or an amount, so all of them are put in the same set. No
-  article ever has some of its messages used for training and others kept
-  for testing.
+  articles. This project checks every message automatically for three
+  things: that all the required fields are present, that the label is one
+  of the four allowed classes, and that the highlighted suspicious phrases
+  can be found in the message text. This project writes several messages
+  from each source article, and two messages from the same article can
+  differ by little more than a bank name or an amount, so this project puts
+  all of them in the same set. No article ever has some of its messages
+  used for training and others kept for testing.
 
   \item Review part of the dataset by hand instead of trusting the judge
-  model. The sample is drawn evenly across all four classes and across both
-  judge verdicts, so it contains the messages the judge passed as well as
-  the ones it failed, not only the easy ones. Where the reviewer disagreed
-  with a label, the correction was applied only if those messages did not
-  all trace back to one source article. A large group of near-identical
-  messages is not a large group of examples, and accepting them together
-  would make one class look far more varied than it really is.
+  model. This project draws the sample evenly across all four classes and
+  across both judge verdicts, so it contains the messages the judge passed
+  as well as the ones it failed, not only the easy ones. Where the reviewer
+  disagreed with a label, this project applied the correction only if those
+  messages did not all trace back to one source article. A large group of
+  near-identical messages is not a large group of examples, and accepting
+  them together would make one class look far more varied than it really
+  is.
 
-  \item Fix the messages that came out badly. One whole class had been
-  written as third-person narration instead of as real chat messages, and
-  other classes carried leftover template text, so those were written again
-  offline from their original scenarios.
+  \item Fix the messages that came out badly. A review found that one whole
+  class had been written as third-person narration instead of as real chat
+  messages, and that other classes carried leftover template text. This
+  project rewrote those messages offline from their original scenarios.
 
   \item Choose the base model by measuring it rather than by reputation.
-  Three Qwen models were run over the same 33 example messages and compared
-  on how many risky messages each one caught, how much video memory it
-  needed, and how long it took per message.
+  This project ran three Qwen models over the same 33 example messages and
+  compared them on how many risky messages each one caught, how much video
+  memory it needed, and how long it took per message.
 
-  \item Check whether fine-tuning was needed at all. The chosen model was
-  scored on the same messages twice, once with prompting alone and once
-  after fine-tuning, so that training the model rested on a measurement
-  rather than on the assumption that training must help.
+  \item Check whether fine-tuning was needed at all. This project scored
+  the chosen model on the same messages twice, once with prompting alone
+  and once after fine-tuning, so that training the model rested on a
+  measurement rather than on the assumption that training must help.
 
   \item Measure ordinary LoRA and QLoRA on the actual RTX~5050 laptop, and
   choose between them from the recorded time and memory numbers rather than
@@ -53,21 +54,21 @@ The objective has seven parts, as follows:
 
   \item Train Qwen QLoRA and PhoBERT locally, export the chosen Qwen model
   as a Q8\_0 GGUF file and confirm it loads, then evaluate both finished
-  models exactly once on the same 220 held-out messages. Those are the
-  messages that were separated from the rest at the start and that neither
-  model, and no decision taken during the project, was allowed to see until
+  models exactly once on the same 220 held-out messages. This project
+  separated those messages from the rest at the start, and neither model,
+  nor any decision taken during the project, was allowed to see them until
   the training was over.
 \end{enumerate}
 
-Most of these objectives were met. The dataset was built and split, the base
-model and the training method were both chosen from measurements, both models
-were trained on the laptop, the Qwen model was exported, and both finished the
-final evaluation without producing a single unreadable answer. The numbers are
-in Chapter~V.
+This project met most of these objectives. It built and split the dataset,
+chose the base model and the training method from measurements, trained
+both models on the laptop, exported the Qwen model, and finished the final
+evaluation on both without producing a single unreadable answer. The
+numbers are in Chapter~V.
 
-Two further pieces of work were not finished. No deployment version of the
-model was fitted after the evaluation, and that was left for later on purpose:
-the point of a single final evaluation is lost if training continues on the
-same data afterwards. The code was also reorganised to be easier to read and
-navigate, but a later review found security problems that are still open, so
-that part is not complete either.
+This project left two further pieces of work unfinished, on purpose in one
+case. It did not fit a deployment version of the model after the
+evaluation, because the point of a single final evaluation is lost if
+training continues on the same data afterwards. It also reorganised the
+code to be easier to read and navigate, but a later review found security
+problems that are still open, so that part is not complete either.

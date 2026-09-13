@@ -111,7 +111,7 @@ The reason is the same one behind the split rule. If a hundred flagged messages 
 
 \section{Offline Text Runtime Baseline}
 
-The runtime has one text-only interface. A message comes in as text, is cleaned up locally, and is passed to whichever backend is configured. The backend returns a structured result, and a rendering layer turns it into a readable report.
+The runtime has one text-only interface. It accepts a message as text, cleans it up locally, and passes it to whichever backend is configured. The backend returns a structured result, and a rendering layer turns that into a readable report.
 
 Privacy is a design requirement rather than an afterthought, in line with the NIST Privacy Framework \cite{nist2026privacyframework}: the message text never leaves the device.
 
@@ -140,7 +140,7 @@ PhoBERT \cite{nguyen2020phobert} was then added as a second, different kind of m
 \subsection{Fine-Tuning Against Prompting}
 \label{sec:why-finetune}
 
-Choosing a model does not answer a more basic question: whether the model needed to be trained at all, or whether a careful prompt would have been enough. That was measured rather than assumed. The chosen model was scored on the same 254 messages twice, once with prompting alone and once after QLoRA. Table~\ref{tab:finetuning-gain} gives both.
+Choosing a model does not answer a more basic question: whether the model needed to be trained at all, or whether a careful prompt would have been enough. This project measured that instead of assuming it, by scoring the chosen model on the same 254 messages twice, once with prompting alone and once after QLoRA. Table~\ref{tab:finetuning-gain} gives both.
 
 \input{tables/finetuning_gain}
 
