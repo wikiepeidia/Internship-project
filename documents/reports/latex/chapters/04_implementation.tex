@@ -102,53 +102,16 @@ The run took 14.87 hours from start to finish, but most of that was not training
 \label{fig:run-timeline}
 \end{figure}
 
-\section{Training PhoBERT}
-
-PhoBERT was trained separately on the same messages as a full four-class classifier, with nothing quantized and no adapter. The run took 312 steps, and the checkpoint at step 100 was kept. Its loss curves are in Figure~\ref{fig:phobert-training-curves}.
-
-The result is an ordinary Transformers bundle: a 540~MB \texttt{model.safetensors} weights file with its tokenizer and configuration files, and a 1.03~GB optimizer state saved alongside it. PhoBERT was not converted to GGUF.
-
-\begin{figure}[H]
-\centering
-{\small\bfseries PhoBERT training curves\par}
-\smallskip
-\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phobert_loss_curves.png}
-\caption{PhoBERT training and validation loss across the completed 312-step run.}
-\label{fig:phobert-training-curves}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.92\linewidth]{figures/checkpoint_selection_sweep.png}
-\caption{Validation score at every checkpoint of both runs, with the selected checkpoint marked. Qwen was evaluated 25 times across its 1{,}245 steps and PhoBERT 7 times across its 312.}
-\label{fig:checkpoint-sweep}
-\end{figure}
-
-\section{Exporting the Model}
-
-The trained Qwen adapter was merged back into its base model and converted through \texttt{llama.cpp} \cite{gerganov2023llamacpp} into one Q8\_0 GGUF file of 4{,}280{,}403{,}232 bytes. It was then loaded twice, once independently, to confirm the exported file works.
-
-Figure~\ref{fig:artifacts-on-disk} shows everything the two runs left on disk, the export included.
-
-At runtime the analysis service normalises the message text, sends it to whichever model is configured, and returns the risk tier, threat label, quoted evidence, written explanation, and safe next steps. Nothing in this path needs an API key or an internet connection.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.95\linewidth]{figures/model_files_on_disk.png}
-\caption{Everything the two training runs left on disk, with the exported model: 21 files, 6{,}051{,}634{,}269 bytes in total. The GGUF export alone accounts for 4{,}280{,}403{,}232 of them.}
-\label{fig:artifacts-on-disk}
-\end{figure}
-
-\section{The Analysis}
+\subsection*{Qwen's Answer on Three Messages}
 \label{sec:worked-example}
 
-Three messages were put through the installed application: a bank-impersonation
+Three messages were put through the installed application afterwards: a bank-impersonation
 scam, a genuine transaction notice, and a genuine one-time-password notice. The
 first two come out right. The third does not, and it is reported here because it
 shows the shape of the system's weakness better than the first two show its
 strength.
 
-\subsection*{Input 1: A Scam Message}
+\subsubsection*{Input 1: A Scam Message}
 
 Typed without diacritics, in the way a real SMS often is.
 
@@ -173,7 +136,7 @@ each suggestion sends the user to a channel they choose themselves. None tells
 them to tap the link, reply, or read out a code, which is the rule the runtime
 applies to this field before anything is displayed.
 
-\subsection*{Input 2: A Genuine Transaction Notice}
+\subsubsection*{Input 2: A Genuine Transaction Notice}
 
 A real payment confirmation, also without diacritics.
 
@@ -188,7 +151,7 @@ wrong, and share neither account details nor an OTP with anyone. The message
 mentions a bank, an account number and an amount, and the system still does not
 flag it.
 
-\subsection*{Input 3: A Genuine Notice Misclassified}
+\subsubsection*{Input 3: A Genuine Notice Misclassified}
 \label{sec:false-alarm}
 
 A real Smart OTP message, which even warns the reader not to share the code.
@@ -203,7 +166,7 @@ quoted were ``Smart OTP'', ``đăng nhập'', and ``Internet Banking''. Its advi
 was to check the official VPBank app, share the code with nobody, and call the
 bank directly.
 
-\subsection*{Interpretation of the Third Result}
+\subsubsection*{Interpretation of the Third Result}
 
 Six ordinary bank messages were tried in total: transaction confirmations, a
 balance notice, a maintenance notice, a statement notice, and the OTP message
@@ -238,11 +201,48 @@ wrong label attached to advice that is safe to follow is a much smaller one, and
 it is the direct result of the rule that keeps recommendations inside a fixed
 safe set.
 
-\subsection*{PhoBERT's Output Format}
+\section{Training PhoBERT}
 
-Qwen writes a full JSON answer for every message. PhoBERT does not: its raw output is four numbers, one per class, always in the same fixed order --- \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Whichever number is largest decides the label, a rule called \textit{argmax}. For illustration only, not a value recorded from an actual run, a pass over the scam message in Input 1 might return \texttt{[4.82, -1.03, 0.61, -2.14]}; the largest value sits at the first position, so the label is \texttt{bank\_impersonation}.
+PhoBERT was trained separately on the same messages as a full four-class classifier, with nothing quantized and no adapter. The run took 312 steps, and the checkpoint at step 100 was kept. Its loss curves are in Figure~\ref{fig:phobert-training-curves}.
+
+The result is an ordinary Transformers bundle: a 540~MB \texttt{model.safetensors} weights file with its tokenizer and configuration files, and a 1.03~GB optimizer state saved alongside it. PhoBERT was not converted to GGUF.
+
+\begin{figure}[H]
+\centering
+{\small\bfseries PhoBERT training curves\par}
+\smallskip
+\includegraphics[width=0.91\linewidth,trim=0 0 0 24bp,clip]{figures/phobert_loss_curves.png}
+\caption{PhoBERT training and validation loss across the completed 312-step run.}
+\label{fig:phobert-training-curves}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/checkpoint_selection_sweep.png}
+\caption{Validation score at every checkpoint of both runs, with the selected checkpoint marked. Qwen was evaluated 25 times across its 1{,}245 steps and PhoBERT 7 times across its 312.}
+\label{fig:checkpoint-sweep}
+\end{figure}
+
+\subsection*{PhoBERT's Answer on the Same Message}
+
+Qwen writes a full JSON answer for every message. PhoBERT does not: its raw output is four numbers, one per class, always in the same fixed order --- \texttt{bank\_impersonation}, \texttt{zalo\_social\_engineering}, \texttt{task\_scam}, \texttt{benign}. Whichever number is largest decides the label, a rule called \textit{argmax}. For illustration only, not a value recorded from an actual run, a pass over the scam message in Input 1 above might return \texttt{[4.82, -1.03, 0.61, -2.14]}; the largest value sits at the first position, so the label is \texttt{bank\_impersonation}.
 
 Those four numbers are never shown to the user, and PhoBERT never produces the quoted evidence, the written explanation, or the recommendations that Qwen's answer carries. It returns the label and nothing else, which is why the comparison in Chapter~V covers only the one thing both models do.
+
+\section{Exporting the Model}
+
+The trained Qwen adapter was merged back into its base model and converted through \texttt{llama.cpp} \cite{gerganov2023llamacpp} into one Q8\_0 GGUF file of 4{,}280{,}403{,}232 bytes. It was then loaded twice, once independently, to confirm the exported file works.
+
+Figure~\ref{fig:artifacts-on-disk} shows everything the two runs left on disk, the export included.
+
+At runtime the analysis service normalises the message text, sends it to whichever model is configured, and returns the risk tier, threat label, quoted evidence, written explanation, and safe next steps. Nothing in this path needs an API key or an internet connection.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/model_files_on_disk.png}
+\caption{Everything the two training runs left on disk, with the exported model: 21 files, 6{,}051{,}634{,}269 bytes in total. The GGUF export alone accounts for 4{,}280{,}403{,}232 of them.}
+\label{fig:artifacts-on-disk}
+\end{figure}
 
 \section{Error Analysis and Adjustments}
 
