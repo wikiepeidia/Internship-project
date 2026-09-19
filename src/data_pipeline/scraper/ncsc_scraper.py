@@ -38,7 +38,7 @@ class NCSCScraper:
                     if self._has_content(soup):
                         return soup
             except Exception:
-                pass # fallback to playwright if error or no content
+                pass
         return self._fetch_with_playwright(url)
 
     def _has_content(self, soup: BeautifulSoup) -> bool:
@@ -73,7 +73,6 @@ class NCSCScraper:
 
         for base_url in self.base_urls:
             for page_num in range(1, max_pages + 1):
-                # Basic pagination pattern
                 page_url = f"{base_url}?page={page_num}" if page_num > 1 else base_url
                 soup = self.fetch_page(page_url)
                 if soup is None:

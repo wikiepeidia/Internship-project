@@ -179,7 +179,7 @@ def extract_phishing_payloads(html: str) -> list[str]:
 
     content_areas = soup.select(", ".join(CONTENT_AREA_SELECTORS))
     if not content_areas:
-        content_areas = [soup] # fallback
+        content_areas = [soup]
         
     for area in content_areas:
         text_nodes = area.find_all(string=True)

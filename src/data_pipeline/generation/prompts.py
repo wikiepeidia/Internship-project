@@ -6,9 +6,6 @@ from textwrap import dedent
 
 THREAT_CLASSES = ["bank_impersonation", "zalo_social_engineering", "task_scam", "benign"]
 
-# Explicit scenario diversity axes for task_scam (used in both complex and bulk prompts).
-# Each axis maps to a characteristic trust-then-disappear or advance-payment social-engineering
-# pattern observed in real Vietnamese task-scam recruitment messages.
 _TASK_SCAM_SCENARIO_AXES = dedent(
     """
     Scenario axes — cover as many distinct types as possible across the generated samples:

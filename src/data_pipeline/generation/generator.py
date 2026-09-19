@@ -520,7 +520,6 @@ class TieredGenerator:
         progress_callback: Callable[[str], None] | None,
     ) -> tuple[dict[str, tuple[int, list[dict[str, Any]]]], list[dict[str, Any]]]:
         if not resume:
-            # checkpoint_path is a directory — delete numbered checkpoint files inside it
             if checkpoint_path and checkpoint_path.exists():
                 for cp_file in checkpoint_path.glob("checkpoint-*.jsonl"):
                     cp_file.unlink(missing_ok=True)
@@ -732,7 +731,7 @@ class TieredGenerator:
         files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
         if not files:
             return 1
-        stem = files[-1].stem  # e.g. "checkpoint-003"
+        stem = files[-1].stem
         try:
             return int(stem.rsplit("-", 1)[-1]) + 1
         except ValueError:
@@ -757,7 +756,6 @@ class TieredGenerator:
     def _save_batch_checkpoint(self, checkpoint_dir: Path, spec: BatchSpec, records: list[dict[str, Any]]) -> None:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        # Load all entries from the latest checkpoint file (cumulative state)
         existing_entries: list[dict[str, Any]] = []
         latest = self._find_latest_checkpoint_file(checkpoint_dir)
         if latest is not None:
@@ -779,7 +777,6 @@ class TieredGenerator:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "records": records,
         }
-        # Replace entry for same batch_key if it already exists, otherwise append
         entry_map = {e["batch_key"]: e for e in existing_entries}
         entry_map[new_entry["batch_key"]] = new_entry
         all_entries = list(entry_map.values())
@@ -790,7 +787,6 @@ class TieredGenerator:
             for entry in all_entries:
                 handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-        # Prune: keep only the last CHECKPOINT_KEEP_COUNT files
         all_files = sorted(checkpoint_dir.glob("checkpoint-*.jsonl"))
         for old_file in all_files[:-CHECKPOINT_KEEP_COUNT]:
             old_file.unlink(missing_ok=True)

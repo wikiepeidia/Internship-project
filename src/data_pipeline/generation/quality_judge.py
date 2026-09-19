@@ -174,7 +174,6 @@ class QualityJudge:
             return GEMINI_MODEL
         if source in {"synthetic_gemini", "synthetic_openrouter"} and self.anthropic_client:
             return CLAUDE_MODEL
-        # openai-compatible source: prefer a different model for cross-judging
         if source == "synthetic_openai_compatible":
             if self.gemini_session.is_configured():
                 return GEMINI_MODEL

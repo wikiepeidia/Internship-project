@@ -28,9 +28,6 @@ from src.data_pipeline.processing.splitter import _stable_bucket
 from src.data_pipeline.schemas import DatasetRecord
 from src.data_pipeline.versioning.manifest import build_manifest
 
-# Deterministic-order salt used only to pick a stable, reproducible ordering
-# of lexical_dedup's survivors when trimming an over-cap seed group. Not
-# related to the split-assignment salt.
 _SEED_CAP_ORDER_SALT = "phase38-corpus-repaired-v2-seed-cap-order"
 
 _LABELS = ("bank_impersonation", "zalo_social_engineering", "task_scam", "benign")
@@ -192,7 +189,6 @@ def repair_evidence_spans(record: dict[str, Any]) -> dict[str, Any] | None:
         index = text.lower().find(span.lower())
         if index >= 0:
             repaired_spans.append(text[index : index + len(span)])
-        # else: unrecoverable, drop this individual span
 
     if original_spans and not repaired_spans:
         return None
@@ -367,8 +363,6 @@ def assign_stratified_group_split(
             if running_rows[name] + len(rows) <= target_rows[name] * 1.05
         ]
         if not eligible:
-            # Every split is already at/over its tolerance-adjusted budget —
-            # last-resort: consider all splits so the group is still placed.
             eligible = list(split_names)
 
         best_split: str | None = None

@@ -131,8 +131,6 @@ def handle_demo(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint for module and console-script execution."""
 
-    # Windows may default to a legacy code page that cannot print Vietnamese
-    # model output. Keep redirected and test streams unchanged.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
