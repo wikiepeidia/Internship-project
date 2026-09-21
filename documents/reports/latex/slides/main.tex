@@ -42,7 +42,7 @@
 
 \title{Localized Vietnamese Financial Phishing Detection}
 \subtitle{A local-first pipeline with explainable output}
-\author{Nghiêm Xuân Sơn}
+\author{Phạm Thế Minh}
 \date{October 2026}
 
 \begin{document}
@@ -55,7 +55,7 @@
   \vspace{10pt}
   {\large A local-first pipeline with explainable output\par}
   \vspace{22pt}
-  {\normalsize Nghiêm Xuân Sơn \quad---\quad 23BI14388\par}
+  {\normalsize Phạm Thế Minh \quad---\quad 23BI14279\par}
   \vspace{4pt}
   {\small University of Science and Technology of Hanoi\par}
   {\small Department of Information and Communication Technology\par}
@@ -156,13 +156,12 @@
         \item No deployment version fitted after the evaluation --- on purpose,
               a single final evaluation loses its meaning if training continues
               on the same data.
-        \item The code was reorganised, but a later review left security
-              findings open.
       \end{itemize}}
     \end{column}
   \end{columns}
-  \note{Report Chapter II. Volunteering the two unfinished items here is
-        cheaper than being asked about them later.}
+  \note{Report Chapter II. Volunteering the unfinished item here is cheaper
+        than being asked about it later. The open security findings are on
+        the limits slide, not here.}
 \end{frame}
 
 % ---------------------------------------------------------------- 6. data --
@@ -430,6 +429,9 @@
           systematically.
     \pause
     \item \textbf{Manual checking covers a sample}, not the whole set.
+    \pause
+    \item \textbf{A code review left six critical findings open.} So this is a
+          prototype, not a system ready for real use.
     \pause
     \item \textbf{Text only.} No screenshots, no QR codes, and never tested
           against real messages arriving on a real phone.
