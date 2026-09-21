@@ -1,542 +1,508 @@
 % ============================================================================
-%  VNPhish --- defence deck, DRAFT 1
-%  Compile: xelatex main.tex   (twice, for the outline)
+%  Defence deck. Same look as the July deck (slides.tex): CambridgeUS + beaver
+%  (dark red), the USTH logo, the three-part footer, the section header.
+%  Compile:  xelatex main.tex   (twice, for the contents page and footer)
 %
-%  Structure follows the report, not a generic "background -> method -> results"
-%  template. Slide 2 is the problem; there is no scam-history warm-up.
-%
-%  \pause is used throughout so each slide arrives one point at a time, the way
-%  a PowerPoint build does. Nothing appears before it is being spoken about.
-%
-%  Every slide carries a \note{} with the report section it comes from, so an
-%  answer can always be traced back to a page.
+%  Every content frame opens empty (title only) and fills in one click at a
+%  time. Page 1 of each frame is the empty one.
+%  The order follows the report: problem, pipeline, data, training, results.
 % ============================================================================
-\documentclass[aspectratio=169,11pt]{beamer}
-\usetheme{default}
-\usefonttheme{professionalfonts}
+\documentclass[aspectratio=169,12pt]{beamer}
+
+%% ---- theme (copied from slides.tex) ---------------------------------------
+\usetheme{CambridgeUS}
+\usecolortheme{beaver}
+\input{preamble/colors.tex}
+
+\setbeamercolor{block title}{fg=white, bg=CVBLUE}
+\setbeamercolor{block body}{bg=CVBLUE!10!white}
+\setbeamercolor{block title alerted}{fg=white, bg=darkred}
+\setbeamercolor{block body alerted}{bg=darkred!10!white}
+\setbeamercolor{framesubtitle}{fg=darkgray}
+\setbeamerfont{framesubtitle}{size=\normalsize, series=\mdseries}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+\setbeamerfont{section in toc}{size=\footnotesize}
+\setbeamerfont{title}{size=\large,series=\bfseries}
 \setbeamertemplate{navigation symbols}{}
 
-\usepackage{fontspec}
-\setmainfont{Times New Roman}
-\input{preamble/colors}
-\input{preamble/packages}
-
-% ---- house style -----------------------------------------------------------
-\setbeamercolor{structure}{fg=CVBLUE}
-\setbeamercolor{frametitle}{fg=CVBLUE}
-\setbeamerfont{frametitle}{series=\bfseries,size=\large}
-\setbeamerfont{framesubtitle}{size=\small}
-\setbeamercolor{framesubtitle}{fg=black!55}
-\setbeamertemplate{itemize item}{\color{CVBLUE}$\bullet$}
-\setbeamertemplate{itemize subitem}{\color{CVBLUE!60}--}
-\setbeamercolor{block title}{bg=CVBLUE!12,fg=CVBLUE}
-\setbeamercolor{block body}{bg=CVBLUE!4}
 \setbeamertemplate{footline}{%
-  \hbox to\paperwidth{\hfill{\tiny\color{black!45}\insertframenumber}\hspace{2.2em}}\vspace{4pt}}
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}\insertshorttitle
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
+      \insertframenumber{} / \insertmainframenumber\hspace*{2ex}
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
 
-% a bare "fact" box used for the headline number on results slides
-\newcommand{\headnum}[2]{%
-  \begin{beamercolorbox}[wd=\linewidth,sep=6pt,rounded=true]{block body}%
-  \centering{\Large\bfseries\color{CVBLUE}#1}\\[2pt]{\footnotesize #2}%
-  \end{beamercolorbox}}
+\logo{\includegraphics[height=0.5cm]{usth.png}}
 
-\title{Localized Vietnamese Financial Phishing Detection}
-\subtitle{A local-first pipeline with explainable output}
-\author{Phạm Thế Minh}
+\usepackage{fontspec}
+\input{preamble/packages.tex}
+\setsansfont{DejaVu Sans}[Scale=0.92]
+\setmonofont{DejaVu Sans Mono}[Scale=0.88]
+
+% cropped copies live in slides/figures, the report figures one level up
+\graphicspath{{figures/}{../figures/}{../pics/}}
+
+\setbeamercovered{invisible}
+
+\title[Localized LLM --- Vietnamese Financial Phishing]{Design and Development of a Localized LLM\\for Vietnamese Financial Phishing Detection}
+\subtitle{Bachelor Thesis Defense}
+\author[Internship Bachelor]{Phạm Thế Minh \\ {\small Student ID: 23BI14279}}
+\institute[USTH]{University of Science and Technology of Hanoi (USTH) \\ {\footnotesize\mdseries Supervisors: Nguyễn Việt Anh \quad|\quad Giang Anh Tuấn}}
+% change this line when the defence date is fixed
 \date{October 2026}
+
+\newcommand{\cell}[1]{\multicolumn{1}{c}{#1}}
 
 \begin{document}
 
-% ---------------------------------------------------------------- 1. title --
-\begin{frame}[plain]
-  \vfill
-  \centering
-  {\LARGE\bfseries\color{CVBLUE} Localized Vietnamese\\[4pt] Financial Phishing Detection\par}
-  \vspace{10pt}
-  {\large A local-first pipeline with explainable output\par}
-  \vspace{22pt}
-  {\normalsize Phạm Thế Minh \quad---\quad 23BI14279\par}
-  \vspace{4pt}
-  {\small University of Science and Technology of Hanoi\par}
-  {\small Department of Information and Communication Technology\par}
-  \vspace{14pt}
-  {\footnotesize October 2026\par}
-  \vfill
+% ------------------------------------------------------------------ title ----
+\begin{frame}
+  \titlepage
 \end{frame}
 
-% -------------------------------------------------------------- 2. problem --
-\begin{frame}{The Problem}
-  \framesubtitle{Two problems, and they pull against each other}
-  \begin{itemize}\itemsep10pt
-    \item Vietnamese financial phishing arrives through SMS and Zalo. The
-          messages people most want checked are the ones carrying
-          \textbf{bank details, phone numbers and OTP codes}.
-    \pause
-    \item Sending that message to a cloud service to be checked means
-          \textbf{uploading exactly what needs protecting}.
-    \pause
-    \item A general multilingual model does not cover how these messages are
-          really written: mixed Vietnamese and English, chat abbreviations,
-          missing diacritics, emoji.
+% ------------------------------------------------------------ contents -------
+\begin{frame}{Table of Contents}
+  \setbeamerfont{section in toc}{size=\Large}
+  \vspace{6pt}
+  \tableofcontents[hideallsubsections,pausesections]
+\end{frame}
+
+% =========================================================== 1. the problem ==
+\section{The Problem}
+
+\begin{frame}{The Immediate Problem}
+  \framesubtitle{Checking a scam message means handing over what the scam wants}
+  \begin{itemize}\itemsep 7pt\small
+    \item<2-> Scam messages carry private details: bank numbers, OTP codes, phone numbers
+    \item<3-> Sending one to a cloud API uploads exactly what needs protecting
+    \item<4-> So the check has to run \textbf{on the user's own laptop}
+    \item<5-> The task: \textbf{supervised classification} into four classes
   \end{itemize}
-  \pause
-  \vfill
-  \begin{block}{What this thesis builds}
-    A detector that runs \textbf{on the user's own laptop}, classifies the
-    message, and \textbf{shows the phrases it reacted to} instead of a bare
-    confidence score.
-  \end{block}
-  \note{Report Sections 1.1--1.2. Do not open with scam statistics; open with
-        the conflict between checking a message and protecting it.}
+  \onslide<6->{%
+  \begin{block}{The four classes}
+    \small bank impersonation \quad$\bullet$\quad Zalo social engineering \quad$\bullet$\quad task scam \quad$\bullet$\quad benign
+  \end{block}}
+  \note{Report 1.1 to 1.2. Say it in this order: the message holds private data, so it must not leave the device, so a small model has to do the job locally.}
 \end{frame}
 
-% ------------------------------------------------------------ 3. why local --
-\begin{frame}{Why It Has to Run Locally}
-  \framesubtitle{The privacy argument, using the provider's own documentation}
-  \begin{itemize}\itemsep8pt
-    \item OpenAI's \textbf{Temporary Chat} keeps a conversation out of history,
-          does not train on it, and writes no memory.
-    \pause
-    \item It does not stop the message being sent. OpenAI's documentation states
-          a copy may be kept \textbf{up to 30 days} for safety purposes.
-    \pause
-    \item So under the strongest privacy setting offered, a message containing a
-          bank account number and an OTP still leaves the device and sits on
-          someone else's server for up to a month.
-    \pause
-    \item The 2023 caching bug makes the same point from the other side: that
-          exposure came from \textbf{the provider's code}, not a user setting.
-  \end{itemize}
-  \pause
-  \vfill
-  \begin{block}{}
-    A privacy setting is only as good as the system enforcing it. Running the
-    model on the device removes the question instead of answering it.
-  \end{block}
-  \note{Report Section 1.9. If asked "why not just use ChatGPT privacy mode",
-        this is the slide --- quote their own FAQ, do not argue.}
+\begin{frame}{Research Questions}
+  \framesubtitle{Every step that follows answers one of these}
+  \begin{description}\itemsep 12pt
+    \item[\textcolor{darkred}{RQ1}]<2-> How well do the two locally trained models, Qwen (QLoRA) and PhoBERT, classify the four threat types on the same final test?
+    \item[\textcolor{darkred}{RQ2}]<3-> Is fine-tuning on a consumer laptop practical, and why QLoRA rather than ordinary LoRA on an 8~GiB graphics card?
+    \item[\textcolor{darkred}{RQ3}]<4-> Can the system explain its answer (risk tier, label, quoted phrases, safe advice) and not only give a score?
+  \end{description}
+  \note{Report 1.3. The conclusion slide answers these three in the same order.}
 \end{frame}
 
-% ------------------------------------------------------------- 4. the build --
-\begin{frame}{What Was Built}
-  \framesubtitle{Offline preparation, done once --- then one runtime path per message}
+% ========================================================== 2. the pipeline ==
+\section{The Pipeline}
+
+\begin{frame}{The Pipeline}
+  \framesubtitle{How the system fits together}
   \centering
-  % the thesis figure is drawn for a 14.6 cm page; a 16:9 slide is narrower
-  \resizebox{\linewidth}{!}{\input{figures/system_overview_bare}}
-  \pause
-  \vfill
-  \begin{block}{}
-    \small The only thing crossing between the two halves is the trained model
-    file. At runtime nothing needs an API key or an internet connection.
-  \end{block}
-  \note{Report Figure 3.1. Say: top row happens once, bottom row happens every
-        time a user checks a message.}
+  \resizebox{0.97\linewidth}{!}{\input{figures/pipeline_reveal}}
+  \note{Report Figure 3.1. Top row happens once. Bottom row happens every time someone checks a message. Only the model files cross between them.}
 \end{frame}
 
-% ------------------------------------------------------------ 5. objectives --
-\begin{frame}{Objectives, and What Was Actually Met}
+% ============================================================== 3. the data ==
+\section{The Data}
+
+\begin{frame}{Seed Crawl}
+  \framesubtitle{tinnhiemmang.vn, a site that publishes public scam warnings}
+  \begin{itemize}\itemsep 7pt\small
+    \item<2-> A crawler collected the warning articles
+    \item<3-> Each article becomes a \textbf{seed} with its own ID
+    \item<4-> A seed describes a scam. It is \textbf{not} a scam message, so it cannot be training data as it is
+  \end{itemize}
+  \vspace{6pt}
+  \onslide<5->{%
+  \centering
+  \includegraphics[width=0.95\linewidth]{seed_row_slide.png}\\[2pt]
+  {\scriptsize One row of the retained seed file: the text, the address it came from, the time it was collected}}
+  \note{Report 3.2. The seed file holds 300 seeds. Do not say these are scam messages; they are warnings about scams.}
+\end{frame}
+
+\begin{frame}{Data Generation}
+  \framesubtitle{Messages written from the seeds, one class at a time}
+  \centering
+  \resizebox{0.97\linewidth}{!}{\input{figures/data_reveal}}
+  \vspace{8pt}
+  \begin{itemize}\itemsep 5pt\small\raggedright
+    \item<6-> The prompt names the class and the exact JSON fields to return
+    \item<7-> Every message is checked the moment it is produced, and saved after each batch, so a rate-limit crash can resume
+    \item<8-> A review found 240 Zalo messages written as narration. They were rebuilt offline from 60 scenarios
+  \end{itemize}
+  \note{Report 3.2 to 3.3 and Chapter IV. First pass was Claude. The judge was a GPT-family model. The Zalo rewrite came from a GPT-family model, so the judge is not independent for that class.}
+\end{frame}
+
+\begin{frame}{How the Label Is Set}
+  \framesubtitle{One real record from the training set}
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.52\textwidth}
-      {\small\textbf{Seven objectives}}
-      \begin{enumerate}\small\itemsep2pt
-        \item Build a Vietnamese phishing dataset
-        \item Review part of it by hand
-        \item Repair what came out badly
-        \item Choose the base model by measuring
-        \item Check that fine-tuning was needed
-        \item Measure LoRA against QLoRA
-        \item Train, export, evaluate once
-      \end{enumerate}
+    \begin{column}{0.62\textwidth}
+      \onslide<2->{%
+      {\scriptsize
+      \setlength{\tabcolsep}{3pt}
+      \renewcommand{\arraystretch}{1.25}
+      \begin{tabular}{@{}l p{6.0cm}@{}}
+        \texttt{text}   & MB Bank thông báo: Smart OTP của bạn sắp hết hạn sau 24h. Để gia hạn miễn phí, tải lại app tại mbbank-update.com/app và nhập số CCCD + mã PIN hiện tại. \ldots \\
+        \rowcolor{darkred!14}
+        \texttt{\textbf{label}} & \textbf{bank\_impersonation} \\
+        \texttt{risk\_tier} & high-risk \\
+        \texttt{suspicious\_spans} & ``mbbank-update.com/app'', ``nhập số CCCD + mã PIN hiện tại'', ``Smart OTP của bạn sắp hết hạn'' \\
+        \texttt{xai\_explanation} & Không có ngân hàng nào yêu cầu bạn nhập CCCD và mã PIN trên website bên ngoài \ldots \\
+        \texttt{source} & synthetic\_claude \\
+        \texttt{seed\_id} & seed\_bbd7273fd159 \\
+      \end{tabular}}}
     \end{column}
-    \pause
+    \begin{column}{0.36\textwidth}
+      \begin{itemize}\itemsep 5pt\footnotesize
+        \item<3-> The label is set \textbf{when the message is written}, not added afterwards
+        \item<4-> The prompt names the class, so every message in that batch starts with it
+        \item<5-> Qwen writes the label as text. PhoBERT trains on it as a class number
+        \item<6-> When scored, a model sees only the text
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Report 3.2, Table 3.1 and the worked example. This is the question that failed last time: where is the label, and who decided it.}
+\end{frame}
+
+\begin{frame}{Checking the Labels}
+  \framesubtitle{A judge model scored every message, and I reviewed 100 by hand}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.53\textwidth}
+      \onslide<2->{%
+      \begin{block}{One record from the review sheet}
+        {\footnotesize
+        Agribank thân mến! Thẻ ATM của bạn số ****3421 đã được gia hạn thành công đến 06/2028. Vui lòng đến chi nhánh gần nhất để nhận thẻ mới.\\[3pt]
+        Label: \textbf{benign} \quad Risk tier: \textbf{suspicious}\\[3pt]
+        \onslide<3->{Judge model: \textbf{PASS} on all five scores\\[3pt]}
+        \onslide<4->{\textcolor{darkred}{\textbf{My verdict: FAIL.}} Not a real greeting, and the risk tier should be benign.}}
+      \end{block}}
+    \end{column}
     \begin{column}{0.44\textwidth}
-      {\small\textbf{Not finished}}\\[4pt]
-      {\small
-      \begin{itemize}\itemsep4pt
-        \item No deployment version fitted after the evaluation --- on purpose,
-              a single final evaluation loses its meaning if training continues
-              on the same data.
-      \end{itemize}}
+      \begin{itemize}\itemsep 8pt\small
+        \item<5-> Judge model: \textbf{1,395 of 2,097} passed (66.5\%)
+        \item<6-> By hand: 100 messages, 44 passed. I agreed with the judge on 87
+        \item<7-> 324 flagged labels reviewed, 233 agreed, only \textbf{57 used}. The other 176 came from one article
+      \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report Chapter II. Volunteering the unfinished item here is cheaper
-        than being asked about it later. The open security findings are on
-        the limits slide, not here.}
+  \note{Report 3.3 and Chapter V. The 44 of 100 is about that sample, not the whole set. 176 corrections were left out on purpose: near-copies of one scenario would make a class look more varied than it is.}
 \end{frame}
 
-% ---------------------------------------------------------------- 6. data --
-\begin{frame}{The Dataset}
-  \framesubtitle{2,097 Vietnamese messages, four classes}
+\begin{frame}{Splitting the Data}
+  \framesubtitle{By source article, never by message}
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.5\textwidth}
-      {\small
-      \begin{itemize}\itemsep6pt
-        \item Written from \textbf{public scam-warning articles} on
-              \textit{tinnhiemmang.vn}, not collected from victims.
-        \pause
-        \item 1,658 train / 219 validation / \textbf{220 set aside}.
-        \pause
-        \item Every message stores the ID of the article it came from.
-      \end{itemize}}
+    \begin{column}{0.44\textwidth}
+      \begin{itemize}\itemsep 9pt\small
+        \item<2-> Messages from one article look alike
+        \item<3-> So an article and all its messages go to \textbf{one} split
+        \item<4-> No article is in two splits. The largest holds 7.96\% of the data (cap 8\%)
+      \end{itemize}
     \end{column}
-    \pause
-    \begin{column}{0.46\textwidth}
-      \begin{block}{The rule that matters}
-        \small All messages from one article go into the \textbf{same} part.
-        Two messages from one article can differ by a bank name and an amount,
-        so splitting them would test the model on near-copies of its own
-        training data.
-      \end{block}
+    \begin{column}{0.54\textwidth}
+      \onslide<5->{%
+      {\footnotesize
+      \setlength{\tabcolsep}{4pt}
+      \renewcommand{\arraystretch}{1.2}
+      \begin{tabular}{@{}lrrrrr@{}}
+        \toprule
+        & \cell{Bank} & \cell{Benign} & \cell{Task} & \cell{Zalo} & \cell{Total} \\
+        \midrule
+        Train      & 595 & 517 & 306 & 240 & 1,658 \\
+        Validation &  76 &  72 &  49 &  22 &   219 \\
+        Final test &  70 &  66 &  49 &  35 &   220 \\
+        \midrule
+        \textbf{Total} & \textbf{741} & \textbf{655} & \textbf{404} & \textbf{297} & \textbf{2,097} \\
+        \bottomrule
+      \end{tabular}}}
     \end{column}
   \end{columns}
-  \pause
-  \vfill
-  {\footnotesize In the training messages: \textbf{31.4\%} carry chat
-  abbreviations, \textbf{12.9\%} are typed with no diacritics, \textbf{6.3\%}
-  contain emoji.}
-  \note{Report Sections 1.1 and 3.2. The 8\% cap on any single article held at
-        7.9638\%.}
+  \note{Report 3.2 and Table 3.2. Whole articles are cut by count, which is why the test set is 220 and not exactly 10 percent.}
 \end{frame}
 
-% ------------------------------------------------------------ 7. quality ----
-\begin{frame}{Data Quality --- The Uncomfortable Part}
-  \framesubtitle{Reported as measured, not as hoped}
-  \begin{itemize}\itemsep7pt
-    \item A judge model scored every message. \textbf{1,395 of 2,097 passed
-          (66.52\%)} --- a message fails if any one of five checks scores below
-          3 out of 5.
-    \pause
-    \item A Vietnamese-speaking reviewer checked 100 by hand: \textbf{44
-          passed}, and the reviewer agreed with the judge on 87 of 100.
-    \pause
-    \item Of 324 doubtful labels reviewed, 233 corrections were agreed but
-          \textbf{only 57 were used} --- the other 176 all came from one
-          article, and admitting them would inflate a class with near-copies.
-  \end{itemize}
-  \pause
-  \vfill
-  \begin{block}{The limitation to say out loud}
-    \small The rewritten Zalo messages pass at 99.7\%, task scam at 47.5\%.
-    That gap is not quality --- the Zalo messages were rewritten by a model from
-    the \textbf{same family as the judge}. For those, the judge is not an
-    independent opinion.
-  \end{block}
-  \note{Report Section 5.2. Say the 99.7\% caveat BEFORE anyone asks about it.}
+% ===================================================== 4. training the models ==
+\section{Training the Models}
+
+\begin{frame}{Qwen: Choosing the Model and the Method}
+  \framesubtitle{Measured on the actual laptop before committing}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\itemsep 4pt\footnotesize
+        \item<2-> Three Qwen models tried on the same 33 messages. \textbf{Qwen3-4B-Instruct} fit the laptop best
+        \item<3-> Then ordinary LoRA against QLoRA on an 8~GiB card:
+      \end{itemize}
+      \vspace{3pt}
+      \onslide<3->{%
+      {\footnotesize
+      \setlength{\tabcolsep}{4pt}
+      \renewcommand{\arraystretch}{1.15}
+      \begin{tabular}{@{}lrr@{}}
+        \toprule
+        & \cell{LoRA} & \cell{QLoRA} \\
+        \midrule
+        Peak memory (MiB of 8,151) & 7,902 & 7,516 \\
+        Free at the tightest moment & 9 MiB & workable \\
+        Median time per step & 53.3 s & 3.46 s \\
+        \bottomrule
+      \end{tabular}}}
+      \vspace{3pt}
+      \onslide<4->{{\footnotesize LoRA did not crash, but needed about 18 hours.}}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \onslide<5->{%
+      \centering
+      \includegraphics[width=\linewidth]{gpu_telemetry_probe.png}}
+    \end{column}
+  \end{columns}
+  \note{Report 3.4 and 4.2. Never say out of memory: it did not happen. LoRA fitted with 9 MiB to spare and was too slow to be practical. The 33 messages were a quick screening test, not a proof that this model is better in general.}
 \end{frame}
 
-% ---------------------------------------------------- 8. was tuning needed --
-\begin{frame}{Was Fine-Tuning Even Necessary?}
-  \framesubtitle{Measured, not assumed --- same model, same 254 messages}
+\begin{frame}{Qwen: The Full Training Run}
+  \framesubtitle{QLoRA on Qwen3-4B-Instruct, same messages and seed as PhoBERT}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \onslide<2->{%
+      \includegraphics[width=\linewidth]{qwen_loss_curves_slide.png}}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \begin{itemize}\itemsep 8pt\small
+        \item<3-> 3 epochs, 1,245 steps, seed 42
+        \item<4-> Loss falls fast, then flattens
+        \item<5-> Checked on the validation messages every 50 steps
+        \item<6-> Best checkpoint: \textbf{step 200}
+        \item<7-> 14.87 hours in total, most of it those validation passes
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages at every check, which is why 1,245 steps took almost 15 hours.}
+\end{frame}
+
+\begin{frame}{PhoBERT: The Full Training Run}
+  \framesubtitle{A classifier with a four-way output, not an adapter}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \onslide<2->{%
+      \includegraphics[width=\linewidth]{phobert_loss_curves_slide.png}}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \begin{itemize}\itemsep 8pt\small
+        \item<3-> Every weight is trained, plus a four-way classification head
+        \item<4-> Not LoRA, not QLoRA
+        \item<5-> 3 epochs, 312 steps, seed 42
+        \item<6-> Best checkpoint: \textbf{step 100}
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Report 4.5. The label is one of four output positions. There is no explanation and no GGUF for PhoBERT.}
+\end{frame}
+
+\begin{frame}{Picking the Best Checkpoint}
+  \framesubtitle{Both models, scored on the same 219 validation messages}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \onslide<2->{%
+      \includegraphics[width=\linewidth]{checkpoint_selection_sweep.png}}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \begin{itemize}\itemsep 9pt\small
+        \item<3-> Qwen was checked 25 times, PhoBERT 7 times
+        \item<4-> Qwen: step 200, macro F1 \textbf{0.9885}
+        \item<5-> PhoBERT: step 100, macro F1 \textbf{0.9849}
+        \item<6-> Rule: enough recall on the risky classes and no unreadable answer first, then the best macro F1
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Report 4.6. Validation picks the checkpoint. The final 220 messages are not used for any choice.}
+\end{frame}
+
+% =========================================================== 5. evaluation ==
+\section{Evaluation}
+
+\begin{frame}{Both Models on the Final Test}
+  \framesubtitle{220 messages neither model had seen, each model run once}
   \centering
-  \pause
-  \headnum{macro F1 \; 0.6702 \;$\rightarrow$\; 0.9625}{prompting alone, then the same model after QLoRA}
-  \pause
-  \vfill
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{What the base model actually did}}\\[4pt]
-      {\small It labelled \textbf{111 of 254} messages as bank impersonation
-      when only 56 were, and accepted only \textbf{21 of 61} safe messages as
-      safe.}
-    \end{column}
-    \pause
-    \begin{column}{0.48\textwidth}
-      \begin{block}{}
-        \small It was not detecting scams. It was calling almost everything a
-        scam --- which is why the biggest gain from fine-tuning lands on the
-        \textbf{benign} class.
-      \end{block}
-    \end{column}
-  \end{columns}
-  \note{Report Section 3.4.1. This is the answer to "why not just prompt a big
-        model". It is our own measurement, not a citation.}
+  \onslide<2->{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}}\\[3pt]
+  \onslide<3->{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
+  \note{Report 5.3. No unreadable answers from either model. One seed each means no claim about how much the numbers would move.}
 \end{frame}
 
-% ------------------------------------------------------------ 9. hardware ---
-\begin{frame}{Choosing the Training Method on Real Hardware}
-  \framesubtitle{RTX 5050 laptop, 8,151 MiB --- both methods measured before committing}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{Ordinary LoRA}}
-      \begin{itemize}\small\itemsep3pt
-        \item 7,902 of 8,151 MiB used
-        \item \textbf{9 MiB free} at its tightest
-        \item pointed at $\sim$18 hours
-        \item no out-of-memory error
-      \end{itemize}
-    \end{column}
-    \pause
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{NF4 QLoRA}}
-      \begin{itemize}\small\itemsep3pt
-        \item 7,516 of 8,151 MiB used
-        \item workable margin throughout
-        \item 3.46 s median per step
-        \item no out-of-memory error
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \pause
-  \vfill
-  \begin{block}{The decision, stated honestly}
-    \small LoRA \textbf{did not crash}. An eighteen-hour run with 9 MiB to spare
-    is a bad bet: one brief extra allocation ends it and costs most of a day.
-    The choice was about memory and risk, not about accepting a worse model.
-  \end{block}
-  \note{Report Sections 3.4.2 and 4.3. Never say LoRA ran out of memory. It did
-        not, and the report says so.}
-\end{frame}
-
-% ----------------------------------------------------------- 10. training ---
-\begin{frame}{Training the Two Models}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{Qwen3-4B-Instruct-2507}}
-      \begin{itemize}\small\itemsep3pt
-        \item NF4 QLoRA, 3 epochs, seed 42
-        \item 1,245 optimizer steps
-        \item checkpoint \textbf{200} selected
-        \item exported to Q8\_0 GGUF, 4.28 GB
-      \end{itemize}
-    \end{column}
-    \pause
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{PhoBERT}}
-      \begin{itemize}\small\itemsep3pt
-        \item full classifier, nothing quantized
-        \item 312 optimizer steps
-        \item checkpoint \textbf{100} selected
-        \item comparison baseline, not shipped
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \pause
-  \vfill
-  \begin{block}{The 14.87-hour run --- where the time actually went}
-    \small The 1,245 optimizer steps account for only \textbf{1.36 hours}. The
-    rest is validation: at each of 25 checkpoints the model writes a full
-    structured answer for all 219 validation messages --- 5,475 generated
-    answers on a laptop GPU.
-  \end{block}
-  \note{Report Sections 4.4--4.5. The time breakdown pre-empts the sharpest
-        arithmetic question available.}
-\end{frame}
-
-% --------------------------------------------------------------- 11. demo ---
-\begin{frame}{The Analysis --- Three Real Inputs}
-  \framesubtitle{Run through the exported model}
-  {\small
-  \textbf{Input 1 --- a scam.} \textit{``{[}VIETCOMBANK{]} Tai khoan cua ban vua
-  bi truy cap\ldots bam vao link de khoa ngay:
-  \texttt{vcb-secure-alert.net}\ldots''}}
-  \pause
-  \vspace{2pt}
-  {\small $\rightarrow$ \textbf{high-risk}, \texttt{bank\_impersonation}. Quoted
-  the link, the 03:47 access claim, the phone number. \textbf{Correct.}}
-  \pause
-  \vspace{6pt}
-
-  {\small\textbf{Input 2 --- a real transaction notice.} \textit{``VCB: TK
-  0123456789 -250,000 VND\ldots THANH TOAN HOA DON DIEN EVN HANOI\ldots''}}
-  \pause
-  \vspace{2pt}
-  {\small $\rightarrow$ \textbf{benign}. Mentions a bank, an account number and
-  an amount, and is still not flagged. \textbf{Correct.}}
-  \pause
-  \vspace{6pt}
-
-  {\small\textbf{Input 3 --- a real OTP notice.} \textit{``VPBank Smart OTP: Mã
-  xác thực\ldots để xác nhận đăng nhập Internet Banking\ldots''}}
-  \pause
-  \vspace{2pt}
-  {\small $\rightarrow$ \textbf{suspicious}. \textcolor{red!60!black}{Wrong ---
-  this is a false alarm.}}
-  \note{Report Section 4.7. Show the advice text on the next slide, not here.}
-\end{frame}
-
-% ------------------------------------------------------- 12. the false alarm --
-\begin{frame}{The False Alarm --- and Why It Is Reported}
-  \framesubtitle{Six ordinary bank messages tested; four returned benign}
-  \begin{itemize}\itemsep8pt
-    \item The two that were flagged are the \textbf{only two that ask the reader
-          to log in}. All six mention a bank.
-    \pause
-    \item Nearly every scam in the training data works by getting someone to log
-          in or hand over a code, so the model has learned to treat
-          \textbf{authentication language as the signal itself}.
-    \pause
-    \item The mistake is in the \textbf{safer direction}: a false alarm costs a
-          minute, a scam called safe can cost someone their savings.
-    \pause
-    \item Even with the label wrong, the advice was still safe --- check the
-          official app, share the code with nobody, call the bank yourself.
-  \end{itemize}
-  \pause
-  \vfill
-  \begin{block}{}
-    \small A wrong label attached to harmful advice would be a real defect. A
-    wrong label attached to safe advice is a much smaller one.
-  \end{block}
-  \note{Report Section 4.7 and Chapter V limits. This slide is the strongest one
-        in the deck: the weakness was found, named, and explained by us.}
-\end{frame}
-
-% ------------------------------------------------------------ 13. results ---
-\begin{frame}{Results}
-  \framesubtitle{220 messages set aside before training, seen once, at the end}
+\begin{frame}{Where Each Model Went Wrong}
+  \framesubtitle{Errors on the same 220 messages}
   \centering
-  \pause
-  \begin{table}\small
-  \begin{tabular}{lccc}
-    \toprule
-    & \textbf{Macro F1} & \textbf{Unreadable} & \textbf{Risky called safe} \\
-    \midrule
-    Qwen QLoRA & 0.980493 & 0 & \textbf{1} \\
-    PhoBERT    & 0.990892 & 0 & \textbf{1} \\
-    \bottomrule
-  \end{tabular}
-  \end{table}
-  \pause
-  \vfill
-  \begin{block}{The column that matters}
-    \small A dangerous message called safe is the expensive mistake. Both models
-    made \textbf{exactly one}. On the measure that matters most for a phishing
-    tool, \textbf{they tied.}
-  \end{block}
-  \pause
-  \vspace{4pt}
-  {\footnotesize Each model was trained once, so the overall gap describes this
-  run. It is not enough to conclude PhoBERT classifies better in general --- and
-  PhoBERT cannot produce the risk tier, the evidence, or the explanation.}
-  \note{Report Chapter V. Never claim significance, a stable winner, or
-        run-to-run variance. One seed, one run.}
+  \onslide<2->{\includegraphics[width=0.70\linewidth]{terminal_evaluation_confusion_slide.png}}\\[3pt]
+  \onslide<3->{{\small Qwen: 4 mistakes out of 220. PhoBERT: 2.}}\\[1pt]
+  \onslide<4->{{\small Each called exactly \textbf{one} dangerous message safe.}}
+  \note{Report 5.4. The dangerous error is a scam called benign. Both had exactly one.}
 \end{frame}
 
-% -------------------------------------------------------- 14. limitations ---
+% ============================================================ 6. conclusion ==
+\section{Conclusion}
+
+\begin{frame}{Conclusion}
+  \framesubtitle{The three research questions}
+  \begin{description}\itemsep 6pt\small
+    \item[\textcolor{darkred}{RQ1}]<2-> PhoBERT scored higher, 0.991 against 0.980 macro F1. One run each, so no claim beyond this comparison
+    \item[\textcolor{darkred}{RQ2}]<3-> Yes. QLoRA trained on the 8~GiB laptop where ordinary LoRA left 9~MiB. The exported model runs without a graphics card
+    \item[\textcolor{darkred}{RQ3}]<4-> Yes. Every answer arrived in the structured format: risk tier, label, quoted phrases, advice. None was unreadable
+  \end{description}
+  \onslide<5->{%
+  \begin{block}{What was built}
+    \footnotesize A governed dataset of 2,097 messages, its repair, a measured training method, and one final evaluation of two models
+  \end{block}}
+  \note{Report Chapter VI. Same order as the research questions slide.}
+\end{frame}
+
 \begin{frame}{Limitations}
   \framesubtitle{Stated in the report, not discovered in this room}
-  \begin{itemize}\small\itemsep6pt
-    \item \textbf{The messages are generated}, written from public warnings
-          rather than collected from real victims.
-    \pause
-    \item \textbf{Everything ran once}, one seed. No repeat run, so no statement
-          about how much the numbers would move.
-    \pause
-    \item \textbf{The judge is not fully independent} for the rewritten Zalo
-          class.
-    \pause
-    \item \textbf{Genuine messages that mention logging in are over-flagged},
-          systematically.
-    \pause
-    \item \textbf{Manual checking covers a sample}, not the whole set.
-    \pause
-    \item \textbf{A code review left six critical findings open.} So this is a
-          prototype, not a system ready for real use.
-    \pause
-    \item \textbf{Text only.} No screenshots, no QR codes, and never tested
-          against real messages arriving on a real phone.
-  \end{itemize}
-  \note{Report Section 5.5. Reading these aloud is cheaper than being walked
-        into any one of them.}
+  \begin{alertblock}{What this work does not show}
+    \begin{itemize}\itemsep 3pt\footnotesize
+      \item<2-> The messages are generated from public warnings, not collected from real victims
+      \item<3-> One run and one seed: no statement about how the numbers would move
+      \item<4-> The judge is not independent for the rebuilt Zalo class
+      \item<5-> Genuine messages that ask the reader to log in are over-flagged
+      \item<6-> Manual checking covers a sample, not the whole set
+      \item<7-> A code review left six critical findings open: a prototype, not ready for real use
+    \end{itemize}
+  \end{alertblock}
+  \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them.}
 \end{frame}
 
-% ------------------------------------------------- 15. contributions/future --
-\begin{frame}{Contributions and What Comes Next}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{Contributions}}
-      \begin{itemize}\small\itemsep4pt
-        \item A 2,097-message Vietnamese dataset with threat labels and marked
-              evidence, split so near-copies cannot leak
-        \item Faults found and repaired before training, with the decisions
-              recorded
-        \item Two models trained on one laptop; a 4.28 GB file that runs offline
-        \item One evaluation, run once
-      \end{itemize}
-    \end{column}
-    \pause
-    \begin{column}{0.48\textwidth}
-      {\small\textbf{Future work}}
-      \begin{itemize}\small\itemsep4pt
-        \item Review the whole dataset by hand, not a sample
-        \item \textbf{Use both models}: PhoBERT for the label, Qwen for the
-              explanation
-        \item Try \textbf{ViSoBERT}, trained on Vietnamese social-media text,
-              in PhoBERT's place
-        \item OCR, so the user never has to open the suspicious message to copy
-              its text
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \note{Report Chapter VI. The OCR point has a safety reason, not just
-        convenience: copying text means opening the message next to a live link.}
+\begin{frame}{Future Work}
+  \framesubtitle{What I would do next}
+  \begin{block}{Three next steps}
+    \begin{enumerate}\itemsep 9pt\small
+      \item<2-> Review the whole dataset by hand, not a sample
+      \item<3-> Use both models together: PhoBERT for the label, Qwen for the explanation
+      \item<4-> Add OCR, so a user can point the tool at a screenshot instead of copying text out of a suspicious message
+    \end{enumerate}
+  \end{block}
+  \note{Report Chapter VI. The second item is also the answer to why Qwen is shipped when PhoBERT scored higher.}
 \end{frame}
 
-% ------------------------------------------------------------- 16. closing --
+% ------------------------------------------------------------ demo (blank) ---
 \begin{frame}[plain]
-  \vfill\centering
-  {\LARGE\bfseries\color{CVBLUE} Thank you\par}
-  \vspace{12pt}
-  {\normalsize Questions\par}
+  % kept blank on purpose until the demo is decided
+\end{frame}
+
+% ---------------------------------------------------------------- thank you ---
+\begin{frame}{Thank You}
+  \vfill
+  \begin{center}
+    \color{CVBLUE}{\Huge\bfseries Thank You}\\[16pt]
+    {\Large Questions?}\\[24pt]
+    {\normalsize\color{black} Phạm Thế Minh \quad|\quad 23BI14279}\\[6pt]
+    {\small\color{black} University of Science and Technology of Hanoi (USTH)}\\[6pt]
+    {\footnotesize\mdseries\color{black} Supervisors: Nguyễn Việt Anh \quad|\quad Giang Anh Tuấn}
+  \end{center}
   \vfill
 \end{frame}
 
-% ============================== BACKUP =====================================
+% --------------------------------------------------------------- references ---
+\begin{frame}{References}
+  \footnotesize
+  \begin{thebibliography}{9}
+    \bibitem{hu2022lora}
+    Hu, E. J., et al. (2022). LoRA: Low-Rank Adaptation of Large Language Models. \textit{ICLR}.
+    \bibitem{dettmers2023qlora}
+    Dettmers, T., Pagnoni, A., Holtzman, A., \& Zettlemoyer, L. (2023). QLoRA: Efficient Finetuning of Quantized LLMs. \textit{NeurIPS}, 36.
+    \bibitem{nguyen2020phobert}
+    Nguyen, D. Q., \& Nguyen, A. T. (2020). PhoBERT: Pre-trained Language Models for Vietnamese. \textit{Findings of EMNLP 2020}.
+    \bibitem{qwen2025}
+    Yang, A., et al. (2025). Qwen3 Technical Report. arXiv:2505.09388.
+    \bibitem{li2024datageneration}
+    Li, Y., et al. (2024). Data Generation Using Large Language Models for Text Classification: An Empirical Case Study. arXiv:2407.12813.
+    \bibitem{nguyen2023visobert}
+    Nguyen, N., Phan, T., Nguyen, D.-V., \& Nguyen, K. (2023). ViSoBERT: A Pre-Trained Language Model for Vietnamese Social Media Text Processing. \textit{EMNLP 2023}.
+  \end{thebibliography}
+\end{frame}
+
+% ================================================================= backup ====
 \appendix
-\begin{frame}[plain]\centering\vfill
-  {\large\bfseries\color{CVBLUE} Backup slides\par}\vfill
-\end{frame}
 
-\begin{frame}{Backup --- How the Evidence Is Grounded}
-  {\small Every phrase the model claims to have found is checked against the
-  message before the user sees it:}
-  \vspace{4pt}
-  \begin{lstlisting}
-def cue_span_is_grounded(normalized_text: str, span: str) -> bool:
-    normalized_span = span.strip()
-    return bool(normalized_span) and \
-           normalized_span.casefold() in normalized_text.casefold()
-  \end{lstlisting}
-  \vspace{2pt}
-  {\small If the phrase does not literally appear in the message, it is dropped
-  rather than displayed. \texttt{local\_model.py:597}.}
-  \note{The answer to "how do you know the model is not inventing its
-        evidence". Four lines of code, not an assurance.}
-\end{frame}
-
-\begin{frame}{Backup --- The Three Prompts}
-  {\small Three prompts decide everything the system produces. All are quoted in
-  full in Appendix 6 of the report.}
+\begin{frame}{Backup: Why Qwen When PhoBERT Scored Higher?}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{PhoBERT}
+        \small One label, and nothing else
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Qwen}
+        \small Label, risk tier, quoted phrases, written explanation, safe advice
+      \end{block}
+    \end{column}
+  \end{columns}
   \vspace{6pt}
-  \begin{itemize}\small\itemsep6pt
-    \item \textbf{Generation} --- names the target class, so the label exists
-          without a person assigning it; asks for teencode and code-switching by
-          name; forbids deriving the risk tier from the label.
-    \item \textbf{Judging} --- five scores, pass only if all five reach 3. The
-          pass rule is inside the prompt, which is why one weak score fails a
-          whole message.
-    \item \textbf{Runtime} --- fixes the JSON shape and carries the safety rule
-          on recommendations.
+  \begin{itemize}\itemsep 6pt\small
+    \item The system is meant to explain itself (RQ3), and only Qwen can
+    \item The comparison covers the part the two share: the label
+    \item Next step: PhoBERT for the label, Qwen for the explanation, with its own evaluation
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Backup --- Dataset Repair, Before and After}
-  {\small A Zalo message that was written as \textit{narration} rather than as a
-  message:}
-  \begin{block}{}
-    \scriptsize\itshape ``Tin nhắn thoại trên Zalo được chép lại: `Con trai của
-    \textbf{người nhận} vừa được đưa vào khoa cấp cứu. \textbf{Người gửi} nói
-    cuộc gọi video\ldots'\,''
+\begin{frame}{Backup: Was Fine-Tuning Necessary?}
+  \framesubtitle{Same Qwen model, same 254 messages, before and after QLoRA. An earlier set, one run each}
+  \centering
+  {\footnotesize
+  \setlength{\tabcolsep}{5pt}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{Prompting only}} & \multicolumn{3}{c}{\textbf{After QLoRA}} \\
+    \cmidrule(r){2-4}\cmidrule(l){5-7}
+    Class & Prec. & Recall & F1 & Prec. & Recall & F1 \\
+    \midrule
+    Bank impersonation      & 0.5045 & 1.0000 & 0.6707 & 0.8615 & 1.0000 & 0.9256 \\
+    Zalo social engineering & 0.8806 & 0.7867 & 0.8310 & 1.0000 & 0.9867 & 0.9933 \\
+    Task scam               & 0.7091 & 0.6290 & 0.6667 & 1.0000 & 0.8710 & 0.9310 \\
+    Benign                  & 1.0000 & 0.3443 & 0.5122 & 1.0000 & 1.0000 & 1.0000 \\
+    \midrule
+    \textbf{Macro F1}       & \multicolumn{3}{c}{\textbf{0.6702}} & \multicolumn{3}{c}{\textbf{0.9625}} \\
+    \bottomrule
+  \end{tabular}}
+\end{frame}
+
+\begin{frame}{Backup: A Genuine Message the System Gets Wrong}
+  \framesubtitle{Reported as a limitation}
+  \begin{block}{Input}
+    \scriptsize VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.
   \end{block}
-  \pause
-  {\small The replacement, from the same source article and the same seed:}
-  \begin{block}{}
-    \scriptsize\itshape ``\textbf{Tôi} vừa trao đổi nhanh qua video về tình
-    trạng của cháu nhưng đường truyền trong viện bị ngắt\ldots \textbf{anh/chị}
-    quét mã QR này để chuyển khoản viện phí\ldots''
-  \end{block}
-  {\footnotesize Judge scored the first one realism 2/5; the reviewer marked it
-  FAIL. Same scenario root, rewritten in the first person, applied offline.}
+  \begin{itemize}\itemsep 5pt\small
+    \item The system returned \textbf{suspicious}, label bank impersonation. The right answer is benign
+    \item Six ordinary bank messages tried: four returned benign. The two flagged are the only two that ask the reader to log in
+    \item Nearly every scam in the training data asks someone to log in or hand over a code, so the model treats that wording as the signal
+    \item It is the safer direction: a false alarm costs a minute, a missed scam can cost savings. The advice was still safe
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Backup: Both Models on the Validation Messages}
+  \framesubtitle{The same 219 messages, one run each}
+  \centering
+  \includegraphics[width=0.85\linewidth]{validation_comparison.png}
+\end{frame}
+
+\begin{frame}{Backup: What the Judge Model Found}
+  \framesubtitle{Average score on each of the five checks, and how many messages passed all five per class}
+  \centering
+  \includegraphics[width=0.85\linewidth]{corpus_judge_quality.png}
+\end{frame}
+
+\begin{frame}{Backup: Where the 14.87 Hours Went}
+  \framesubtitle{Qwen full run}
+  \centering
+  \includegraphics[height=0.62\textheight]{full_run_timeline.png}
 \end{frame}
 
 \end{document}

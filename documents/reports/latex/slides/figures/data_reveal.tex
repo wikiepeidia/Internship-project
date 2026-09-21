@@ -1,0 +1,31 @@
+% The report's data-pipeline figure with the same labels, one box per click.
+% Page 1 of the frame is empty on purpose; the figure starts on page 2.
+\begin{tikzpicture}[
+  sbox/.style={draw=black!45, fill=black!5, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  gbox/.style={draw=CVBLUE!70!black, fill=CVBLUE!12, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  jbox/.style={draw=orange!70!black, fill=orange!10, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  obox/.style={draw=green!55!black, fill=green!8, rectangle, rounded corners=3pt,
+    minimum width=2.6cm, minimum height=0.95cm, align=center, font=\small},
+  arr/.style={->, >=stealth, thick, black!50}
+]
+
+% fixed size, so the picture does not resize as boxes appear
+\useasboundingbox (-1.4,0.6) rectangle (13.4,-1.4);
+
+\node<2->[sbox] (seed)  at ( 0.0, 0) {tinnhiemmang.vn\\articles};
+\node<3->[gbox] (gen)   at ( 4.0, 0) {Generate messages,\\then rewrite\\the ones that failed};
+\node<4->[jbox] (judge) at ( 8.0, 0) {Automatic checks,\\judge model,\\human review};
+\node<5->[obox] (out)   at (12.0, 0) {Final dataset\\2{,}097 messages};
+
+\draw<3->[arr] (seed) -- (gen);
+\draw<4->[arr] (gen)  -- (judge);
+\draw<5->[arr] (judge) -- (out);
+
+\node<2->[font=\scriptsize, text=black!45, below=0.15cm of seed]  {public scam warnings};
+\node<3->[font=\scriptsize, text=black!45, below=0.15cm of gen, align=center]   {one class at a time;\\rewrites keep their article};
+\node<4->[font=\scriptsize, text=black!45, below=0.15cm of judge] {every message checked};
+\node<5->[font=\scriptsize, text=black!45, below=0.15cm of out]   {4 classes};
+\end{tikzpicture}

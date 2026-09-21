@@ -1,0 +1,58 @@
+% The report's system-overview figure, drawn in the same places and with the
+% same labels, but with each part switched on by one click.
+% Page 1 of the frame is empty on purpose; the figure starts on page 2.
+\begin{tikzpicture}[
+  obox/.style={draw=CVBLUE!70!black, fill=CVBLUE!10, rectangle, rounded corners=3pt,
+    text width=2.3cm, minimum height=1.60cm,
+    align=center, font=\footnotesize, inner sep=3pt},
+  rbox/.style={draw=black!55, fill=black!5, rectangle, rounded corners=3pt,
+    text width=2.3cm, minimum height=1.60cm,
+    align=center, font=\footnotesize, inner sep=3pt},
+  ohdr/.style={draw=CVBLUE!80!black, fill=CVBLUE, rectangle, rounded corners=4pt,
+    minimum width=14.6cm, minimum height=0.52cm,
+    align=left, font=\small\bfseries, text=white, inner sep=6pt},
+  rhdr/.style={draw=black!70, fill=black!70, rectangle, rounded corners=4pt,
+    minimum width=14.6cm, minimum height=0.52cm,
+    align=left, font=\small\bfseries, text=white, inner sep=6pt},
+  arr/.style={-{Stealth[length=2.7mm,width=2.1mm]}, line width=0.9pt,
+    CVBLUE!70!black, shorten >=1pt, shorten <=1pt},
+  darr/.style={-{Stealth[length=2.7mm,width=2.1mm]}, line width=0.9pt, dashed,
+    dash pattern=on 3pt off 2.5pt, black!50},
+]
+
+% fixed size, so the picture does not resize as parts appear
+\useasboundingbox (-7.4,0.4) rectangle (7.4,-5.3);
+
+% the handoff line is drawn first so the runtime band paints over its middle
+\draw<7->[darr]
+  (6.10,-2.05) -- (6.10,-2.50)
+  -- node[above, pos=0.62, font=\scriptsize, text=black!60] {trained model files}
+  (0.00,-2.50)
+  -- (0.00,-3.60);
+
+\node<2->[ohdr] at (0,  0.00) {(1)\enspace Offline preparation: done once};
+\node<7->[rhdr] at (0, -3.00) {(2)\enspace Runtime analysis: every message the user checks};
+
+\node<2->[obox] (dc)  at (-6.10, -1.25) {Seed articles\\+ generated\\messages};
+\node<3->[obox] (qrv) at (-3.05, -1.25) {Schema +\\quality\\review};
+\node<4->[obox] (spl) at ( 0.00, -1.25) {Split by\\source\\article};
+\node<5->[obox] (qlo) at ( 3.05, -1.25) {QLoRA +\\PhoBERT\\training};
+\node<6->[obox] (gex) at ( 6.10, -1.25) {Model\\packaging};
+
+\draw<3->[arr] (dc)--(qrv);
+\draw<4->[arr] (qrv)--(spl);
+\draw<5->[arr] (spl)--(qlo);
+\draw<6->[arr] (qlo)--(gex);
+
+\node<7->[rbox] (inp) at (-6.10, -4.40) {\textbf{Input}\\one pasted\\message};
+\node<8->[rbox] (rif) at (-3.05, -4.40) {Runtime\\interface};
+\node<9->[rbox] (mod) at ( 0.00, -4.40) {Local model\\backend};
+\node<10->[rbox] (dly) at ( 3.05, -4.40) {Decision\\layer};
+\node<11->[rbox] (out) at ( 6.10, -4.40) {\textbf{Output}\\risk, label,\\cues, advice};
+
+\draw<8->[arr] (inp)--(rif);
+\draw<9->[arr] (rif)--(mod);
+\draw<10->[arr] (mod)--(dly);
+\draw<11->[arr] (dly)--(out);
+
+\end{tikzpicture}
