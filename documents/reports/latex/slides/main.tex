@@ -80,12 +80,12 @@
 % =========================================================== 1. the problem ==
 \section{The Problem}
 
-\begin{frame}{The Immediate Problem}
-  \framesubtitle{Checking a scam message means handing over what the scam wants}
+\begin{frame}{I. Problem}
+  \framesubtitle{Classification and Privacy}
   \begin{itemize}\itemsep 7pt\small
     \item<2-> Scam messages carry private details: bank numbers, OTP codes, phone numbers
     \item<3-> Sending one to a cloud API uploads exactly what needs protecting
-    \item<4-> So the check has to run \textbf{on the user's own laptop}
+    \item<4-> So the check has to run \textbf{on the user's own device}
     \item<5-> The task: \textbf{supervised classification} into four classes
   \end{itemize}
   \onslide<6->{%
@@ -95,8 +95,8 @@
   \note{Report 1.1 to 1.2. Say it in this order: the message holds private data, so it must not leave the device, so a small model has to do the job locally.}
 \end{frame}
 
-\begin{frame}{Research Questions}
-  \framesubtitle{Every step that follows answers one of these}
+\begin{frame}{II. Research Questions}
+  \framesubtitle{Answered by every slide that follows}
   \begin{description}\itemsep 12pt
     \item[\textcolor{darkred}{RQ1}]<2-> How well do the two locally trained models, Qwen (QLoRA) and PhoBERT, classify the four threat types on the same final test?
     \item[\textcolor{darkred}{RQ2}]<3-> Is fine-tuning on a consumer laptop practical, and why QLoRA rather than ordinary LoRA on an 8~GiB graphics card?
@@ -108,7 +108,7 @@
 % ========================================================== 2. the pipeline ==
 \section{The Pipeline}
 
-\begin{frame}{The Pipeline}
+\begin{frame}{III. Pipeline}
   \framesubtitle{How the system fits together}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/pipeline_reveal}}
@@ -118,10 +118,10 @@
 % ============================================================== 3. the data ==
 \section{The Data}
 
-\begin{frame}{Seed Crawl}
-  \framesubtitle{tinnhiemmang.vn, a site that publishes public scam warnings}
+\begin{frame}{IV. Seed Crawl}
+  \framesubtitle{The foundation of data generation}
   \begin{itemize}\itemsep 7pt\small
-    \item<2-> A crawler collected the warning articles
+    \item<2-> A crawler collected warnings from \textbf{tinnhiemmang.vn}, a site that publishes public scam warnings
     \item<3-> Each article becomes a \textbf{seed} with its own ID
     \item<4-> A seed describes a scam. It is \textbf{not} a scam message, so it cannot be training data as it is
   \end{itemize}
