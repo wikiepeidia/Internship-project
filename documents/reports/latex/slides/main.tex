@@ -235,8 +235,8 @@
 % ===================================================== 4. training the models ==
 \section{Training the Models}
 
-\begin{frame}{Qwen: Choosing the Model and the Method}
-  \framesubtitle{Measured on the actual laptop before committing}
+\begin{frame}{Model and Training Choosing}
+  \framesubtitle{Both measured on the actual laptop before committing to either}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.54\textwidth}
       \begin{itemize}\itemsep 4pt\footnotesize
@@ -308,7 +308,7 @@
   \note{Report 4.5. The label is one of four output positions. There is no explanation and no GGUF for PhoBERT.}
 \end{frame}
 
-\begin{frame}{Picking the Best Checkpoint}
+\begin{frame}{Eval 1: Picking the Best Checkpoint}
   \framesubtitle{Both models, scored on the same 219 validation messages}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
@@ -330,8 +330,8 @@
 % =========================================================== 5. evaluation ==
 \section{Evaluation}
 
-\begin{frame}{Both Models on the Final Test}
-  \framesubtitle{220 messages neither model had seen, each model run once}
+\begin{frame}{Eval 2: The Final Test}
+  \framesubtitle{220 messages neither model had ever seen, each model run once}
   \centering
   \onslide<2->{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}}\\[3pt]
   \onslide<3->{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
