@@ -605,7 +605,8 @@ the model answers first.
 
 | Fact | Value |
 | --- | --- |
-| Seeds | 300, all from tinnhiemmang.vn, no label hint |
+| Seeds | 300 in the file, all from tinnhiemmang.vn, no label hint. The pooled corpus used only 87 distinct seed groups |
+| Cleaning | 3,413 messages went in, 2,097 remain: 1,316 dropped or rewritten (825 narrated Zalo rows replaced by 300 rebuilt, 371 near-duplicates, 94 + 33 over the seed cap, 91 dropped and 176 quarantined in the label review) |
 | Final corpus | 2,097 messages: 741 bank impersonation, 655 benign, 404 task scam, 297 Zalo |
 | Split | 1,658 train, 219 validation, 220 final test |
 | Judge | 1,395 of 2,097 passed (66.52 percent) |
