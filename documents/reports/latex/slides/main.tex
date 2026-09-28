@@ -228,13 +228,13 @@
       \begin{itemize}\itemsep 8pt\small
         \item<3-> 3 epochs, 1,245 steps, seed 42
         \item<4-> Loss falls fast, then flattens
-        \item<5-> Checked on the validation messages every 50 steps
+        \item<5-> Scored on the validation messages every 50 steps
         \item<6-> Best checkpoint: \textbf{step 200}
         \item<7-> 14.87 hours in total, most of it those validation passes
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages at every check, which is why 1,245 steps took almost 15 hours.}
+  \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages every time it is scored, which is why 1,245 steps took almost 15 hours.}
 \end{frame}
 
 \begin{frame}{VIII. Training PhoBERT}
@@ -264,7 +264,7 @@
     \end{column}
     \begin{column}{0.47\textwidth}
       \begin{itemize}\itemsep 9pt\small
-        \item<3-> Qwen was checked 25 times, PhoBERT 7 times
+        \item<3-> Qwen was scored 25 times, PhoBERT 7 times
         \item<4-> Qwen: step 200, macro F1 \textbf{0.9885}
         \item<5-> PhoBERT: step 100, macro F1 \textbf{0.9849}
         \item<6-> How we picked: a checkpoint must catch the scams and never give a broken answer. Among those, the best overall score wins
