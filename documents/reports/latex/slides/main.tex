@@ -304,34 +304,29 @@
 
 \begin{frame}{XII. Limitations}
   \framesubtitle{Stated up front, not discovered here}
-  \begin{alertblock}{What this work does not show}
-    \begin{itemize}\itemsep 3pt\footnotesize
+  \begin{alertblock}{Project Limitations}
+    \begin{itemize}\itemsep 6pt\small
       \item<2-> The messages are generated from public warnings, not collected from real victims
-      \item<3-> One run and one seed: no statement about how the numbers would move
-      \item<4-> The judge is not independent for the rebuilt Zalo class
+      \item<3-> One run and one seed only
+      \item<4-> The judge is from the same GPT family as the model that rebuilt the Zalo messages
       \item<5-> Genuine messages that ask the reader to log in are over-flagged
-      \item<6-> Manual checking covers a sample, not the whole set
-      \item<7-> A code review left six critical findings open: a prototype, not ready for real use
+      \item<6-> Manual checking covers only a small sample
     \end{itemize}
   \end{alertblock}
-  \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them.}
+  \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them. Not on the slide, but still true and in the report: a code review left six critical findings open. If anyone asks whether this is production-ready or secure, the answer is no.}
 \end{frame}
 
 \begin{frame}{XIII. Future Work}
   \framesubtitle{What I would do next}
-  \begin{block}{Three next steps}
-    \begin{enumerate}\itemsep 9pt\small
-      \item<2-> Review the whole dataset by hand, not a sample
+  \begin{block}{Project Future Work}
+    \begin{enumerate}\itemsep 8pt\small
+      \item<2-> Review the whole dataset by hand
       \item<3-> Use both models together: PhoBERT for the label, Qwen for the explanation
-      \item<4-> Add OCR, so a user can point the tool at a screenshot instead of copying text out of a suspicious message
+      \item<4-> Train and evaluate ViSoBERT (Nguyen et al., 2023), a model built for Vietnamese social-media text
+      \item<5-> Add OCR, so a screenshot can be the input
     \end{enumerate}
   \end{block}
-  \note{Report Chapter VI. The second item is also the answer to why Qwen is shipped when PhoBERT scored higher.}
-\end{frame}
-
-% ------------------------------------------------------------ demo (blank) ---
-\begin{frame}[plain]
-  % kept blank on purpose until the demo is decided
+  \note{Report Chapter VI. The second item is also the answer to why Qwen is shipped when PhoBERT scored higher. ViSoBERT is the reference on the References slide; the report says it was trained on social-media text and reported better results than PhoBERT on informal Vietnamese tasks, spam detection included.}
 \end{frame}
 
 % ---------------------------------------------------------------- thank you ---
