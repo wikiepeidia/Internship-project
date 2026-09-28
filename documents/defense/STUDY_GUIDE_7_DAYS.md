@@ -39,12 +39,24 @@ the variables for its own window only, and points at a local copy of the model:
 
 The D: drive is untouched.
 
-**What still says "NOT READY", and why.** `python -m src.runtime.cli doctor` and
-`analyze` refuse to run. The last check they make ("release-gate-summary") reads the
-newest release result in `data/manifests`, which is an early pilot run from May with
-verdict BLOCK (its `task_scam` recall was 0.44 against a 0.90 floor). The final
-evaluation is not wired into that check. Use the browser demo for the defense. If
-someone runs `doctor`, say exactly that.
+**`doctor` still says "NOT READY", and that is correct.** Its last check
+("release-gate-summary") reads the newest release result in `data/manifests`, which
+is an early pilot run from May with verdict BLOCK (its `task_scam` recall was 0.44
+against a 0.90 floor). That check is about whether the whole project is fit to
+ship, not about whether one message can be analyzed, and this project is not
+release-ready (six open security findings, see Day 7). `doctor` is right to keep
+saying so.
+
+**`analyze` now works anyway.** `analyze` used to refuse for the same reason
+`doctor` does, which meant the terminal command was useless for a demo even though
+nothing was actually broken. Terminal `analyze` now runs whenever the local model
+backend itself is ready, the same bar the browser demo already used
+(`RuntimeService.analyze_text` never checked release-gate-summary either) — see
+`_analysis_ready` in `src/runtime/cli.py:96`. If a check other than
+release-gate-summary fails, `analyze` still refuses, same as before. Both
+`vnphish demo` and `vnphish analyze --text "..."` are fine to run live. If someone
+asks why `doctor` says NOT READY while `analyze` just worked, that is the answer:
+one message doesn't need the whole project to be shippable.
 
 **Do not touch:**
 
@@ -508,7 +520,7 @@ is the one that also writes the explanation, which is why the app ships Qwen."
 
 **The path of one message:**
 
-1. `handle_analyze` — `src/runtime/cli.py:96`, or the browser route
+1. `handle_analyze` — `src/runtime/cli.py:118`, or the browser route
    `DemoApp._handle_analyze` — `src/runtime/demo.py:125`, hands the text on.
 2. `RuntimeService.analyze_text` — `src/runtime/service.py:94`. Cleans the text,
    refuses empty or too-short input, refuses screenshots and audio (it is text only),
@@ -619,19 +631,28 @@ the model answers first.
 1. **The provider generator is not a guaranteed rebuild** (Day 2): a seed can be
    reused across classes while the `seed_id` ignores the class.
 2. **Input 3 is a false alarm and the OTP rule cannot fix it** (Day 7).
-3. **`doctor` and `analyze` say NOT READY** because the release check reads an old
-   pilot result marked BLOCK. The browser demo does not use that check.
+3. **`doctor` still says NOT READY, on purpose.** Its release check reads an old
+   pilot result marked BLOCK, and the project genuinely isn't release-ready. `analyze`
+   no longer needs that check to pass, so it runs; `doctor` still reports the check
+   truthfully. Explain the difference if asked (Day 7).
 4. **Two Windows environment variables point at the old D: layout.** They are why the
    app broke. `START_DEMO.bat` works around them. If you want them gone for good,
    after the defense, remove `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` from
    your user environment variables and set the three variables in `START_DEMO.bat`
    instead. Removing them will also break any command that still expects the D: model
    folder.
-5. **Four tests fail, and failed before this week's changes.** Two are real: the
-   OTP rule test above, and `test_recommendation_sanitizer_blocks_unsafe_actions`
+5. **Several tests fail, most from before this week's changes.** Two are real: the
+   OTP rule test in Day 7, and `test_recommendation_sanitizer_blocks_unsafe_actions`
    (the advice wording changed from "hoac" to "va khong"). Two are the test guard
-   failing to load an unrelated library. Five data-pipeline test files cannot even be
-   collected under the guard for the same reason.
+   failing to load an unrelated library, and five data-pipeline test files cannot even
+   be collected under the guard for the same reason. One more,
+   `test_runtime_prose_behavior_fingerprints_match_characterization`, is new: it
+   freezes `cli.py`'s exact behavior as of one specific past commit for an unrelated,
+   not-yet-started future task (rewriting internal English prose without changing
+   logic). The `analyze` fix is a real logic change, so that frozen snapshot is now
+   correctly out of date; nobody has written a script to re-freeze it, and doing so
+   by hand was left alone rather than guessed at. It is a bookkeeping test, not a
+   functional one.
 6. **The architecture review still lists six critical and three warning findings.**
    Do not call the code secure or production-ready.
 7. **One run, one seed.** No significance test, no confidence interval, no "stable

@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from src.runtime.contracts import AnalysisResult, DoctorStatus
+from src.runtime.contracts import AnalysisResult, DoctorCheck, DoctorStatus
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_LAUNCHER_PATH = REPO_ROOT / "scripts" / "START_DEMO_UI.bat"
@@ -256,6 +256,70 @@ def test_analyze_returns_setup_guidance_when_doctor_is_not_ready(monkeypatch, ca
             ready=False,
             backend_name="gguf",
             checks=[],
+            setup_steps=["python -m src.runtime.cli doctor"],
+        ),
+    )
+    monkeypatch.setattr(cli_module, "format_doctor_report", lambda status: "NOT READY")
+
+    exit_code = cli_module.main(["analyze", "--text", "hello world"])
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "NOT READY"
+
+
+def test_analyze_runs_when_only_release_gate_summary_fails(monkeypatch, capsys):
+    # A single analysis does not depend on whether the whole project is fit
+    # to ship. release-gate-summary is the only check that speaks to that,
+    # so doctor can report overall NOT READY on that check alone while
+    # analyze still proceeds, matching what the local demo server already does.
+    cli_module = _load_cli_module()
+
+    class FakeService:
+        def analyze_text(self, text, channel="unknown"):
+            return AnalysisResult(
+                risk_tier="benign",
+                summary="Provisional benign result.",
+                backend_name="gguf",
+            )
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(
+            ready=False,
+            backend_name="gguf",
+            checks=[
+                DoctorCheck(name="settings-load", passed=True, detail="ok"),
+                DoctorCheck(name="backend-ready", passed=True, detail="backend=gguf ready=True"),
+                DoctorCheck(name="release-gate-summary", passed=False, detail="latest_verdict=BLOCK"),
+            ],
+        ),
+    )
+    monkeypatch.setattr(cli_module, "build_default_runtime_service", lambda: FakeService())
+    monkeypatch.setattr(cli_module, "render_analysis_result", lambda result: result.summary)
+
+    exit_code = cli_module.main(["analyze", "--text", "hello world"])
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "Provisional benign result."
+
+
+def test_analyze_blocks_when_a_non_release_check_also_fails(monkeypatch, capsys):
+    # If anything besides release-gate-summary is broken (a real setup
+    # problem), analyze must still refuse -- only that one named check is
+    # excluded from the analysis-readiness bar.
+    cli_module = _load_cli_module()
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_runtime_doctor",
+        lambda: DoctorStatus(
+            ready=False,
+            backend_name="gguf",
+            checks=[
+                DoctorCheck(name="backend-ready", passed=False, detail="backend=gguf ready=False"),
+                DoctorCheck(name="release-gate-summary", passed=False, detail="latest_verdict=BLOCK"),
+            ],
             setup_steps=["python -m src.runtime.cli doctor"],
         ),
     )

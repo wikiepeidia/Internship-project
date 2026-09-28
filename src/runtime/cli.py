@@ -93,11 +93,33 @@ def read_message_from_stdin() -> str:
     return sys.stdin.read().strip()
 
 
+def _analysis_ready(status) -> bool:
+    """Return whether one analysis can run, as distinct from release readiness.
+
+    `release-gate-summary` checks whether the whole project is fit to ship
+    (it compares against the latest recorded evaluation run); it does not
+    bear on whether a single message can be analyzed on this machine right
+    now. The local demo server never runs it either -- RuntimeService.
+    analyze_text() only checks backend.doctor(). Excluding it here makes the
+    terminal `analyze` command match that same, narrower bar. `doctor` is
+    unaffected by this and still reports release-gate-summary truthfully.
+
+    If `status.checks` does not name every failing check (for example an
+    empty list), the failure cannot be attributed to release-gate-summary
+    alone, so this stays conservative and blocks.
+    """
+
+    if status.ready:
+        return True
+    failing_checks = [check.name for check in status.checks if not check.passed]
+    return failing_checks == ["release-gate-summary"]
+
+
 def handle_analyze(args: argparse.Namespace) -> int:
-    """Run the local analyze flow after a readiness check."""
+    """Run the local analyze flow after an analysis-readiness check."""
 
     status = run_runtime_doctor()
-    if not status.ready:
+    if not _analysis_ready(status):
         print(format_doctor_report(status))
         return 2
 
