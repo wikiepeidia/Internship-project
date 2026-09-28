@@ -2,6 +2,8 @@
 
 Use these current documents:
 
+- `SLIDE_SCRIPT.md` — the spoken script matching the current slide deck, timed per
+  slide. Rehearse from this, on your phone if needed.
 - `STUDY_GUIDE_7_DAYS.md` — a seven-day plan for learning the project in the order it
   was built, with exercises. Start here.
 - `study_exercises.py` — the hands-on exercises the guide refers to. None of them loads
