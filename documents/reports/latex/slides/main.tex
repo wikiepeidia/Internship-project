@@ -108,7 +108,7 @@
 \section{The Pipeline}
 
 \begin{frame}{II. Pipeline}
-  \framesubtitle{How the system fits together}
+  \framesubtitle{Build and run}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/pipeline_reveal}}
   \note{Report Figure 3.1. Top row happens once. Bottom row happens every time someone checks a message. Only the model files cross between them.}
@@ -118,7 +118,7 @@
 \section{The Data}
 
 \begin{frame}{III. Seed Crawl}
-  \framesubtitle{The foundation of data generation}
+  \framesubtitle{Public scam warnings}
   \begin{itemize}\itemsep 4pt\footnotesize
     \item<2-> A crawler collected warnings from \textbf{tinnhiemmang.vn}, a site that publishes public scam warnings
     \item<3-> Each article becomes a \textbf{seed} with its own ID
@@ -134,7 +134,7 @@
 \end{frame}
 
 \begin{frame}[t]{IV. Data Generation}
-  \framesubtitle{One class at a time, from each seed}
+  \framesubtitle{Seeds to messages}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/data_reveal}}
   \vspace{3pt}
@@ -152,7 +152,7 @@
 \end{frame}
 
 \begin{frame}{V. Splitting the Data}
-  \framesubtitle{By source article, never by message}
+  \framesubtitle{Train, validation, final test}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
       \begin{itemize}\itemsep 8pt\small
@@ -186,7 +186,7 @@
 \section{Training the Models}
 
 \begin{frame}{VI. Model and Training Choosing}
-  \framesubtitle{Measured on the laptop before committing}
+  \framesubtitle{Qwen model, LoRA or QLoRA}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.54\textwidth}
       \begin{itemize}\itemsep 4pt\footnotesize
@@ -218,7 +218,7 @@
 \end{frame}
 
 \begin{frame}{VII. Training Qwen}
-  \framesubtitle{Same messages and seed as PhoBERT}
+  \framesubtitle{QLoRA fine-tuning}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
       \onslide<2->{%
@@ -238,7 +238,7 @@
 \end{frame}
 
 \begin{frame}{VIII. Training PhoBERT}
-  \framesubtitle{A four-way classifier, not an adapter}
+  \framesubtitle{Full fine-tuning}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
       \onslide<2->{%
@@ -256,7 +256,7 @@
 \end{frame}
 
 \begin{frame}{IX. Eval 1: Best Checkpoint}
-  \framesubtitle{Both models, same 219 validation messages}
+  \framesubtitle{219 validation messages}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
       \onslide<2->{%
@@ -278,7 +278,7 @@
 \section{Evaluation}
 
 \begin{frame}[t]{X. Eval 2: Final Test}
-  \framesubtitle{220 messages, each model run once}
+  \framesubtitle{220 final test messages}
   \centering
   \only<2-3>{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}\\[3pt]}
   \only<3>{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
@@ -292,7 +292,7 @@
 \section{Conclusion}
 
 \begin{frame}{XI. Conclusion}
-  \framesubtitle{What we found}
+  \framesubtitle{Findings}
   \begin{itemize}\itemsep 10pt\small
     \item<2-> PhoBERT scored a bit higher than Qwen (0.991 against 0.980, one run each), but it only returns a label
     \item<3-> QLoRA training for Qwen and full-weight training for PhoBERT both ran on the same laptop
@@ -303,7 +303,7 @@
 \end{frame}
 
 \begin{frame}{XII. Limitations}
-  \framesubtitle{Stated up front, not discovered here}
+  \framesubtitle{Known weaknesses}
   \begin{alertblock}{Project Limitations}
     \begin{itemize}\itemsep 6pt\small
       \item<2-> The messages are generated from public warnings, not collected from real victims
@@ -317,7 +317,7 @@
 \end{frame}
 
 \begin{frame}{XIII. Future Work}
-  \framesubtitle{What I would do next}
+  \framesubtitle{Next steps}
   \begin{block}{Project Future Work}
     \begin{enumerate}\itemsep 8pt\small
       \item<2-> Review the whole dataset by hand
@@ -386,7 +386,7 @@
 \end{frame}
 
 \begin{frame}{Backup: Checking the Labels}
-  \framesubtitle{A judge model scored every message, and I reviewed 100 by hand}
+  \framesubtitle{Judge model and manual review}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.53\textwidth}
       \begin{block}{One record from the review sheet}
@@ -408,7 +408,7 @@
 \end{frame}
 
 \begin{frame}{Backup: Was Fine-Tuning Necessary?}
-  \framesubtitle{Same Qwen model, same 254 messages, before and after QLoRA. An earlier set, one run each}
+  \framesubtitle{Before and after QLoRA}
   \centering
   {\footnotesize
   \setlength{\tabcolsep}{5pt}
@@ -427,10 +427,12 @@
     \textbf{Macro F1}       & \multicolumn{3}{c}{\textbf{0.6702}} & \multicolumn{3}{c}{\textbf{0.9625}} \\
     \bottomrule
   \end{tabular}}
+  \par\vspace{6pt}
+  {\scriptsize Same Qwen model on the same 254 messages, from an earlier set. One run each}
 \end{frame}
 
 \begin{frame}{Backup: A Genuine Message the System Gets Wrong}
-  \framesubtitle{Reported as a limitation}
+  \framesubtitle{False alarm}
   \begin{block}{Input}
     \scriptsize VPBank Smart OTP: Mã xác thực của bạn là 847291. Mã này có hiệu lực trong 90 giây để xác nhận đăng nhập Internet Banking. Tuyệt đối KHÔNG chia sẻ mã này với bất kỳ ai, kể cả nhân viên ngân hàng.
   \end{block}
@@ -443,13 +445,13 @@
 \end{frame}
 
 \begin{frame}{Backup: Both Models on the Validation Messages}
-  \framesubtitle{The same 219 messages, one run each}
+  \framesubtitle{219 validation messages}
   \centering
   \includegraphics[width=0.85\linewidth]{validation_comparison.png}
 \end{frame}
 
 \begin{frame}{Backup: What the Judge Model Found}
-  \framesubtitle{Average score on each of the five checks, and how many messages passed all five per class}
+  \framesubtitle{Five checks, per class}
   \centering
   \includegraphics[width=0.85\linewidth]{corpus_judge_quality.png}
 \end{frame}
