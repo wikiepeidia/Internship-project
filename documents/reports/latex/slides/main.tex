@@ -6,6 +6,7 @@
 %  Every content frame opens empty (title only) and fills in one click at a
 %  time. Page 1 of each frame is the empty one.
 %  The order follows the report: problem, pipeline, data, training, results.
+%  10 minutes to present, 15 for questions.
 % ============================================================================
 \documentclass[aspectratio=169,12pt]{beamer}
 
@@ -58,8 +59,7 @@
 \subtitle{Bachelor Thesis Defense}
 \author[Internship Bachelor]{Phạm Thế Minh \\ {\small Student ID: 23BI14279}}
 \institute[USTH]{University of Science and Technology of Hanoi (USTH) \\ {\footnotesize\mdseries Supervisors: Nguyễn Việt Anh \quad|\quad Giang Anh Tuấn}}
-% change this line when the defence date is fixed
-\date{October 2026}
+\date{2 October 2026}
 
 \newcommand{\cell}[1]{\multicolumn{1}{c}{#1}}
 
@@ -82,33 +82,32 @@
 
 \begin{frame}{I. Problem}
   \framesubtitle{Classification and Privacy}
-  \begin{itemize}\itemsep 7pt\small
-    \item<2-> Scam messages carry private details: bank numbers, OTP codes, phone numbers
-    \item<3-> Sending one to a cloud API uploads exactly what needs protecting
-    \item<4-> So the check has to run \textbf{on the user's own device}
-    \item<5-> The task: \textbf{supervised classification} into four classes
-  \end{itemize}
-  \onslide<6->{%
-  \begin{block}{The four classes}
-    \small bank impersonation \quad$\bullet$\quad Zalo social engineering \quad$\bullet$\quad task scam \quad$\bullet$\quad benign
-  \end{block}}
-  \note{Report 1.1 to 1.2. Say it in this order: the message holds private data, so it must not leave the device, so a small model has to do the job locally.}
-\end{frame}
-
-\begin{frame}{II. Research Questions}
-  \framesubtitle{Answered by every slide that follows}
-  \begin{description}\itemsep 12pt
-    \item[\textcolor{darkred}{RQ1}]<2-> How well do the two locally trained models, Qwen (QLoRA) and PhoBERT, classify the four threat types on the same final test?
-    \item[\textcolor{darkred}{RQ2}]<3-> Is fine-tuning on a consumer laptop practical, and why QLoRA rather than ordinary LoRA on an 8~GiB graphics card?
-    \item[\textcolor{darkred}{RQ3}]<4-> Can the system explain its answer (risk tier, label, quoted phrases, safe advice) and not only give a score?
-  \end{description}
-  \note{Report 1.3. The conclusion slide answers these three in the same order.}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \begin{itemize}\itemsep 10pt\small
+        \item<2-> How do we classify messages into these four classes, \textbf{without an API call}, using local models?
+        \item<3-> Is fine-tuning also possible on the \textbf{same machine}?
+        \item<4-> Can the app give an \textbf{explanation} together with the answer, not only a score?
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \onslide<2->{%
+      \begin{block}{Supervised classification}
+        \small
+        bank impersonation\\
+        Zalo social engineering\\
+        task scam\\
+        benign
+      \end{block}}
+    \end{column}
+  \end{columns}
+  \note{Report 1.1 to 1.3. Scam messages carry bank numbers and OTP codes, so sending one to a cloud API uploads what needs protecting: that is why the first question says no API call. The conclusion answers these three in the same order.}
 \end{frame}
 
 % ========================================================== 2. the pipeline ==
 \section{The Pipeline}
 
-\begin{frame}{III. Pipeline}
+\begin{frame}{II. Pipeline}
   \framesubtitle{How the system fits together}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/pipeline_reveal}}
@@ -118,103 +117,53 @@
 % ============================================================== 3. the data ==
 \section{The Data}
 
-\begin{frame}{IV. Seed Crawl}
+\begin{frame}{III. Seed Crawl}
   \framesubtitle{The foundation of data generation}
-  \begin{itemize}\itemsep 7pt\small
+  \begin{itemize}\itemsep 4pt\footnotesize
     \item<2-> A crawler collected warnings from \textbf{tinnhiemmang.vn}, a site that publishes public scam warnings
     \item<3-> Each article becomes a \textbf{seed} with its own ID
     \item<4-> A seed describes a scam. It is \textbf{not} a scam message, so it cannot be training data as it is
+    \item<5-> \textbf{Purpose of a seed:} one fixed prompt for Claude, with a different real scam warning dropped in each time. No need to write hundreds of separate prompts
   \end{itemize}
-  \vspace{6pt}
-  \onslide<5->{%
+  \vspace{4pt}
+  \onslide<6->{%
   \centering
-  \includegraphics[width=0.95\linewidth]{seed_row_slide.png}\\[2pt]
+  \includegraphics[width=0.88\linewidth]{seed_row_slide.png}\\[2pt]
   {\scriptsize One row of the retained seed file: the text, the address it came from, the time it was collected}}
-  \note{Report 3.2. The seed file holds 300 seeds. Do not say these are scam messages; they are warnings about scams.}
+  \note{Report 3.2. The prompt is one template with a slot called seed text anchor; only the seed changes between requests. The seed file holds 300 seeds. Do not say these are scam messages; they are warnings about scams.}
 \end{frame}
 
-\begin{frame}{V. Data Generation}
+\begin{frame}[t]{IV. Data Generation}
   \framesubtitle{One class at a time, from each seed}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/data_reveal}}
-  \vspace{8pt}
-  \begin{itemize}\itemsep 5pt\small\raggedright
-    \item<6-> The prompt names the class and the exact JSON fields to return
-    \item<7-> Every message is checked the moment it is produced, and saved after each batch, so a rate-limit crash can resume
-    \item<8-> A review found 240 Zalo messages written as narration. They were rebuilt offline from 60 scenarios
-  \end{itemize}
-  \note{Report 3.2 to 3.3 and Chapter IV. First pass was Claude. The judge was a GPT-family model. The Zalo rewrite came from a GPT-family model, so the judge is not independent for that class.}
+  \vspace{3pt}
+  \only<7-9>{%
+  \begin{itemize}\itemsep 5pt\footnotesize\raggedright
+    \item<7-> Each message gets its \textbf{label} when it is generated: the prompt names the class
+    \item<8-> Claude generated 3,514 raw messages; a second model filled the gaps in some classes
+    \item<9-> During review, 240 Zalo messages turned out to be third-person narration, not real chat. They were rebuilt
+  \end{itemize}}
+  \only<10->{%
+  \includegraphics[width=0.72\linewidth]{corpus_sample.png}\\[2pt]
+  {\scriptsize One generated record: all seven fields, the label included}}
+  \note{Report 3.2 to 3.3 and Chapter IV. Raw pool was 4,722 messages: 3,514 tagged Claude and 1,208 tagged as a second, OpenAI-compatible model that filled gaps in task scam and benign. Never say all messages came from Claude. The judge was a GPT-family model. The Zalo rebuild came from a GPT-family model, so the judge is not independent for that class.}
 \end{frame}
 
-\begin{frame}{VI. How the Label Is Set}
-  \framesubtitle{One real record from the training set}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.62\textwidth}
-      \onslide<2->{%
-      {\scriptsize
-      \setlength{\tabcolsep}{3pt}
-      \renewcommand{\arraystretch}{1.25}
-      \begin{tabular}{@{}l p{6.0cm}@{}}
-        \texttt{text}   & MB Bank thông báo: Smart OTP của bạn sắp hết hạn sau 24h. Để gia hạn miễn phí, tải lại app tại mbbank-update.com/app và nhập số CCCD + mã PIN hiện tại. \ldots \\
-        \rowcolor{darkred!14}
-        \texttt{\textbf{label}} & \textbf{bank\_impersonation} \\
-        \texttt{risk\_tier} & high-risk \\
-        \texttt{suspicious\_spans} & ``mbbank-update.com/app'', ``nhập số CCCD + mã PIN hiện tại'', ``Smart OTP của bạn sắp hết hạn'' \\
-        \texttt{xai\_explanation} & Không có ngân hàng nào yêu cầu bạn nhập CCCD và mã PIN trên website bên ngoài \ldots \\
-        \texttt{source} & synthetic\_claude \\
-        \texttt{seed\_id} & seed\_bbd7273fd159 \\
-      \end{tabular}}}
-    \end{column}
-    \begin{column}{0.36\textwidth}
-      \begin{itemize}\itemsep 5pt\footnotesize
-        \item<3-> The label is set \textbf{when the message is written}, not added afterwards
-        \item<4-> The prompt names the class, so every message in that batch starts with it
-        \item<5-> Qwen writes the label as text. PhoBERT trains on it as a class number
-        \item<6-> When scored, a model sees only the text
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \note{Report 3.2, Table 3.1 and the worked example. This is the question that failed last time: where is the label, and who decided it.}
-\end{frame}
-
-\begin{frame}{VII. Checking the Labels}
-  \framesubtitle{The judge, then a human check}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.53\textwidth}
-      \onslide<2->{%
-      \begin{block}{One record from the review sheet}
-        {\footnotesize
-        Agribank thân mến! Thẻ ATM của bạn số ****3421 đã được gia hạn thành công đến 06/2028. Vui lòng đến chi nhánh gần nhất để nhận thẻ mới.\\[3pt]
-        Label: \textbf{benign} \quad Risk tier: \textbf{suspicious}\\[3pt]
-        \onslide<3->{Judge model: \textbf{PASS} on all five scores\\[3pt]}
-        \onslide<4->{\textcolor{darkred}{\textbf{My verdict: FAIL.}} Not a real greeting, and the risk tier should be benign.}}
-      \end{block}}
-    \end{column}
-    \begin{column}{0.44\textwidth}
-      \begin{itemize}\itemsep 8pt\small
-        \item<5-> Judge model: \textbf{1,395 of 2,097} passed (66.5\%)
-        \item<6-> By hand: 100 messages, 44 passed. I agreed with the judge on 87
-        \item<7-> 324 flagged labels reviewed, 233 agreed, only \textbf{57 used}. The other 176 came from one article
-      \end{itemize}
-    \end{column}
-  \end{columns}
-  \note{Report 3.3 and Chapter V. The 44 of 100 is about that sample, not the whole set. 176 corrections were left out on purpose: near-copies of one scenario would make a class look more varied than it is.}
-\end{frame}
-
-\begin{frame}{VIII. Splitting the Data}
+\begin{frame}{V. Splitting the Data}
   \framesubtitle{By source article, never by message}
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.44\textwidth}
-      \begin{itemize}\itemsep 9pt\small
-        \item<2-> Messages from one article look alike
-        \item<3-> So an article and all its messages go to \textbf{one} split
-        \item<4-> No article is in two splits. The largest holds 7.96\% of the data (cap 8\%)
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}\itemsep 8pt\small
+        \item<2-> One seed gives many messages: the same scam, with a different bank name or amount
+        \item<3-> If one message is in training and its twin is in the test, it is like seeing the exam question while studying
+        \item<4-> So a seed and all its messages always go to the same split
       \end{itemize}
     \end{column}
-    \begin{column}{0.54\textwidth}
+    \begin{column}{0.48\textwidth}
       \onslide<5->{%
       {\footnotesize
-      \setlength{\tabcolsep}{4pt}
+      \setlength{\tabcolsep}{3pt}
       \renewcommand{\arraystretch}{1.2}
       \begin{tabular}{@{}lrrrrr@{}}
         \toprule
@@ -229,13 +178,13 @@
       \end{tabular}}}
     \end{column}
   \end{columns}
-  \note{Report 3.2 and Table 3.2. Whole articles are cut by count, which is why the test set is 220 and not exactly 10 percent.}
+  \note{Report 3.2 and Table 3.2. Messages made from the same article differ by little more than a bank name or an amount. Whole articles are cut by count, which is why the test set is 220 and not exactly 10 percent.}
 \end{frame}
 
 % ===================================================== 4. training the models ==
 \section{Training the Models}
 
-\begin{frame}{IX. Model and Training Choosing}
+\begin{frame}{VI. Model and Training Choosing}
   \framesubtitle{Measured on the laptop before committing}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.54\textwidth}
@@ -257,19 +206,17 @@
         Median time per step & 53.3 s & 3.46 s \\
         \bottomrule
       \end{tabular}}}
-      \vspace{3pt}
-      \onslide<4->{{\footnotesize LoRA did not crash, but needed about 18 hours.}}
     \end{column}
     \begin{column}{0.44\textwidth}
-      \onslide<5->{%
+      \onslide<4->{%
       \centering
       \includegraphics[width=\linewidth]{gpu_telemetry_probe.png}}
     \end{column}
   \end{columns}
-  \note{Report 3.4 and 4.2. Never say out of memory: it did not happen. LoRA fitted with 9 MiB to spare and was too slow to be practical. The 33 messages were a quick screening test, not a proof that this model is better in general.}
+  \note{Report 3.4 and 4.2. Never say out of memory: it did not happen. LoRA fitted with 9 MiB to spare and needed about 18 hours, too slow to be practical. The image is the QLoRA measurement run: video memory peaked at 7,516 of 8,151 MiB. The 33 messages were a quick screening test, not proof that this model is better in general.}
 \end{frame}
 
-\begin{frame}{X. Training Qwen}
+\begin{frame}{VII. Training Qwen}
   \framesubtitle{Same messages and seed as PhoBERT}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
@@ -289,7 +236,7 @@
   \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages at every check, which is why 1,245 steps took almost 15 hours.}
 \end{frame}
 
-\begin{frame}{XI. Training PhoBERT}
+\begin{frame}{VIII. Training PhoBERT}
   \framesubtitle{A four-way classifier, not an adapter}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
@@ -299,16 +246,15 @@
     \begin{column}{0.38\textwidth}
       \begin{itemize}\itemsep 8pt\small
         \item<3-> Every weight is trained, plus a four-way classification head
-        \item<4-> Not LoRA, not QLoRA
-        \item<5-> 3 epochs, 312 steps, seed 42
-        \item<6-> Best checkpoint: \textbf{step 100}
+        \item<4-> 3 epochs, 312 steps, seed 42
+        \item<5-> Best checkpoint: \textbf{step 100}
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report 4.5. The label is one of four output positions. There is no explanation and no GGUF for PhoBERT.}
+  \note{Report 4.5. The label is one of four output positions. Say out loud that it is not LoRA and not QLoRA. There is no explanation and no GGUF for PhoBERT.}
 \end{frame}
 
-\begin{frame}{XII. Eval 1: Best Checkpoint}
+\begin{frame}{IX. Eval 1: Best Checkpoint}
   \framesubtitle{Both models, same 219 validation messages}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
@@ -320,51 +266,42 @@
         \item<3-> Qwen was checked 25 times, PhoBERT 7 times
         \item<4-> Qwen: step 200, macro F1 \textbf{0.9885}
         \item<5-> PhoBERT: step 100, macro F1 \textbf{0.9849}
-        \item<6-> Rule: enough recall on the risky classes and no unreadable answer first, then the best macro F1
+        \item<6-> How we picked: a checkpoint must catch the scams and never give a broken answer. Among those, the best overall score wins
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report 4.6. Validation picks the checkpoint. The final 220 messages are not used for any choice.}
+  \note{Report 4.6. Validation picks the checkpoint. The final 220 messages are not used for any choice. Macro F1 is one score that treats all four classes equally.}
 \end{frame}
 
 % =========================================================== 5. evaluation ==
 \section{Evaluation}
 
-\begin{frame}{XIII. Eval 2: Final Test}
+\begin{frame}[t]{X. Eval 2: Final Test}
   \framesubtitle{220 messages, each model run once}
   \centering
-  \onslide<2->{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}}\\[3pt]
-  \onslide<3->{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
-  \note{Report 5.3. No unreadable answers from either model. One seed each means no claim about how much the numbers would move.}
-\end{frame}
-
-\begin{frame}{XIV. Where It Went Wrong}
-  \framesubtitle{Errors on the same 220 messages}
-  \centering
-  \onslide<2->{\includegraphics[width=0.70\linewidth]{terminal_evaluation_confusion_slide.png}}\\[3pt]
-  \onslide<3->{{\small Qwen: 4 mistakes out of 220. PhoBERT: 2.}}\\[1pt]
-  \onslide<4->{{\small Each called exactly \textbf{one} dangerous message safe.}}
-  \note{Report 5.4. The dangerous error is a scam called benign. Both had exactly one.}
+  \only<2-3>{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}\\[3pt]}
+  \only<3>{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
+  \only<4->{\includegraphics[width=0.72\linewidth]{terminal_evaluation_confusion_slide.png}\\[3pt]}
+  \only<5->{{\small Qwen: 4 mistakes out of 220. PhoBERT: 2.}\\[1pt]}
+  \only<6->{{\small Each called exactly \textbf{one} dangerous message safe.}}
+  \note{Report 5.3 and 5.4. Neither model had ever seen these 220 messages. No unreadable answers from either. One seed each means no claim about how much the numbers would move. The dangerous error is a scam called benign. Both had exactly one.}
 \end{frame}
 
 % ============================================================ 6. conclusion ==
 \section{Conclusion}
 
-\begin{frame}{XV. Conclusion}
-  \framesubtitle{The three research questions}
-  \begin{description}\itemsep 6pt\small
-    \item[\textcolor{darkred}{RQ1}]<2-> PhoBERT scored higher, 0.991 against 0.980 macro F1. One run each, so no claim beyond this comparison
-    \item[\textcolor{darkred}{RQ2}]<3-> Yes. QLoRA trained on the 8~GiB laptop where ordinary LoRA left 9~MiB. The exported model runs without a graphics card
-    \item[\textcolor{darkred}{RQ3}]<4-> Yes. Every answer arrived in the structured format: risk tier, label, quoted phrases, advice. None was unreadable
-  \end{description}
-  \onslide<5->{%
-  \begin{block}{What was built}
-    \footnotesize A governed dataset of 2,097 messages, its repair, a measured training method, and one final evaluation of two models
-  \end{block}}
-  \note{Report Chapter VI. Same order as the research questions slide.}
+\begin{frame}{XI. Conclusion}
+  \framesubtitle{What we found}
+  \begin{itemize}\itemsep 10pt\small
+    \item<2-> PhoBERT scored a bit higher than Qwen (0.991 against 0.980, one run each), but it only returns a label
+    \item<3-> QLoRA training for Qwen and full-weight training for PhoBERT both ran on the same laptop
+    \item<4-> Qwen gives an explanation with quoted phrases and advice, not only a score
+    \item<5-> A dataset of 2,097 messages, and one final evaluation on messages neither model had seen
+  \end{itemize}
+  \note{Report Chapter VI. Bullets 1 to 3 answer the three questions on the first slide, in the same order. Bullet 1 is the direct answer to why Qwen when PhoBERT scored higher.}
 \end{frame}
 
-\begin{frame}{XVI. Limitations}
+\begin{frame}{XII. Limitations}
   \framesubtitle{Stated up front, not discovered here}
   \begin{alertblock}{What this work does not show}
     \begin{itemize}\itemsep 3pt\footnotesize
@@ -379,7 +316,7 @@
   \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them.}
 \end{frame}
 
-\begin{frame}{XVII. Future Work}
+\begin{frame}{XIII. Future Work}
   \framesubtitle{What I would do next}
   \begin{block}{Three next steps}
     \begin{enumerate}\itemsep 9pt\small
@@ -446,10 +383,32 @@
   \end{columns}
   \vspace{6pt}
   \begin{itemize}\itemsep 6pt\small
-    \item The system is meant to explain itself (RQ3), and only Qwen can
+    \item The system is meant to explain itself, and only Qwen can
     \item The comparison covers the part the two share: the label
     \item Next step: PhoBERT for the label, Qwen for the explanation, with its own evaluation
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Backup: Checking the Labels}
+  \framesubtitle{A judge model scored every message, and I reviewed 100 by hand}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.53\textwidth}
+      \begin{block}{One record from the review sheet}
+        {\footnotesize
+        Agribank thân mến! Thẻ ATM của bạn số ****3421 đã được gia hạn thành công đến 06/2028. Vui lòng đến chi nhánh gần nhất để nhận thẻ mới.\\[3pt]
+        Label: \textbf{benign} \quad Risk tier: \textbf{suspicious}\\[3pt]
+        Judge model: \textbf{PASS} on all five scores\\[3pt]
+        \textcolor{darkred}{\textbf{My verdict: FAIL.}} Not a real greeting, and the risk tier should be benign.}
+      \end{block}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{itemize}\itemsep 8pt\small
+        \item Judge model: \textbf{1,395 of 2,097} passed (66.5\%)
+        \item By hand: 100 messages, 44 passed. I agreed with the judge on 87
+        \item 324 flagged labels reviewed, 233 agreed, only \textbf{57 used}. The other 176 came from one article
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Backup: Was Fine-Tuning Necessary?}
