@@ -133,8 +133,8 @@
   \note{Report 3.2. The seed file holds 300 seeds. Do not say these are scam messages; they are warnings about scams.}
 \end{frame}
 
-\begin{frame}{Data Generation}
-  \framesubtitle{Messages written from the seeds, one class at a time}
+\begin{frame}{V. Data Generation}
+  \framesubtitle{One class at a time, from each seed}
   \centering
   \resizebox{0.97\linewidth}{!}{\input{figures/data_reveal}}
   \vspace{8pt}
@@ -146,7 +146,7 @@
   \note{Report 3.2 to 3.3 and Chapter IV. First pass was Claude. The judge was a GPT-family model. The Zalo rewrite came from a GPT-family model, so the judge is not independent for that class.}
 \end{frame}
 
-\begin{frame}{How the Label Is Set}
+\begin{frame}{VI. How the Label Is Set}
   \framesubtitle{One real record from the training set}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.62\textwidth}
@@ -177,8 +177,8 @@
   \note{Report 3.2, Table 3.1 and the worked example. This is the question that failed last time: where is the label, and who decided it.}
 \end{frame}
 
-\begin{frame}{Checking the Labels}
-  \framesubtitle{A judge model scored every message, and I reviewed 100 by hand}
+\begin{frame}{VII. Checking the Labels}
+  \framesubtitle{The judge, then a human check}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.53\textwidth}
       \onslide<2->{%
@@ -201,7 +201,7 @@
   \note{Report 3.3 and Chapter V. The 44 of 100 is about that sample, not the whole set. 176 corrections were left out on purpose: near-copies of one scenario would make a class look more varied than it is.}
 \end{frame}
 
-\begin{frame}{Splitting the Data}
+\begin{frame}{VIII. Splitting the Data}
   \framesubtitle{By source article, never by message}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.44\textwidth}
@@ -235,8 +235,8 @@
 % ===================================================== 4. training the models ==
 \section{Training the Models}
 
-\begin{frame}{Model and Training Choosing}
-  \framesubtitle{Both measured on the actual laptop before committing to either}
+\begin{frame}{IX. Model and Training Choosing}
+  \framesubtitle{Measured on the laptop before committing}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.54\textwidth}
       \begin{itemize}\itemsep 4pt\footnotesize
@@ -269,8 +269,8 @@
   \note{Report 3.4 and 4.2. Never say out of memory: it did not happen. LoRA fitted with 9 MiB to spare and was too slow to be practical. The 33 messages were a quick screening test, not a proof that this model is better in general.}
 \end{frame}
 
-\begin{frame}{Qwen: The Full Training Run}
-  \framesubtitle{QLoRA on Qwen3-4B-Instruct, same messages and seed as PhoBERT}
+\begin{frame}{X. Training Qwen}
+  \framesubtitle{Same messages and seed as PhoBERT}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
       \onslide<2->{%
@@ -289,8 +289,8 @@
   \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages at every check, which is why 1,245 steps took almost 15 hours.}
 \end{frame}
 
-\begin{frame}{PhoBERT: The Full Training Run}
-  \framesubtitle{A classifier with a four-way output, not an adapter}
+\begin{frame}{XI. Training PhoBERT}
+  \framesubtitle{A four-way classifier, not an adapter}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.60\textwidth}
       \onslide<2->{%
@@ -308,8 +308,8 @@
   \note{Report 4.5. The label is one of four output positions. There is no explanation and no GGUF for PhoBERT.}
 \end{frame}
 
-\begin{frame}{Eval 1: Picking the Best Checkpoint}
-  \framesubtitle{Both models, scored on the same 219 validation messages}
+\begin{frame}{XII. Eval 1: Best Checkpoint}
+  \framesubtitle{Both models, same 219 validation messages}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
       \onslide<2->{%
@@ -330,15 +330,15 @@
 % =========================================================== 5. evaluation ==
 \section{Evaluation}
 
-\begin{frame}{Eval 2: The Final Test}
-  \framesubtitle{220 messages neither model had ever seen, each model run once}
+\begin{frame}{XIII. Eval 2: Final Test}
+  \framesubtitle{220 messages, each model run once}
   \centering
   \onslide<2->{\includegraphics[width=0.76\linewidth]{terminal_comparison.png}}\\[3pt]
   \onslide<3->{{\small PhoBERT \textbf{0.991} against Qwen \textbf{0.980} macro F1. One run each, so no ranking.}}
   \note{Report 5.3. No unreadable answers from either model. One seed each means no claim about how much the numbers would move.}
 \end{frame}
 
-\begin{frame}{Where Each Model Went Wrong}
+\begin{frame}{XIV. Where It Went Wrong}
   \framesubtitle{Errors on the same 220 messages}
   \centering
   \onslide<2->{\includegraphics[width=0.70\linewidth]{terminal_evaluation_confusion_slide.png}}\\[3pt]
@@ -350,7 +350,7 @@
 % ============================================================ 6. conclusion ==
 \section{Conclusion}
 
-\begin{frame}{Conclusion}
+\begin{frame}{XV. Conclusion}
   \framesubtitle{The three research questions}
   \begin{description}\itemsep 6pt\small
     \item[\textcolor{darkred}{RQ1}]<2-> PhoBERT scored higher, 0.991 against 0.980 macro F1. One run each, so no claim beyond this comparison
@@ -364,8 +364,8 @@
   \note{Report Chapter VI. Same order as the research questions slide.}
 \end{frame}
 
-\begin{frame}{Limitations}
-  \framesubtitle{Stated in the report, not discovered in this room}
+\begin{frame}{XVI. Limitations}
+  \framesubtitle{Stated up front, not discovered here}
   \begin{alertblock}{What this work does not show}
     \begin{itemize}\itemsep 3pt\footnotesize
       \item<2-> The messages are generated from public warnings, not collected from real victims
@@ -379,7 +379,7 @@
   \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them.}
 \end{frame}
 
-\begin{frame}{Future Work}
+\begin{frame}{XVII. Future Work}
   \framesubtitle{What I would do next}
   \begin{block}{Three next steps}
     \begin{enumerate}\itemsep 9pt\small
