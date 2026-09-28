@@ -6,6 +6,8 @@ __pycache__/
 # C extensions
 *.so
 .tmp/
+.pytest-temp*/
+.gsd/
 \documents/references
 walkthrough/
 .github/agents 
@@ -172,6 +174,8 @@ NUL
 *.ipynb
 # Phase 40's three statically validated operator controllers are source artifacts.
 !notebooks/phase40/*.ipynb
+# Defense demo notebook: runs both trained models on four fresh messages.
+!notebooks/defense_demo.ipynb
 # RabbitMQ
 mnesia/
 rabbitmq/
