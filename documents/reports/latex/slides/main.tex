@@ -288,10 +288,47 @@
   \note{Report 5.3 and 5.4. Neither model had ever seen these 220 messages. No unreadable answers from either. One seed each means no claim about how much the numbers would move. The dangerous error is a scam called benign. Both had exactly one.}
 \end{frame}
 
+\begin{frame}[t]{XI. Demo Result}
+  \framesubtitle{Same message, both models}
+  \onslide<2->{%
+  \begin{block}{Input}
+    \scriptsize Vietcombank: Tai khoan cua ban da bi tam khoa do phat hien giao dich bat thuong. Vui long dang nhap vcb-xacminh.vn de mo khoa ngay hom nay.
+  \end{block}}
+  \vspace{-4pt}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.53\textwidth}
+      \onslide<3->{%
+      \begin{block}{Qwen (QLoRA)}
+        \footnotesize
+        Risk tier: \textbf{high-risk}\\[2pt]
+        Label: \textbf{bank\_impersonation}\\[2pt]
+        Quoted phrases: vcb-xacminh.vn, ``dang nhap vcb-xacminh.vn de mo khoa''\\[2pt]
+        Advice:\\[1pt]
+        {\scriptsize Không truy cập các liên kết từ tin nhắn không rõ nguồn gốc.}
+      \end{block}}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \onslide<4->{%
+      \begin{block}{PhoBERT}
+        \footnotesize
+        41 tokens in, only 4 numbers out:\\[3pt]
+        \begin{tabular}{@{}lr@{}}
+          bank\_impersonation & \textbf{1.694} \\
+          zalo\_social\_engineering & $-$0.778 \\
+          task\_scam & $-$1.837 \\
+          benign & 0.621 \\
+        \end{tabular}\\[3pt]
+        Highest wins: \textbf{bank\_impersonation}
+      \end{block}}
+    \end{column}
+  \end{columns}
+  \note{From the demo notebook, message 1 of 4. Both models were correct on all four messages. This message was written for the notebook: it is not in the training, validation or final test set. Show the shape of the output, not a score: four messages prove nothing about accuracy, the 220-message test does. Qwen returns a risk tier, a label, quoted phrases and advice (three advice lines in the notebook, the slide shows the first). In this run the written summary field came back as the app's placeholder text, so do not read an explanation out of this screen. PhoBERT returns only four numbers, one per class; the label is the position of the largest.}
+\end{frame}
+
 % ============================================================ 6. conclusion ==
 \section{Conclusion}
 
-\begin{frame}{XI. Conclusion}
+\begin{frame}{XII. Conclusion}
   \framesubtitle{Findings}
   \begin{itemize}\itemsep 10pt\small
     \item<2-> PhoBERT scored a bit higher than Qwen (0.991 against 0.980, one run each), but it only returns a label
@@ -302,7 +339,7 @@
   \note{Report Chapter VI. Bullets 1 to 3 answer the three questions on the first slide, in the same order. Bullet 1 is the direct answer to why Qwen when PhoBERT scored higher.}
 \end{frame}
 
-\begin{frame}{XII. Limitations}
+\begin{frame}{XIII. Limitations}
   \framesubtitle{Known weaknesses}
   \begin{alertblock}{Project Limitations}
     \begin{itemize}\itemsep 6pt\small
@@ -316,7 +353,7 @@
   \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them. Not on the slide, but still true and in the report: a code review left six critical findings open. If anyone asks whether this is production-ready or secure, the answer is no.}
 \end{frame}
 
-\begin{frame}{XIII. Future Work}
+\begin{frame}{XIV. Future Work}
   \framesubtitle{Next steps}
   \begin{block}{Project Future Work}
     \begin{enumerate}\itemsep 8pt\small
