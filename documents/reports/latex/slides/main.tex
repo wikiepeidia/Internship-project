@@ -342,15 +342,16 @@
 \begin{frame}{XIII. Limitations}
   \framesubtitle{Known weaknesses}
   \begin{alertblock}{Project Limitations}
-    \begin{itemize}\itemsep 6pt\small
+    \begin{itemize}\itemsep 4pt\small
       \item<2-> The messages are generated from public warnings, not collected from real victims
       \item<3-> One run and one seed only
       \item<4-> The judge is from the same GPT family as the model that rebuilt the Zalo messages
       \item<5-> Genuine messages that ask the reader to log in are over-flagged
       \item<6-> Manual checking covers only a small sample
+      \item<7-> Qwen's explanation was never scored on its own, only the label
     \end{itemize}
   \end{alertblock}
-  \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them. Not on the slide, but still true and in the report: a code review left six critical findings open. If anyone asks whether this is production-ready or secure, the answer is no.}
+  \note{Report Chapter VI and Appendix. Reading these out is cheaper than being walked into them. Not on the slide, but still true and in the report: a code review left six critical findings open. If anyone asks whether this is production-ready or secure, the answer is no. The last item is the one to lead with if asked what you would change: the real contribution here is comparing a classifier against an instruction-tuned LLM on the same task, not shipping an LLM product. Evaluating the explanation text itself, not just the label it agrees on, is future work, and it belongs with the Future Work slide's first item (review the whole dataset by hand) and the ViSoBERT comparison.}
 \end{frame}
 
 \begin{frame}{XIV. Future Work}
