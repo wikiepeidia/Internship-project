@@ -226,7 +226,7 @@
     \end{column}
     \begin{column}{0.38\textwidth}
       \begin{itemize}\itemsep 8pt\small
-        \item<3-> 3 epochs, 1,245 steps, seed 42
+        \item<3-> 3 epochs, 1,245 steps
         \item<4-> Loss falls fast, then flattens
         \item<5-> Scored on the validation messages every 50 steps
         \item<6-> Best checkpoint: \textbf{step 200}
@@ -284,7 +284,7 @@
   \only<4->{\includegraphics[width=0.72\linewidth]{terminal_evaluation_confusion_slide.png}\\[3pt]}
   \only<5->{{\small Qwen: 4 mistakes out of 220. PhoBERT: 2.}\\[1pt]}
   \only<6->{{\small Each called exactly \textbf{one} dangerous message safe.}}
-  \note{Report 5.3 and 5.4. Neither model had ever seen these 220 messages. No unreadable answers from either. One seed each means no claim about how much the numbers would move. The dangerous error is a scam called benign. Both had exactly one.}
+  \note{Report 5.3 and 5.4. Neither model had ever seen these 220 messages. No unreadable answers from either. Each model was trained once, so no claim about how much the numbers would move. The dangerous error is a scam called benign. Both had exactly one.}
 \end{frame}
 
 \begin{frame}[t]{XI. Demo Result}
@@ -343,7 +343,7 @@
   \begin{alertblock}{Project Limitations}
     \begin{itemize}\itemsep 4pt\small
       \item<2-> The messages are generated from public warnings, not collected from real victims
-      \item<3-> One run and one seed only
+      \item<3-> Each model was trained only once
       \item<4-> The judge is from the same GPT family as the model that rebuilt the Zalo messages
       \item<5-> Manual checking covers only a small sample
       \item<6-> Qwen's explanation was never scored on its own, only the label
