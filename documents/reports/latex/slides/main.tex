@@ -234,7 +234,7 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages every time it is scored, which is why 1,245 steps took almost 15 hours.}
+  \note{Report 4.3. Qwen writes a full answer for each of the 219 validation messages every time it is scored, which is why 1,245 steps took almost 15 hours. This slide's graph leaves out the report figure's last point (0.303 at step 1,245): that is the average loss over the whole run, printed once at the end, not the loss at that step. The real last step is 0.12.}
 \end{frame}
 
 \begin{frame}{VIII. Training PhoBERT}
@@ -252,7 +252,7 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Report 4.5. The label is one of four output positions. Say out loud that it is not LoRA and not QLoRA. There is no explanation and no GGUF for PhoBERT.}
+  \note{Report 4.5. The label is one of four output positions. Say out loud that it is not LoRA and not QLoRA. There is no explanation and no GGUF for PhoBERT. This slide's graph leaves out the report figure's jump at the end (0.258 at step 312): that point is the average loss over the whole run, printed once at the end, not the loss at that step. The real last step is 0.054, and validation loss stayed flat at 0.09.}
 \end{frame}
 
 \begin{frame}{IX. Eval 1: Best Checkpoint}
