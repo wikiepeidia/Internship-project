@@ -1,200 +1,85 @@
-# VN Phishing Detection
+# VNPhish: local Vietnamese phishing detection
 
-Localized explainable AI pipeline for Vietnamese financial phishing detection.
+Bachelor internship project, University of Science and Technology of Hanoi
+(USTH), 2026.
 
-## Repository Map
+**Thesis:** Design and Development of a Localized LLM for Vietnamese Financial
+Phishing Detection
+**Author:** Phạm Thế Minh (23BI14279)
+**Supervisors:** Nguyễn Việt Anh, Giang Anh Tuấn
 
-For a code review or defense, start with the maintained surfaces below rather than
-the retained experiment history:
+The project is finished and archived. It is not maintained.
 
-- [`src/runtime/`](src/runtime/) — installed CLI, local UI, analyzers, and service.
-- [`src/data_pipeline/core/`](src/data_pipeline/core/) — record and leakage-safe split
-  contracts.
-- [`src/modeling/`](src/modeling/) — maintained training, inference, evaluation, and
-  evidence interfaces.
-- [`src/source_archiving/`](src/source_archiving/) — provenance archiving.
-- [`documents/defense/CODE_WORKFLOW.md`](documents/defense/CODE_WORKFLOW.md) —
-  current scraping-to-runtime code walkthrough.
-- [`documents/defense/DEFENSE_QA_WORKSHEET.md`](documents/defense/DEFENSE_QA_WORKSHEET.md)
-  — jury-question practice and evidence rubric.
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) — complete system
-  map and machine-checked boundaries.
-- [`docs/architecture/training-evaluation.md`](docs/architecture/training-evaluation.md)
-  — maintained training ports and frozen evaluation authority.
-- [`data/README.md`](data/README.md) — seed lineage and split-governance contract.
+## What it does
 
-`src/model_adaptation/` and `historical/tooling/` retain prior experiment machinery
-for reproducibility; they are not the preferred application entry points.
+VNPhish checks one pasted Vietnamese message (SMS, Zalo, chat) on the user's own
+computer. Nothing is sent to a cloud API. Each message is sorted into one of four
+classes: bank impersonation, Zalo social engineering, task scam, or benign.
 
-## Local Runtime
+Two models were trained on the same data and compared:
 
-The stdin-first local runtime analyzes one message at a time. The normal path is local-only and does not persist raw text by default.
+- **Qwen3-4B-Instruct-2507, fine-tuned with QLoRA** (4-bit NF4 base, LoRA
+  r=16, alpha=32). It writes a JSON answer with the risk tier, the label, the
+  phrases it reacted to, and safe next steps. The trained model was exported to a
+  Q8_0 GGUF file that runs on a CPU through llama.cpp.
+- **PhoBERT-base-v2, fully fine-tuned** as a four-class classifier. It returns
+  the label only.
 
-The current release accepts pasted text only. Images, OCR input, and audio are outside the runtime boundary.
+## Results
 
-### Quick Start
+Final test: 220 messages set aside before training, each model run once.
 
-Install dependencies:
+| | Qwen QLoRA | PhoBERT |
+| --- | ---: | ---: |
+| Accuracy | 0.9818 | 0.9909 |
+| Macro F1 | 0.9805 | 0.9909 |
+| Weighted F1 | 0.9818 | 0.9909 |
+| Unreadable answers | 0 | 0 |
+| Scams called benign | 1 | 1 |
 
-```bash
-python -m pip install -e .[dev]
-```
+Each model was trained once (seed 42), so the gap describes this run, not a
+proven difference between the models.
 
-Check local readiness:
+## Dataset
 
-```bash
-vnphish doctor
-python -m src.runtime.cli doctor
-```
+2,097 messages (1,658 train / 219 validation / 220 test), written by LLMs from
+public scam warnings on tinnhiemmang.vn, then checked by a separate judge model
+and by manual review. All messages from one source article stay in the same
+split. The dataset and the trained model files are not in this repository.
 
-Run the stdin-first analyze flow:
+## Limitations
 
-```bash
-vnphish analyze
-python -m src.runtime.cli analyze
-```
+- The messages are generated, not collected from real victims.
+- One training run per model.
+- Qwen's written explanation was not evaluated on its own.
+- This is a research prototype, not a production system.
 
-Paste one message, then end stdin in your shell.
+## Repository map
 
-Optional automation escape hatch:
+- `src/data_pipeline/` — seed crawler, message generation, judge model, record
+  schema, split by source article
+- `src/model_adaptation/` — the training and evaluation code that produced the
+  results above
+- `src/modeling/` — training, inference and evaluation interfaces
+- `src/runtime/` — the `vnphish` command, the local web demo, the model backend
+  and the decision rules
+- `tests/` — unit and architecture tests
+- `scripts/`, `notebooks/` — run launchers, Colab training notebooks, the demo
+  notebook
+- `data/` — small evidence files from the final runs (metrics, manifests); no
+  dataset or model weights
+- `docs/architecture/` — architecture notes
 
-```bash
-vnphish analyze --text "VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP." --channel sms
-python -m src.runtime.cli analyze --text "VPBank cảnh báo account Internet Banking của bạn sẽ bị khóa trong 24h. Không chia sẻ mã OTP." --channel sms
-```
+## Running it
 
-`--text` is for automation and testing. The default user path remains stdin-first.
-
-## Local Model Profiles
-
-Two explicit local-only model profiles share the same runtime command surface:
-
-- `GGUF` laptop baseline for the selected 4B winner.
-- `accelerated` local profile for stronger hardware.
-
-Use `vnphish doctor` or `python -m src.runtime.cli doctor` after selecting the target profile in settings, and see [Local Model Profiles](documents/user/LOCAL_MODELS.md) for the profile matrix, artifact expectations, and doctor guidance.
-
-## Local Demo UI
-
-The local browser demo provides non-technical verification on top of the same runtime contract.
-
-Start the demo UI:
+Needs Python 3.13 and the exported GGUF model file, which is not included.
 
 ```bash
+python -m pip install -e .[dev,runtime]
+vnphish analyze --text "<message>" --channel sms
 vnphish demo
-python -m src.runtime.cli demo
 ```
 
-Optional local server controls:
-
-```bash
-python -m src.runtime.cli demo --host 127.0.0.1 --port 8765 --no-browser
-```
-
-The demo remains text-only and local-only: `--host` accepts `localhost` or an
-IPv4 loopback address and rejects IPv6, LAN, or public interfaces. Paste one suspicious
-message or short conversation, choose an optional channel hint, and the browser UI
-will render risk tier, threat labels, grounded cues, and safe next steps from the
-existing runtime output contract.
-
-## Optional Dataset Regeneration
-
-The data pipeline builds and retains the artifacts needed for downstream model work.
-The repository exposes one operator command path through `python -m src.data_pipeline.cli`.
-
-The installed analyzer is local-only and does not require provider credentials.
-Credentials below are required only when deliberately regenerating synthetic data
-with the retained external-provider workflows.
-
-The retained provider-generation path is not currently guaranteed to publish a
-full clean rebuild: its batch scheduler can reuse one semantic seed across labels,
-and the leakage-safe splitter correctly rejects a seed that spans labels. Treat the
-commands below as compatibility/history until class-specific independent-root
-assignment is repaired. Do not manufacture diversity by suffixing otherwise
-identical seed IDs. See the current
-[code workflow](documents/defense/CODE_WORKFLOW.md#open-generator-caveat).
-
-### Regeneration Prerequisites
-
-- Python 3.13
-- Dependencies installed with `python -m pip install -e .[dev]`
-- Environment variables:
-  - `ANTHROPIC_API_KEY` for complex synthetic generation
-  - `GEMINI_API_KEY` for bulk generation and quality judging
-  - `OPENROUTER_API_KEY` optional fallback for bulk generation
-
-## Fast Path: Use the Retained Raw Seeds
-
-Use the existing retained seed artifact when you want to rebuild governed outputs without reopening scraping.
-
-If you want to finish generation first and postpone all LLM judging, add `--generate-only`. In that mode, completed batches append directly into `data/synthetic/generated.jsonl` and resume from the same checkpoint.
-
-## Smoke Check
-
-Run a smaller preflight first when you only want to validate the command path and artifact wiring.
-
-## Safer Long Runs
-
-For expensive retained runs, keep batches small, turn on incremental checkpoints, and only raise parallelism as high as your provider limits can tolerate.
-
-If the process is interrupted after some batches finish, resume from the saved checkpoint instead of starting over.
-
-During the run, progress is printed to `stderr`, completed generation batches are checkpointed under `data/synthetic/`, and `data/synthetic/generated.jsonl` is appended incrementally so successful batches are not lost on interruption.
-
-## Fresh Scrape Path
-
-If you need a new seed batch, omit `--seed-input` and the CLI will scrape first, then continue through generation, judging, and split building.
-
-## Compatibility Command Examples
-
-These retained examples keep their original version tags so existing artifacts and operator notes remain reproducible.
-
-<!-- legacy-readme-data-cli:start -->
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 2500 --version-tag phase1-uat-gap
-```
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
-```
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 50 --version-tag phase1-uat-gap
-```
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --generate-only
-```
-
-```bash
-python -m src.data_pipeline.cli --seed-input data/raw/seeds-2026-04-24.jsonl --target-count 3000 --version-tag phase1-uat-gap --bulk-provider auto --max-parallel-batches 2 --resume --generate-only
-```
-
-```bash
-python -m src.data_pipeline.cli --target-count 2500 --version-tag phase1-fresh
-```
-<!-- legacy-readme-data-cli:end -->
-
-## Expected Outputs
-
-Successful runs retain these artifacts in the workspace:
-
-- `data/synthetic/generated.jsonl`
-- `data/processed/validated.jsonl`
-- `data/processed/quality-stats.json`
-- `data/splits/train.jsonl`
-- `data/splits/val.jsonl`
-- `data/splits/test.jsonl`
-- `data/manifests/manifest-<version-tag>.json`
-
-When `--generate-only` is active, only `data/synthetic/generated.jsonl` is produced. The judge, validated outputs, splits, and manifest are intentionally skipped.
-
-The CLI prints a JSON summary to stdout with counts and output paths, including the final manifest path.
-
-## Notes
-
-- The retained dataset target band is `2000-3000` generated records.
-- If the judged output is empty, the CLI exits non-zero instead of silently writing incomplete artifacts.
-- If `--seed-input` points to a missing file, the CLI exits non-zero immediately.
-- `--bulk-provider auto` prefers Gemini for bulk generation when `GEMINI_API_KEY` is configured, then falls back to OpenRouter or Claude.
-- Dataset artifacts under `data/` are local-only and should not be committed; keep the tracked `.gitkeep` files so fresh clones preserve the directory layout.
+Set `MODEL_STORAGE_ROOT`, `MODEL_ARTIFACT_ROOT` and `MODEL_REGISTRY_PATH` to the
+folder that holds the model file and its registry; `START_DEMO.bat` shows the
+layout it expects. The app accepts pasted text only: no images, OCR or audio.

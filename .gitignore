@@ -304,3 +304,24 @@ defense_speaking_script.md
 TEST_DEMO.md
 defense_qa2.md
 documents/Transcript defense.md
+
+# Archived project: kept on disk, not in git
+documents/
+.planning/
+historical/
+.gsd/
+.tasks/
+.github/
+.assets/
+audio/
+.vscode/
+docs/*
+!docs/architecture/
+PRD.md
+TODO.md
+AGENTS.md
+CLAUDE.md
+.gitnexusignore
+.gitnexus/
+data/models/phase40/full/
+data/runtime/

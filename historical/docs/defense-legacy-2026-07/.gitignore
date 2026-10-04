@@ -1,4 +1,0 @@
-# Local backup only. Current defense material lives in documents/defense/.
-*
-!.gitignore
-!ARCHIVE_NOTICE.md
