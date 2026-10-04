@@ -45,7 +45,12 @@ proven difference between the models.
 2,097 messages (1,658 train / 219 validation / 220 test), written by LLMs from
 public scam warnings on tinnhiemmang.vn, then checked by a separate judge model
 and by manual review. All messages from one source article stay in the same
-split. The dataset and the trained model files are not in this repository.
+split.
+
+The dataset is on Hugging Face:
+[wikiepeidia/vnphish-dataset](https://huggingface.co/datasets/wikiepeidia/vnphish-dataset).
+Phone numbers and email addresses are masked in that public copy. The trained
+model files are not published.
 
 ## Limitations
 
