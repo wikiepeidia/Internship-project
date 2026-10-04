@@ -1,0 +1,519 @@
+{
+  "schema_version": "phase411-runtime-cli-contract-v1",
+  "environment_roots": {
+    "DATA_DIR": "<TMP_ROOT>\\data",
+    "MODEL_ARTIFACT_ROOT": "<TMP_ROOT>\\models",
+    "MODEL_REGISTRY_PATH": "<TMP_ROOT>\\registry.json"
+  },
+  "isolation": {
+    "before_real_implementation_modules": [],
+    "synthetic_stub_modules": [
+      "src.runtime.contracts",
+      "src.runtime.demo",
+      "src.runtime.doctor",
+      "src.runtime.render",
+      "src.runtime.service"
+    ],
+    "all_stubs_have_synthetic_file": true,
+    "after_real_implementation_modules": []
+  },
+  "parser": {
+    "prog": "vnphish",
+    "usage": null,
+    "description": "Local Vietnamese financial phishing/threat detection runtime. Use 'analyze' for terminal text-only checks (no browser). Use 'demo' to start the local browser web UI.",
+    "epilog": null,
+    "prefix_chars": "-",
+    "allow_abbrev": false,
+    "conflict_handler": "error",
+    "formatter_class": "argparse.HelpFormatter",
+    "defaults": {},
+    "actions": [
+      {
+        "index": 0,
+        "class": "_HelpAction",
+        "option_strings": [
+          "-h",
+          "--help"
+        ],
+        "dest": "help",
+        "default": "<argparse.SUPPRESS>",
+        "required": false,
+        "nargs": 0,
+        "type": null,
+        "choices": null,
+        "help": "show this help message and exit",
+        "metavar": null,
+        "const": null
+      },
+      {
+        "index": 1,
+        "class": "_SubParsersAction",
+        "option_strings": [],
+        "dest": "command",
+        "default": null,
+        "required": true,
+        "nargs": "A...",
+        "type": null,
+        "choices": [
+          "analyze",
+          "doctor",
+          "demo"
+        ],
+        "help": null,
+        "metavar": null,
+        "const": null
+      }
+    ],
+    "subcommands": [
+      {
+        "command": "analyze",
+        "parser": {
+          "prog": "vnphish analyze",
+          "usage": null,
+          "description": "Analyze one pasted message directly in the terminal. This is a text-only command: it opens no browser page. Paste the message and finish stdin (Ctrl+Z then Enter on Windows) or pass --text for automation.",
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.runtime.cli.handle_analyze"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--text"
+              ],
+              "dest": "text",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Optional explicit message text for automation (skips stdin)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--channel"
+              ],
+              "dest": "channel",
+              "default": "unknown",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "unknown",
+                "sms",
+                "zalo",
+                "messenger",
+                "telegram",
+                "facebook"
+              ],
+              "help": "Optional channel hint for the pasted message",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "doctor",
+        "parser": {
+          "prog": "vnphish doctor",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.runtime.cli.handle_doctor"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "demo",
+        "parser": {
+          "prog": "vnphish demo",
+          "usage": null,
+          "description": "Start the local demo web UI. This launches a local web server and opens the demo page in your default browser (unless --no-browser is passed).",
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.runtime.cli.handle_demo"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--host"
+              ],
+              "dest": "host",
+              "default": "127.0.0.1",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Host interface for the local demo server",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--port"
+              ],
+              "dest": "port",
+              "default": 8765,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Port for the local demo server",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--no-browser"
+              ],
+              "dest": "no_browser",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Do not open the demo web UI automatically in the default browser",
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      }
+    ]
+  },
+  "parse_cases": [
+    {
+      "name": "root_help",
+      "argv": [
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: vnphish [-h] {analyze,doctor,demo} ...\n\nLocal Vietnamese financial phishing/threat detection runtime. Use 'analyze' for terminal text-only checks (no\nbrowser). Use 'demo' to start the local browser web UI.\n\npositional arguments:\n  {analyze,doctor,demo}\n    analyze             Analyze one pasted message in the terminal (text-only, no browser)\n    doctor              Check local runtime readiness\n    demo                Start the local demo web UI in your browser for non-technical verification\n\noptions:\n  -h, --help            show this help message and exit\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20766e7068697368205b2d685d207b616e616c797a652c646f63746f722c64656d6f7d202e2e2e0a0a4c6f63616c20566965746e616d6573652066696e616e6369616c207068697368696e672f74687265617420646574656374696f6e2072756e74696d652e205573652027616e616c797a652720666f72207465726d696e616c20746578742d6f6e6c7920636865636b7320286e6f0a62726f77736572292e20557365202764656d6f2720746f20737461727420746865206c6f63616c2062726f77736572207765622055492e0a0a706f736974696f6e616c20617267756d656e74733a0a20207b616e616c797a652c646f63746f722c64656d6f7d0a20202020616e616c797a6520202020202020202020202020416e616c797a65206f6e6520706173746564206d65737361676520696e20746865207465726d696e616c2028746578742d6f6e6c792c206e6f2062726f77736572290a20202020646f63746f722020202020202020202020202020436865636b206c6f63616c2072756e74696d652072656164696e6573730a2020202064656d6f20202020202020202020202020202020537461727420746865206c6f63616c2064656d6f2077656220554920696e20796f75722062726f7773657220666f72206e6f6e2d746563686e6963616c20766572696669636174696f6e0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "analyze_help",
+      "argv": [
+        "analyze",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: vnphish analyze [-h] [--text TEXT] [--channel {unknown,sms,zalo,messenger,telegram,facebook}]\n\nAnalyze one pasted message directly in the terminal. This is a text-only command: it opens no browser page. Paste the\nmessage and finish stdin (Ctrl+Z then Enter on Windows) or pass --text for automation.\n\noptions:\n  -h, --help            show this help message and exit\n  --text TEXT           Optional explicit message text for automation (skips stdin)\n  --channel {unknown,sms,zalo,messenger,telegram,facebook}\n                        Optional channel hint for the pasted message\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20766e706869736820616e616c797a65205b2d685d205b2d2d7465787420544558545d205b2d2d6368616e6e656c207b756e6b6e6f776e2c736d732c7a616c6f2c6d657373656e6765722c74656c656772616d2c66616365626f6f6b7d5d0a0a416e616c797a65206f6e6520706173746564206d657373616765206469726563746c7920696e20746865207465726d696e616c2e2054686973206973206120746578742d6f6e6c7920636f6d6d616e643a206974206f70656e73206e6f2062726f7773657220706167652e205061737465207468650a6d65737361676520616e642066696e69736820737464696e20284374726c2b5a207468656e20456e746572206f6e2057696e646f777329206f722070617373202d2d7465787420666f72206175746f6d6174696f6e2e0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d74657874205445585420202020202020202020204f7074696f6e616c206578706c69636974206d657373616765207465787420666f72206175746f6d6174696f6e2028736b69707320737464696e290a20202d2d6368616e6e656c207b756e6b6e6f776e2c736d732c7a616c6f2c6d657373656e6765722c74656c656772616d2c66616365626f6f6b7d0a2020202020202020202020202020202020202020202020204f7074696f6e616c206368616e6e656c2068696e7420666f722074686520706173746564206d6573736167650a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "doctor_help",
+      "argv": [
+        "doctor",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: vnphish doctor [-h]\n\noptions:\n  -h, --help  show this help message and exit\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20766e706869736820646f63746f72205b2d685d0a0a6f7074696f6e733a0a20202d682c202d2d68656c70202073686f7720746869732068656c70206d65737361676520616e6420657869740a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "demo_help",
+      "argv": [
+        "demo",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: vnphish demo [-h] [--host HOST] [--port PORT] [--no-browser]\n\nStart the local demo web UI. This launches a local web server and opens the demo page in your default browser (unless\n--no-browser is passed).\n\noptions:\n  -h, --help    show this help message and exit\n  --host HOST   Host interface for the local demo server\n  --port PORT   Port for the local demo server\n  --no-browser  Do not open the demo web UI automatically in the default browser\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20766e70686973682064656d6f205b2d685d205b2d2d686f737420484f53545d205b2d2d706f727420504f52545d205b2d2d6e6f2d62726f777365725d0a0a537461727420746865206c6f63616c2064656d6f207765622055492e2054686973206c61756e636865732061206c6f63616c207765622073657276657220616e64206f70656e73207468652064656d6f207061676520696e20796f75722064656661756c742062726f777365722028756e6c6573730a2d2d6e6f2d62726f7773657220697320706173736564292e0a0a6f7074696f6e733a0a20202d682c202d2d68656c702020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d686f737420484f5354202020486f737420696e7465726661636520666f7220746865206c6f63616c2064656d6f207365727665720a20202d2d706f727420504f5254202020506f727420666f7220746865206c6f63616c2064656d6f207365727665720a20202d2d6e6f2d62726f777365722020446f206e6f74206f70656e207468652064656d6f20776562205549206175746f6d61746963616c6c7920696e207468652064656661756c742062726f777365720a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "missing_command",
+      "argv": [],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: vnphish [-h] {analyze,doctor,demo} ...\nvnphish: error: the following arguments are required: command\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20766e7068697368205b2d685d207b616e616c797a652c646f63746f722c64656d6f7d202e2e2e0a766e70686973683a206572726f723a2074686520666f6c6c6f77696e6720617267756d656e7473206172652072657175697265643a20636f6d6d616e640a"
+    },
+    {
+      "name": "unknown_command",
+      "argv": [
+        "not-a-command"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: vnphish [-h] {analyze,doctor,demo} ...\nvnphish: error: argument command: invalid choice: 'not-a-command' (choose from analyze, doctor, demo)\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20766e7068697368205b2d685d207b616e616c797a652c646f63746f722c64656d6f7d202e2e2e0a766e70686973683a206572726f723a20617267756d656e7420636f6d6d616e643a20696e76616c69642063686f6963653a20276e6f742d612d636f6d6d616e6427202863686f6f73652066726f6d20616e616c797a652c20646f63746f722c2064656d6f290a"
+    },
+    {
+      "name": "invalid_choice",
+      "argv": [
+        "analyze",
+        "--channel",
+        "carrier-pigeon"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: vnphish analyze [-h] [--text TEXT] [--channel {unknown,sms,zalo,messenger,telegram,facebook}]\nvnphish analyze: error: argument --channel: invalid choice: 'carrier-pigeon' (choose from unknown, sms, zalo, messenger, telegram, facebook)\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20766e706869736820616e616c797a65205b2d685d205b2d2d7465787420544558545d205b2d2d6368616e6e656c207b756e6b6e6f776e2c736d732c7a616c6f2c6d657373656e6765722c74656c656772616d2c66616365626f6f6b7d5d0a766e706869736820616e616c797a653a206572726f723a20617267756d656e74202d2d6368616e6e656c3a20696e76616c69642063686f6963653a2027636172726965722d706967656f6e27202863686f6f73652066726f6d20756e6b6e6f776e2c20736d732c207a616c6f2c206d657373656e6765722c2074656c656772616d2c2066616365626f6f6b290a"
+    },
+    {
+      "name": "invalid_type",
+      "argv": [
+        "demo",
+        "--port",
+        "not-an-integer"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: vnphish demo [-h] [--host HOST] [--port PORT] [--no-browser]\nvnphish demo: error: argument --port: invalid int value: 'not-an-integer'\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20766e70686973682064656d6f205b2d685d205b2d2d686f737420484f53545d205b2d2d706f727420504f52545d205b2d2d6e6f2d62726f777365725d0a766e70686973682064656d6f3a206572726f723a20617267756d656e74202d2d706f72743a20696e76616c696420696e742076616c75653a20276e6f742d616e2d696e7465676572270a"
+    },
+    {
+      "name": "parser_error",
+      "argv": [
+        "doctor",
+        "--unknown-option"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: vnphish [-h] {analyze,doctor,demo} ...\nvnphish: error: unrecognized arguments: --unknown-option\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20766e7068697368205b2d685d207b616e616c797a652c646f63746f722c64656d6f7d202e2e2e0a766e70686973683a206572726f723a20756e7265636f676e697a656420617267756d656e74733a202d2d756e6b6e6f776e2d6f7074696f6e0a"
+    }
+  ],
+  "main_contract": {
+    "installed_command_handler_doubles": [
+      {
+        "command": "analyze",
+        "argv": [
+          "analyze",
+          "--text",
+          "xin chào",
+          "--channel",
+          "zalo"
+        ],
+        "return_value": 0,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "analyze stdout\n",
+        "stderr": "analyze stderr\n",
+        "stdout_utf8_hex": "616e616c797a65207374646f75740a",
+        "stderr_utf8_hex": "616e616c797a65207374646572720a",
+        "events": [
+          {
+            "channel": "stdout",
+            "text": "analyze stdout"
+          },
+          {
+            "channel": "stdout",
+            "text": "\n"
+          },
+          {
+            "channel": "stderr",
+            "text": "analyze stderr"
+          },
+          {
+            "channel": "stderr",
+            "text": "\n"
+          }
+        ],
+        "invocations": [
+          {
+            "command": "analyze",
+            "text": "xin chào",
+            "channel": "zalo",
+            "handler": "__main__._runtime_main_contract.<locals>.handler"
+          }
+        ]
+      },
+      {
+        "command": "doctor",
+        "argv": [
+          "doctor"
+        ],
+        "return_value": 1,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "doctor stdout\n",
+        "stderr": "doctor stderr\n",
+        "stdout_utf8_hex": "646f63746f72207374646f75740a",
+        "stderr_utf8_hex": "646f63746f72207374646572720a",
+        "events": [
+          {
+            "channel": "stdout",
+            "text": "doctor stdout"
+          },
+          {
+            "channel": "stdout",
+            "text": "\n"
+          },
+          {
+            "channel": "stderr",
+            "text": "doctor stderr"
+          },
+          {
+            "channel": "stderr",
+            "text": "\n"
+          }
+        ],
+        "invocations": [
+          {
+            "command": "doctor",
+            "handler": "__main__._runtime_main_contract.<locals>.handler"
+          }
+        ]
+      },
+      {
+        "command": "demo",
+        "argv": [
+          "demo",
+          "--host",
+          "127.0.0.9",
+          "--port",
+          "9001",
+          "--no-browser"
+        ],
+        "return_value": 2,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "demo stdout\n",
+        "stderr": "demo stderr\n",
+        "stdout_utf8_hex": "64656d6f207374646f75740a",
+        "stderr_utf8_hex": "64656d6f207374646572720a",
+        "events": [
+          {
+            "channel": "stdout",
+            "text": "demo stdout"
+          },
+          {
+            "channel": "stdout",
+            "text": "\n"
+          },
+          {
+            "channel": "stderr",
+            "text": "demo stderr"
+          },
+          {
+            "channel": "stderr",
+            "text": "\n"
+          }
+        ],
+        "invocations": [
+          {
+            "command": "demo",
+            "host": "127.0.0.9",
+            "port": 9001,
+            "no_browser": true,
+            "handler": "__main__._runtime_main_contract.<locals>.handler"
+          }
+        ]
+      }
+    ]
+  }
+}

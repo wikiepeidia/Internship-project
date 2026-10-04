@@ -1,0 +1,3250 @@
+{
+  "schema_version": "phase411-model-cli-contract-v1",
+  "environment_roots": {
+    "DATA_DIR": "<TMP_ROOT>\\data",
+    "MODEL_ARTIFACT_ROOT": "<TMP_ROOT>\\models",
+    "MODEL_REGISTRY_PATH": "<TMP_ROOT>\\registry.json"
+  },
+  "isolation": {
+    "before_real_implementation_modules": [],
+    "synthetic_stub_modules": [
+      "src.config.settings",
+      "src.model_adaptation.catalog",
+      "src.model_adaptation.convert",
+      "src.model_adaptation.doctor",
+      "src.model_adaptation.phase40_contract",
+      "src.model_adaptation.phase40_evidence",
+      "src.model_adaptation.phase40_graphs",
+      "src.model_adaptation.phase40_handoff",
+      "src.model_adaptation.phase40_modes",
+      "src.model_adaptation.phase40_review",
+      "src.model_adaptation.pilot",
+      "src.model_adaptation.registry",
+      "src.model_adaptation.schemas",
+      "src.model_adaptation.training"
+    ],
+    "all_stubs_have_synthetic_file": true,
+    "after_real_implementation_modules": []
+  },
+  "parser": {
+    "prog": "python -m src.model_adaptation.cli",
+    "usage": null,
+    "description": null,
+    "epilog": null,
+    "prefix_chars": "-",
+    "allow_abbrev": false,
+    "conflict_handler": "error",
+    "formatter_class": "argparse.HelpFormatter",
+    "defaults": {},
+    "actions": [
+      {
+        "index": 0,
+        "class": "_HelpAction",
+        "option_strings": [
+          "-h",
+          "--help"
+        ],
+        "dest": "help",
+        "default": "<argparse.SUPPRESS>",
+        "required": false,
+        "nargs": 0,
+        "type": null,
+        "choices": null,
+        "help": "show this help message and exit",
+        "metavar": null,
+        "const": null
+      },
+      {
+        "index": 1,
+        "class": "_SubParsersAction",
+        "option_strings": [],
+        "dest": "command",
+        "default": null,
+        "required": true,
+        "nargs": "A...",
+        "type": null,
+        "choices": [
+          "pilot",
+          "train",
+          "convert",
+          "doctor",
+          "phase40-preflight",
+          "phase40-build-source-bundle",
+          "phase40-build-input-bundle",
+          "phase40-verify-input-bundle",
+          "phase40-verify-run-request",
+          "phase40-verify-run-evidence",
+          "phase40-render-graphs",
+          "phase40-validate-notebooks",
+          "phase40-finalize-comparison",
+          "phase40-freeze-scope-amendment",
+          "phase40-verify-review-queue",
+          "phase40-finalize-human-review",
+          "phase41-prepare-evaluation",
+          "phase41-verify-preauthorization",
+          "phase41-authorize-evaluation",
+          "phase41-run-once",
+          "phase41-freeze-deployment-fit-disposition",
+          "phase41-export-evidence",
+          "phase41-verify-evidence"
+        ],
+        "help": null,
+        "metavar": null,
+        "const": null
+      }
+    ],
+    "subcommands": [
+      {
+        "command": "pilot",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli pilot",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_pilot"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--version-tag"
+              ],
+              "dest": "version_tag",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Version tag for pilot outputs",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--evaluated-split"
+              ],
+              "dest": "evaluated_split",
+              "default": "val",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "train",
+                "val",
+                "test",
+                "pilot"
+              ],
+              "help": "Split label recorded in pilot scorecards",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--registry-path"
+              ],
+              "dest": "registry_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Path to the local model registry JSON",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--dry-run"
+              ],
+              "dest": "dry_run",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Use local mock pilot metrics",
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "train",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli train",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_train"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--candidate"
+              ],
+              "dest": "candidate",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Candidate id or alias: baseline-winner | runner-up",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--version-tag"
+              ],
+              "dest": "version_tag",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Version tag for training outputs",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--train-split"
+              ],
+              "dest": "train_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Canonical data/splits/train.jsonl path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--val-split"
+              ],
+              "dest": "val_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Canonical data/splits/val.jsonl path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Root directory for local model artifacts",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--registry-path"
+              ],
+              "dest": "registry_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Path to the local model registry JSON",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 7,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--base-model-path"
+              ],
+              "dest": "base_model_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Override the local base checkpoint path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 8,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--num-train-epochs"
+              ],
+              "dest": "num_train_epochs",
+              "default": 1.0,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.float",
+              "choices": null,
+              "help": "Epoch count for full runs when --max-steps is not set",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 9,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--max-steps"
+              ],
+              "dest": "max_steps",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Maximum optimizer steps; use small values for smoke tests",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 10,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--per-device-train-batch-size"
+              ],
+              "dest": "per_device_train_batch_size",
+              "default": 1,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Per-device train batch size",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 11,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--gradient-accumulation-steps"
+              ],
+              "dest": "gradient_accumulation_steps",
+              "default": 4,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Gradient accumulation steps",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 12,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--learning-rate"
+              ],
+              "dest": "learning_rate",
+              "default": 0.0002,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.float",
+              "choices": null,
+              "help": "Learning rate for adapter tuning",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 13,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--logging-steps"
+              ],
+              "dest": "logging_steps",
+              "default": 10,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Training log interval in optimizer steps",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 14,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--save-steps"
+              ],
+              "dest": "save_steps",
+              "default": 50,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Checkpoint save interval in optimizer steps",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 15,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--save-total-limit"
+              ],
+              "dest": "save_total_limit",
+              "default": 2,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Maximum number of saved checkpoints to keep",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 16,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--max-seq-length"
+              ],
+              "dest": "max_seq_length",
+              "default": 1024,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Maximum tokenized sequence length",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 17,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--resume-from-checkpoint"
+              ],
+              "dest": "resume_from_checkpoint",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Exact checkpoint-N path with a verified compatibility manifest; 'latest' is forbidden",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 18,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--device"
+              ],
+              "dest": "device",
+              "default": "auto",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "auto",
+                "cpu",
+                "cuda"
+              ],
+              "help": "Execution device for the training backend",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 19,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--smoke-test"
+              ],
+              "dest": "smoke_test",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Run a short checkpoint-friendly preflight training job",
+              "metavar": null,
+              "const": true
+            },
+            {
+              "index": 20,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--adaptation-mode"
+              ],
+              "dest": "adaptation_mode",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "lora",
+                "qlora"
+              ],
+              "help": "Explicit adapter mode; QLoRA never falls back to LoRA",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 21,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--run-kind"
+              ],
+              "dest": "run_kind",
+              "default": "full",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "probe",
+                "full"
+              ],
+              "help": "Bounded probe or full evidence-producing run",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 22,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--post-warmup-steps"
+              ],
+              "dest": "post_warmup_steps",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Required 30-50 post-warm-up optimizer steps for a probe run",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 23,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--warmup-steps"
+              ],
+              "dest": "warmup_steps",
+              "default": 5,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": "Measured probe warm-up optimizer steps (default: 5)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 24,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--run-id"
+              ],
+              "dest": "run_id",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Safe immutable Phase 40 run identifier",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 25,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--model-revision"
+              ],
+              "dest": "model_revision",
+              "default": "cdbee75f17c01a7cc42f958dc650907174af0554",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Pinned 40-hex base-model revision",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 26,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--run-request-path"
+              ],
+              "dest": "run_request_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Verified Phase 40 full-run request supplying transfer authority (required for full publication)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 27,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--dry-run"
+              ],
+              "dest": "dry_run",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Validate config without a real fine-tune",
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "convert",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli convert",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_convert"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--candidate"
+              ],
+              "dest": "candidate",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Candidate id or alias: baseline-winner | runner-up",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--version-tag"
+              ],
+              "dest": "version_tag",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Version tag for GGUF outputs",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Root directory for local model artifacts",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--registry-path"
+              ],
+              "dest": "registry_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Path to the local model registry JSON",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--quantization-profile"
+              ],
+              "dest": "quantization_profile",
+              "default": "q4_k_m",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Requested GGUF quantization profile",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--dry-run"
+              ],
+              "dest": "dry_run",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Validate conversion wiring without producing GGUF output",
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "doctor",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli doctor",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_doctor"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--candidate"
+              ],
+              "dest": "candidate",
+              "default": "baseline-winner",
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Candidate id or alias: baseline-winner | runner-up",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--train-split"
+              ],
+              "dest": "train_split",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Training split JSONL path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--val-split"
+              ],
+              "dest": "val_split",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Validation split JSONL path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Root directory for local model artifacts",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--registry-path"
+              ],
+              "dest": "registry_path",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Path to the local model registry JSON",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--adaptation-mode"
+              ],
+              "dest": "adaptation_mode",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": [
+                "lora",
+                "qlora"
+              ],
+              "help": "Mode whose readiness must be checked without fallback",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-preflight",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-preflight",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_preflight"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--train-split"
+              ],
+              "dest": "train_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Canonical data/splits/train.jsonl path",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--val-split"
+              ],
+              "dest": "val_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Canonical data/splits/val.jsonl path",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-build-source-bundle",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-build-source-bundle",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_build_source_bundle"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-build-input-bundle",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-build-input-bundle",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_build_input_bundle"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--train-split"
+              ],
+              "dest": "train_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--val-split"
+              ],
+              "dest": "val_split",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-path"
+              ],
+              "dest": "output_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--reference-output"
+              ],
+              "dest": "reference_output",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-verify-input-bundle",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-verify-input-bundle",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_verify_input_bundle"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--archive-path"
+              ],
+              "dest": "archive_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--reference-path"
+              ],
+              "dest": "reference_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--extraction-root"
+              ],
+              "dest": "extraction_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--verify-only"
+              ],
+              "dest": "verify_only",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-verify-run-request",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-verify-run-request",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_verify_run_request"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--request-path"
+              ],
+              "dest": "request_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-verify-run-evidence",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-verify-run-evidence",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_verify_run_evidence"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--run-root"
+              ],
+              "dest": "run_root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--allow-prestart-failure"
+              ],
+              "dest": "allow_prestart_failure",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "Explicitly accept a hash-verified pre-start failure record",
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-render-graphs",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-render-graphs",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_render_graphs"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--run-root"
+              ],
+              "dest": "run_root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--smoothing-window"
+              ],
+              "dest": "smoothing_window",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--dpi"
+              ],
+              "dest": "dpi",
+              "default": 120,
+              "required": false,
+              "nargs": null,
+              "type": "builtins.int",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-validate-notebooks",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-validate-notebooks",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_validate_notebooks"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--root"
+              ],
+              "dest": "root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-finalize-comparison",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-finalize-comparison",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_finalize_comparison"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--request-path"
+              ],
+              "dest": "request_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--scope-amendment-path"
+              ],
+              "dest": "scope_amendment_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_AppendAction",
+              "option_strings": [
+                "--package-decision"
+              ],
+              "dest": "package_decision",
+              "default": [],
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": "PACKAGE=approve|reject:REASON",
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_AppendAction",
+              "option_strings": [
+                "--bundle-root"
+              ],
+              "dest": "bundle_root",
+              "default": [],
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": "RUN_ID=REPOSITORY_PATH",
+              "const": null
+            },
+            {
+              "index": 7,
+              "class": "_AppendAction",
+              "option_strings": [
+                "--gpu-identity"
+              ],
+              "dest": "gpu_identity",
+              "default": [],
+              "required": false,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": "RUN_ID=GPU_NAME",
+              "const": null
+            },
+            {
+              "index": 8,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--verify-only"
+              ],
+              "dest": "verify_only",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-freeze-scope-amendment",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-freeze-scope-amendment",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_freeze_scope_amendment"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--request-path"
+              ],
+              "dest": "request_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-verify-review-queue",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-verify-review-queue",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_verify_review_queue"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--request-path"
+              ],
+              "dest": "request_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--scope-amendment-path"
+              ],
+              "dest": "scope_amendment_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--comparison-manifest-path"
+              ],
+              "dest": "comparison_manifest_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--selected-predictions-path"
+              ],
+              "dest": "selected_predictions_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--queue-path"
+              ],
+              "dest": "queue_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase40-finalize-human-review",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase40-finalize-human-review",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase40_finalize_human_review"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--request-path"
+              ],
+              "dest": "request_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--scope-amendment-path"
+              ],
+              "dest": "scope_amendment_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--comparison-manifest-path"
+              ],
+              "dest": "comparison_manifest_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--selected-predictions-path"
+              ],
+              "dest": "selected_predictions_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--queue-path"
+              ],
+              "dest": "queue_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 7,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--queue-manifest-path"
+              ],
+              "dest": "queue_manifest_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 8,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--reviewer-return-path"
+              ],
+              "dest": "reviewer_return_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 9,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 10,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--vietnamese-fluent-attestation"
+              ],
+              "dest": "vietnamese_fluent_attestation",
+              "default": false,
+              "required": true,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": true
+            },
+            {
+              "index": 11,
+              "class": "_StoreTrueAction",
+              "option_strings": [
+                "--verify-only"
+              ],
+              "dest": "verify_only",
+              "default": false,
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": true
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-prepare-evaluation",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-prepare-evaluation",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_prepare_evaluation"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default; overrides must match it)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repo-root"
+              ],
+              "dest": "repo_root",
+              "default": "<TMP_ROOT>",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--phase39-contract-path"
+              ],
+              "dest": "phase39_contract_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 4,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--phase40-comparison-manifest-path"
+              ],
+              "dest": "phase40_comparison_manifest_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 5,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--phase40-review-manifest-path"
+              ],
+              "dest": "phase40_review_manifest_path",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 6,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--preclaim-rejection-audit-path"
+              ],
+              "dest": "preclaim_rejection_audit_path",
+              "default": "data\\models\\phase41\\preclaim-audit\\41-02-preclaim-failure.json",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 7,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--staged-preclaim-failure-audit-path"
+              ],
+              "dest": "staged_preclaim_failure_audit_path",
+              "default": "data\\models\\phase41\\failed-invocation\\44c654a9bc92151a00231fcbf9e73209ab9e0802239ffbd0597efa4d8f353401\\claim-capable-preclaim-failure.json",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 8,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--argument-preclaim-failure-audit-path"
+              ],
+              "dest": "argument_preclaim_failure_audit_path",
+              "default": "data\\models\\phase41\\failed-invocation\\0cdd803d0f145b147e34c5a8b0a9b1846496192bf6b002a46c3dbccaaf2e9c22\\claim-capable-preclaim-failure.json",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 9,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--autonomous-reseal-delegation-path"
+              ],
+              "dest": "autonomous_reseal_delegation_path",
+              "default": "data\\models\\phase41\\autonomous-reseal-delegation.json",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 10,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--captured-helper-preclaim-failure-audit-path"
+              ],
+              "dest": "captured_helper_preclaim_failure_audit_path",
+              "default": "data\\models\\phase41\\failed-invocation\\28374ea5c1f7fee43e12ee0395ad4fcd7c6a2e4801b809131afa6cca2db7e8e7\\claim-capable-preclaim-failure.json",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-verify-preauthorization",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-verify-preauthorization",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_verify_preauthorization"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-authorize-evaluation",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-authorize-evaluation",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_authorize_evaluation"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--prepared-sha256"
+              ],
+              "dest": "prepared_sha256",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 3,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--statement"
+              ],
+              "dest": "statement",
+              "default": null,
+              "required": true,
+              "nargs": null,
+              "type": null,
+              "choices": null,
+              "help": "Exact Phase 41 checkpoint signal; extra text is rejected",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-run-once",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-run-once",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_run_once"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-freeze-deployment-fit-disposition",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-freeze-deployment-fit-disposition",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_freeze_deployment_fit_disposition"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-export-evidence",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-export-evidence",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_export_evidence"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 2,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--repository-output-root"
+              ],
+              "dest": "repository_output_root",
+              "default": "data\\models\\phase41",
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": null,
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      },
+      {
+        "command": "phase41-verify-evidence",
+        "parser": {
+          "prog": "python -m src.model_adaptation.cli phase41-verify-evidence",
+          "usage": null,
+          "description": null,
+          "epilog": null,
+          "prefix_chars": "-",
+          "allow_abbrev": true,
+          "conflict_handler": "error",
+          "formatter_class": "argparse.HelpFormatter",
+          "defaults": {
+            "handler": "src.model_adaptation.cli.handle_phase41_verify_evidence"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "class": "_HelpAction",
+              "option_strings": [
+                "-h",
+                "--help"
+              ],
+              "dest": "help",
+              "default": "<argparse.SUPPRESS>",
+              "required": false,
+              "nargs": 0,
+              "type": null,
+              "choices": null,
+              "help": "show this help message and exit",
+              "metavar": null,
+              "const": null
+            },
+            {
+              "index": 1,
+              "class": "_StoreAction",
+              "option_strings": [
+                "--output-root"
+              ],
+              "dest": "output_root",
+              "default": null,
+              "required": false,
+              "nargs": null,
+              "type": "pathlib._local.Path",
+              "choices": null,
+              "help": "Fixed ProgramData operational root (default)",
+              "metavar": null,
+              "const": null
+            }
+          ],
+          "subcommands": []
+        }
+      }
+    ]
+  },
+  "parse_cases": [
+    {
+      "name": "root_help",
+      "argv": [
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli [-h]\n                                          {pilot,train,convert,doctor,phase40-preflight,phase40-build-source-bundle,phase40-build-input-bundle,phase40-verify-input-bundle,phase40-verify-run-request,phase40-verify-run-evidence,phase40-render-graphs,phase40-validate-notebooks,phase40-finalize-comparison,phase40-freeze-scope-amendment,phase40-verify-review-queue,phase40-finalize-human-review,phase41-prepare-evaluation,phase41-verify-preauthorization,phase41-authorize-evaluation,phase41-run-once,phase41-freeze-deployment-fit-disposition,phase41-export-evidence,phase41-verify-evidence} ...\n\npositional arguments:\n  {pilot,train,convert,doctor,phase40-preflight,phase40-build-source-bundle,phase40-build-input-bundle,phase40-verify-input-bundle,phase40-verify-run-request,phase40-verify-run-evidence,phase40-render-graphs,phase40-validate-notebooks,phase40-finalize-comparison,phase40-freeze-scope-amendment,phase40-verify-review-queue,phase40-finalize-human-review,phase41-prepare-evaluation,phase41-verify-preauthorization,phase41-authorize-evaluation,phase41-run-once,phase41-freeze-deployment-fit-disposition,phase41-export-evidence,phase41-verify-evidence}\n    pilot               Run the Phase 3 pilot scaffold\n    train               Run the Phase 3 training scaffold\n    convert             Convert one trained adapter into a GGUF artifact\n    doctor              Check local Phase 3 training readiness\n    phase40-preflight   Authorize the canonical Phase 40 train and validation snapshots\n    phase40-build-source-bundle\n                        Build the deterministic allowlisted Phase 40 source transfer bundle\n    phase40-build-input-bundle\n                        Build the deterministic canonical train/validation-only transfer bundle\n    phase40-verify-input-bundle\n                        Verify a request-bound input archive before opening its data members\n    phase40-verify-run-request\n                        Verify the immutable Phase 40 source and train/validation transfer authorities\n    phase40-verify-run-evidence\n                        Rehash and verify one complete Phase 40 run-evidence bundle\n    phase40-render-graphs\n                        Rebuild Phase 40 loss graphs from retained raw events and metrics\n    phase40-validate-notebooks\n                        Statically validate the three canonical Phase 40 notebook controllers\n    phase40-finalize-comparison\n                        Reverify local QLoRA/PhoBERT plus the resource-only LoRA probe\n    phase40-freeze-scope-amendment\n                        Freeze the request-bound local two-full-model scope waiver\n    phase40-verify-review-queue\n                        Re-derive a frozen review queue from comparison/input authorities\n    phase40-finalize-human-review\n                        Freeze exact-coverage Vietnamese review notes without changing predictions\n    phase41-prepare-evaluation\n                        Freeze the code-fixed Phase 41 preauthorization without opening the holdout\n    phase41-verify-preauthorization\n                        Verify frozen Phase 41 preauthorization without loading models or data\n    phase41-authorize-evaluation\n                        Record the exact explicit one-shot authorization\n    phase41-run-once    Run the sole canonical two-model reserved evaluation\n    phase41-freeze-deployment-fit-disposition\n                        Freeze the precommitted post-evaluation deployment-fit choice\n    phase41-export-evidence\n                        Mirror verified ProgramData evidence into an immutable repo export\n    phase41-verify-evidence\n                        Verify terminal evidence without an opener, split, predictor, or model\n\noptions:\n  -h, --help            show this help message and exit\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c69205b2d685d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020207b70696c6f742c747261696e2c636f6e766572742c646f63746f722c706861736534302d707265666c696768742c706861736534302d6275696c642d736f757263652d62756e646c652c706861736534302d6275696c642d696e7075742d62756e646c652c706861736534302d7665726966792d696e7075742d62756e646c652c706861736534302d7665726966792d72756e2d726571756573742c706861736534302d7665726966792d72756e2d65766964656e63652c706861736534302d72656e6465722d6772617068732c706861736534302d76616c69646174652d6e6f7465626f6f6b732c706861736534302d66696e616c697a652d636f6d70617269736f6e2c706861736534302d667265657a652d73636f70652d616d656e646d656e742c706861736534302d7665726966792d7265766965772d71756575652c706861736534302d66696e616c697a652d68756d616e2d7265766965772c706861736534312d707265706172652d6576616c756174696f6e2c706861736534312d7665726966792d707265617574686f72697a6174696f6e2c706861736534312d617574686f72697a652d6576616c756174696f6e2c706861736534312d72756e2d6f6e63652c706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c706861736534312d6578706f72742d65766964656e63652c706861736534312d7665726966792d65766964656e63657d202e2e2e0a0a706f736974696f6e616c20617267756d656e74733a0a20207b70696c6f742c747261696e2c636f6e766572742c646f63746f722c706861736534302d707265666c696768742c706861736534302d6275696c642d736f757263652d62756e646c652c706861736534302d6275696c642d696e7075742d62756e646c652c706861736534302d7665726966792d696e7075742d62756e646c652c706861736534302d7665726966792d72756e2d726571756573742c706861736534302d7665726966792d72756e2d65766964656e63652c706861736534302d72656e6465722d6772617068732c706861736534302d76616c69646174652d6e6f7465626f6f6b732c706861736534302d66696e616c697a652d636f6d70617269736f6e2c706861736534302d667265657a652d73636f70652d616d656e646d656e742c706861736534302d7665726966792d7265766965772d71756575652c706861736534302d66696e616c697a652d68756d616e2d7265766965772c706861736534312d707265706172652d6576616c756174696f6e2c706861736534312d7665726966792d707265617574686f72697a6174696f6e2c706861736534312d617574686f72697a652d6576616c756174696f6e2c706861736534312d72756e2d6f6e63652c706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c706861736534312d6578706f72742d65766964656e63652c706861736534312d7665726966792d65766964656e63657d0a2020202070696c6f7420202020202020202020202020202052756e2074686520506861736520332070696c6f742073636166666f6c640a20202020747261696e20202020202020202020202020202052756e20746865205068617365203320747261696e696e672073636166666f6c640a20202020636f6e7665727420202020202020202020202020436f6e76657274206f6e6520747261696e6564206164617074657220696e746f206120474755462061727469666163740a20202020646f63746f722020202020202020202020202020436865636b206c6f63616c205068617365203320747261696e696e672072656164696e6573730a20202020706861736534302d707265666c69676874202020417574686f72697a65207468652063616e6f6e6963616c20506861736520343020747261696e20616e642076616c69646174696f6e20736e617073686f74730a20202020706861736534302d6275696c642d736f757263652d62756e646c650a2020202020202020202020202020202020202020202020204275696c64207468652064657465726d696e697374696320616c6c6f776c697374656420506861736520343020736f75726365207472616e736665722062756e646c650a20202020706861736534302d6275696c642d696e7075742d62756e646c650a2020202020202020202020202020202020202020202020204275696c64207468652064657465726d696e69737469632063616e6f6e6963616c20747261696e2f76616c69646174696f6e2d6f6e6c79207472616e736665722062756e646c650a20202020706861736534302d7665726966792d696e7075742d62756e646c650a202020202020202020202020202020202020202020202020566572696679206120726571756573742d626f756e6420696e7075742061726368697665206265666f7265206f70656e696e67206974732064617461206d656d626572730a20202020706861736534302d7665726966792d72756e2d726571756573740a2020202020202020202020202020202020202020202020205665726966792074686520696d6d757461626c6520506861736520343020736f7572636520616e6420747261696e2f76616c69646174696f6e207472616e7366657220617574686f7269746965730a20202020706861736534302d7665726966792d72756e2d65766964656e63650a20202020202020202020202020202020202020202020202052656861736820616e6420766572696679206f6e6520636f6d706c6574652050686173652034302072756e2d65766964656e63652062756e646c650a20202020706861736534302d72656e6465722d6772617068730a20202020202020202020202020202020202020202020202052656275696c64205068617365203430206c6f7373206772617068732066726f6d2072657461696e656420726177206576656e747320616e64206d6574726963730a20202020706861736534302d76616c69646174652d6e6f7465626f6f6b730a202020202020202020202020202020202020202020202020537461746963616c6c792076616c6964617465207468652074687265652063616e6f6e6963616c205068617365203430206e6f7465626f6f6b20636f6e74726f6c6c6572730a20202020706861736534302d66696e616c697a652d636f6d70617269736f6e0a2020202020202020202020202020202020202020202020205265766572696679206c6f63616c20514c6f52412f50686f4245525420706c757320746865207265736f757263652d6f6e6c79204c6f52412070726f62650a20202020706861736534302d667265657a652d73636f70652d616d656e646d656e740a202020202020202020202020202020202020202020202020467265657a652074686520726571756573742d626f756e64206c6f63616c2074776f2d66756c6c2d6d6f64656c2073636f7065207761697665720a20202020706861736534302d7665726966792d7265766965772d71756575650a20202020202020202020202020202020202020202020202052652d64657269766520612066726f7a656e207265766965772071756575652066726f6d20636f6d70617269736f6e2f696e70757420617574686f7269746965730a20202020706861736534302d66696e616c697a652d68756d616e2d7265766965770a202020202020202020202020202020202020202020202020467265657a652065786163742d636f76657261676520566965746e616d65736520726576696577206e6f74657320776974686f7574206368616e67696e672070726564696374696f6e730a20202020706861736534312d707265706172652d6576616c756174696f6e0a202020202020202020202020202020202020202020202020467265657a652074686520636f64652d666978656420506861736520343120707265617574686f72697a6174696f6e20776974686f7574206f70656e696e672074686520686f6c646f75740a20202020706861736534312d7665726966792d707265617574686f72697a6174696f6e0a2020202020202020202020202020202020202020202020205665726966792066726f7a656e20506861736520343120707265617574686f72697a6174696f6e20776974686f7574206c6f6164696e67206d6f64656c73206f7220646174610a20202020706861736534312d617574686f72697a652d6576616c756174696f6e0a2020202020202020202020202020202020202020202020205265636f726420746865206578616374206578706c69636974206f6e652d73686f7420617574686f72697a6174696f6e0a20202020706861736534312d72756e2d6f6e63652020202052756e2074686520736f6c652063616e6f6e6963616c2074776f2d6d6f64656c207265736572766564206576616c756174696f6e0a20202020706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e0a202020202020202020202020202020202020202020202020467265657a652074686520707265636f6d6d697474656420706f73742d6576616c756174696f6e206465706c6f796d656e742d6669742063686f6963650a20202020706861736534312d6578706f72742d65766964656e63650a2020202020202020202020202020202020202020202020204d6972726f722076657269666965642050726f6772616d446174612065766964656e636520696e746f20616e20696d6d757461626c65207265706f206578706f72740a20202020706861736534312d7665726966792d65766964656e63650a202020202020202020202020202020202020202020202020566572696679207465726d696e616c2065766964656e636520776974686f757420616e206f70656e65722c2073706c69742c20707265646963746f722c206f72206d6f64656c0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "pilot_help",
+      "argv": [
+        "pilot",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli pilot [-h] --version-tag VERSION_TAG\n                                                [--evaluated-split {train,val,test,pilot}]\n                                                [--registry-path REGISTRY_PATH] [--dry-run]\n\noptions:\n  -h, --help            show this help message and exit\n  --version-tag VERSION_TAG\n                        Version tag for pilot outputs\n  --evaluated-split {train,val,test,pilot}\n                        Split label recorded in pilot scorecards\n  --registry-path REGISTRY_PATH\n                        Path to the local model registry JSON\n  --dry-run             Use local mock pilot metrics\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c692070696c6f74205b2d685d202d2d76657273696f6e2d7461672056455253494f4e5f5441470a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6576616c75617465642d73706c6974207b747261696e2c76616c2c746573742c70696c6f747d5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72656769737472792d706174682052454749535452595f504154485d205b2d2d6472792d72756e5d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d76657273696f6e2d7461672056455253494f4e5f5441470a20202020202020202020202020202020202020202020202056657273696f6e2074616720666f722070696c6f74206f7574707574730a20202d2d6576616c75617465642d73706c6974207b747261696e2c76616c2c746573742c70696c6f747d0a20202020202020202020202020202020202020202020202053706c6974206c6162656c207265636f7264656420696e2070696c6f742073636f726563617264730a20202d2d72656769737472792d706174682052454749535452595f504154480a2020202020202020202020202020202020202020202020205061746820746f20746865206c6f63616c206d6f64656c207265676973747279204a534f4e0a20202d2d6472792d72756e20202020202020202020202020557365206c6f63616c206d6f636b2070696c6f74206d6574726963730a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "train_help",
+      "argv": [
+        "train",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli train [-h] --candidate CANDIDATE --version-tag VERSION_TAG\n                                                --train-split TRAIN_SPLIT --val-split VAL_SPLIT\n                                                [--output-root OUTPUT_ROOT] [--registry-path REGISTRY_PATH]\n                                                [--base-model-path BASE_MODEL_PATH]\n                                                [--num-train-epochs NUM_TRAIN_EPOCHS] [--max-steps MAX_STEPS]\n                                                [--per-device-train-batch-size PER_DEVICE_TRAIN_BATCH_SIZE]\n                                                [--gradient-accumulation-steps GRADIENT_ACCUMULATION_STEPS]\n                                                [--learning-rate LEARNING_RATE] [--logging-steps LOGGING_STEPS]\n                                                [--save-steps SAVE_STEPS] [--save-total-limit SAVE_TOTAL_LIMIT]\n                                                [--max-seq-length MAX_SEQ_LENGTH]\n                                                [--resume-from-checkpoint RESUME_FROM_CHECKPOINT]\n                                                [--device {auto,cpu,cuda}] [--smoke-test]\n                                                --adaptation-mode {lora,qlora} [--run-kind {probe,full}]\n                                                [--post-warmup-steps POST_WARMUP_STEPS] [--warmup-steps WARMUP_STEPS]\n                                                [--run-id RUN_ID] [--model-revision MODEL_REVISION]\n                                                [--run-request-path RUN_REQUEST_PATH] [--dry-run]\n\noptions:\n  -h, --help            show this help message and exit\n  --candidate CANDIDATE\n                        Candidate id or alias: baseline-winner | runner-up\n  --version-tag VERSION_TAG\n                        Version tag for training outputs\n  --train-split TRAIN_SPLIT\n                        Canonical data/splits/train.jsonl path\n  --val-split VAL_SPLIT\n                        Canonical data/splits/val.jsonl path\n  --output-root OUTPUT_ROOT\n                        Root directory for local model artifacts\n  --registry-path REGISTRY_PATH\n                        Path to the local model registry JSON\n  --base-model-path BASE_MODEL_PATH\n                        Override the local base checkpoint path\n  --num-train-epochs NUM_TRAIN_EPOCHS\n                        Epoch count for full runs when --max-steps is not set\n  --max-steps MAX_STEPS\n                        Maximum optimizer steps; use small values for smoke tests\n  --per-device-train-batch-size PER_DEVICE_TRAIN_BATCH_SIZE\n                        Per-device train batch size\n  --gradient-accumulation-steps GRADIENT_ACCUMULATION_STEPS\n                        Gradient accumulation steps\n  --learning-rate LEARNING_RATE\n                        Learning rate for adapter tuning\n  --logging-steps LOGGING_STEPS\n                        Training log interval in optimizer steps\n  --save-steps SAVE_STEPS\n                        Checkpoint save interval in optimizer steps\n  --save-total-limit SAVE_TOTAL_LIMIT\n                        Maximum number of saved checkpoints to keep\n  --max-seq-length MAX_SEQ_LENGTH\n                        Maximum tokenized sequence length\n  --resume-from-checkpoint RESUME_FROM_CHECKPOINT\n                        Exact checkpoint-N path with a verified compatibility manifest; 'latest' is forbidden\n  --device {auto,cpu,cuda}\n                        Execution device for the training backend\n  --smoke-test          Run a short checkpoint-friendly preflight training job\n  --adaptation-mode {lora,qlora}\n                        Explicit adapter mode; QLoRA never falls back to LoRA\n  --run-kind {probe,full}\n                        Bounded probe or full evidence-producing run\n  --post-warmup-steps POST_WARMUP_STEPS\n                        Required 30-50 post-warm-up optimizer steps for a probe run\n  --warmup-steps WARMUP_STEPS\n                        Measured probe warm-up optimizer steps (default: 5)\n  --run-id RUN_ID       Safe immutable Phase 40 run identifier\n  --model-revision MODEL_REVISION\n                        Pinned 40-hex base-model revision\n  --run-request-path RUN_REQUEST_PATH\n                        Verified Phase 40 full-run request supplying transfer authority (required for full\n                        publication)\n  --dry-run             Validate config without a real fine-tune\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920747261696e205b2d685d202d2d63616e6469646174652043414e444944415445202d2d76657273696f6e2d7461672056455253494f4e5f5441470a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d747261696e2d73706c697420545241494e5f53504c4954202d2d76616c2d73706c69742056414c5f53504c49540a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d205b2d2d72656769737472792d706174682052454749535452595f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d626173652d6d6f64656c2d7061746820424153455f4d4f44454c5f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6e756d2d747261696e2d65706f636873204e554d5f545241494e5f45504f4348535d205b2d2d6d61782d7374657073204d41585f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7065722d6465766963652d747261696e2d62617463682d73697a65205045525f4445564943455f545241494e5f42415443485f53495a455d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6772616469656e742d616363756d756c6174696f6e2d7374657073204752414449454e545f414343554d554c4154494f4e5f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6c6561726e696e672d72617465204c4541524e494e475f524154455d205b2d2d6c6f6767696e672d7374657073204c4f4747494e475f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d736176652d737465707320534156455f53544550535d205b2d2d736176652d746f74616c2d6c696d697420534156455f544f54414c5f4c494d49545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6d61782d7365712d6c656e677468204d41585f5345515f4c454e4754485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d726573756d652d66726f6d2d636865636b706f696e7420524553554d455f46524f4d5f434845434b504f494e545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d646576696365207b6175746f2c6370752c637564617d5d205b2d2d736d6f6b652d746573745d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d61646170746174696f6e2d6d6f6465207b6c6f72612c716c6f72617d205b2d2d72756e2d6b696e64207b70726f62652c66756c6c7d5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d706f73742d7761726d75702d737465707320504f53545f5741524d55505f53544550535d205b2d2d7761726d75702d7374657073205741524d55505f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72756e2d69642052554e5f49445d205b2d2d6d6f64656c2d7265766973696f6e204d4f44454c5f5245564953494f4e5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72756e2d726571756573742d706174682052554e5f524551554553545f504154485d205b2d2d6472792d72756e5d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d63616e6469646174652043414e4449444154450a20202020202020202020202020202020202020202020202043616e646964617465206964206f7220616c6961733a20626173656c696e652d77696e6e6572207c2072756e6e65722d75700a20202d2d76657273696f6e2d7461672056455253494f4e5f5441470a20202020202020202020202020202020202020202020202056657273696f6e2074616720666f7220747261696e696e67206f7574707574730a20202d2d747261696e2d73706c697420545241494e5f53504c49540a20202020202020202020202020202020202020202020202043616e6f6e6963616c20646174612f73706c6974732f747261696e2e6a736f6e6c20706174680a20202d2d76616c2d73706c69742056414c5f53504c49540a20202020202020202020202020202020202020202020202043616e6f6e6963616c20646174612f73706c6974732f76616c2e6a736f6e6c20706174680a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a202020202020202020202020202020202020202020202020526f6f74206469726563746f727920666f72206c6f63616c206d6f64656c206172746966616374730a20202d2d72656769737472792d706174682052454749535452595f504154480a2020202020202020202020202020202020202020202020205061746820746f20746865206c6f63616c206d6f64656c207265676973747279204a534f4e0a20202d2d626173652d6d6f64656c2d7061746820424153455f4d4f44454c5f504154480a2020202020202020202020202020202020202020202020204f7665727269646520746865206c6f63616c206261736520636865636b706f696e7420706174680a20202d2d6e756d2d747261696e2d65706f636873204e554d5f545241494e5f45504f4348530a20202020202020202020202020202020202020202020202045706f636820636f756e7420666f722066756c6c2072756e73207768656e202d2d6d61782d7374657073206973206e6f74207365740a20202d2d6d61782d7374657073204d41585f53544550530a2020202020202020202020202020202020202020202020204d6178696d756d206f7074696d697a65722073746570733b2075736520736d616c6c2076616c75657320666f7220736d6f6b652074657374730a20202d2d7065722d6465766963652d747261696e2d62617463682d73697a65205045525f4445564943455f545241494e5f42415443485f53495a450a2020202020202020202020202020202020202020202020205065722d64657669636520747261696e2062617463682073697a650a20202d2d6772616469656e742d616363756d756c6174696f6e2d7374657073204752414449454e545f414343554d554c4154494f4e5f53544550530a2020202020202020202020202020202020202020202020204772616469656e7420616363756d756c6174696f6e2073746570730a20202d2d6c6561726e696e672d72617465204c4541524e494e475f524154450a2020202020202020202020202020202020202020202020204c6561726e696e67207261746520666f7220616461707465722074756e696e670a20202d2d6c6f6767696e672d7374657073204c4f4747494e475f53544550530a202020202020202020202020202020202020202020202020547261696e696e67206c6f6720696e74657276616c20696e206f7074696d697a65722073746570730a20202d2d736176652d737465707320534156455f53544550530a202020202020202020202020202020202020202020202020436865636b706f696e74207361766520696e74657276616c20696e206f7074696d697a65722073746570730a20202d2d736176652d746f74616c2d6c696d697420534156455f544f54414c5f4c494d49540a2020202020202020202020202020202020202020202020204d6178696d756d206e756d626572206f6620736176656420636865636b706f696e747320746f206b6565700a20202d2d6d61782d7365712d6c656e677468204d41585f5345515f4c454e4754480a2020202020202020202020202020202020202020202020204d6178696d756d20746f6b656e697a65642073657175656e6365206c656e6774680a20202d2d726573756d652d66726f6d2d636865636b706f696e7420524553554d455f46524f4d5f434845434b504f494e540a202020202020202020202020202020202020202020202020457861637420636865636b706f696e742d4e20706174682077697468206120766572696669656420636f6d7061746962696c697479206d616e69666573743b20276c61746573742720697320666f7262696464656e0a20202d2d646576696365207b6175746f2c6370752c637564617d0a202020202020202020202020202020202020202020202020457865637574696f6e2064657669636520666f722074686520747261696e696e67206261636b656e640a20202d2d736d6f6b652d746573742020202020202020202052756e20612073686f727420636865636b706f696e742d667269656e646c7920707265666c6967687420747261696e696e67206a6f620a20202d2d61646170746174696f6e2d6d6f6465207b6c6f72612c716c6f72617d0a2020202020202020202020202020202020202020202020204578706c696369742061646170746572206d6f64653b20514c6f5241206e657665722066616c6c73206261636b20746f204c6f52410a20202d2d72756e2d6b696e64207b70726f62652c66756c6c7d0a202020202020202020202020202020202020202020202020426f756e6465642070726f6265206f722066756c6c2065766964656e63652d70726f647563696e672072756e0a20202d2d706f73742d7761726d75702d737465707320504f53545f5741524d55505f53544550530a20202020202020202020202020202020202020202020202052657175697265642033302d353020706f73742d7761726d2d7570206f7074696d697a657220737465707320666f7220612070726f62652072756e0a20202d2d7761726d75702d7374657073205741524d55505f53544550530a2020202020202020202020202020202020202020202020204d656173757265642070726f6265207761726d2d7570206f7074696d697a6572207374657073202864656661756c743a2035290a20202d2d72756e2d69642052554e5f4944202020202020205361666520696d6d757461626c652050686173652034302072756e206964656e7469666965720a20202d2d6d6f64656c2d7265766973696f6e204d4f44454c5f5245564953494f4e0a20202020202020202020202020202020202020202020202050696e6e65642034302d68657820626173652d6d6f64656c207265766973696f6e0a20202d2d72756e2d726571756573742d706174682052554e5f524551554553545f504154480a20202020202020202020202020202020202020202020202056657269666965642050686173652034302066756c6c2d72756e207265717565737420737570706c79696e67207472616e7366657220617574686f726974792028726571756972656420666f722066756c6c0a2020202020202020202020202020202020202020202020207075626c69636174696f6e290a20202d2d6472792d72756e2020202020202020202020202056616c696461746520636f6e66696720776974686f75742061207265616c2066696e652d74756e650a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "convert_help",
+      "argv": [
+        "convert",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli convert [-h] --candidate CANDIDATE --version-tag VERSION_TAG\n                                                  [--output-root OUTPUT_ROOT] [--registry-path REGISTRY_PATH]\n                                                  [--quantization-profile QUANTIZATION_PROFILE] [--dry-run]\n\noptions:\n  -h, --help            show this help message and exit\n  --candidate CANDIDATE\n                        Candidate id or alias: baseline-winner | runner-up\n  --version-tag VERSION_TAG\n                        Version tag for GGUF outputs\n  --output-root OUTPUT_ROOT\n                        Root directory for local model artifacts\n  --registry-path REGISTRY_PATH\n                        Path to the local model registry JSON\n  --quantization-profile QUANTIZATION_PROFILE\n                        Requested GGUF quantization profile\n  --dry-run             Validate conversion wiring without producing GGUF output\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920636f6e76657274205b2d685d202d2d63616e6469646174652043414e444944415445202d2d76657273696f6e2d7461672056455253494f4e5f5441470a20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d205b2d2d72656769737472792d706174682052454749535452595f504154485d0a20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7175616e74697a6174696f6e2d70726f66696c65205155414e54495a4154494f4e5f50524f46494c455d205b2d2d6472792d72756e5d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d63616e6469646174652043414e4449444154450a20202020202020202020202020202020202020202020202043616e646964617465206964206f7220616c6961733a20626173656c696e652d77696e6e6572207c2072756e6e65722d75700a20202d2d76657273696f6e2d7461672056455253494f4e5f5441470a20202020202020202020202020202020202020202020202056657273696f6e2074616720666f722047475546206f7574707574730a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a202020202020202020202020202020202020202020202020526f6f74206469726563746f727920666f72206c6f63616c206d6f64656c206172746966616374730a20202d2d72656769737472792d706174682052454749535452595f504154480a2020202020202020202020202020202020202020202020205061746820746f20746865206c6f63616c206d6f64656c207265676973747279204a534f4e0a20202d2d7175616e74697a6174696f6e2d70726f66696c65205155414e54495a4154494f4e5f50524f46494c450a2020202020202020202020202020202020202020202020205265717565737465642047475546207175616e74697a6174696f6e2070726f66696c650a20202d2d6472792d72756e2020202020202020202020202056616c696461746520636f6e76657273696f6e20776972696e6720776974686f75742070726f647563696e672047475546206f75747075740a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "doctor_help",
+      "argv": [
+        "doctor",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli doctor [-h] [--candidate CANDIDATE] [--train-split TRAIN_SPLIT]\n                                                 [--val-split VAL_SPLIT] [--output-root OUTPUT_ROOT]\n                                                 [--registry-path REGISTRY_PATH] --adaptation-mode {lora,qlora}\n\noptions:\n  -h, --help            show this help message and exit\n  --candidate CANDIDATE\n                        Candidate id or alias: baseline-winner | runner-up\n  --train-split TRAIN_SPLIT\n                        Training split JSONL path\n  --val-split VAL_SPLIT\n                        Validation split JSONL path\n  --output-root OUTPUT_ROOT\n                        Root directory for local model artifacts\n  --registry-path REGISTRY_PATH\n                        Path to the local model registry JSON\n  --adaptation-mode {lora,qlora}\n                        Mode whose readiness must be checked without fallback\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920646f63746f72205b2d685d205b2d2d63616e6469646174652043414e4449444154455d205b2d2d747261696e2d73706c697420545241494e5f53504c49545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d76616c2d73706c69742056414c5f53504c49545d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72656769737472792d706174682052454749535452595f504154485d202d2d61646170746174696f6e2d6d6f6465207b6c6f72612c716c6f72617d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d63616e6469646174652043414e4449444154450a20202020202020202020202020202020202020202020202043616e646964617465206964206f7220616c6961733a20626173656c696e652d77696e6e6572207c2072756e6e65722d75700a20202d2d747261696e2d73706c697420545241494e5f53504c49540a202020202020202020202020202020202020202020202020547261696e696e672073706c6974204a534f4e4c20706174680a20202d2d76616c2d73706c69742056414c5f53504c49540a20202020202020202020202020202020202020202020202056616c69646174696f6e2073706c6974204a534f4e4c20706174680a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a202020202020202020202020202020202020202020202020526f6f74206469726563746f727920666f72206c6f63616c206d6f64656c206172746966616374730a20202d2d72656769737472792d706174682052454749535452595f504154480a2020202020202020202020202020202020202020202020205061746820746f20746865206c6f63616c206d6f64656c207265676973747279204a534f4e0a20202d2d61646170746174696f6e2d6d6f6465207b6c6f72612c716c6f72617d0a2020202020202020202020202020202020202020202020204d6f64652077686f73652072656164696e657373206d75737420626520636865636b656420776974686f75742066616c6c6261636b0a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-preflight_help",
+      "argv": [
+        "phase40-preflight",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-preflight [-h] --train-split TRAIN_SPLIT --val-split VAL_SPLIT\n\noptions:\n  -h, --help            show this help message and exit\n  --train-split TRAIN_SPLIT\n                        Canonical data/splits/train.jsonl path\n  --val-split VAL_SPLIT\n                        Canonical data/splits/val.jsonl path\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d707265666c69676874205b2d685d202d2d747261696e2d73706c697420545241494e5f53504c4954202d2d76616c2d73706c69742056414c5f53504c49540a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d747261696e2d73706c697420545241494e5f53504c49540a20202020202020202020202020202020202020202020202043616e6f6e6963616c20646174612f73706c6974732f747261696e2e6a736f6e6c20706174680a20202d2d76616c2d73706c69742056414c5f53504c49540a20202020202020202020202020202020202020202020202043616e6f6e6963616c20646174612f73706c6974732f76616c2e6a736f6e6c20706174680a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-build-source-bundle_help",
+      "argv": [
+        "phase40-build-source-bundle",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-build-source-bundle [-h] [--repo-root REPO_ROOT]\n                                                                      --output-root OUTPUT_ROOT\n\noptions:\n  -h, --help            show this help message and exit\n  --repo-root REPO_ROOT\n  --output-root OUTPUT_ROOT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d6275696c642d736f757263652d62756e646c65205b2d685d205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d6f75747075742d726f6f74204f55545055545f524f4f540a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-build-input-bundle_help",
+      "argv": [
+        "phase40-build-input-bundle",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-build-input-bundle [-h] --train-split TRAIN_SPLIT\n                                                                     --val-split VAL_SPLIT --output-path OUTPUT_PATH\n                                                                     [--repo-root REPO_ROOT]\n                                                                     [--reference-output REFERENCE_OUTPUT]\n\noptions:\n  -h, --help            show this help message and exit\n  --train-split TRAIN_SPLIT\n  --val-split VAL_SPLIT\n  --output-path OUTPUT_PATH\n  --repo-root REPO_ROOT\n  --reference-output REFERENCE_OUTPUT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d6275696c642d696e7075742d62756e646c65205b2d685d202d2d747261696e2d73706c697420545241494e5f53504c49540a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d76616c2d73706c69742056414c5f53504c4954202d2d6f75747075742d70617468204f55545055545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265666572656e63652d6f7574707574205245464552454e43455f4f55545055545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d747261696e2d73706c697420545241494e5f53504c49540a20202d2d76616c2d73706c69742056414c5f53504c49540a20202d2d6f75747075742d70617468204f55545055545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d7265666572656e63652d6f7574707574205245464552454e43455f4f55545055540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-verify-input-bundle_help",
+      "argv": [
+        "phase40-verify-input-bundle",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-verify-input-bundle [-h] --archive-path ARCHIVE_PATH\n                                                                      --reference-path REFERENCE_PATH\n                                                                      [--repo-root REPO_ROOT]\n                                                                      [--extraction-root EXTRACTION_ROOT]\n                                                                      [--verify-only]\n\noptions:\n  -h, --help            show this help message and exit\n  --archive-path ARCHIVE_PATH\n  --reference-path REFERENCE_PATH\n  --repo-root REPO_ROOT\n  --extraction-root EXTRACTION_ROOT\n  --verify-only\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d7665726966792d696e7075742d62756e646c65205b2d685d202d2d617263686976652d7061746820415243484956455f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d7265666572656e63652d70617468205245464552454e43455f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d65787472616374696f6e2d726f6f742045585452414354494f4e5f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7665726966792d6f6e6c795d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d617263686976652d7061746820415243484956455f504154480a20202d2d7265666572656e63652d70617468205245464552454e43455f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d65787472616374696f6e2d726f6f742045585452414354494f4e5f524f4f540a20202d2d7665726966792d6f6e6c790a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-verify-run-request_help",
+      "argv": [
+        "phase40-verify-run-request",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-verify-run-request [-h] --request-path REQUEST_PATH\n                                                                     [--repo-root REPO_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --request-path REQUEST_PATH\n  --repo-root REPO_ROOT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d7665726966792d72756e2d72657175657374205b2d685d202d2d726571756573742d7061746820524551554553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726571756573742d7061746820524551554553545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-verify-run-evidence_help",
+      "argv": [
+        "phase40-verify-run-evidence",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-verify-run-evidence [-h] --run-root RUN_ROOT\n                                                                      [--allow-prestart-failure]\n\noptions:\n  -h, --help            show this help message and exit\n  --run-root RUN_ROOT\n  --allow-prestart-failure\n                        Explicitly accept a hash-verified pre-start failure record\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d7665726966792d72756e2d65766964656e6365205b2d685d202d2d72756e2d726f6f742052554e5f524f4f540a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d616c6c6f772d70726573746172742d6661696c7572655d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d72756e2d726f6f742052554e5f524f4f540a20202d2d616c6c6f772d70726573746172742d6661696c7572650a2020202020202020202020202020202020202020202020204578706c696369746c7920616363657074206120686173682d7665726966696564207072652d7374617274206661696c757265207265636f72640a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-render-graphs_help",
+      "argv": [
+        "phase40-render-graphs",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-render-graphs [-h] --run-root RUN_ROOT\n                                                                [--smoothing-window SMOOTHING_WINDOW] [--dpi DPI]\n\noptions:\n  -h, --help            show this help message and exit\n  --run-root RUN_ROOT\n  --smoothing-window SMOOTHING_WINDOW\n  --dpi DPI\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d72656e6465722d677261706873205b2d685d202d2d72756e2d726f6f742052554e5f524f4f540a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d736d6f6f7468696e672d77696e646f7720534d4f4f5448494e475f57494e444f575d205b2d2d647069204450495d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d72756e2d726f6f742052554e5f524f4f540a20202d2d736d6f6f7468696e672d77696e646f7720534d4f4f5448494e475f57494e444f570a20202d2d647069204450490a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-validate-notebooks_help",
+      "argv": [
+        "phase40-validate-notebooks",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-validate-notebooks [-h] --root ROOT\n\noptions:\n  -h, --help   show this help message and exit\n  --root ROOT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d76616c69646174652d6e6f7465626f6f6b73205b2d685d202d2d726f6f7420524f4f540a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726f6f7420524f4f540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-finalize-comparison_help",
+      "argv": [
+        "phase40-finalize-comparison",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-finalize-comparison [-h] --request-path REQUEST_PATH\n                                                                      [--repo-root REPO_ROOT]\n                                                                      --output-root OUTPUT_ROOT\n                                                                      --scope-amendment-path SCOPE_AMENDMENT_PATH\n                                                                      [--package-decision PACKAGE=approve|reject:REASON]\n                                                                      [--bundle-root RUN_ID=REPOSITORY_PATH]\n                                                                      [--gpu-identity RUN_ID=GPU_NAME] [--verify-only]\n\noptions:\n  -h, --help            show this help message and exit\n  --request-path REQUEST_PATH\n  --repo-root REPO_ROOT\n  --output-root OUTPUT_ROOT\n  --scope-amendment-path SCOPE_AMENDMENT_PATH\n  --package-decision PACKAGE=approve|reject:REASON\n  --bundle-root RUN_ID=REPOSITORY_PATH\n  --gpu-identity RUN_ID=GPU_NAME\n  --verify-only\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d66696e616c697a652d636f6d70617269736f6e205b2d685d202d2d726571756573742d7061746820524551554553545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d6f75747075742d726f6f74204f55545055545f524f4f540a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7061636b6167652d6465636973696f6e205041434b4147453d617070726f76657c72656a6563743a524541534f4e5d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d62756e646c652d726f6f742052554e5f49443d5245504f5349544f52595f504154485d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6770752d6964656e746974792052554e5f49443d4750555f4e414d455d205b2d2d7665726966792d6f6e6c795d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726571756573742d7061746820524551554553545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a20202d2d7061636b6167652d6465636973696f6e205041434b4147453d617070726f76657c72656a6563743a524541534f4e0a20202d2d62756e646c652d726f6f742052554e5f49443d5245504f5349544f52595f504154480a20202d2d6770752d6964656e746974792052554e5f49443d4750555f4e414d450a20202d2d7665726966792d6f6e6c790a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-freeze-scope-amendment_help",
+      "argv": [
+        "phase40-freeze-scope-amendment",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-freeze-scope-amendment [-h] --request-path REQUEST_PATH\n                                                                         [--repo-root REPO_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --request-path REQUEST_PATH\n  --repo-root REPO_ROOT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d667265657a652d73636f70652d616d656e646d656e74205b2d685d202d2d726571756573742d7061746820524551554553545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726571756573742d7061746820524551554553545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-verify-review-queue_help",
+      "argv": [
+        "phase40-verify-review-queue",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-verify-review-queue [-h] --request-path REQUEST_PATH\n                                                                      [--repo-root REPO_ROOT]\n                                                                      --scope-amendment-path SCOPE_AMENDMENT_PATH\n                                                                      --comparison-manifest-path COMPARISON_MANIFEST_PATH\n                                                                      --selected-predictions-path SELECTED_PREDICTIONS_PATH\n                                                                      --queue-path QUEUE_PATH\n\noptions:\n  -h, --help            show this help message and exit\n  --request-path REQUEST_PATH\n  --repo-root REPO_ROOT\n  --scope-amendment-path SCOPE_AMENDMENT_PATH\n  --comparison-manifest-path COMPARISON_MANIFEST_PATH\n  --selected-predictions-path SELECTED_PREDICTIONS_PATH\n  --queue-path QUEUE_PATH\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d7665726966792d7265766965772d7175657565205b2d685d202d2d726571756573742d7061746820524551554553545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d636f6d70617269736f6e2d6d616e69666573742d7061746820434f4d50415249534f4e5f4d414e49464553545f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73656c65637465642d70726564696374696f6e732d706174682053454c45435445445f50524544494354494f4e535f504154480a202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d71756575652d706174682051554555455f504154480a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726571756573742d7061746820524551554553545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a20202d2d636f6d70617269736f6e2d6d616e69666573742d7061746820434f4d50415249534f4e5f4d414e49464553545f504154480a20202d2d73656c65637465642d70726564696374696f6e732d706174682053454c45435445445f50524544494354494f4e535f504154480a20202d2d71756575652d706174682051554555455f504154480a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase40-finalize-human-review_help",
+      "argv": [
+        "phase40-finalize-human-review",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase40-finalize-human-review [-h] --request-path REQUEST_PATH\n                                                                        [--repo-root REPO_ROOT]\n                                                                        --scope-amendment-path SCOPE_AMENDMENT_PATH\n                                                                        --comparison-manifest-path COMPARISON_MANIFEST_PATH\n                                                                        --selected-predictions-path SELECTED_PREDICTIONS_PATH\n                                                                        --queue-path QUEUE_PATH\n                                                                        --queue-manifest-path QUEUE_MANIFEST_PATH\n                                                                        --reviewer-return-path REVIEWER_RETURN_PATH\n                                                                        --output-root OUTPUT_ROOT\n                                                                        --vietnamese-fluent-attestation\n                                                                        [--verify-only]\n\noptions:\n  -h, --help            show this help message and exit\n  --request-path REQUEST_PATH\n  --repo-root REPO_ROOT\n  --scope-amendment-path SCOPE_AMENDMENT_PATH\n  --comparison-manifest-path COMPARISON_MANIFEST_PATH\n  --selected-predictions-path SELECTED_PREDICTIONS_PATH\n  --queue-path QUEUE_PATH\n  --queue-manifest-path QUEUE_MANIFEST_PATH\n  --reviewer-return-path REVIEWER_RETURN_PATH\n  --output-root OUTPUT_ROOT\n  --vietnamese-fluent-attestation\n  --verify-only\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534302d66696e616c697a652d68756d616e2d726576696577205b2d685d202d2d726571756573742d7061746820524551554553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d636f6d70617269736f6e2d6d616e69666573742d7061746820434f4d50415249534f4e5f4d414e49464553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73656c65637465642d70726564696374696f6e732d706174682053454c45435445445f50524544494354494f4e535f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d71756575652d706174682051554555455f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d71756575652d6d616e69666573742d706174682051554555455f4d414e49464553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d72657669657765722d72657475726e2d706174682052455649455745525f52455455524e5f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d6f75747075742d726f6f74204f55545055545f524f4f540a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d766965746e616d6573652d666c75656e742d6174746573746174696f6e0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7665726966792d6f6e6c795d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d726571756573742d7061746820524551554553545f504154480a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d73636f70652d616d656e646d656e742d706174682053434f50455f414d454e444d454e545f504154480a20202d2d636f6d70617269736f6e2d6d616e69666573742d7061746820434f4d50415249534f4e5f4d414e49464553545f504154480a20202d2d73656c65637465642d70726564696374696f6e732d706174682053454c45435445445f50524544494354494f4e535f504154480a20202d2d71756575652d706174682051554555455f504154480a20202d2d71756575652d6d616e69666573742d706174682051554555455f4d414e49464553545f504154480a20202d2d72657669657765722d72657475726e2d706174682052455649455745525f52455455524e5f504154480a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202d2d766965746e616d6573652d666c75656e742d6174746573746174696f6e0a20202d2d7665726966792d6f6e6c790a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-prepare-evaluation_help",
+      "argv": [
+        "phase41-prepare-evaluation",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-prepare-evaluation [-h] [--output-root OUTPUT_ROOT]\n                                                                     [--repo-root REPO_ROOT]\n                                                                     --phase39-contract-path PHASE39_CONTRACT_PATH\n                                                                     --phase40-comparison-manifest-path PHASE40_COMPARISON_MANIFEST_PATH\n                                                                     --phase40-review-manifest-path PHASE40_REVIEW_MANIFEST_PATH\n                                                                     [--preclaim-rejection-audit-path PRECLAIM_REJECTION_AUDIT_PATH]\n                                                                     [--staged-preclaim-failure-audit-path STAGED_PRECLAIM_FAILURE_AUDIT_PATH]\n                                                                     [--argument-preclaim-failure-audit-path ARGUMENT_PRECLAIM_FAILURE_AUDIT_PATH]\n                                                                     [--autonomous-reseal-delegation-path AUTONOMOUS_RESEAL_DELEGATION_PATH]\n                                                                     [--captured-helper-preclaim-failure-audit-path CAPTURED_HELPER_PRECLAIM_FAILURE_AUDIT_PATH]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default; overrides must match it)\n  --repo-root REPO_ROOT\n  --phase39-contract-path PHASE39_CONTRACT_PATH\n  --phase40-comparison-manifest-path PHASE40_COMPARISON_MANIFEST_PATH\n  --phase40-review-manifest-path PHASE40_REVIEW_MANIFEST_PATH\n  --preclaim-rejection-audit-path PRECLAIM_REJECTION_AUDIT_PATH\n  --staged-preclaim-failure-audit-path STAGED_PRECLAIM_FAILURE_AUDIT_PATH\n  --argument-preclaim-failure-audit-path ARGUMENT_PRECLAIM_FAILURE_AUDIT_PATH\n  --autonomous-reseal-delegation-path AUTONOMOUS_RESEAL_DELEGATION_PATH\n  --captured-helper-preclaim-failure-audit-path CAPTURED_HELPER_PRECLAIM_FAILURE_AUDIT_PATH\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d707265706172652d6576616c756174696f6e205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f2d726f6f74205245504f5f524f4f545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d706861736533392d636f6e74726163742d7061746820504841534533395f434f4e54524143545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d706861736534302d636f6d70617269736f6e2d6d616e69666573742d7061746820504841534534305f434f4d50415249534f4e5f4d414e49464553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d706861736534302d7265766965772d6d616e69666573742d7061746820504841534534305f5245564945575f4d414e49464553545f504154480a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d707265636c61696d2d72656a656374696f6e2d61756469742d7061746820505245434c41494d5f52454a454354494f4e5f41554449545f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7374616765642d707265636c61696d2d6661696c7572652d61756469742d70617468205354414745445f505245434c41494d5f4641494c5552455f41554449545f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d617267756d656e742d707265636c61696d2d6661696c7572652d61756469742d7061746820415247554d454e545f505245434c41494d5f4641494c5552455f41554449545f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6175746f6e6f6d6f75732d72657365616c2d64656c65676174696f6e2d70617468204155544f4e4f4d4f55535f52455345414c5f44454c45474154494f4e5f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d63617074757265642d68656c7065722d707265636c61696d2d6661696c7572652d61756469742d706174682043415054555245445f48454c5045525f505245434c41494d5f4641494c5552455f41554449545f504154485d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c743b206f7665727269646573206d757374206d61746368206974290a20202d2d7265706f2d726f6f74205245504f5f524f4f540a20202d2d706861736533392d636f6e74726163742d7061746820504841534533395f434f4e54524143545f504154480a20202d2d706861736534302d636f6d70617269736f6e2d6d616e69666573742d7061746820504841534534305f434f4d50415249534f4e5f4d414e49464553545f504154480a20202d2d706861736534302d7265766965772d6d616e69666573742d7061746820504841534534305f5245564945575f4d414e49464553545f504154480a20202d2d707265636c61696d2d72656a656374696f6e2d61756469742d7061746820505245434c41494d5f52454a454354494f4e5f41554449545f504154480a20202d2d7374616765642d707265636c61696d2d6661696c7572652d61756469742d70617468205354414745445f505245434c41494d5f4641494c5552455f41554449545f504154480a20202d2d617267756d656e742d707265636c61696d2d6661696c7572652d61756469742d7061746820415247554d454e545f505245434c41494d5f4641494c5552455f41554449545f504154480a20202d2d6175746f6e6f6d6f75732d72657365616c2d64656c65676174696f6e2d70617468204155544f4e4f4d4f55535f52455345414c5f44454c45474154494f4e5f504154480a20202d2d63617074757265642d68656c7065722d707265636c61696d2d6661696c7572652d61756469742d706174682043415054555245445f48454c5045525f505245434c41494d5f4641494c5552455f41554449545f504154480a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-verify-preauthorization_help",
+      "argv": [
+        "phase41-verify-preauthorization",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-verify-preauthorization [-h] [--output-root OUTPUT_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d7665726966792d707265617574686f72697a6174696f6e205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-authorize-evaluation_help",
+      "argv": [
+        "phase41-authorize-evaluation",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-authorize-evaluation [-h] [--output-root OUTPUT_ROOT]\n                                                                       --prepared-sha256 PREPARED_SHA256\n                                                                       --statement STATEMENT\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n  --prepared-sha256 PREPARED_SHA256\n  --statement STATEMENT\n                        Exact Phase 41 checkpoint signal; extra text is rejected\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d617574686f72697a652d6576616c756174696f6e205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d70726570617265642d7368613235362050524550415245445f5348413235360a20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d73746174656d656e742053544154454d454e540a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a20202d2d70726570617265642d7368613235362050524550415245445f5348413235360a20202d2d73746174656d656e742053544154454d454e540a202020202020202020202020202020202020202020202020457861637420506861736520343120636865636b706f696e74207369676e616c3b20657874726120746578742069732072656a65637465640a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-run-once_help",
+      "argv": [
+        "phase41-run-once",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-run-once [-h] [--output-root OUTPUT_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d72756e2d6f6e6365205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-freeze-deployment-fit-disposition_help",
+      "argv": [
+        "phase41-freeze-deployment-fit-disposition",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-freeze-deployment-fit-disposition [-h] [--output-root OUTPUT_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-export-evidence_help",
+      "argv": [
+        "phase41-export-evidence",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-export-evidence [-h] [--output-root OUTPUT_ROOT]\n                                                                  [--repository-output-root REPOSITORY_OUTPUT_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n  --repository-output-root REPOSITORY_OUTPUT_ROOT\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d6578706f72742d65766964656e6365205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7265706f7369746f72792d6f75747075742d726f6f74205245504f5349544f52595f4f55545055545f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a20202d2d7265706f7369746f72792d6f75747075742d726f6f74205245504f5349544f52595f4f55545055545f524f4f540a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "phase41-verify-evidence_help",
+      "argv": [
+        "phase41-verify-evidence",
+        "--help"
+      ],
+      "return_value": null,
+      "system_exit_code": 0,
+      "exception": null,
+      "stdout": "usage: python -m src.model_adaptation.cli phase41-verify-evidence [-h] [--output-root OUTPUT_ROOT]\n\noptions:\n  -h, --help            show this help message and exit\n  --output-root OUTPUT_ROOT\n                        Fixed ProgramData operational root (default)\n",
+      "stderr": "",
+      "stdout_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920706861736534312d7665726966792d65766964656e6365205b2d685d205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d0a0a6f7074696f6e733a0a20202d682c202d2d68656c7020202020202020202020202073686f7720746869732068656c70206d65737361676520616e6420657869740a20202d2d6f75747075742d726f6f74204f55545055545f524f4f540a20202020202020202020202020202020202020202020202046697865642050726f6772616d44617461206f7065726174696f6e616c20726f6f74202864656661756c74290a",
+      "stderr_utf8_hex": ""
+    },
+    {
+      "name": "missing_command",
+      "argv": [],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli [-h]\n                                          {pilot,train,convert,doctor,phase40-preflight,phase40-build-source-bundle,phase40-build-input-bundle,phase40-verify-input-bundle,phase40-verify-run-request,phase40-verify-run-evidence,phase40-render-graphs,phase40-validate-notebooks,phase40-finalize-comparison,phase40-freeze-scope-amendment,phase40-verify-review-queue,phase40-finalize-human-review,phase41-prepare-evaluation,phase41-verify-preauthorization,phase41-authorize-evaluation,phase41-run-once,phase41-freeze-deployment-fit-disposition,phase41-export-evidence,phase41-verify-evidence} ...\npython -m src.model_adaptation.cli: error: the following arguments are required: command\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c69205b2d685d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020207b70696c6f742c747261696e2c636f6e766572742c646f63746f722c706861736534302d707265666c696768742c706861736534302d6275696c642d736f757263652d62756e646c652c706861736534302d6275696c642d696e7075742d62756e646c652c706861736534302d7665726966792d696e7075742d62756e646c652c706861736534302d7665726966792d72756e2d726571756573742c706861736534302d7665726966792d72756e2d65766964656e63652c706861736534302d72656e6465722d6772617068732c706861736534302d76616c69646174652d6e6f7465626f6f6b732c706861736534302d66696e616c697a652d636f6d70617269736f6e2c706861736534302d667265657a652d73636f70652d616d656e646d656e742c706861736534302d7665726966792d7265766965772d71756575652c706861736534302d66696e616c697a652d68756d616e2d7265766965772c706861736534312d707265706172652d6576616c756174696f6e2c706861736534312d7665726966792d707265617574686f72697a6174696f6e2c706861736534312d617574686f72697a652d6576616c756174696f6e2c706861736534312d72756e2d6f6e63652c706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c706861736534312d6578706f72742d65766964656e63652c706861736534312d7665726966792d65766964656e63657d202e2e2e0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c693a206572726f723a2074686520666f6c6c6f77696e6720617267756d656e7473206172652072657175697265643a20636f6d6d616e640a"
+    },
+    {
+      "name": "unknown_command",
+      "argv": [
+        "not-a-command"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli [-h]\n                                          {pilot,train,convert,doctor,phase40-preflight,phase40-build-source-bundle,phase40-build-input-bundle,phase40-verify-input-bundle,phase40-verify-run-request,phase40-verify-run-evidence,phase40-render-graphs,phase40-validate-notebooks,phase40-finalize-comparison,phase40-freeze-scope-amendment,phase40-verify-review-queue,phase40-finalize-human-review,phase41-prepare-evaluation,phase41-verify-preauthorization,phase41-authorize-evaluation,phase41-run-once,phase41-freeze-deployment-fit-disposition,phase41-export-evidence,phase41-verify-evidence} ...\npython -m src.model_adaptation.cli: error: argument command: invalid choice: 'not-a-command' (choose from pilot, train, convert, doctor, phase40-preflight, phase40-build-source-bundle, phase40-build-input-bundle, phase40-verify-input-bundle, phase40-verify-run-request, phase40-verify-run-evidence, phase40-render-graphs, phase40-validate-notebooks, phase40-finalize-comparison, phase40-freeze-scope-amendment, phase40-verify-review-queue, phase40-finalize-human-review, phase41-prepare-evaluation, phase41-verify-preauthorization, phase41-authorize-evaluation, phase41-run-once, phase41-freeze-deployment-fit-disposition, phase41-export-evidence, phase41-verify-evidence)\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c69205b2d685d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020207b70696c6f742c747261696e2c636f6e766572742c646f63746f722c706861736534302d707265666c696768742c706861736534302d6275696c642d736f757263652d62756e646c652c706861736534302d6275696c642d696e7075742d62756e646c652c706861736534302d7665726966792d696e7075742d62756e646c652c706861736534302d7665726966792d72756e2d726571756573742c706861736534302d7665726966792d72756e2d65766964656e63652c706861736534302d72656e6465722d6772617068732c706861736534302d76616c69646174652d6e6f7465626f6f6b732c706861736534302d66696e616c697a652d636f6d70617269736f6e2c706861736534302d667265657a652d73636f70652d616d656e646d656e742c706861736534302d7665726966792d7265766965772d71756575652c706861736534302d66696e616c697a652d68756d616e2d7265766965772c706861736534312d707265706172652d6576616c756174696f6e2c706861736534312d7665726966792d707265617574686f72697a6174696f6e2c706861736534312d617574686f72697a652d6576616c756174696f6e2c706861736534312d72756e2d6f6e63652c706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c706861736534312d6578706f72742d65766964656e63652c706861736534312d7665726966792d65766964656e63657d202e2e2e0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c693a206572726f723a20617267756d656e7420636f6d6d616e643a20696e76616c69642063686f6963653a20276e6f742d612d636f6d6d616e6427202863686f6f73652066726f6d2070696c6f742c20747261696e2c20636f6e766572742c20646f63746f722c20706861736534302d707265666c696768742c20706861736534302d6275696c642d736f757263652d62756e646c652c20706861736534302d6275696c642d696e7075742d62756e646c652c20706861736534302d7665726966792d696e7075742d62756e646c652c20706861736534302d7665726966792d72756e2d726571756573742c20706861736534302d7665726966792d72756e2d65766964656e63652c20706861736534302d72656e6465722d6772617068732c20706861736534302d76616c69646174652d6e6f7465626f6f6b732c20706861736534302d66696e616c697a652d636f6d70617269736f6e2c20706861736534302d667265657a652d73636f70652d616d656e646d656e742c20706861736534302d7665726966792d7265766965772d71756575652c20706861736534302d66696e616c697a652d68756d616e2d7265766965772c20706861736534312d707265706172652d6576616c756174696f6e2c20706861736534312d7665726966792d707265617574686f72697a6174696f6e2c20706861736534312d617574686f72697a652d6576616c756174696f6e2c20706861736534312d72756e2d6f6e63652c20706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c20706861736534312d6578706f72742d65766964656e63652c20706861736534312d7665726966792d65766964656e6365290a"
+    },
+    {
+      "name": "missing_required_option",
+      "argv": [
+        "pilot"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli pilot [-h] --version-tag VERSION_TAG\n                                                [--evaluated-split {train,val,test,pilot}]\n                                                [--registry-path REGISTRY_PATH] [--dry-run]\npython -m src.model_adaptation.cli pilot: error: the following arguments are required: --version-tag\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c692070696c6f74205b2d685d202d2d76657273696f6e2d7461672056455253494f4e5f5441470a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6576616c75617465642d73706c6974207b747261696e2c76616c2c746573742c70696c6f747d5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72656769737472792d706174682052454749535452595f504154485d205b2d2d6472792d72756e5d0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c692070696c6f743a206572726f723a2074686520666f6c6c6f77696e6720617267756d656e7473206172652072657175697265643a202d2d76657273696f6e2d7461670a"
+    },
+    {
+      "name": "invalid_choice",
+      "argv": [
+        "pilot",
+        "--version-tag",
+        "snapshot",
+        "--evaluated-split",
+        "bad"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli pilot [-h] --version-tag VERSION_TAG\n                                                [--evaluated-split {train,val,test,pilot}]\n                                                [--registry-path REGISTRY_PATH] [--dry-run]\npython -m src.model_adaptation.cli pilot: error: argument --evaluated-split: invalid choice: 'bad' (choose from train, val, test, pilot)\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c692070696c6f74205b2d685d202d2d76657273696f6e2d7461672056455253494f4e5f5441470a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6576616c75617465642d73706c6974207b747261696e2c76616c2c746573742c70696c6f747d5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72656769737472792d706174682052454749535452595f504154485d205b2d2d6472792d72756e5d0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c692070696c6f743a206572726f723a20617267756d656e74202d2d6576616c75617465642d73706c69743a20696e76616c69642063686f6963653a202762616427202863686f6f73652066726f6d20747261696e2c2076616c2c20746573742c2070696c6f74290a"
+    },
+    {
+      "name": "invalid_type",
+      "argv": [
+        "train",
+        "--candidate",
+        "baseline-winner",
+        "--version-tag",
+        "snapshot",
+        "--train-split",
+        "synthetic-train.jsonl",
+        "--val-split",
+        "synthetic-val.jsonl",
+        "--adaptation-mode",
+        "lora",
+        "--max-steps",
+        "not-an-integer"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli train [-h] --candidate CANDIDATE --version-tag VERSION_TAG\n                                                --train-split TRAIN_SPLIT --val-split VAL_SPLIT\n                                                [--output-root OUTPUT_ROOT] [--registry-path REGISTRY_PATH]\n                                                [--base-model-path BASE_MODEL_PATH]\n                                                [--num-train-epochs NUM_TRAIN_EPOCHS] [--max-steps MAX_STEPS]\n                                                [--per-device-train-batch-size PER_DEVICE_TRAIN_BATCH_SIZE]\n                                                [--gradient-accumulation-steps GRADIENT_ACCUMULATION_STEPS]\n                                                [--learning-rate LEARNING_RATE] [--logging-steps LOGGING_STEPS]\n                                                [--save-steps SAVE_STEPS] [--save-total-limit SAVE_TOTAL_LIMIT]\n                                                [--max-seq-length MAX_SEQ_LENGTH]\n                                                [--resume-from-checkpoint RESUME_FROM_CHECKPOINT]\n                                                [--device {auto,cpu,cuda}] [--smoke-test]\n                                                --adaptation-mode {lora,qlora} [--run-kind {probe,full}]\n                                                [--post-warmup-steps POST_WARMUP_STEPS] [--warmup-steps WARMUP_STEPS]\n                                                [--run-id RUN_ID] [--model-revision MODEL_REVISION]\n                                                [--run-request-path RUN_REQUEST_PATH] [--dry-run]\npython -m src.model_adaptation.cli train: error: argument --max-steps: invalid int value: 'not-an-integer'\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920747261696e205b2d685d202d2d63616e6469646174652043414e444944415445202d2d76657273696f6e2d7461672056455253494f4e5f5441470a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d747261696e2d73706c697420545241494e5f53504c4954202d2d76616c2d73706c69742056414c5f53504c49540a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6f75747075742d726f6f74204f55545055545f524f4f545d205b2d2d72656769737472792d706174682052454749535452595f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d626173652d6d6f64656c2d7061746820424153455f4d4f44454c5f504154485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6e756d2d747261696e2d65706f636873204e554d5f545241494e5f45504f4348535d205b2d2d6d61782d7374657073204d41585f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d7065722d6465766963652d747261696e2d62617463682d73697a65205045525f4445564943455f545241494e5f42415443485f53495a455d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6772616469656e742d616363756d756c6174696f6e2d7374657073204752414449454e545f414343554d554c4154494f4e5f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6c6561726e696e672d72617465204c4541524e494e475f524154455d205b2d2d6c6f6767696e672d7374657073204c4f4747494e475f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d736176652d737465707320534156455f53544550535d205b2d2d736176652d746f74616c2d6c696d697420534156455f544f54414c5f4c494d49545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d6d61782d7365712d6c656e677468204d41585f5345515f4c454e4754485d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d726573756d652d66726f6d2d636865636b706f696e7420524553554d455f46524f4d5f434845434b504f494e545d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d646576696365207b6175746f2c6370752c637564617d5d205b2d2d736d6f6b652d746573745d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202d2d61646170746174696f6e2d6d6f6465207b6c6f72612c716c6f72617d205b2d2d72756e2d6b696e64207b70726f62652c66756c6c7d5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d706f73742d7761726d75702d737465707320504f53545f5741524d55505f53544550535d205b2d2d7761726d75702d7374657073205741524d55505f53544550535d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72756e2d69642052554e5f49445d205b2d2d6d6f64656c2d7265766973696f6e204d4f44454c5f5245564953494f4e5d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020205b2d2d72756e2d726571756573742d706174682052554e5f524551554553545f504154485d205b2d2d6472792d72756e5d0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c6920747261696e3a206572726f723a20617267756d656e74202d2d6d61782d73746570733a20696e76616c696420696e742076616c75653a20276e6f742d616e2d696e7465676572270a"
+    },
+    {
+      "name": "parser_error",
+      "argv": [
+        "pilot",
+        "--version-tag",
+        "snapshot",
+        "--unknown-option"
+      ],
+      "return_value": null,
+      "system_exit_code": 2,
+      "exception": null,
+      "stdout": "",
+      "stderr": "usage: python -m src.model_adaptation.cli [-h]\n                                          {pilot,train,convert,doctor,phase40-preflight,phase40-build-source-bundle,phase40-build-input-bundle,phase40-verify-input-bundle,phase40-verify-run-request,phase40-verify-run-evidence,phase40-render-graphs,phase40-validate-notebooks,phase40-finalize-comparison,phase40-freeze-scope-amendment,phase40-verify-review-queue,phase40-finalize-human-review,phase41-prepare-evaluation,phase41-verify-preauthorization,phase41-authorize-evaluation,phase41-run-once,phase41-freeze-deployment-fit-disposition,phase41-export-evidence,phase41-verify-evidence} ...\npython -m src.model_adaptation.cli: error: unrecognized arguments: --unknown-option\n",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": "75736167653a20707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c69205b2d685d0a2020202020202020202020202020202020202020202020202020202020202020202020202020202020207b70696c6f742c747261696e2c636f6e766572742c646f63746f722c706861736534302d707265666c696768742c706861736534302d6275696c642d736f757263652d62756e646c652c706861736534302d6275696c642d696e7075742d62756e646c652c706861736534302d7665726966792d696e7075742d62756e646c652c706861736534302d7665726966792d72756e2d726571756573742c706861736534302d7665726966792d72756e2d65766964656e63652c706861736534302d72656e6465722d6772617068732c706861736534302d76616c69646174652d6e6f7465626f6f6b732c706861736534302d66696e616c697a652d636f6d70617269736f6e2c706861736534302d667265657a652d73636f70652d616d656e646d656e742c706861736534302d7665726966792d7265766965772d71756575652c706861736534302d66696e616c697a652d68756d616e2d7265766965772c706861736534312d707265706172652d6576616c756174696f6e2c706861736534312d7665726966792d707265617574686f72697a6174696f6e2c706861736534312d617574686f72697a652d6576616c756174696f6e2c706861736534312d72756e2d6f6e63652c706861736534312d667265657a652d6465706c6f796d656e742d6669742d646973706f736974696f6e2c706861736534312d6578706f72742d65766964656e63652c706861736534312d7665726966792d65766964656e63657d202e2e2e0a707974686f6e202d6d207372632e6d6f64656c5f61646170746174696f6e2e636c693a206572726f723a20756e7265636f676e697a656420617267756d656e74733a202d2d756e6b6e6f776e2d6f7074696f6e0a"
+    }
+  ],
+  "main_contract": {
+    "successful_handler": {
+      "return_value": 7,
+      "system_exit_code": null,
+      "exception": null,
+      "stdout": "model stdout one\nmodel stdout two\n",
+      "stderr": "model stderr one\n",
+      "stdout_utf8_hex": "6d6f64656c207374646f7574206f6e650a6d6f64656c207374646f75742074776f0a",
+      "stderr_utf8_hex": "6d6f64656c20737464657272206f6e650a",
+      "events": [
+        {
+          "channel": "stdout",
+          "text": "model stdout one"
+        },
+        {
+          "channel": "stdout",
+          "text": "\n"
+        },
+        {
+          "channel": "stderr",
+          "text": "model stderr one"
+        },
+        {
+          "channel": "stderr",
+          "text": "\n"
+        },
+        {
+          "channel": "stdout",
+          "text": "model stdout two"
+        },
+        {
+          "channel": "stdout",
+          "text": "\n"
+        }
+      ],
+      "invocations": [
+        {
+          "command": "pilot",
+          "version_tag": "snapshot",
+          "evaluated_split": "val",
+          "registry_path": null,
+          "dry_run": true,
+          "handler": "__main__._model_main_contract.<locals>.success_handler",
+          "_phase40_raw_argv": [
+            "pilot",
+            "--version-tag",
+            "snapshot",
+            "--dry-run"
+          ]
+        }
+      ]
+    },
+    "caught_exceptions": [
+      {
+        "caught_exception": "RuntimeError",
+        "return_value": 1,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "",
+        "stderr": "l\\u1ed7i ti\\u1ebfng Vi\\u1ec7t\n",
+        "stdout_utf8_hex": "",
+        "stderr_utf8_hex": "6c5c7531656437692074695c75316562666e672056695c7531656337740a"
+      },
+      {
+        "caught_exception": "ValueError",
+        "return_value": 1,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "",
+        "stderr": "l\\u1ed7i ti\\u1ebfng Vi\\u1ec7t\n",
+        "stdout_utf8_hex": "",
+        "stderr_utf8_hex": "6c5c7531656437692074695c75316562666e672056695c7531656337740a"
+      },
+      {
+        "caught_exception": "FileNotFoundError",
+        "return_value": 1,
+        "system_exit_code": null,
+        "exception": null,
+        "stdout": "",
+        "stderr": "l\\u1ed7i ti\\u1ebfng Vi\\u1ec7t\n",
+        "stdout_utf8_hex": "",
+        "stderr_utf8_hex": "6c5c7531656437692074695c75316562666e672056695c7531656337740a"
+      }
+    ],
+    "uncaught_exception": {
+      "return_value": null,
+      "system_exit_code": null,
+      "exception": {
+        "type": "KeyError",
+        "message": "'uncaught-marker'"
+      },
+      "stdout": "",
+      "stderr": "",
+      "stdout_utf8_hex": "",
+      "stderr_utf8_hex": ""
+    }
+  }
+}

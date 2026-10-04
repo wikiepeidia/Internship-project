@@ -1,0 +1,297 @@
+"""Typed records shared by data ingestion, transformation, and versioning."""
+
+from datetime import datetime, timedelta
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+import re
+from typing import Any, Literal, TypeVar
+import unicodedata
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+
+_HTTP_URL = TypeAdapter(HttpUrl)
+_RecordModel = TypeVar("_RecordModel", bound=BaseModel)
+
+
+def _validate_jsonl_record(
+    raw: bytes | str,
+    *,
+    source: Path | str,
+    line_number: int,
+    record_type: type[_RecordModel],
+) -> _RecordModel:
+    """Decode one closed JSON object and attach its source location to failures."""
+
+    location = f"{source}:{line_number}"
+    try:
+        text = raw.decode("utf-8", errors="strict") if isinstance(raw, bytes) else raw
+    except UnicodeDecodeError as error:
+        raise ValueError(f"{location}: record is not strict UTF-8") from error
+
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    def reject_non_finite(token: str) -> Any:
+        raise ValueError(f"non-standard JSON token {token!r}")
+
+    try:
+        value = json.loads(
+            text,
+            object_pairs_hook=reject_duplicates,
+            parse_constant=reject_non_finite,
+        )
+    except (json.JSONDecodeError, ValueError) as error:
+        raise ValueError(f"{location}: invalid strict JSON object: {error}") from error
+    if not isinstance(value, dict):
+        raise ValueError(f"{location}: JSONL record must be an object")
+    try:
+        return record_type.model_validate(value)
+    except ValidationError as error:
+        raise ValueError(
+            f"{location}: invalid {record_type.__name__}: {error}"
+        ) from error
+
+
+class SeedRecord(BaseModel):
+    """Raw phishing seed collected from a trusted source."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    text: str = Field(
+        min_length=10,
+        description="Raw message text with natural code-switching",
+    )
+    source_url: str = Field(description="Source URL for provenance tracking")
+    scrape_timestamp: str = Field(description="ISO 8601 timestamp of scrape")
+    raw_label_hint: str | None = Field(
+        default=None,
+        description="Optional initial threat classification hint",
+    )
+
+    @field_validator("text", "source_url", "scrape_timestamp", "raw_label_hint")
+    @classmethod
+    def reject_blank_seed_facts(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("seed facts must not be blank")
+        return value
+
+
+RecordUnit = Literal[
+    "incident_report",
+    "verbatim_message_example",
+    "editorial_advisory",
+    "threat_indicator",
+    "dataset_row",
+]
+AccessMethod = Literal["download", "documented_api", "requests_bs4", "playwright"]
+RightsStatus = Literal["allowed", "forbidden", "unknown"]
+RedactionState = Literal["not_needed", "redacted", "verified_source_anonymized"]
+
+
+class ProvenancedSeedRecord(SeedRecord):
+    """A public real-source seed with explicit rights and lineage metadata.
+
+    This is intentionally a seed contract, not a :class:`DatasetRecord`. In
+    particular it has no project label, risk tier, or generated explanation,
+    so collecting evidence cannot silently promote it into training data.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    data_origin: Literal["real_public"]
+    record_unit: RecordUnit
+    canonical_url: str = Field(min_length=8)
+    publisher: str = Field(min_length=2)
+    native_id: str | None
+    access_method: AccessMethod
+    collection_status: RightsStatus
+    redistribution_status: RightsStatus
+    rights_url: str = Field(min_length=8)
+    retrieved_at: str = Field(min_length=10)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    redaction_state: RedactionState
+    contributing_urls: list[str] = Field(min_length=1)
+    duplicate_count: int = Field(ge=0)
+    provenance_confidence: Literal["high", "medium", "low"]
+
+    @field_validator("publisher", "native_id")
+    @classmethod
+    def reject_blank_provenance_facts(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("provenance facts must not be blank")
+        return value
+
+    @field_validator("source_url", "canonical_url", "rights_url")
+    @classmethod
+    def require_canonical_http_url(cls, value: str) -> str:
+        return str(_HTTP_URL.validate_python(value))
+
+    @field_validator("contributing_urls")
+    @classmethod
+    def require_canonical_contributing_urls(cls, values: list[str]) -> list[str]:
+        return [str(_HTTP_URL.validate_python(value)) for value in values]
+
+    @field_validator("scrape_timestamp", "retrieved_at")
+    @classmethod
+    def require_canonical_utc_timestamp(cls, value: str) -> str:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError("provenance timestamp must be valid ISO 8601") from error
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("provenance timestamp must use an explicit UTC offset")
+        return parsed.isoformat().replace("+00:00", "Z")
+
+    @model_validator(mode="after")
+    def validate_real_public_contract(self) -> "ProvenancedSeedRecord":
+        if self.raw_label_hint is not None:
+            raise ValueError("raw_label_hint must stay null for newly acquired public records")
+
+        normalized = unicodedata.normalize("NFC", self.text).casefold().strip()
+        normalized = re.sub(r"\s+", " ", normalized)
+        expected_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        if self.content_sha256 != expected_hash:
+            raise ValueError("content_sha256 does not match normalized text")
+
+        return self
+
+
+class DatasetRecord(BaseModel):
+    """A processed seven-field record with explainability artifacts."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    text: str = Field(min_length=10, description="Raw message text")
+    label: Literal[
+        "bank_impersonation",
+        "zalo_social_engineering",
+        "task_scam",
+        "benign",
+    ] = Field(description="Precise threat classification")
+    risk_tier: Literal["benign", "suspicious", "high-risk"] = Field(
+        description=(
+            "Contextual severity tier - generated by Teacher model, not derived from label"
+        )
+    )
+    suspicious_spans: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Exact substrings for anomaly localization (URLs, urgency phrases, etc.)"
+        ),
+    )
+    xai_explanation: str = Field(
+        min_length=20,
+        description="Teacher model's localized explanation for user-facing XAI output",
+    )
+    source: Literal[
+        "ncsc_seed",
+        "synthetic_claude",
+        "synthetic_gemini",
+        "synthetic_openrouter",
+        "synthetic_deepseek",
+        "synthetic_openai_compatible",
+    ] = Field(description="Data provenance tag")
+    seed_id: str = Field(
+        description="Link back to originating seed record for split governance"
+    )
+
+    @field_validator("text", "xai_explanation")
+    @classmethod
+    def reject_blank_human_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("human text fields must not be blank")
+        return value
+
+    @field_validator("seed_id")
+    @classmethod
+    def normalize_seed_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("seed_id must not be blank")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_suspicious_spans(self) -> "DatasetRecord":
+        if any(not span.strip() for span in self.suspicious_spans):
+            raise ValueError("suspicious spans must not be blank")
+        if len(self.suspicious_spans) != len(set(self.suspicious_spans)):
+            raise ValueError("suspicious spans must be unique")
+        missing = [span for span in self.suspicious_spans if span not in self.text]
+        if missing:
+            raise ValueError("suspicious spans must be exact substrings of text")
+        return self
+
+
+class ManifestFile(BaseModel):
+    """Metadata for a single dataset file in a versioned release."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="File integrity hash")
+    records: int = Field(ge=0, description="Number of records in file")
+    bytes: int = Field(ge=0, description="File size in bytes")
+
+
+class ManifestEntry(BaseModel):
+    """Version manifest for a reproducible dataset release."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    version: str = Field(description="Semantic version tag (e.g., v1.0.0)")
+    build_timestamp: str = Field(description="ISO 8601 build time")
+    git_commit: str | None = Field(
+        default=None,
+        description="Git commit SHA for reproducibility",
+    )
+    files: dict[str, ManifestFile] = Field(
+        default_factory=dict,
+        description="Map of filename -> file metadata",
+    )
+
+    @field_validator("files")
+    @classmethod
+    def require_bounded_jsonl_members(
+        cls, value: dict[str, ManifestFile]
+    ) -> dict[str, ManifestFile]:
+        for member in value:
+            path = PurePosixPath(member)
+            if (
+                not member
+                or "\\" in member
+                or ":" in member
+                or path.is_absolute()
+                or path.as_posix() != member
+                or any(part in {"", ".", ".."} for part in path.parts)
+                or path.suffix != ".jsonl"
+            ):
+                raise ValueError("manifest members must be normalized relative JSONL paths")
+        return value
+
+
+__all__ = (
+    "SeedRecord",
+    "ProvenancedSeedRecord",
+    "DatasetRecord",
+    "ManifestFile",
+    "ManifestEntry",
+    "RecordUnit",
+    "AccessMethod",
+    "RightsStatus",
+    "RedactionState",
+)
