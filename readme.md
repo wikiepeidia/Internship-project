@@ -5,8 +5,7 @@ Bachelor internship project, University of Science and Technology of Hanoi
 
 **Thesis:** Design and Development of a Localized LLM for Vietnamese Financial
 Phishing Detection
-**Author:** Phạm Thế Minh (23BI14279)
-**Supervisors:** Nguyễn Việt Anh, Giang Anh Tuấn
+**Author:** Phạm Thế Minh
 
 The project is finished and archived. It is not maintained.
 
