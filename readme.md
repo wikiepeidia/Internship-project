@@ -72,6 +72,12 @@ model files are not published.
 - Qwen's written explanation was not evaluated on its own.
 - This is a research prototype, not a production system.
 
+## License
+
+The source code and documentation in this repository are licensed under the
+[Apache License 2.0](LICENSE). The dataset and any model weights are distributed
+separately and may be subject to their own terms.
+
 ## Repository map
 
 - `src/data_pipeline/` — seed crawler, message generation, judge model, record
