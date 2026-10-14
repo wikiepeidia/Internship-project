@@ -25,6 +25,19 @@ Two models were trained on the same data and compared:
 - **PhoBERT-base-v2, fully fine-tuned** as a four-class classifier. It returns
   the label only.
 
+## Demo: How the Model Works
+
+Watch the demo below to see VNPhish analyze a Vietnamese message locally and
+return its phishing assessment.
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=8f6lrE4KPSc" title="Watch the VNPhish demo on YouTube">
+    <img src="https://img.youtube.com/vi/8f6lrE4KPSc/maxresdefault.jpg" alt="VNPhish model demo on YouTube" width="720" />
+  </a>
+  <br />
+  <em>Click the preview to watch the demo on YouTube.</em>
+</p>
+
 ## Results
 
 Final test: 220 messages set aside before training, each model run once.
