@@ -61,8 +61,19 @@ split.
 
 The dataset is on Hugging Face:
 [wikiepeidia/vnphish-dataset](https://huggingface.co/datasets/wikiepeidia/vnphish-dataset).
-Phone numbers and email addresses are masked in that public copy. The trained
-model files are not published.
+Phone numbers and email addresses are masked in that public copy.
+
+## Models
+
+The trained weights are stored in three Hugging Face repositories. They are
+currently private, so the links only open for the owner:
+
+- [wikiepeidia/vnphish-qwen3-4b-gguf](https://huggingface.co/wikiepeidia/vnphish-qwen3-4b-gguf):
+  the Q8_0 file the demo runs (Apache-2.0)
+- [wikiepeidia/vnphish-qwen3-4b-lora](https://huggingface.co/wikiepeidia/vnphish-qwen3-4b-lora):
+  the Qwen3-4B QLoRA adapter (Apache-2.0)
+- [wikiepeidia/vnphish-phobert](https://huggingface.co/wikiepeidia/vnphish-phobert):
+  the PhoBERT classifier (AGPL-3.0, because the base model is AGPL-3.0)
 
 ## Limitations
 
